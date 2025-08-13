@@ -19,10 +19,14 @@ class Scanner {
   
 public:
     Scanner(string& source): source(source) {};
-    vector<Token> getTokens();
+    vector<Token>& getTokens();
+    void advance();
+    void addToken(string type);
+    void addToken(string type, string value);
+    char& currentCharacter();
     
 private:
-    int current;
+    int current = 0;
     vector<Token> tokens;
     string& source;
     
