@@ -6,9 +6,25 @@
 //
 
 #include <iostream>
+#include <cstring>
+#include "Scanner/Scanner.hpp"
+
+using namespace std;
 
 int main(int argc, const char * argv[]) {
-    // insert code here...
-    std::cout << "Hello, World!\n";
+    
+    string lang = R"(
+                      var d="nnamdi chidume"
+                      var t= 90
+                      var g= sqrt()
+                      print(g,d,t,34)
+
+                      )";
+    
+    Scanner scanner(lang);
+    for(Token token : scanner.getTokens()) {
+        cout << token.type << " : " << token.value << endl;
+    }
+    
     return EXIT_SUCCESS;
 }

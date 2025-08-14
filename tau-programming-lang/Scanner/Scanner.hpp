@@ -21,6 +21,7 @@ public:
     Scanner(string& source): source(source) {};
     vector<Token>& getTokens();
     void advance();
+    void reverse();
     void addToken(string type);
     void addToken(string type, string value);
     char& currentCharacter();

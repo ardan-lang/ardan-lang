@@ -111,35 +111,37 @@ vector<Token>& Scanner::getTokens() {
                 
                 break;
                 
-            case 'var':
-                addToken("VAR");
-                break;
-
             case ';':
                 addToken("EOL");
                 break;
 
             case '*':
+                
                 if (match('=')) {
                     addToken("ASSIGN_MUL");
                     break;
                 }
+                
                 addToken("MUL");
                 break;
 
             case '/':
+                
                 if (match('=')) {
                     addToken("ASSIGN_DIV");
                     break;
                 }
+                
                 addToken("DIV");
                 break;
 
             case '+':
+                
                 if (match('=')) {
                     addToken("ASSIGN_ADD");
                     break;
                 }
+                
                 addToken("ADD");
                 break;
 
@@ -209,7 +211,7 @@ void Scanner::collectNumber() {
     
     string num;
     
-    while (isAlpha()) {
+    while (isDigit()) {
 
         num += currentCharacter();
 
@@ -218,6 +220,8 @@ void Scanner::collectNumber() {
     }
     
     addToken("NUMBER", num);
+    
+    reverse();
 
 }
 
@@ -235,13 +239,15 @@ void Scanner::collectIdentifier() {
     
     if(isKeyword(identifier)) {
         
-        addToken(identifier);
+        addToken(keywords[identifier], identifier);
         
     } else {
         
         addToken("IDENTIFIER", identifier);
         
     }
+    
+    reverse();
 
 }
 
@@ -258,6 +264,10 @@ bool Scanner::match(char character) {
 
 void Scanner::advance() {
     current++;
+}
+
+void Scanner::reverse() {
+    current--;
 }
 
 void Scanner::addToken(string type) {
