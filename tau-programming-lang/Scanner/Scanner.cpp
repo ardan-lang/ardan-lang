@@ -144,6 +144,16 @@ vector<Token>& Scanner::getTokens() {
                 
                 addToken("ADD");
                 break;
+                
+            case '%':
+                
+                if(match('=')) {
+                    addToken("MODULI_ADD");
+                    break;
+                }
+                
+                addToken("MODULI");
+                break;
 
             case '\t':
             case ' ':

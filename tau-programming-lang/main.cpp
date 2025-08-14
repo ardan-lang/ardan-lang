@@ -14,6 +14,8 @@ using namespace std;
 int main(int argc, const char * argv[]) {
     
     string lang = R"(
+                      var mod = 8%5
+                      var m %= 9
                       var d="nnamdi chidume"
                       var t= 90
                       var g= sqrt()
