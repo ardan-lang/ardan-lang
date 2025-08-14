@@ -10,8 +10,25 @@
 #include <string>
 
 const char* operators[] = {
-    "=", "==", "===", "-", "-=", "*", "*=", "/", "/=", "+", "+=",
-    ">", "<", ">=", "=<", "(", ")", "[", "]", "{", "}"
+    // Assignment
+    "=", "+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=",
+    "&=", "^=", "|=", "&&=", "||=", "??=",
+
+    // Arithmetic
+    "+", "-", "*", "/", "%", "**", "++", "--",
+
+    // Comparison
+    "==", "!=", "===", "!==", ">", ">=", "<", "<=",
+
+    // Logical
+    "&&", "||", "!", "??",
+
+    // Bitwise
+    "&", "|", "^", "~", "<<", ">>", ">>>",
+
+    // Other / Misc
+    "typeof", "instanceof", "in", "void", "delete",
+    "?", ":", ",", "...", ".", "?.", "[", "]", "(", ")", "{", "}"
 };
 
 std::unordered_map<std::string, std::string> keywords = {
@@ -75,7 +92,66 @@ vector<Token>& Scanner::getTokens() {
             case '}':
                 addToken("RIGHT_BRACKET");
                 break;
+
+            case '=':
                 
+                addToken("ASSIGN");
+                break;
+
+            case '-':
+                
+                if (match('=')) {
+                    
+                    addToken("ASSIGN_MINUS");
+                    break;
+                    
+                }
+                
+                addToken("MINUS");
+                
+                break;
+                
+            case 'var':
+                addToken("VAR");
+                break;
+
+            case ';':
+                addToken("EOL");
+                break;
+
+            case '*':
+                if (match('=')) {
+                    addToken("ASSIGN_MUL");
+                    break;
+                }
+                addToken("MUL");
+                break;
+
+            case '/':
+                if (match('=')) {
+                    addToken("ASSIGN_DIV");
+                    break;
+                }
+                addToken("DIV");
+                break;
+
+            case '+':
+                if (match('=')) {
+                    addToken("ASSIGN_ADD");
+                    break;
+                }
+                addToken("ADD");
+                break;
+
+            case '\t':
+            case ' ':
+            case '\r':
+                break;
+                
+            case '\n':
+                advance();
+                break;
+
             case '"':
                 
                 collectString();
@@ -85,14 +161,17 @@ vector<Token>& Scanner::getTokens() {
             default:
                 
                 if (isDigit()) {
+                    
                     // collect number
                     collectNumber();
                     
                 }
                 
                 if (isAlpha()) {
+                    
                     // collect identifier
                     collectIdentifier();
+                    
                 }
                 
                 break;
@@ -164,6 +243,17 @@ void Scanner::collectIdentifier() {
         
     }
 
+}
+
+bool Scanner::match(char character) {
+    
+    if (character != currentCharacter()) {
+        return false;
+    }
+    
+    advance();
+    return true;
+    
 }
 
 void Scanner::advance() {

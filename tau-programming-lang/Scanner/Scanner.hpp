@@ -31,7 +31,8 @@ public:
     void collectNumber();
     void collectIdentifier();
     bool isKeyword(const string& identifier);
-    
+    bool match(char str);
+
 private:
     int current = 0;
     vector<Token> tokens;
