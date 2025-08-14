@@ -24,6 +24,13 @@ public:
     void addToken(string type);
     void addToken(string type, string value);
     char& currentCharacter();
+    bool eof();
+    bool isDigit();
+    bool isAlpha();
+    void collectString();
+    void collectNumber();
+    void collectIdentifier();
+    bool isKeyword(const string& identifier);
     
 private:
     int current = 0;
