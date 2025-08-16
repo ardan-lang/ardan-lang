@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <string>
 
+char null = ' ';
+
 const char* operators[] = {
     // Assignment
     "=", "+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=",
@@ -95,10 +97,31 @@ vector<Token>& Scanner::getTokens() {
 
             case '=':
                 
+                if (match('=')) {
+                    
+                    if (match('=')) {
+                        
+                        addToken("REFERENCE_EQUAL");
+                        break;
+                        
+                    }
+                    
+                    addToken("VALUE_EQUAL");
+                    break;
+                    
+                }
+                
                 addToken("ASSIGN");
                 break;
 
             case '-':
+                
+                if (match('-')) {
+                    
+                    addToken("DECREMENT");
+                    break;
+                    
+                }
                 
                 if (match('=')) {
                     
@@ -116,6 +139,17 @@ vector<Token>& Scanner::getTokens() {
                 break;
 
             case '*':
+                
+                if (match('*')) {
+                    
+                    if (match('=')) {
+                        addToken("SQUARE_ASSIGN");
+                        break;
+                    }
+                    
+                    addToken("SQUARE");
+                    break;
+                }
                 
                 if (match('=')) {
                     addToken("ASSIGN_MUL");
@@ -137,6 +171,11 @@ vector<Token>& Scanner::getTokens() {
 
             case '+':
                 
+                if (match('+')) {
+                    addToken("INCREMENT");
+                    break;
+                }
+                
                 if (match('=')) {
                     addToken("ASSIGN_ADD");
                     break;
@@ -146,15 +185,109 @@ vector<Token>& Scanner::getTokens() {
                 break;
                 
             case '%':
-                
+
                 if(match('=')) {
+                    
                     addToken("MODULI_ADD");
                     break;
+                    
                 }
                 
                 addToken("MODULI");
                 break;
+                
+            case '<':
+                
+                if(match('<')) {
+                    
+                    if(match('=')) {
+                        
+                        addToken("BITWISE_LEFT_SHIFT_ASSIGN");
+                        break;
+                        
+                    }
+                    
+                    addToken("BITWISE_LEFT_SHIFT");
+                    break;
+                    
+                }
+                
+                if(match('=')) {
+                    
+                    addToken("LESS_THAN_ASSIGN");
+                    break;
+                    
+                }
+                
+                addToken("LESS_THAN");
+                break;
 
+            case '>':
+                
+                if(match('>')) {
+
+                    if(match('>')) {
+
+                        if(match('=')) {
+                            
+                            addToken("UNSIGNED_RIGHT_SHIFT_ASSIGN");
+                            break;
+                            
+                        }
+
+                        addToken("UNSIGNED_RIGHT_SHIFT");
+                        break;
+                        
+                    }
+                    
+                    if(match('=')) {
+                        
+                        addToken("BITWISE_RIGHT_SHIFT_ASSIGN");
+                        break;
+                        
+                    }
+                    
+                    addToken("BITWISE_RIGHT_SHIFT");
+                    break;
+                    
+                }
+                
+                if(match('=')) {
+                    
+                    addToken("GREATER_THAN_ASSIGN");
+                    break;
+                    
+                }
+                
+                addToken("GREATER_THAN");
+                break;
+
+            case '&':
+
+                if(match('&')) {
+                    
+                    if(match('=')) {
+                        
+                        addToken("LOGICAL_AND_ASSIGN");
+                        break;
+                        
+                    }
+                    
+                    addToken("LOGICAL_AND");
+                    break;
+                    
+                }
+                
+                if(match('=')) {
+                    
+                    addToken("BITWISE_AND_ASSIGN");
+                    break;
+                    
+                }
+
+                addToken("BITWISE_AND");
+                break;
+                
             case '\t':
             case ' ':
             case '\r':
@@ -239,7 +372,9 @@ void Scanner::collectIdentifier() {
     
     string identifier;
     
-    while (isAlpha()) {
+    // TODO: refactor to contain variables with digits
+    
+    while (isAlpha() /* && (peek() >= '0' && peek() <= '9')*/) {
         
         identifier += currentCharacter();
         
@@ -262,8 +397,8 @@ void Scanner::collectIdentifier() {
 }
 
 bool Scanner::match(char character) {
-    
-    if (character != currentCharacter()) {
+
+    if (character != peek()) {
         return false;
     }
     
@@ -303,7 +438,7 @@ bool Scanner::isKeyword(const string& identifier) {
 }
 
 char& Scanner::currentCharacter() {
-    return source[current - 1];
+    return source[current];
 }
 
 bool Scanner::isDigit() {
@@ -317,10 +452,22 @@ bool Scanner::isAlpha() {
     
     char character = currentCharacter();
 
-    return character >= 'a' && (character <= 'z' || character == '_');
+    return character >= 'a' && (character <= 'z' || character == '_' || character == '$');
 
 }
 
 bool Scanner::eof() {
     return current >= source.length();
+}
+
+char& Scanner::peek() {
+        
+    if(eof()) {
+        
+        return null;
+        
+    }
+    
+    return source[current + 1];
+    
 }

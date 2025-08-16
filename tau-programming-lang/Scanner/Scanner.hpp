@@ -33,6 +33,7 @@ public:
     void collectIdentifier();
     bool isKeyword(const string& identifier);
     bool match(char str);
+    char& peek();
 
 private:
     int current = 0;
