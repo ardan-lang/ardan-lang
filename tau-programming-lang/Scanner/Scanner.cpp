@@ -333,6 +333,48 @@ vector<Token>& Scanner::getTokens() {
                 addToken("LOGICAL_NOT");
                 break;
                 
+            case '?':
+                
+                if (match('?')) {
+                    
+                    if (match('=')) {
+                        
+                        addToken("NULLISH_COALESCING_ASSIGN");
+                        break;
+                        
+                    }
+                    
+                    addToken("NULLISH_COALESCING");
+                    break;
+                    
+                }
+                
+                if (match('.')) {
+                    
+                    addToken("OPTIONAL_CHAINING");
+                    break;
+                    
+                }
+                
+                addToken("TERNARY");
+                break;
+                
+            case '~':
+                addToken("BITWISE_NOT");
+                break;
+                
+            case '^':
+                
+                if (match('=')) {
+                    
+                    addToken("BITWISE_XOR_ASSIGN");
+                    break;
+                    
+                }
+                
+                addToken("BITWISE_XOR");
+                break;
+                
             case '\t':
             case ' ':
             case '\r':
