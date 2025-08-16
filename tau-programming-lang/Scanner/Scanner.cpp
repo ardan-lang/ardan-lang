@@ -288,6 +288,51 @@ vector<Token>& Scanner::getTokens() {
                 addToken("BITWISE_AND");
                 break;
                 
+            case '|':
+                
+                if (match('|')) {
+                    
+                    if (match('=')) {
+                        
+                        addToken("LOGICAL_OR_ASSIGN");
+                        break;
+                        
+                    }
+                    
+                    addToken("LOGICAL_OR");
+                    break;
+                    
+                }
+                
+                if (match('=')) {
+                    
+                    addToken("BITWISE_OR_ASSIGN");
+                    break;
+                    
+                }
+                
+                addToken("BITWISE_OR");
+                break;
+                
+            case '!':
+                
+                if (match('=')) {
+                    
+                    if (match('=')) {
+                        
+                        addToken("STRICT_INEQUALITY");
+                        break;
+                        
+                    }
+
+                    addToken("INEQUALITY");
+                    break;
+                    
+                }
+                
+                addToken("LOGICAL_NOT");
+                break;
+                
             case '\t':
             case ' ':
             case '\r':
