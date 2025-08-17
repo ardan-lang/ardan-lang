@@ -24,6 +24,8 @@ public:
     void reverse();
     void addToken(string type);
     void addToken(string type, string value);
+    void addToken(TokenType type);
+    void addToken(TokenType type, string value);
     char& currentCharacter();
     bool eof();
     bool isDigit();
@@ -34,6 +36,7 @@ public:
     bool isKeyword(const string& identifier);
     bool match(char str);
     char& peek();
+    void collectLiteralString();
 
 private:
     int current = 0;

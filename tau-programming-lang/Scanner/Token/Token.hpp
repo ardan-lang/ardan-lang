@@ -10,13 +10,14 @@
 
 #include <stdio.h>
 #include <iostream>
+#include "TokenType.h"
 
 using namespace std;
 
 class Token {
 
 public:
-    string type;
+    TokenType type;
     string value;
     
 };

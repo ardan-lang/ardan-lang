@@ -8,6 +8,7 @@
 #include "Scanner.hpp"
 #include <unordered_map>
 #include <string>
+#include "Token/TokenType.h"
 
 char null = ' ';
 
@@ -76,23 +77,54 @@ vector<Token>& Scanner::getTokens() {
         switch (character) {
                 
             case ',':
-                addToken("COMMA");
+                addToken(TokenType::COMMA);
+                break;
+                
+            case '.':
+                
+                if (match('.')) {
+                    
+                    if (match('.')) {
+                        
+                        addToken(TokenType::SPREAD);
+                        break;
+                        
+                    }
+                    
+                }
+                
+                addToken(TokenType::DOT);
+                break;
+                
+            case ':':
+                
+                addToken(TokenType::SEMI_COLON);
                 break;
 
             case '(':
-                addToken("LEFT_PARENTHESIS");
+                addToken(TokenType::LEFT_PARENTHESIS);
                 break;
 
             case ')':
-                addToken("RIGHT_PARENTHESIS");
+                addToken(TokenType::RIGHT_PARENTHESIS);
                 break;
 
             case '{':
-                addToken("LEFT_BRACKET");
+                addToken(TokenType::LEFT_BRACKET);
                 break;
 
             case '}':
-                addToken("RIGHT_BRACKET");
+                addToken(TokenType::RIGHT_BRACKET);
+                break;
+                
+            case '[':
+                
+                addToken(TokenType::LEFT_SQUARE_BRACKET);
+                break;
+                
+            case ']':
+                
+                addToken(TokenType::RIGHT_SQUARE_BRACKET);
                 break;
 
             case '=':
@@ -101,41 +133,41 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken("REFERENCE_EQUAL");
+                        addToken(TokenType::REFERENCE_EQUAL);
                         break;
                         
                     }
                     
-                    addToken("VALUE_EQUAL");
+                    addToken(TokenType::VALUE_EQUAL);
                     break;
                     
                 }
                 
-                addToken("ASSIGN");
+                addToken(TokenType::ASSIGN);
                 break;
 
             case '-':
                 
                 if (match('-')) {
                     
-                    addToken("DECREMENT");
+                    addToken(TokenType::DECREMENT);
                     break;
                     
                 }
                 
                 if (match('=')) {
                     
-                    addToken("ASSIGN_MINUS");
+                    addToken(TokenType::ASSIGN_MINUS);
                     break;
                     
                 }
                 
-                addToken("MINUS");
+                addToken(TokenType::MINUS);
                 
                 break;
                 
             case ';':
-                addToken("EOL");
+                addToken(TokenType::EOL);
                 break;
 
             case '*':
@@ -143,57 +175,57 @@ vector<Token>& Scanner::getTokens() {
                 if (match('*')) {
                     
                     if (match('=')) {
-                        addToken("SQUARE_ASSIGN");
+                        addToken(TokenType::SQUARE_ASSIGN);
                         break;
                     }
                     
-                    addToken("SQUARE");
+                    addToken(TokenType::SQUARE);
                     break;
                 }
                 
                 if (match('=')) {
-                    addToken("ASSIGN_MUL");
+                    addToken(TokenType::ASSIGN_MUL);
                     break;
                 }
                 
-                addToken("MUL");
+                addToken(TokenType::MUL);
                 break;
 
             case '/':
                 
                 if (match('=')) {
-                    addToken("ASSIGN_DIV");
+                    addToken(TokenType::ASSIGN_DIV);
                     break;
                 }
                 
-                addToken("DIV");
+                addToken(TokenType::DIV);
                 break;
 
             case '+':
                 
                 if (match('+')) {
-                    addToken("INCREMENT");
+                    addToken(TokenType::INCREMENT);
                     break;
                 }
                 
                 if (match('=')) {
-                    addToken("ASSIGN_ADD");
+                    addToken(TokenType::ASSIGN_ADD);
                     break;
                 }
                 
-                addToken("ADD");
+                addToken(TokenType::ADD);
                 break;
                 
             case '%':
 
                 if(match('=')) {
                     
-                    addToken("MODULI_ADD");
+                    addToken(TokenType::MODULI_ADD);
                     break;
                     
                 }
                 
-                addToken("MODULI");
+                addToken(TokenType::MODULI);
                 break;
                 
             case '<':
@@ -202,24 +234,24 @@ vector<Token>& Scanner::getTokens() {
                     
                     if(match('=')) {
                         
-                        addToken("BITWISE_LEFT_SHIFT_ASSIGN");
+                        addToken(TokenType::BITWISE_LEFT_SHIFT_ASSIGN);
                         break;
                         
                     }
                     
-                    addToken("BITWISE_LEFT_SHIFT");
+                    addToken(TokenType::BITWISE_LEFT_SHIFT);
                     break;
                     
                 }
                 
                 if(match('=')) {
                     
-                    addToken("LESS_THAN_ASSIGN");
+                    addToken(TokenType::LESS_THAN_ASSIGN);
                     break;
                     
                 }
                 
-                addToken("LESS_THAN");
+                addToken(TokenType::LESS_THAN);
                 break;
 
             case '>':
@@ -230,36 +262,36 @@ vector<Token>& Scanner::getTokens() {
 
                         if(match('=')) {
                             
-                            addToken("UNSIGNED_RIGHT_SHIFT_ASSIGN");
+                            addToken(TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN);
                             break;
                             
                         }
 
-                        addToken("UNSIGNED_RIGHT_SHIFT");
+                        addToken(TokenType::UNSIGNED_RIGHT_SHIFT);
                         break;
                         
                     }
                     
                     if(match('=')) {
                         
-                        addToken("BITWISE_RIGHT_SHIFT_ASSIGN");
+                        addToken(TokenType::BITWISE_RIGHT_SHIFT_ASSIGN);
                         break;
                         
                     }
                     
-                    addToken("BITWISE_RIGHT_SHIFT");
+                    addToken(TokenType::BITWISE_RIGHT_SHIFT);
                     break;
                     
                 }
                 
                 if(match('=')) {
                     
-                    addToken("GREATER_THAN_ASSIGN");
+                    addToken(TokenType::GREATER_THAN_ASSIGN);
                     break;
                     
                 }
                 
-                addToken("GREATER_THAN");
+                addToken(TokenType::GREATER_THAN);
                 break;
 
             case '&':
@@ -268,24 +300,24 @@ vector<Token>& Scanner::getTokens() {
                     
                     if(match('=')) {
                         
-                        addToken("LOGICAL_AND_ASSIGN");
+                        addToken(TokenType::LOGICAL_AND_ASSIGN);
                         break;
                         
                     }
                     
-                    addToken("LOGICAL_AND");
+                    addToken(TokenType::LOGICAL_AND);
                     break;
                     
                 }
                 
                 if(match('=')) {
                     
-                    addToken("BITWISE_AND_ASSIGN");
+                    addToken(TokenType::BITWISE_AND_ASSIGN);
                     break;
                     
                 }
 
-                addToken("BITWISE_AND");
+                addToken(TokenType::BITWISE_AND);
                 break;
                 
             case '|':
@@ -294,24 +326,24 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken("LOGICAL_OR_ASSIGN");
+                        addToken(TokenType::LOGICAL_OR_ASSIGN);
                         break;
                         
                     }
                     
-                    addToken("LOGICAL_OR");
+                    addToken(TokenType::LOGICAL_OR);
                     break;
                     
                 }
                 
                 if (match('=')) {
                     
-                    addToken("BITWISE_OR_ASSIGN");
+                    addToken(TokenType::BITWISE_OR_ASSIGN);
                     break;
                     
                 }
                 
-                addToken("BITWISE_OR");
+                addToken(TokenType::BITWISE_OR);
                 break;
                 
             case '!':
@@ -320,17 +352,17 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken("STRICT_INEQUALITY");
+                        addToken(TokenType::STRICT_INEQUALITY);
                         break;
                         
                     }
 
-                    addToken("INEQUALITY");
+                    addToken(TokenType::INEQUALITY);
                     break;
                     
                 }
                 
-                addToken("LOGICAL_NOT");
+                addToken(TokenType::LOGICAL_NOT);
                 break;
                 
             case '?':
@@ -339,40 +371,40 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken("NULLISH_COALESCING_ASSIGN");
+                        addToken(TokenType::NULLISH_COALESCING_ASSIGN);
                         break;
                         
                     }
                     
-                    addToken("NULLISH_COALESCING");
+                    addToken(TokenType::NULLISH_COALESCING);
                     break;
                     
                 }
                 
                 if (match('.')) {
                     
-                    addToken("OPTIONAL_CHAINING");
+                    addToken(TokenType::OPTIONAL_CHAINING);
                     break;
                     
                 }
                 
-                addToken("TERNARY");
+                addToken(TokenType::TERNARY);
                 break;
                 
             case '~':
-                addToken("BITWISE_NOT");
+                addToken(TokenType::BITWISE_NOT);
                 break;
                 
             case '^':
                 
                 if (match('=')) {
                     
-                    addToken("BITWISE_XOR_ASSIGN");
+                    addToken(TokenType::BITWISE_XOR_ASSIGN);
                     break;
                     
                 }
                 
-                addToken("BITWISE_XOR");
+                addToken(TokenType::BITWISE_XOR);
                 break;
                 
             case '\t':
@@ -390,6 +422,10 @@ vector<Token>& Scanner::getTokens() {
                 
                 break;
 
+            case '`':
+                collectLiteralString();
+                break;
+                
             default:
                 
                 if (isDigit()) {
@@ -411,10 +447,7 @@ vector<Token>& Scanner::getTokens() {
         
     }
     
-    Token token;
-    token.value = "EOF";
-    
-    tokens.push_back(token);
+    addToken(TokenType::END_OF_FILE);
     
     return tokens;
     
@@ -431,7 +464,24 @@ void Scanner::collectString() {
         advance();
     }
     
-    addToken("STRING", concat);
+    addToken(TokenType::STRING, concat);
+    concat = "";
+    advance();
+
+}
+
+void Scanner::collectLiteralString() {
+    
+    advance();
+    
+    string concat = "";
+    
+    while (currentCharacter() != '`' && !eof()) {
+        concat += currentCharacter();
+        advance();
+    }
+    
+    addToken(TokenType::STRING, concat);
     concat = "";
     advance();
 
@@ -449,7 +499,7 @@ void Scanner::collectNumber() {
         
     }
     
-    addToken("NUMBER", num);
+    addToken(TokenType::NUMBER, num);
     
     reverse();
 
@@ -461,7 +511,7 @@ void Scanner::collectIdentifier() {
     
     // TODO: refactor to contain variables with digits
     
-    while (isAlpha() /* && (peek() >= '0' && peek() <= '9')*/) {
+    while (isAlpha() || isDigit()) {
         
         identifier += currentCharacter();
         
@@ -475,7 +525,7 @@ void Scanner::collectIdentifier() {
         
     } else {
         
-        addToken("IDENTIFIER", identifier);
+        addToken(TokenType::IDENTIFIER, identifier);
         
     }
     
@@ -502,22 +552,23 @@ void Scanner::reverse() {
     current--;
 }
 
-void Scanner::addToken(string type) {
+void Scanner::addToken(TokenType type) {
     
     Token token;
     token.type = type;
     
     tokens.push_back(token);
-    
+
 }
 
-void Scanner::addToken(string type, string value) {
+void Scanner::addToken(TokenType type, string value) {
     
     Token token;
     token.type = type;
     token.value = value;
     
     tokens.push_back(token);
+
 }
 
 bool Scanner::isKeyword(const string& identifier) {
