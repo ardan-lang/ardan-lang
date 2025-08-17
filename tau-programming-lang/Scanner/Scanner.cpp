@@ -521,8 +521,8 @@ void Scanner::collectIdentifier() {
     
     if(isKeyword(identifier)) {
         
-        addToken(keywords[identifier], identifier);
-        
+        addToken(TokenType::KEYWORD, keywords[identifier]);
+
     } else {
         
         addToken(TokenType::IDENTIFIER, identifier);

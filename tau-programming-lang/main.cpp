@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 #include "Scanner/Scanner.hpp"
+#include "overloads/operators.h"
 
 using namespace std;
 

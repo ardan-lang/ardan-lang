@@ -68,6 +68,7 @@ enum class TokenType {
     STRING,
     NUMBER,
     IDENTIFIER,
+    KEYWORD,
     END_OF_FILE,
 };
 

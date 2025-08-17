@@ -22,8 +22,6 @@ public:
     vector<Token>& getTokens();
     void advance();
     void reverse();
-    void addToken(string type);
-    void addToken(string type, string value);
     void addToken(TokenType type);
     void addToken(TokenType type, string value);
     char& currentCharacter();
