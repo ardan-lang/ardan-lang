@@ -73,9 +73,9 @@ vector<Token>& Scanner::getTokens() {
         
         advance();
         char& character = currentCharacter();
-        
+
         switch (character) {
-                
+
             case ',':
                 addToken(TokenType::COMMA);
                 break;
@@ -508,9 +508,7 @@ void Scanner::collectNumber() {
 void Scanner::collectIdentifier() {
     
     string identifier;
-    
-    // TODO: refactor to contain variables with digits
-    
+        
     while (isAlpha() || isDigit()) {
         
         identifier += currentCharacter();

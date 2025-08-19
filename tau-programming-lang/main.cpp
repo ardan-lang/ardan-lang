@@ -9,12 +9,15 @@
 #include <cstring>
 #include "Scanner/Scanner.hpp"
 #include "overloads/operators.h"
+#include "Visitor/PrintVisitor.hpp"
+#include "Parser/Parser.hpp"
 
 using namespace std;
 
 int main(int argc, const char * argv[]) {
     
     string lang = R"(
+                      {
                       var mod = 8%5
                       var m %= 9
                       var square = 9**9
@@ -23,12 +26,21 @@ int main(int argc, const char * argv[]) {
                       var t= 90
                       var g= sqrt()
                       print(g,d,t,34)
-
-                      )";
+                    }
+                    )";
     
     Scanner scanner(lang);
     for(Token token : scanner.getTokens()) {
         cout << token.type << " : " << token.value << endl;
+    }
+    
+    Parser parser(scanner.getTokens());
+    auto ast = parser.parse();
+    
+    PrintVisitor printer;
+    
+    for (auto& stmt : ast) {
+        stmt->accept(printer);
     }
     
     return EXIT_SUCCESS;
