@@ -133,14 +133,16 @@ unique_ptr<Expression> Parser::parseFactor() {
     auto expr = parsePower();
     
     Token token = currentToken();
-    
+
     if (token.type == TokenType::MUL || token.type == TokenType::DIV  || token.type == TokenType::MODULI) {
         
         advance();
         
         auto rightExpr = parsePower();
-        
-        expr = make_unique<BinaryExpression>(token.value, std::move(expr), std::move(rightExpr));
+
+        expr = make_unique<BinaryExpression>(token.value,
+                                             std::move(expr),
+                                             std::move(rightExpr));
         
     }
 
@@ -295,6 +297,34 @@ unique_ptr<Statement> Parser::printStatement() {
 unique_ptr<Statement> Parser::expressionStatement() {
     
     auto expr = parseExpression();
+    
+    Token token = currentToken();
+    
+    switch (token.type) {
+            // ++, --, +=, -+, etc
+        case TokenType::ASSIGN:
+            
+            break;
+            
+            // property access
+        case TokenType::DOT:
+            break;
+            
+            // call();
+        case TokenType::LEFT_PARENTHESIS:
+            break;
+            
+            // ++
+        case TokenType::INCREMENT:
+            break;
+            
+            // --
+        case TokenType::DECREMENT:
+            break;
+            
+        default:
+            break;
+    }
     
     return make_unique<ExpressionStatement>(std::move(expr));
     

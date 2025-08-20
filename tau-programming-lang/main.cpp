@@ -30,9 +30,9 @@ int main(int argc, const char * argv[]) {
                       print(g,d,t,34)
                     )";
     
-    string lang = "var t= 90;";
+    string lang = "m = 9";
 
-    Scanner scanner(_lang);
+    Scanner scanner(lang);
     for(Token token : scanner.getTokens()) {
         cout << token.type << " : " << token.value << endl;
     }
