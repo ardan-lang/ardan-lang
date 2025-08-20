@@ -31,8 +31,8 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::ASSIGN_MINUS: return os << "ASSIGN_MINUS";
         case TokenType::MINUS: return os << "MINUS";
         case TokenType::EOL: return os << "EOL";
-        case TokenType::SQUARE_ASSIGN: return os << "SQUARE_ASSIGN";
-        case TokenType::SQUARE: return os << "SQUARE";
+        case TokenType::POWER_ASSIGN: return os << "SQUARE_ASSIGN";
+        case TokenType::POWER: return os << "SQUARE";
         case TokenType::ASSIGN_MUL: return os << "ASSIGN_MUL";
         case TokenType::MUL: return os << "MUL";
         case TokenType::ASSIGN_DIV: return os << "ASSIGN_DIV";
@@ -44,13 +44,13 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::MODULI: return os << "MODULI";
         case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: return os << "BITWISE_LEFT_SHIFT_ASSIGN";
         case TokenType::BITWISE_LEFT_SHIFT: return os << "BITWISE_LEFT_SHIFT";
-        case TokenType::LESS_THAN_ASSIGN: return os << "LESS_THAN_ASSIGN";
+        case TokenType::LESS_THAN_EQUAL: return os << "LESS_THAN_ASSIGN";
         case TokenType::LESS_THAN: return os << "LESS_THAN";
         case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: return os << "UNSIGNED_RIGHT_SHIFT_ASSIGN";
         case TokenType::UNSIGNED_RIGHT_SHIFT: return os << "UNSIGNED_RIGHT_SHIFT";
         case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: return os << "BITWISE_RIGHT_SHIFT_ASSIGN";
         case TokenType::BITWISE_RIGHT_SHIFT: return os << "BITWISE_RIGHT_SHIFT";
-        case TokenType::GREATER_THAN_ASSIGN: return os << "GREATER_THAN_ASSIGN";
+        case TokenType::GREATER_THAN_EQUAL: return os << "GREATER_THAN_ASSIGN";
         case TokenType::GREATER_THAN: return os << "GREATER_THAN";
         case TokenType::LOGICAL_AND_ASSIGN: return os << "LOGICAL_AND_ASSIGN";
         case TokenType::LOGICAL_AND: return os << "LOGICAL_AND";

@@ -11,7 +11,8 @@
 #include <iostream>
 #include <memory>
 #include <vector>
-// #include "StatementVisitor.hpp"
+#include <cstring>
+#include "../Expression/Expression.hpp"
 
 using namespace std;
 
@@ -33,6 +34,22 @@ public:
 
 class EmptyStatement : public Statement {
 public:
+    void accept(StatementVisitor& visitor) override;
+};
+
+class VarStatement : public Statement {
+public:
+    VarStatement(const string name, unique_ptr<Expression> init) : name(name), init(std::move(init)) {};
+    const string name;
+    unique_ptr<Expression> init;
+    void accept(StatementVisitor& visitor) override;
+};
+
+class ExpressionStatement : public Statement {
+public:
+    ExpressionStatement(unique_ptr<Expression> expr) : expression(std::move(expr)) {};
+    unique_ptr<Expression> expression;
+    
     void accept(StatementVisitor& visitor) override;
 };
 

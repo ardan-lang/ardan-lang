@@ -30,6 +30,15 @@ public:
     void visit(EmptyStatement& stmt) override {
         cout << "EmptyStatement;" << endl;
     }
+    
+    void visit(VarStatement& stmt) override {
+        cout << "VarStatement;" << endl;
+    }
+    
+    void visit(ExpressionStatement& stmt) override {
+        cout << "ExpressionStatement;" << endl;
+    }
+
 };
 
 #endif /* PrintVisitor_hpp */

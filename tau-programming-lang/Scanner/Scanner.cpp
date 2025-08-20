@@ -175,11 +175,11 @@ vector<Token>& Scanner::getTokens() {
                 if (match('*')) {
                     
                     if (match('=')) {
-                        addToken(TokenType::SQUARE_ASSIGN);
+                        addToken(TokenType::POWER_ASSIGN);
                         break;
                     }
                     
-                    addToken(TokenType::SQUARE);
+                    addToken(TokenType::POWER);
                     break;
                 }
                 
@@ -246,7 +246,7 @@ vector<Token>& Scanner::getTokens() {
                 
                 if(match('=')) {
                     
-                    addToken(TokenType::LESS_THAN_ASSIGN);
+                    addToken(TokenType::LESS_THAN_EQUAL);
                     break;
                     
                 }
@@ -286,7 +286,7 @@ vector<Token>& Scanner::getTokens() {
                 
                 if(match('=')) {
                     
-                    addToken(TokenType::GREATER_THAN_ASSIGN);
+                    addToken(TokenType::GREATER_THAN_EQUAL);
                     break;
                     
                 }

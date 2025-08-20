@@ -30,9 +30,28 @@ private:
     unique_ptr<Statement> blockStatement();
     unique_ptr<Statement> emptyStatement();
     unique_ptr<Statement> varDeclaration();
+    unique_ptr<Statement> letDeclaration();
+    unique_ptr<Statement> constDeclaration();
+    unique_ptr<Statement> functionDeclaration();
+    
     unique_ptr<Statement> printStatement();
     unique_ptr<Statement> expressionStatement();
-    
+
+    unique_ptr<Expression> parseExpression();
+    // ==, !=
+    unique_ptr<Expression> parseEquality();
+    //">", ">=", "<", "<="
+    unique_ptr<Expression> parseComparison();
+    // +, -
+    unique_ptr<Expression> parseTerm();
+    // "*", "/", "%"
+    unique_ptr<Expression> parseFactor();
+    // "**"
+    unique_ptr<Expression> parsePower();
+    // "!", "-"
+    unique_ptr<Expression> parseUnary();
+    unique_ptr<Expression> parsePrimary();
+
     void advance();
     void consume(TokenType type, const std::string& message);
     

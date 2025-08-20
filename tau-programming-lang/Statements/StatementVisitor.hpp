@@ -12,11 +12,15 @@
 
 class BlockStatement;
 class EmptyStatement;
+class VarStatement;
+class ExpressionStatement;
 
 class StatementVisitor {
 public:
     virtual void visit(BlockStatement& stmt) = 0;
     virtual void visit(EmptyStatement& stmt) = 0;
+    virtual void visit(VarStatement& stmt) = 0;
+    virtual void visit(ExpressionStatement& stmt) = 0;
     virtual ~StatementVisitor() = default;
 };
 

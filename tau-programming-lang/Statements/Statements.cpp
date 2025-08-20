@@ -15,3 +15,11 @@ void BlockStatement::accept(StatementVisitor& visitor) {
 void EmptyStatement::accept(StatementVisitor& visitor) {
     visitor.visit(*this);
 }
+
+void VarStatement::accept(StatementVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+void ExpressionStatement::accept(StatementVisitor& visitor) {
+    visitor.visit(*this);
+}
