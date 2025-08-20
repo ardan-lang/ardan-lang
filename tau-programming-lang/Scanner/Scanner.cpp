@@ -71,9 +71,8 @@ vector<Token>& Scanner::getTokens() {
 
     while(current < source.length()) {
         
-        advance();
         char& character = currentCharacter();
-
+        
         switch (character) {
 
             case ',':
@@ -445,6 +444,8 @@ vector<Token>& Scanner::getTokens() {
                 break;
         }
         
+        advance();
+
     }
     
     addToken(TokenType::END_OF_FILE);
@@ -508,9 +509,9 @@ void Scanner::collectNumber() {
 void Scanner::collectIdentifier() {
     
     string identifier;
-        
+
     while (isAlpha() || isDigit()) {
-        
+
         identifier += currentCharacter();
         
         advance();

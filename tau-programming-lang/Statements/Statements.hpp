@@ -13,11 +13,9 @@
 #include <vector>
 #include <cstring>
 #include "../Expression/Expression.hpp"
+#include "StatementVisitor.hpp"
 
 using namespace std;
-
-// Forward declare visitor
-class StatementVisitor;
 
 class Statement {
 public:

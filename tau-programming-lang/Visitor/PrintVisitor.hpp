@@ -14,11 +14,15 @@
 
 #include "../Statements/StatementVisitor.hpp"
 #include "../Statements/Statements.hpp"
+#include "../Expression/Expression.hpp"
+#include "../ExpressionVisitor/ExpressionVisitor.hpp"
+#include "AstPrinter/AstPrinter.h"
 
 using namespace std;
 
 class PrintVisitor : public StatementVisitor {
 public:
+    AstPrinter printer;
     void visit(BlockStatement& stmt) override {
         cout << "BlockStatement {" << endl;
         for (auto& s : stmt.statements) {
@@ -32,13 +36,19 @@ public:
     }
     
     void visit(VarStatement& stmt) override {
-        cout << "VarStatement;" << endl;
+        cout << "VarStatement: { " << stmt.name << " = ";
+        
+        printer.print(stmt.init.get());
+        
+        cout << " } " << endl;
     }
     
     void visit(ExpressionStatement& stmt) override {
-        cout << "ExpressionStatement;" << endl;
+        cout << "ExpressionStatement: { ";
+        printer.print(stmt.expression.get());
+        cout << " } " << endl;
     }
-
+    
 };
 
 #endif /* PrintVisitor_hpp */

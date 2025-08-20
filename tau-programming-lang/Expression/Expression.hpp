@@ -11,26 +11,9 @@
 #include <stdio.h>
 #include <cstring>
 #include <iostream>
+#include "../ExpressionVisitor/ExpressionVisitor.hpp"
 
 using namespace std;
-
-// Forward declarations of AST nodes
-class LiteralExpression;
-class BinaryExpression;
-class VariableExpression;
-class GroupingExpression;
-class UnaryExpression;
-
-class ExpressionVisitor {
-public:
-    virtual ~ExpressionVisitor() = default;
-
-    virtual void visitLiteral(LiteralExpression* expr) = 0;
-    virtual void visitBinary(BinaryExpression* expr) = 0;
-    virtual void visitVariable(VariableExpression* expr) = 0;
-    virtual void visitGrouping(GroupingExpression* expr) = 0;
-    virtual void visitUnary(UnaryExpression* expr) = 0;
-};
 
 struct Expression {
     virtual ~Expression() = default;
@@ -39,8 +22,8 @@ struct Expression {
 
 class LiteralExpression : public Expression {
 public:
-    LiteralExpression(const string token) : token(token) {};
-    const string token;
+    LiteralExpression(const string value) : value(value) {};
+    const string value;
     
     void accept(ExpressionVisitor& visitor) override {
         visitor.visitLiteral(this);
@@ -66,7 +49,7 @@ public:
     VariableExpression(const string name) : name(name) {};
     
     void accept(ExpressionVisitor& visitor) override {
-        visitor.visitVariable(this);
+        return visitor.visitVariable(this);
     }
 
 };
@@ -84,9 +67,9 @@ public:
 
 class UnaryExpression : public Expression {
 public:
-    UnaryExpression(const string op, unique_ptr<Expression> expression) : op(op), expression(std::move(expression)) {};
+    UnaryExpression(const string op, unique_ptr<Expression> right) : op(op), right(std::move(right)) {};
     const string op;
-    unique_ptr<Expression> expression;
+    unique_ptr<Expression> right;
     
     void accept(ExpressionVisitor& visitor) override {
         visitor.visitUnary(this);

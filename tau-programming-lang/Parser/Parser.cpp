@@ -7,12 +7,13 @@
 
 #include "Parser.hpp"
 #include "../Statements/Statements.hpp"
+#include "../Visitor/AstPrinter/AstPrinter.h"
 
 using namespace std;
 
 vector<unique_ptr<Statement>> Parser::parse() {
     
-    while (!isEOF()) {
+    while (isEOF() == false) {
         statements.push_back(declaration());
     }
     
@@ -32,15 +33,15 @@ unique_ptr<Statement> Parser::declaration() {
         return blockStatement();
     }
     
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "var") {
+    if (currentType.type == TokenType::KEYWORD && currentType.value == "VAR") {
         return varDeclaration();
     }
 
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "let") {
+    if (currentType.type == TokenType::KEYWORD && currentType.value == "LET") {
         return letDeclaration();
     }
 
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "const") {
+    if (currentType.type == TokenType::KEYWORD && currentType.value == "CONST") {
         return constDeclaration();
     }
 
@@ -170,7 +171,7 @@ unique_ptr<Expression> Parser::parsePower() {
 // "!", "-"
 unique_ptr<Expression> Parser::parseUnary() {
     
-    auto expr = parsePower();
+    auto expr = parsePrimary();
     
     Token token = currentToken();
     
@@ -178,7 +179,7 @@ unique_ptr<Expression> Parser::parseUnary() {
         
         advance();
         
-        auto rightExpr = parsePower();
+        auto rightExpr = parsePrimary();
         
         expr = make_unique<UnaryExpression>(token.value, std::move(rightExpr));
         
@@ -194,18 +195,28 @@ unique_ptr<Expression> Parser::parsePrimary() {
     
     if (token.type == TokenType::NUMBER) {
         expr = make_unique<LiteralExpression>(token.value);
+        advance();
     }
     
     if (token.type == TokenType::STRING) {
         expr = make_unique<LiteralExpression>(token.value);
+        advance();
     }
     
     if (token.type == TokenType::KEYWORD && (token.value == "true" || token.value == "false")) {
         expr = make_unique<LiteralExpression>(token.value);
+        advance();
     }
     
     if (token.type == TokenType::IDENTIFIER) {
         expr = make_unique<LiteralExpression>(token.value);
+        advance();
+    }
+    
+    if (token.type == TokenType::LEFT_PARENTHESIS) {
+        auto inExpr = parseExpression();
+        consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after expression.");
+        expr = make_unique<GroupingExpression>(std::move(inExpr));
     }
     
     return expr;
@@ -220,14 +231,18 @@ unique_ptr<Statement> Parser::letDeclaration() {
     
     advance(); // consume 'let'
     
-    consume(TokenType::IDENTIFIER, "Expect let's identifier name after the let keyword");
-
     const string identifier = currentToken().value;
+
+    consume(TokenType::IDENTIFIER, "Expect let's identifier name after the let keyword");
     
     consume(TokenType::ASSIGN, "Expect '=' after let's identifier name");
 
     unique_ptr<Expression> expression = parseExpression();
     
+    if (currentToken().type == TokenType::EOL) {
+        advance();
+    }
+
     return make_unique<VarStatement>(identifier, std::move(expression));
     
 }
@@ -236,29 +251,37 @@ unique_ptr<Statement> Parser::constDeclaration() {
     
     advance(); // consume 'const'
     
-    consume(TokenType::IDENTIFIER, "Expect const's identifier name after the const keyword");
-
     const string identifier = currentToken().value;
+
+    consume(TokenType::IDENTIFIER, "Expect const's identifier name after the const keyword");
     
     consume(TokenType::ASSIGN, "Expect '=' after const's identifier name");
 
     unique_ptr<Expression> expression = parseExpression();
     
+    if (currentToken().type == TokenType::EOL) {
+        advance();
+    }
+
     return make_unique<VarStatement>(identifier, std::move(expression));
     
 }
 
 unique_ptr<Statement> Parser::varDeclaration() {
-    
+
     advance(); // consume 'var'
-    
-    consume(TokenType::IDENTIFIER, "Expect var's identifier name afteer the var keyword");
 
     const string identifier = currentToken().value;
+
+    consume(TokenType::IDENTIFIER, "Expect var's identifier name afteer the var keyword");
     
     consume(TokenType::ASSIGN, "Expect '=' after var's identifier name");
 
     unique_ptr<Expression> expression = parseExpression();
+        
+    if (currentToken().type == TokenType::EOL) {
+        advance();
+    }
     
     return make_unique<VarStatement>(identifier, std::move(expression));
 
