@@ -9,7 +9,7 @@
 #include <cstring>
 #include "Scanner/Scanner.hpp"
 #include "overloads/operators.h"
-#include "Visitor/PrintVisitor.hpp"
+#include "Visitor/AstPrinter/AstPrinter.h"
 #include "Parser/Parser.hpp"
 
 using namespace std;
@@ -30,17 +30,22 @@ int main(int argc, const char * argv[]) {
                       print(g,d,t,34)
                     )";
     
-    string lang = "m = 9";
+    string lang = R"(
+    m = 9; m+=8; i++; i--;
+    --i;
+    ++i;
+    call();
+    )";
 
     Scanner scanner(lang);
     for(Token token : scanner.getTokens()) {
-        cout << token.type << " : " << token.value << endl;
+        cout << token.type << " : " << token.lexeme << endl;
     }
     
     Parser parser(scanner.getTokens());
     auto ast = parser.parse();
     
-    PrintVisitor printer;
+    AstPrinter printer;
     
     for (auto& stmt : ast) {
         stmt->accept(printer);

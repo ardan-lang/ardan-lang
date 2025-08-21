@@ -23,7 +23,7 @@ public:
     void advance();
     void reverse();
     void addToken(TokenType type);
-    void addToken(TokenType type, string value);
+    void addToken(TokenType type, string lexeme);
     char& currentCharacter();
     bool eof();
     bool isDigit();

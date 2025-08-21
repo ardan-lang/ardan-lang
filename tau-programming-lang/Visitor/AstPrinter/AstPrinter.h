@@ -8,46 +8,259 @@
 #ifndef AstPrinter_h
 #define AstPrinter_h
 
+#include <iostream>
+#include <string>
 #include "../../ExpressionVisitor/ExpressionVisitor.hpp"
 #include "../../Expression/Expression.hpp"
+#include "../../Statements/Statements.hpp"
 
 using namespace std;
 
-class AstPrinter : public ExpressionVisitor {
+class AstPrinter : public ExpressionVisitor, public StatementVisitor {
+    int indent = 0;
+
+    void printIndent() {
+        for (int i = 0; i < indent; i++) std::cout << "  ";
+    }
+
 public:
-    void print(Expression* expr) {
-        expr->accept(*this);
+    // -------- Statements --------
+    void visitExpression(ExpressionStatement* stmt) override {
+        printIndent(); std::cout << "ExpressionStatement:\n";
+        indent++;
+        stmt->expression->accept(*this);
+        indent--;
+    }
+
+    void visitBlock(BlockStatement* stmt) override {
+        printIndent(); std::cout << "Block:\n";
+        indent++;
+        for (auto& s : stmt->body) {
+            s->accept(*this);
+        }
+        indent--;
+    }
+
+    void visitVariable(VariableStatement* stmt) override {
+//        printIndent(); std::cout << "VariableDeclaration " << stmt->id;
+//        if (stmt->init) {
+//            std::cout << " =\n";
+//            indent++;
+//            stmt->init->accept(*this);
+//            indent--;
+//        } else {
+//            std::cout << "\n";
+//        }
+    }
+
+    void visitFunction(FunctionDeclaration* stmt) override {
+        printIndent(); std::cout << "Function " << stmt->id << "(";
+        for (size_t i = 0; i < stmt->params.size(); i++) {
+            std::cout << stmt->params[i];
+            if (i < stmt->params.size() - 1) std::cout << ", ";
+        }
+        std::cout << ")\n";
+        indent++;
+        stmt->body->accept(*this);
+        indent--;
+    }
+
+    void visitIf(IfStatement* stmt) override {
+        printIndent(); std::cout << "If\n";
+        indent++;
+        stmt->test->accept(*this);
+        printIndent(); std::cout << "Then:\n";
+        stmt->consequent->accept(*this);
+        if (stmt->alternate) {
+            printIndent(); std::cout << "Else:\n";
+            stmt->alternate->accept(*this);
+        }
+        indent--;
+    }
+
+    void visitWhile(WhileStatement* stmt) override {
+        printIndent(); std::cout << "While\n";
+        indent++;
+        stmt->test->accept(*this);
+        stmt->body->accept(*this);
+        indent--;
+    }
+
+    void visitFor(ForStatement* stmt) override {
+        printIndent(); std::cout << "For\n";
+        indent++;
+        if (stmt->init) stmt->init->accept(*this);
+        if (stmt->test) stmt->test->accept(*this);
+        if (stmt->update) stmt->update->accept(*this);
+        stmt->body->accept(*this);
+        indent--;
+    }
+
+    void visitReturn(ReturnStatement* stmt) override {
+        printIndent(); std::cout << "Return\n";
+        if (stmt->argument) {
+            indent++;
+            stmt->argument->accept(*this);
+            indent--;
+        }
+    }
+
+    void visitBreak(BreakStatement* stmt) override {
+        printIndent(); std::cout << "Break\n";
+    }
+
+    void visitContinue(ContinueStatement* stmt) override {
+        printIndent(); std::cout << "Continue\n";
+    }
+
+    void visitThrow(ThrowStatement* stmt) override {
+        printIndent(); std::cout << "Throw\n";
+        indent++;
+        stmt->argument->accept(*this);
+        indent--;
+    }
+
+    void visitTryCatch(TryCatchStatement* stmt) override {
+//        printIndent(); std::cout << "Try\n";
+//        indent++;
+//        stmt->block->accept(*this);
+//        indent--;
+//        printIndent(); std::cout << "Catch(" << stmt->param << ")\n";
+//        indent++;
+//        stmt->handler->accept(*this);
+//        indent--;
+//        if (stmt->finalizer) {
+//            printIndent(); std::cout << "Finally\n";
+//            indent++;
+//            stmt->finalizer->accept(*this);
+//            indent--;
+//        }
+    }
+
+    // -------- Expressions --------
+    void visitLiteral(LiteralExpression* expr) override {
+        printIndent(); std::cout << "Literal(" << expr->token.lexeme << ")\n";
+    }
+
+    void visitIdentifier(IdentifierExpression* expr) override {
+        printIndent(); std::cout << "Identifier(" << expr->name << ")\n";
     }
 
     void visitBinary(BinaryExpression* expr) override {
-        cout << "(" + expr->op + " " ;
-        expr->left->accept(*this) ;
-        cout << " " ;
-        expr->right->accept(*this) ;
-        cout << ")" << endl;
+        printIndent(); std::cout << "Binary(" << expr->op.lexeme << ")\n";
+        indent++;
+        expr->left->accept(*this);
+        expr->right->accept(*this);
+        indent--;
     }
 
     void visitUnary(UnaryExpression* expr) override {
-        cout << "(" ;
-        cout << expr->op;
-        cout << " " ;
+        printIndent(); std::cout << "Unary(" << expr->op.lexeme << ")\n";
+        indent++;
+        // expr->argument->accept(*this);
         expr->right->accept(*this);
-        cout << ")" << endl;
+        indent--;
     }
 
-    void visitLiteral(LiteralExpression* expr) override {
-        cout << expr->value << endl;
+    void visitUpdate(UpdateExpression* expr) override {
+        printIndent();
+        std::cout << "Update(" << expr->op.lexeme
+                  << (expr->prefix ? " prefix" : " postfix") << ")\n";
+        indent++;
+        expr->argument->accept(*this);
+        indent--;
     }
 
-    void visitGrouping(GroupingExpression* expr) override {
-        cout << "(group ";
-        expr->expression->accept(*this);
-        cout << ")" << endl;
+    void visitAssignment(AssignmentExpression* expr) override {
+        printIndent(); std::cout << "Assignment(" << expr->op.lexeme << ")\n";
+        indent++;
+        expr->left->accept(*this);
+        expr->right->accept(*this);
+        indent--;
+    }
+
+    void visitLogical(LogicalExpression* expr) override {
+        printIndent(); std::cout << "Logical(" << expr->op.lexeme << ")\n";
+        indent++;
+        expr->left->accept(*this);
+        expr->right->accept(*this);
+        indent--;
+    }
+
+    void visitConditional(ConditionalExpression* expr) override {
+        printIndent(); std::cout << "Conditional\n";
+        indent++;
+        expr->test->accept(*this);
+        expr->consequent->accept(*this);
+        expr->alternate->accept(*this);
+        indent--;
+    }
+
+    void visitCall(CallExpression* expr) override {
+        printIndent(); std::cout << "Call\n";
+        indent++;
+        // expr->expression->accept(*this);
+        for (auto& arg : expr->arguments) {
+            arg->accept(*this);
+        }
+        indent--;
+    }
+
+    void visitMember(MemberExpression* expr) override {
+        printIndent(); std::cout << "Member(" << (expr->computed ? "computed" : "dot") << ")\n";
+        indent++;
+        expr->object->accept(*this);
+        expr->property->accept(*this);
+        indent--;
+    }
+
+    void visitThis(ThisExpression* expr) override {
+        printIndent(); std::cout << "This\n";
+    }
+
+    void visitNew(NewExpression* expr) override {
+        printIndent(); std::cout << "New\n";
+        indent++;
+        expr->callee->accept(*this);
+        for (auto& arg : expr->arguments) arg->accept(*this);
+        indent--;
+    }
+
+    void visitArray(ArrayLiteralExpression* expr) override {
+        printIndent(); std::cout << "Array\n";
+        indent++;
+        for (auto& e : expr->elements) e->accept(*this);
+        indent--;
+    }
+
+    void visitObject(ObjectLiteralExpression* expr) override {
+        printIndent(); std::cout << "Object\n";
+        indent++;
+        for (auto& prop : expr->properties) {
+//            printIndent(); std::cout << "Property " << prop.key << ":\n";
+//            indent++;
+//            prop.value->accept(*this);
+            indent--;
+        }
+        indent--;
     }
     
-    void visitVariable(VariableExpression* expr) override {
-        cout << expr->name << endl;
+    void visitSuper(SuperExpression* expr) override {
+        
     }
+    
+    void visitProperty(PropertyExpression* expr) override {
+        
+    }
+    
+    void visitSequence(SequenceExpression* expr) override {
+        
+    }
+    
+    void visitEmpty(EmptyStatement* stmt) override {
+        
+    }
+    
 };
 
 #endif /* AstPrinter_h */

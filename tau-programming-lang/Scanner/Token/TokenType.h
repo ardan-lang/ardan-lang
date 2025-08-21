@@ -12,7 +12,8 @@ enum class TokenType {
     COMMA,
     SPREAD,
     DOT,
-    SEMI_COLON,
+    SEMI_COLON, // ;
+    COLON, // :
     LEFT_PARENTHESIS,
     RIGHT_PARENTHESIS,
     LEFT_BRACKET,
@@ -35,7 +36,7 @@ enum class TokenType {
     INCREMENT,
     ASSIGN_ADD,
     ADD,
-    MODULI_ADD,
+    MODULI_ASSIGN,
     MODULI,
     BITWISE_LEFT_SHIFT_ASSIGN,
     BITWISE_LEFT_SHIFT,

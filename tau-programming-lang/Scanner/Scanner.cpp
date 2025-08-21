@@ -97,7 +97,7 @@ vector<Token>& Scanner::getTokens() {
                 
             case ':':
                 
-                addToken(TokenType::SEMI_COLON);
+                addToken(TokenType::COLON);
                 break;
 
             case '(':
@@ -132,31 +132,31 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken(TokenType::REFERENCE_EQUAL);
+                        addToken(TokenType::REFERENCE_EQUAL, "===");
                         break;
                         
                     }
                     
-                    addToken(TokenType::VALUE_EQUAL);
+                    addToken(TokenType::VALUE_EQUAL, "==");
                     break;
                     
                 }
                 
-                addToken(TokenType::ASSIGN);
+                addToken(TokenType::ASSIGN, "=");
                 break;
 
             case '-':
                 
                 if (match('-')) {
                     
-                    addToken(TokenType::DECREMENT);
+                    addToken(TokenType::DECREMENT, "--");
                     break;
                     
                 }
                 
                 if (match('=')) {
                     
-                    addToken(TokenType::ASSIGN_MINUS);
+                    addToken(TokenType::ASSIGN_MINUS, "-=");
                     break;
                     
                 }
@@ -166,7 +166,7 @@ vector<Token>& Scanner::getTokens() {
                 break;
                 
             case ';':
-                addToken(TokenType::EOL);
+                addToken(TokenType::SEMI_COLON);
                 break;
 
             case '*':
@@ -193,33 +193,33 @@ vector<Token>& Scanner::getTokens() {
             case '/':
                 
                 if (match('=')) {
-                    addToken(TokenType::ASSIGN_DIV);
+                    addToken(TokenType::ASSIGN_DIV, "/=");
                     break;
                 }
                 
-                addToken(TokenType::DIV);
+                addToken(TokenType::DIV, "/");
                 break;
 
             case '+':
                 
                 if (match('+')) {
-                    addToken(TokenType::INCREMENT);
+                    addToken(TokenType::INCREMENT, "++");
                     break;
                 }
                 
                 if (match('=')) {
-                    addToken(TokenType::ASSIGN_ADD);
+                    addToken(TokenType::ASSIGN_ADD, "+=");
                     break;
                 }
                 
-                addToken(TokenType::ADD);
+                addToken(TokenType::ADD, "+");
                 break;
                 
             case '%':
 
                 if(match('=')) {
                     
-                    addToken(TokenType::MODULI_ADD);
+                    addToken(TokenType::MODULI_ASSIGN, "%=");
                     break;
                     
                 }
@@ -285,7 +285,7 @@ vector<Token>& Scanner::getTokens() {
                 
                 if(match('=')) {
                     
-                    addToken(TokenType::GREATER_THAN_EQUAL);
+                    addToken(TokenType::GREATER_THAN_EQUAL, ">=");
                     break;
                     
                 }
@@ -560,11 +560,11 @@ void Scanner::addToken(TokenType type) {
 
 }
 
-void Scanner::addToken(TokenType type, string value) {
+void Scanner::addToken(TokenType type, string lexeme) {
     
     Token token;
     token.type = type;
-    token.value = value;
+    token.lexeme = lexeme;
     
     tokens.push_back(token);
 

@@ -8,71 +8,204 @@
 #ifndef Expression_hpp
 #define Expression_hpp
 
-#include <stdio.h>
-#include <cstring>
-#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+#include "../Scanner/Token/Token.hpp"
+#include "../Scanner/Token/TokenType.h"
 #include "../ExpressionVisitor/ExpressionVisitor.hpp"
 
-using namespace std;
+using std::string;
+using std::unique_ptr;
+using std::vector;
 
-struct Expression {
+// Base Expression
+class Expression {
+public:
     virtual ~Expression() = default;
     virtual void accept(ExpressionVisitor& visitor) = 0;
 };
 
+// 1. Literal: number, string, etc
 class LiteralExpression : public Expression {
 public:
-    LiteralExpression(const string value) : value(value) {};
-    const string value;
-    
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitLiteral(this);
-    }
+    Token token; // STRING, NUMBER, etc
+    explicit LiteralExpression(Token token) : token(token) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitLiteral(this); }
 };
 
-class BinaryExpression : public Expression {
+// 2. Identifier
+class IdentifierExpression : public Expression {
 public:
-    BinaryExpression(const string op, unique_ptr<Expression> left, unique_ptr<Expression> right) : op(op), left(std::move(left)), right(std::move(right)) {};
-    const string op;
-    unique_ptr<Expression> left;
-    unique_ptr<Expression> right;
+    string name;
+    Token previous;
     
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitBinary(this);
-    }
-    
+    explicit IdentifierExpression(const string& name) : name(name) {}
+    explicit IdentifierExpression(Token previous) : previous(previous) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitIdentifier(this); }
 };
 
-class VariableExpression : public Expression {
-public:
-    const string name;
-    VariableExpression(const string name) : name(name) {};
-    
-    void accept(ExpressionVisitor& visitor) override {
-        return visitor.visitVariable(this);
-    }
-
-};
-
-class GroupingExpression : public Expression {
-public:
-    GroupingExpression(unique_ptr<Expression> expression) : expression(std::move(expression)) {};
-    unique_ptr<Expression> expression;
-    
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitGrouping(this);
-    }
-
-};
-
+// 3. Unary: !x, -x, +x, typeof x
 class UnaryExpression : public Expression {
 public:
-    UnaryExpression(const string op, unique_ptr<Expression> right) : op(op), right(std::move(right)) {};
-    const string op;
+    Token op;
+    unique_ptr<Expression> right;
+    UnaryExpression(Token op, unique_ptr<Expression> right)
+        : op(op), right(std::move(right)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitUnary(this); }
+};
+
+// 4. Binary: x + y, x * y, etc
+class BinaryExpression : public Expression {
+public:
+    unique_ptr<Expression> left;
+    Token op;
     unique_ptr<Expression> right;
     
+    BinaryExpression(unique_ptr<Expression> left, Token op, unique_ptr<Expression> right)
+    : left(std::move(left)), op(op), right(std::move(right)) {}
+    
+    BinaryExpression(Token op, unique_ptr<Expression> expr, unique_ptr<Expression> right) : left(std::move(expr)), op(op), right(std::move(right)) {}
+    
+    void accept(ExpressionVisitor& visitor) override { visitor.visitBinary(this); }
+};
+
+// 5. Assignment: x = y, x += y
+class AssignmentExpression : public Expression {
+public:
+    unique_ptr<Expression> left;
+    Token op;
+    unique_ptr<Expression> right;
+    AssignmentExpression(unique_ptr<Expression> left, Token op, unique_ptr<Expression> right)
+        : left(std::move(left)), op(op), right(std::move(right)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitAssignment(this); }
+};
+
+// 6. Conditional (ternary): cond ? then : else
+class ConditionalExpression : public Expression {
+public:
+    unique_ptr<Expression> test;
+    unique_ptr<Expression> consequent;
+    unique_ptr<Expression> alternate;
+    ConditionalExpression(unique_ptr<Expression> test,
+                          unique_ptr<Expression> consequent,
+                          unique_ptr<Expression> alternate)
+        : test(std::move(test)), consequent(std::move(consequent)), alternate(std::move(alternate)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitConditional(this); }
+};
+
+// 7. Logical: &&, ||, ??
+class LogicalExpression : public Expression {
+public:
+    unique_ptr<Expression> left;
+    Token op;
+    unique_ptr<Expression> right;
+    LogicalExpression(unique_ptr<Expression> left, Token op, unique_ptr<Expression> right)
+        : left(std::move(left)), op(op), right(std::move(right)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitLogical(this); }
+};
+
+// 8. Call: f(x,y)
+class CallExpression : public Expression {
+public:
+    unique_ptr<Expression> callee;
+    vector<unique_ptr<Expression>> arguments;
+    CallExpression(unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
+        : callee(std::move(callee)), arguments(std::move(arguments)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitCall(this); }
+};
+
+// 9. Member: obj.prop or obj["prop"]
+class MemberExpression : public Expression {
+public:
+    unique_ptr<Expression> object;
+    unique_ptr<Expression> property;
+    bool computed; // true for [], false for .
+    Token name;
+    
+    MemberExpression(unique_ptr<Expression> object, unique_ptr<Expression> property, bool computed)
+        : object(std::move(object)), property(std::move(property)), computed(computed) {}
+
+    MemberExpression(unique_ptr<Expression> object, Token name, bool computed)
+        : object(std::move(object)), name(name), computed(computed) {}
+
+    void accept(ExpressionVisitor& visitor) override { visitor.visitMember(this); }
+    
+};
+
+// 10. this
+class ThisExpression : public Expression {
+public:
+    void accept(ExpressionVisitor& visitor) override { visitor.visitThis(this); }
+};
+
+// 11. super
+class SuperExpression : public Expression {
+public:
+    void accept(ExpressionVisitor& visitor) override { visitor.visitSuper(this); }
+};
+
+// 12. new expr()
+class NewExpression : public Expression {
+public:
+    unique_ptr<Expression> callee;
+    vector<unique_ptr<Expression>> arguments;
+    NewExpression(unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
+        : callee(std::move(callee)), arguments(std::move(arguments)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitNew(this); }
+};
+
+// 13. [a,b,...]
+class ArrayLiteralExpression : public Expression {
+public:
+    vector<unique_ptr<Expression>> elements;
+    explicit ArrayLiteralExpression(vector<unique_ptr<Expression>> elements)
+        : elements(std::move(elements)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitArray(this); }
+};
+
+// 14. { key: value, ... }
+class ObjectLiteralExpression : public Expression {
+public:
+    vector<unique_ptr<class PropertyExpression>> properties;
+    vector<pair<Token, unique_ptr<Expression>>> props;
+    explicit ObjectLiteralExpression(vector<unique_ptr<PropertyExpression>> properties)
+        : properties(std::move(properties)) {}
+    explicit ObjectLiteralExpression(vector<pair<Token, unique_ptr<Expression>>> props)
+        : props(std::move(props)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitObject(this); }
+};
+
+// 15. key:value inside object
+class PropertyExpression : public Expression {
+public:
+    unique_ptr<Expression> key;
+    unique_ptr<Expression> value;
+    PropertyExpression(unique_ptr<Expression> key, unique_ptr<Expression> value)
+        : key(std::move(key)), value(std::move(value)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitProperty(this); }
+};
+
+// 16. Sequence (comma operator): (a, b, c)
+class SequenceExpression : public Expression {
+public:
+    vector<unique_ptr<Expression>> expressions;
+    explicit SequenceExpression(vector<unique_ptr<Expression>> expressions)
+        : expressions(std::move(expressions)) {}
+    void accept(ExpressionVisitor& visitor) override { visitor.visitSequence(this); }
+};
+
+class UpdateExpression : public Expression {
+public:
+    Token op;                       // ++ or --
+    unique_ptr<Expression> argument; // the variable/expression being updated
+    bool prefix;                    // true if prefix (++x), false if postfix (x++)
+
+    explicit UpdateExpression(Token op, unique_ptr<Expression> argument, bool prefix)
+        : op(op), argument(std::move(argument)), prefix(prefix) {}
+
     void accept(ExpressionVisitor& visitor) override {
-        visitor.visitUnary(this);
+        visitor.visitUpdate(this);
     }
 };
 

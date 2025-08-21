@@ -17,7 +17,7 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::COMMA: return os << "COMMA";
         case TokenType::SPREAD: return os << "SPREAD";
         case TokenType::DOT: return os << "DOT";
-        case TokenType::SEMI_COLON: return os << "SEMI_COLON";
+        case TokenType::COLON: return os << "COLON";
         case TokenType::LEFT_PARENTHESIS: return os << "LEFT_PARENTHESIS";
         case TokenType::RIGHT_PARENTHESIS: return os << "RIGHT_PARENTHESIS";
         case TokenType::LEFT_BRACKET: return os << "LEFT_BRACKET";
@@ -40,7 +40,7 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::INCREMENT: return os << "INCREMENT";
         case TokenType::ASSIGN_ADD: return os << "ASSIGN_ADD";
         case TokenType::ADD: return os << "ADD";
-        case TokenType::MODULI_ADD: return os << "MODULI_ADD";
+        case TokenType::MODULI_ASSIGN: return os << "MODULI_ASSIGN";
         case TokenType::MODULI: return os << "MODULI";
         case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: return os << "BITWISE_LEFT_SHIFT_ASSIGN";
         case TokenType::BITWISE_LEFT_SHIFT: return os << "BITWISE_LEFT_SHIFT";

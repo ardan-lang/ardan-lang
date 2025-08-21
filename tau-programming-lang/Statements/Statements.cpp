@@ -6,20 +6,3 @@
 //
 
 #include "Statements.hpp"
-#include "StatementVisitor.hpp"
-
-void BlockStatement::accept(StatementVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void EmptyStatement::accept(StatementVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void VarStatement::accept(StatementVisitor& visitor) {
-    visitor.visit(*this);
-}
-
-void ExpressionStatement::accept(StatementVisitor& visitor) {
-    visitor.visit(*this);
-}

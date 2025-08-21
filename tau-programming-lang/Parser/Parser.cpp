@@ -8,375 +8,378 @@
 #include "Parser.hpp"
 #include "../Statements/Statements.hpp"
 #include "../Visitor/AstPrinter/AstPrinter.h"
+#include <stdexcept>
 
 using namespace std;
 
 vector<unique_ptr<Statement>> Parser::parse() {
     
-    while (isEOF() == false) {
-        statements.push_back(declaration());
+    while (isAtEnd() == false) {
+        statements.push_back(parseStatement());
     }
     
     return std::move(statements);
     
 }
 
-unique_ptr<Statement> Parser::declaration() {
+unique_ptr<Statement> Parser::parseStatement() {
+    Token token = peek();
 
-    const Token& currentType = currentToken();
-
-    if (currentType.type == TokenType::SEMI_COLON) {
-        return emptyStatement();
-    }
-    
-    if (currentType.type == TokenType::LEFT_BRACKET) {
-        return blockStatement();
-    }
-    
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "VAR") {
-        return varDeclaration();
-    }
-
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "LET") {
-        return letDeclaration();
-    }
-
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "CONST") {
-        return constDeclaration();
-    }
-
-    if (currentType.type == TokenType::KEYWORD && currentType.value == "function") {
-        return functionDeclaration();
-    }
-
-//    if (currentType.type == TokenType::PRINT) {
-//        return printStatement();
-//    }
-    
-    return expressionStatement();
-
-//    advance();
-//    return emptyStatement();;
-    
-}
-
-unique_ptr<Expression> Parser::parseExpression() {
-    return parseEquality();
-}
-
-unique_ptr<Expression> Parser::parseEquality() {
-
-    auto expr = parseComparison();
-    
-    // ==, !=, ===, !==
-    if (currentToken().type == TokenType::VALUE_EQUAL || currentToken().type == TokenType::INEQUALITY || currentToken().type == TokenType::REFERENCE_EQUAL || currentToken().type == TokenType::STRICT_INEQUALITY) {
-        
-        auto tokenType = currentToken();
-        advance();
-        
-        auto rightExpr = parseComparison();
-        
-        expr = make_unique<BinaryExpression>(
-                    tokenType.value,
-                    std::move(expr),
-                    std::move(rightExpr)
-                );
-        
-    }
-    
-    return expr;
-    
-}
-
-//">", ">=", "<", "<="
-unique_ptr<Expression> Parser::parseComparison() {
-    
-    auto expr = parseTerm();
-    
-    Token token = currentToken();
-    
-    if (token.type == TokenType::GREATER_THAN || token.type == TokenType::GREATER_THAN_EQUAL || token.type == TokenType::LESS_THAN || token.type == TokenType::LESS_THAN_EQUAL) {
-        
-        advance();
-        
-        auto rightExpr = parseTerm();
-        
-        expr = make_unique<BinaryExpression>(token.value, std::move(expr), std::move(rightExpr));
-        
-    }
-    
-    return expr;
-}
-
-// +, -
-unique_ptr<Expression> Parser::parseTerm() {
-    auto expr = parseFactor();
-    
-    Token token = currentToken();
-    
-    if (token.type == TokenType::ADD || token.type == TokenType::MINUS) {
-        
-        advance();
-        
-        auto rightExpr = parseFactor();
-        
-        expr = make_unique<BinaryExpression>(token.value, std::move(expr), std::move(rightExpr));
-        
-    }
-
-    return expr;
-}
-
-// "*", "/", "%"
-unique_ptr<Expression> Parser::parseFactor() {
-    
-    auto expr = parsePower();
-    
-    Token token = currentToken();
-
-    if (token.type == TokenType::MUL || token.type == TokenType::DIV  || token.type == TokenType::MODULI) {
-        
-        advance();
-        
-        auto rightExpr = parsePower();
-
-        expr = make_unique<BinaryExpression>(token.value,
-                                             std::move(expr),
-                                             std::move(rightExpr));
-        
-    }
-
-    return expr;
-}
-
-// "**"
-unique_ptr<Expression> Parser::parsePower() {
-    
-    auto expr = parseUnary();
-    
-    Token token = currentToken();
-    
-    if (token.type == TokenType::POWER) {
-        
-        advance();
-        
-        auto rightExpr = parseUnary();
-        
-        expr = make_unique<BinaryExpression>(token.value, std::move(expr), std::move(rightExpr));
-        
-    }
-
-    return expr;
-    
-}
-
-// "!", "-"
-unique_ptr<Expression> Parser::parseUnary() {
-    
-    auto expr = parsePrimary();
-    
-    Token token = currentToken();
-    
-    if (token.type == TokenType::LOGICAL_NOT || token.type == TokenType::MINUS) {
-        
-        advance();
-        
-        auto rightExpr = parsePrimary();
-        
-        expr = make_unique<UnaryExpression>(token.value, std::move(rightExpr));
-        
-    }
-
-    return expr;
-}
-
-unique_ptr<Expression> Parser::parsePrimary() {
-    
-    Token token = currentToken();
-    unique_ptr<Expression> expr;
-    
-    if (token.type == TokenType::NUMBER) {
-        expr = make_unique<LiteralExpression>(token.value);
-        advance();
-    }
-    
-    if (token.type == TokenType::STRING) {
-        expr = make_unique<LiteralExpression>(token.value);
-        advance();
-    }
-    
-    if (token.type == TokenType::KEYWORD && (token.value == "true" || token.value == "false")) {
-        expr = make_unique<LiteralExpression>(token.value);
-        advance();
-    }
-    
-    if (token.type == TokenType::IDENTIFIER) {
-        expr = make_unique<LiteralExpression>(token.value);
-        advance();
-    }
-    
-    if (token.type == TokenType::LEFT_PARENTHESIS) {
-        auto inExpr = parseExpression();
-        consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after expression.");
-        expr = make_unique<GroupingExpression>(std::move(inExpr));
-    }
-    
-    return expr;
-        
-}
-
-unique_ptr<Statement> Parser::functionDeclaration() {
-    return emptyStatement();
-}
-
-unique_ptr<Statement> Parser::letDeclaration() {
-    
-    advance(); // consume 'let'
-    
-    const string identifier = currentToken().value;
-
-    consume(TokenType::IDENTIFIER, "Expect let's identifier name after the let keyword");
-    
-    consume(TokenType::ASSIGN, "Expect '=' after let's identifier name");
-
-    unique_ptr<Expression> expression = parseExpression();
-    
-    if (currentToken().type == TokenType::EOL) {
-        advance();
-    }
-
-    return make_unique<VarStatement>(identifier, std::move(expression));
-    
-}
-
-unique_ptr<Statement> Parser::constDeclaration() {
-    
-    advance(); // consume 'const'
-    
-    const string identifier = currentToken().value;
-
-    consume(TokenType::IDENTIFIER, "Expect const's identifier name after the const keyword");
-    
-    consume(TokenType::ASSIGN, "Expect '=' after const's identifier name");
-
-    unique_ptr<Expression> expression = parseExpression();
-    
-    if (currentToken().type == TokenType::EOL) {
-        advance();
-    }
-
-    return make_unique<VarStatement>(identifier, std::move(expression));
-    
-}
-
-unique_ptr<Statement> Parser::varDeclaration() {
-
-    advance(); // consume 'var'
-
-    const string identifier = currentToken().value;
-
-    consume(TokenType::IDENTIFIER, "Expect var's identifier name afteer the var keyword");
-    
-    consume(TokenType::ASSIGN, "Expect '=' after var's identifier name");
-
-    unique_ptr<Expression> expression = parseExpression();
-        
-    if (currentToken().type == TokenType::EOL) {
-        advance();
-    }
-    
-    return make_unique<VarStatement>(identifier, std::move(expression));
-
-}
-
-unique_ptr<Statement> Parser::printStatement() {
-    return emptyStatement();;
-
-}
-
-unique_ptr<Statement> Parser::expressionStatement() {
-    
-    auto expr = parseExpression();
-    
-    Token token = currentToken();
-    
     switch (token.type) {
-            // ++, --, +=, -+, etc
-        case TokenType::ASSIGN:
-            
-            break;
-            
-            // property access
-        case TokenType::DOT:
-            break;
-            
-            // call();
-        case TokenType::LEFT_PARENTHESIS:
-            break;
-            
-            // ++
-        case TokenType::INCREMENT:
-            break;
-            
-            // --
-        case TokenType::DECREMENT:
-            break;
-            
+        case TokenType::SEMI_COLON:       return parseEmptyStatement();
+        case TokenType::LEFT_BRACKET:     return parseBlockStatement();
+        case TokenType::KEYWORD: {
+            if (matchKeyword("if"))       return parseIfStatement();
+            if (matchKeyword("while"))    return parseWhileStatement();
+            if (matchKeyword("for"))      return parseForStatement();
+            // if (matchKeyword("do"))       return parseDoWhileStatement();
+            // if (matchKeyword("switch"))   return parseSwitchStatement();
+            // if (matchKeyword("try"))      return parseTryStatement();
+            // if (matchKeyword("throw"))    return parseThrowStatement();
+            // if (matchKeyword("return"))   return parseReturnStatement();
+            // if (matchKeyword("break"))    return parseBreakStatement();
+            // if (matchKeyword("continue")) return parseContinueStatement();
+            if (matchKeyword("var") ||
+                matchKeyword("let") ||
+                matchKeyword("const"))    return parseVariableStatement();
+            if (matchKeyword("function")) return parseFunctionDeclaration();
+            // if (matchKeyword("class"))    return parseClassDeclaration();
+        }
         default:
-            break;
+            return parseExpressionStatement();
     }
-    
-    return make_unique<ExpressionStatement>(std::move(expr));
-    
 }
 
-unique_ptr<Statement> Parser::emptyStatement() {
-    advance(); // consume ';'
+unique_ptr<Statement> Parser::parseEmptyStatement() {
+    consume(TokenType::SEMI_COLON, "Expected ';'");
     return make_unique<EmptyStatement>();
 }
 
-unique_ptr<Statement> Parser::blockStatement() {
-    advance(); // consume '{'
-    auto block = make_unique<BlockStatement>();
-    
-    while (currentToken().type != TokenType::RIGHT_BRACKET && !isEOF()) {
-        block->statements.push_back(declaration());
+unique_ptr<Statement> Parser::parseBlockStatement() {
+    consume(TokenType::LEFT_BRACKET, "Expected '{'");
+    vector<unique_ptr<Statement>> body;
+    while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+        body.push_back(parseStatement());
     }
-    
-    consume(TokenType::RIGHT_BRACKET, "Expect '}' after block.");
-    return block;
+    consume(TokenType::RIGHT_BRACKET, "Expected '}'");
+    return make_unique<BlockStatement>(std::move(body));
 }
 
-void Parser::advance() {
-    
-    if(isEOF()) {
-        return;
-    }
-    
-    index++;
+unique_ptr<Statement> Parser::parseExpressionStatement() {
+    auto expr = parseExpression();
+    consume(TokenType::SEMI_COLON, "Expected ';' after expression");
+    return make_unique<ExpressionStatement>(std::move(expr));
 }
 
-void Parser::consume(TokenType type, const std::string& message) {
-    
-    if (currentToken().type == type) {
+unique_ptr<Statement> Parser::parseIfStatement() {
+    consumeKeyword("if");
+    consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'");
+    auto test = parseExpression();
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+    auto consequent = parseStatement();
+    unique_ptr<Statement> alternate = nullptr;
+    if (matchKeyword("else")) {
+        alternate = parseStatement();
+    }
+    return make_unique<IfStatement>(std::move(test), std::move(consequent), std::move(alternate));
+}
+
+unique_ptr<Statement> Parser::parseWhileStatement() {
+    consumeKeyword("while");
+    consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'");
+    auto test = parseExpression();
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+    auto body = parseStatement();
+    return make_unique<WhileStatement>(std::move(test), std::move(body));
+}
+
+unique_ptr<Statement> Parser::parseForStatement() {
+    consumeKeyword("for");
+    consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
+
+    unique_ptr<Statement> init = nullptr;
+    if (!check(TokenType::SEMI_COLON)) {
+        if (matchKeyword("var") || matchKeyword("let") || matchKeyword("const")) {
+            init = parseVariableStatement();
+        } else {
+            init = parseExpressionStatement();
+        }
+    } else {
+        consume(TokenType::SEMI_COLON, "Expected ';'");
+    }
+
+    unique_ptr<Expression> test = nullptr;
+    if (!check(TokenType::SEMI_COLON)) {
+        test = parseExpression();
+    }
+    consume(TokenType::SEMI_COLON, "Expected ';'");
+
+    unique_ptr<Expression> update = nullptr;
+    if (!check(TokenType::RIGHT_PARENTHESIS)) {
+        update = parseExpression();
+    }
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+
+    auto body = parseStatement();
+
+    return make_unique<ForStatement>(std::move(init), std::move(test), std::move(update), std::move(body));
+}
+
+unique_ptr<Statement> Parser::parseVariableStatement() {
+    Token keyword = advance(); // var | let | const
+    vector<VariableDeclarator> declarations;
+
+    do {
+        auto id = consume(TokenType::IDENTIFIER, "Expected variable name");
+        unique_ptr<Expression> init = nullptr;
+        if (match(TokenType::ASSIGN)) {
+            init = parseAssignment();
+        }
+        declarations.push_back(VariableDeclarator{id.lexeme, std::move(init)});
+    } while (match(TokenType::COMMA));
+
+    consume(TokenType::SEMI_COLON, "Expected ';' after variable declaration");
+    return make_unique<VariableStatement>(keyword.lexeme, std::move(declarations));
+}
+
+unique_ptr<Statement> Parser::parseFunctionDeclaration() {
+    consumeKeyword("function");
+    auto id = consume(TokenType::IDENTIFIER, "Expected function name");
+    consume(TokenType::LEFT_PARENTHESIS, "Expected '('");
+    vector<string> params;
+    if (!check(TokenType::RIGHT_PARENTHESIS)) {
+        do {
+            auto param = consume(TokenType::IDENTIFIER, "Expected parameter name");
+            params.push_back(param.lexeme);
+        } while (match(TokenType::COMMA));
+    }
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+    unique_ptr<Statement> body = parseBlockStatement();
+    return make_unique<FunctionDeclaration>(id.lexeme, std::move(params), std::move(body));
+}
+
+// ---------------------
+// ClassDeclaration
+// ---------------------
+//unique_ptr<Statement> Parser::parseClassDeclaration() {
+//    consume(TokenType::CLASS, "Expect 'class'.");
+//
+//    string id = "";
+//    if (check(TokenType::IDENTIFIER)) {
+//        id = advance().lexeme;
+//    }
+//
+//    unique_ptr<Expression> superClass = nullptr;
+//    if (match(TokenType::EXTENDS)) {
+//        superClass = parseExpression();
+//    }
+//
+//    consume(TokenType::LEFT_BRACE, "Expect '{' before class body.");
+//    vector<unique_ptr<MethodDefinition>> body;
+//    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
+//        // Simplified: assume method is just identifier + block
+//        string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
+//        auto params = vector<string>(); // fill with parseParameterList() if needed
+//        auto methodBody = parseBlockStatement();
+//        body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
+//    }
+//    consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.");
+//
+//    return make_unique<ClassDeclaration>(id, std::move(superClass), std::move(body));
+//}
+
+// ---------------------
+// ContinueStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseContinueStatement() {
+//    consume(TokenType::CONTINUE, "Expect 'continue'.");
+//    string label = "";
+//    if (check(TokenType::IDENTIFIER)) {
+//        label = advance().lexeme;
+//    }
+//    consume(TokenType::SEMICOLON, "Expect ';' after continue.");
+//    return make_unique<ContinueStatement>(label);
+//}
+
+// ---------------------
+// DoWhileStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseDoWhileStatement() {
+//    consume(TokenType::DO, "Expect 'do'.");
+//    auto body = parseStatement();
+//    consume(TokenType::WHILE, "Expect 'while' after do-while body.");
+//    consume(TokenType::LEFT_PAREN, "Expect '(' after while.");
+//    auto condition = parseExpression();
+//    consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
+//    consume(TokenType::SEMICOLON, "Expect ';' after do-while.");
+//    return make_unique<DoWhileStatement>(std::move(body), std::move(condition));
+//}
+
+// ---------------------
+// SwitchStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseSwitchStatement() {
+//    consume(TokenType::SWITCH, "Expect 'switch'.");
+//    consume(TokenType::LEFT_PAREN, "Expect '(' after 'switch'.");
+//    auto discriminant = parseExpression();
+//    consume(TokenType::RIGHT_PAREN, "Expect ')' after switch discriminant.");
+//    consume(TokenType::LEFT_BRACE, "Expect '{' before switch body.");
+//
+//    vector<unique_ptr<SwitchCase>> cases;
+//    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
+//        if (match(TokenType::CASE)) {
+//            auto test = parseExpression();
+//            consume(TokenType::COLON, "Expect ':' after case.");
+//            vector<unique_ptr<Statement>> consequent;
+//            while (!check(TokenType::CASE) && !check(TokenType::DEFAULT) && !check(TokenType::RIGHT_BRACE)) {
+//                consequent.push_back(parseStatement());
+//            }
+//            cases.push_back(make_unique<SwitchCase>(std::move(test), std::move(consequent)));
+//        } else if (match(TokenType::DEFAULT)) {
+//            consume(TokenType::COLON, "Expect ':' after default.");
+//            vector<unique_ptr<Statement>> consequent;
+//            while (!check(TokenType::CASE) && !check(TokenType::RIGHT_BRACE)) {
+//                consequent.push_back(parseStatement());
+//            }
+//            cases.push_back(make_unique<SwitchCase>(nullptr, std::move(consequent)));
+//        } else {
+//            throw error(peek(), "Unexpected token in switch.");
+//        }
+//    }
+//
+//    consume(TokenType::RIGHT_BRACE, "Expect '}' after switch cases.");
+//    return make_unique<SwitchStatement>(std::move(discriminant), std::move(cases));
+//}
+
+// ---------------------
+// ReturnStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseReturnStatement() {
+//    consume(TokenType::RETURN, "Expect 'return'.");
+//    unique_ptr<Expression> value = nullptr;
+//    if (!check(TokenType::SEMICOLON)) {
+//        value = parseExpression();
+//    }
+//    consume(TokenType::SEMICOLON, "Expect ';' after return.");
+//    return make_unique<ReturnStatement>(std::move(value));
+//}
+
+// ---------------------
+// ThrowStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseThrowStatement() {
+//    consume(TokenType::THROW, "Expect 'throw'.");
+//    auto expr = parseExpression();
+//    consume(TokenType::SEMICOLON, "Expect ';' after throw.");
+//    return make_unique<ThrowStatement>(std::move(expr));
+//}
+
+// ---------------------
+// BreakStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseBreakStatement() {
+//    consume(TokenType::BREAK, "Expect 'break'.");
+//    string label = "";
+//    if (check(TokenType::IDENTIFIER)) {
+//        label = advance().lexeme;
+//    }
+//    consume(TokenType::SEMICOLON, "Expect ';' after break.");
+//    return make_unique<BreakStatement>(label);
+//}
+
+// ---------------------
+// TryStatement
+// ---------------------
+//unique_ptr<Statement> Parser::parseTryStatement() {
+//    consume(TokenType::TRY, "Expect 'try'.");
+//    auto block = parseBlockStatement();
+//
+//    unique_ptr<CatchClause> handler = nullptr;
+//    if (match(TokenType::CATCH)) {
+//        consume(TokenType::LEFT_PAREN, "Expect '(' after catch.");
+//        string param = consume(TokenType::IDENTIFIER, "Expect identifier in catch.").lexeme;
+//        consume(TokenType::RIGHT_PAREN, "Expect ')' after catch param.");
+//        auto body = parseBlockStatement();
+//        handler = make_unique<CatchClause>(param, std::move(body));
+//    }
+//
+//    unique_ptr<BlockStatement> finalizer = nullptr;
+//    if (match(TokenType::FINALLY)) {
+//        finalizer = parseBlockStatement();
+//    }
+//
+//    return make_unique<TryStatement>(std::move(block), std::move(handler), std::move(finalizer));
+//}
+
+// ───────────── Helpers (match, consume, check, etc.) ─────────────
+
+// Try to match a single token type
+bool Parser::match(TokenType type) {
+    if (check(type)) {
         advance();
-        return;
-    }
-    
-    throw std::runtime_error(message);
-    
-}
-
-const Token& Parser::currentToken() {
-    return tokens[index];
-}
-
-bool Parser::isEOF() {
-
-    if (currentToken().type == TokenType::END_OF_FILE) {
         return true;
     }
-    
     return false;
-    
+}
+
+// Try to match one of several token types
+bool Parser::match(std::initializer_list<TokenType> types) {
+    for (auto t : types) {
+        if (check(t)) {
+            advance();
+            return true;
+        }
+    }
+    return false;
+}
+
+// Ensure the next token matches `type` or throw
+Token Parser::consume(TokenType type, const std::string& message) {
+    if (check(type)) return advance();
+    throw std::runtime_error("Parse error: expected " + message);
+}
+
+// Check if current token is of given type without consuming
+bool Parser::check(TokenType type) {
+    if (isAtEnd()) return false;
+    return peek().type == type;
+}
+
+// Advance one token and return the previous one
+Token Parser::advance() {
+    if (!isAtEnd()) current++;
+    return previous();
+}
+
+// Look at current token
+Token Parser::peek() {
+    return tokens[current];
+}
+
+// Look at most recently consumed token
+Token Parser::previous() {
+    return tokens[current - 1];
+}
+
+// EOF check
+bool Parser::isAtEnd() {
+    return peek().type == TokenType::END_OF_FILE;
+}
+
+bool Parser::matchKeyword(string keyword) {
+    if (check(peek().type)) {
+        advance();
+        return true;
+    }
+    return false;
+}
+
+bool Parser::checkKeyword(string keyword) {
+    if (isAtEnd()) return false;
+    return peek().lexeme == keyword;
+}
+
+Token Parser::consumeKeyword(string keyword) {
+    if (checkKeyword(keyword)) return advance();
+    throw std::runtime_error("Parse error: expected " + keyword);
 }

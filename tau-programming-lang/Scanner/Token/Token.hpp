@@ -18,7 +18,7 @@ class Token {
 
 public:
     TokenType type;
-    string value;
+    string lexeme;
     
 };
 
