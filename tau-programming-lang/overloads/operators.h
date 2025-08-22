@@ -17,6 +17,7 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::COMMA: return os << "COMMA";
         case TokenType::SPREAD: return os << "SPREAD";
         case TokenType::DOT: return os << "DOT";
+        case TokenType::SEMI_COLON: return os << "SEMI_COLON";
         case TokenType::COLON: return os << "COLON";
         case TokenType::LEFT_PARENTHESIS: return os << "LEFT_PARENTHESIS";
         case TokenType::RIGHT_PARENTHESIS: return os << "RIGHT_PARENTHESIS";
@@ -73,6 +74,7 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::STRING: return os << "STRING";
         case TokenType::NUMBER: return os << "NUMBER";
         case TokenType::IDENTIFIER: return os << "IDENTIFIER";
+        case TokenType::BOOLEAN: return os << "BOOLEAN";
         case TokenType::KEYWORD: return os << "KEYWORD";
         case TokenType::END_OF_FILE: return os << "END_OF_FILE";
         default: return os << "UNKNOWN";
