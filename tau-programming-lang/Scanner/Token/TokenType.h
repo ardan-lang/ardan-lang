@@ -70,6 +70,7 @@ enum class TokenType {
     NUMBER,
     IDENTIFIER,
     KEYWORD,
+    BOOLEAN,
     END_OF_FILE,
 };
 
