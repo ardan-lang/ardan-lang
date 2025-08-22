@@ -284,7 +284,7 @@ private:
                 vector<unique_ptr<Expression>> args;
                 if (!check(TokenType::RIGHT_PARENTHESIS)) {
                     do {
-                        args.push_back(parseExpression());
+                        args.push_back(parseAssignment());
                     } while (match(TokenType::COMMA));
                 }
                 consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after arguments");
