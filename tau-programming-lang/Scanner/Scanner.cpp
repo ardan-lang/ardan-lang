@@ -518,14 +518,14 @@ void Scanner::collectIdentifier() {
     
     if(isKeyword(identifier)) {
         
-        if (keywords[identifier] == "TRUE" || keywords[identifier] == "FALSE") {
-            
-            addToken(TokenType::BOOLEAN, keywords[identifier]);
-            
+        std::string kw = keywords[identifier];
+
+        if (kw == "TRUE" || kw == "FALSE") {
+            addToken(TokenType::BOOLEAN, kw);
+        } else if (kw == "CLASS") {
+            addToken(TokenType::CLASS, kw);
         } else {
-            
-            addToken(TokenType::KEYWORD, keywords[identifier]);
-            
+            addToken(TokenType::KEYWORD, kw);
         }
 
     } else {

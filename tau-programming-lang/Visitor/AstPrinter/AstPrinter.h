@@ -60,18 +60,6 @@ public:
 //        }
     }
     
-//    void _visitVariable(VariableStatement* stmt) override {
-//        printIndent(); std::cout << "VariableDeclaration " << stmt->id;
-//        if (stmt->init) {
-//            std::cout << " =\n";
-//            indent++;
-//            stmt->init->accept(*this);
-//            indent--;
-//        } else {
-//            std::cout << "\n";
-//        }
-//    }
-
     void visitFunction(FunctionDeclaration* stmt) override {
         printIndent(); std::cout << "Function " << stmt->id << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
@@ -266,19 +254,26 @@ public:
     }
     
     void visitSuper(SuperExpression* expr) override {
-        
+        printIndent(); std::cout << "Super:\n";
+
     }
     
     void visitProperty(PropertyExpression* expr) override {
-        
+        printIndent(); std::cout << "Property:\n";
+
     }
     
     void visitSequence(SequenceExpression* expr) override {
-        
+        printIndent(); std::cout << "Sequence:\n";
+        indent++;
+        for(auto& expr : expr -> expressions) {
+            expr->accept(*this);
+        }
+        indent--;
     }
     
     void visitEmpty(EmptyStatement* stmt) override {
-        
+        printIndent(); std::cout << "Empty\n";
     }
     
      void visitFalseKeyword(FalseKeyword* expr) override {
@@ -302,7 +297,26 @@ public:
          cout << expr -> text << "\n";
          indent--;
      }
+    
+    void visitClass(ClassDeclaration* stmt) override {
+        printIndent(); std::cout << "Class " << stmt->id << " {\n";
+        indent++;
+        for (auto& method : stmt->body) {
+            method->accept(*this);
+        }
+        indent--;
+        printIndent(); std::cout << "}\n";
+    }
 
+    void visitMethodDefinition(MethodDefinition* stmt) override {
+        printIndent(); std::cout << "Method " << stmt->name << "(";
+        for (size_t i = 0; i < stmt->params.size(); i++) {
+            std::cout << stmt->params[i];
+            if (i < stmt->params.size() - 1) std::cout << ", ";
+        }
+        std::cout << ") ";
+        stmt->methodBody->accept(*this);
+    }
     
 };
 

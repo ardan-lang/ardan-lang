@@ -46,6 +46,14 @@ int main(int argc, const char * argv[]) {
                       var t= 90;
                       var g= sqrt();
                       print(g,d,t,34);
+                          (g,d,t,34);
+    var x = (1, 2, 3);
+    class Foo {
+        greet(name, age) {
+            print(name, age);
+        }
+    }
+
     )";
 
     Scanner scanner(lang);

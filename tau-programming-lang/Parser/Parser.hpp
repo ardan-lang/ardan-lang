@@ -42,7 +42,8 @@ private:
     // unique_ptr<Statement> parseContinueStatement();
     unique_ptr<Statement> parseVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
-    // unique_ptr<Statement> parseClassDeclaration();
+    unique_ptr<Statement> parseClassDeclaration();
+    vector<string> parseParameterList();
     unique_ptr<Statement> parseExpressionStatement();
 
     // ───────────── Helpers (match, consume, check, etc.) ─────────────

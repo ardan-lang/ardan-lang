@@ -76,6 +76,8 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::IDENTIFIER: return os << "IDENTIFIER";
         case TokenType::BOOLEAN: return os << "BOOLEAN";
         case TokenType::KEYWORD: return os << "KEYWORD";
+        case TokenType::CLASS: return os << "CLASS";
+        case TokenType::EXTENDS: return os << "EXTENDS";
         case TokenType::END_OF_FILE: return os << "END_OF_FILE";
         default: return os << "UNKNOWN";
     }

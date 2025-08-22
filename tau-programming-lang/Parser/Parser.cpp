@@ -43,8 +43,9 @@ unique_ptr<Statement> Parser::parseStatement() {
                 peek().lexeme == ("LET") ||
                 peek().lexeme == ("CONST"))    return parseVariableStatement();
             if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
-            // if (peek().lexeme == ("class"))    return parseClassDeclaration();
         }
+        case TokenType::CLASS:
+            return parseClassDeclaration();
         default:
             return parseExpressionStatement();
     }
@@ -161,32 +162,50 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
 // ---------------------
 // ClassDeclaration
 // ---------------------
-//unique_ptr<Statement> Parser::parseClassDeclaration() {
-//    consume(TokenType::CLASS, "Expect 'class'.");
-//
-//    string id = "";
-//    if (check(TokenType::IDENTIFIER)) {
-//        id = advance().lexeme;
-//    }
-//
-//    unique_ptr<Expression> superClass = nullptr;
-//    if (match(TokenType::EXTENDS)) {
-//        superClass = parseExpression();
-//    }
-//
-//    consume(TokenType::LEFT_BRACE, "Expect '{' before class body.");
-//    vector<unique_ptr<MethodDefinition>> body;
-//    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
-//        // Simplified: assume method is just identifier + block
-//        string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
-//        auto params = vector<string>(); // fill with parseParameterList() if needed
-//        auto methodBody = parseBlockStatement();
-//        body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
-//    }
-//    consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.");
-//
-//    return make_unique<ClassDeclaration>(id, std::move(superClass), std::move(body));
-//}
+unique_ptr<Statement> Parser::parseClassDeclaration() {
+    consume(TokenType::CLASS, "Expect 'class'.");
+
+    string id = "";
+    if (check(TokenType::IDENTIFIER)) {
+        id = advance().lexeme;
+    }
+
+    unique_ptr<Expression> superClass = nullptr;
+    if (match(TokenType::EXTENDS)) {
+        superClass = parseExpression();
+    }
+
+    consume(TokenType::LEFT_BRACKET, "Expect '{' before class body.");
+    vector<unique_ptr<MethodDefinition>> body;
+    while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+        
+        // The parser is not implementing the full JavaScript/TypeScript/ECMAScript method syntax
+        // (which can include things like async, static, getters/setters, parameter lists with default values, type annotations, etc.).
+        
+        const string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
+        vector<string> params = parseParameterList();
+        unique_ptr<Statement> methodBody = parseBlockStatement();
+        body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
+    }
+    consume(TokenType::RIGHT_BRACKET, "Expect '}' after class body.");
+
+    return make_unique<ClassDeclaration>(id, std::move(superClass), std::move(body));
+}
+
+vector<string> Parser::parseParameterList() {
+    vector<string> params;
+
+    consume(TokenType::LEFT_PARENTHESIS, "Expect '(' before parameter list.");
+    if (!check(TokenType::RIGHT_PARENTHESIS)) {
+        do {
+            string param = consume(TokenType::IDENTIFIER, "Expect parameter name.").lexeme;
+            params.push_back(param);
+        } while (match(TokenType::COMMA));
+    }
+    consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after parameters.");
+
+    return params;
+}
 
 // ---------------------
 // ContinueStatement

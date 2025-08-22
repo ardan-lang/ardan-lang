@@ -9,17 +9,17 @@
 #define TokenType_h
 
 enum class TokenType {
-    COMMA,
+    COMMA, // ,
     SPREAD,
-    DOT,
+    DOT, // .
     SEMI_COLON, // ;
     COLON, // :
     LEFT_PARENTHESIS,
     RIGHT_PARENTHESIS,
-    LEFT_BRACKET,
-    RIGHT_BRACKET,
-    LEFT_SQUARE_BRACKET,
-    RIGHT_SQUARE_BRACKET,
+    LEFT_BRACKET, // {
+    RIGHT_BRACKET, // }
+    LEFT_SQUARE_BRACKET, // [
+    RIGHT_SQUARE_BRACKET, // [
     REFERENCE_EQUAL,
     VALUE_EQUAL,
     ASSIGN,
@@ -71,6 +71,8 @@ enum class TokenType {
     IDENTIFIER,
     KEYWORD,
     BOOLEAN,
+    CLASS,
+    EXTENDS,
     END_OF_FILE,
 };
 

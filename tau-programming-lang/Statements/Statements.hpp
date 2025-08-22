@@ -219,4 +219,34 @@ public:
     }
 };
 
+class MethodDefinition : public Statement {
+public:
+    const string name;
+    vector<string> params;
+    unique_ptr<Statement> methodBody;
+    MethodDefinition(const string name, vector<string> params, unique_ptr<Statement> methodBody) : name(name), params(std::move(params)), methodBody(std::move(methodBody)) {}
+    
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitMethodDefinition(this);
+    }
+
+};
+
+class ClassDeclaration : public Statement {
+public:
+    const string id;
+    unique_ptr<Expression> superClass;
+    vector<unique_ptr<MethodDefinition>> body;
+    
+    ClassDeclaration(const string id,
+                     unique_ptr<Expression> superClass,
+                     vector<unique_ptr<MethodDefinition>> body) : id(id), superClass(std::move(superClass)), body(std::move(body)) {
+    };
+    
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitClass(this);
+    }
+
+};
+
 #endif /* Statements_hpp */
