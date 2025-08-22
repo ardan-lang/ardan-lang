@@ -18,23 +18,34 @@ int main(int argc, const char * argv[]) {
     
     string _lang = R"(
                       
-                      var mod = 8%5
-                      var bl = true
-                      var m %= 9
+                      var mod = 8%5;
+                      var bl = true;
+                      mod %= 9;
                     
-                      var square = 9**9
-                      var ref = ref1 == uiop
-                      var d="nnamdi chidume"
-                      var t= 90
-                      var g= sqrt()
-                      print(g,d,t,34)
+                      var square = 9**9;
+                      var ref = ref1 == uiop;
+                      var d="nnamdi chidume";
+                      var t= 90;
+                      var g= sqrt();
+                      print(g,d,t,34);
+                    
+                        m = 9; m+=8; i++; i--;
+                        --i;
+                        ++i;
+                        call();
+
                     )";
     
     string lang = R"(
-    m = 9; m+=8; i++; i--;
-    --i;
-    ++i;
-    call();
+                      var mod = 8%5;
+                      var bl = true;
+                      mod %= 9;
+                      var square = 9**9;
+                      var ref = ref1 == uiop;
+                      var d="nnamdi chidume";
+                      var t= 90;
+                      var g= sqrt();
+                      print(g,d,t,34);
     )";
 
     Scanner scanner(lang);

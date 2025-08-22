@@ -42,7 +42,14 @@ public:
     }
 
     void visitVariable(VariableStatement* stmt) override {
-//        printIndent(); std::cout << "VariableDeclaration " << stmt->id;
+        printIndent(); std::cout << "VariableDeclaration " << stmt->kind;
+        std::cout << " =\n";
+        indent++;
+        for (auto& declarator : stmt->declarations) {
+            std::cout << declarator.id << "\n";
+            declarator.init->accept(*this);
+        }
+        indent--;
 //        if (stmt->init) {
 //            std::cout << " =\n";
 //            indent++;
@@ -52,6 +59,18 @@ public:
 //            std::cout << "\n";
 //        }
     }
+    
+//    void _visitVariable(VariableStatement* stmt) override {
+//        printIndent(); std::cout << "VariableDeclaration " << stmt->id;
+//        if (stmt->init) {
+//            std::cout << " =\n";
+//            indent++;
+//            stmt->init->accept(*this);
+//            indent--;
+//        } else {
+//            std::cout << "\n";
+//        }
+//    }
 
     void visitFunction(FunctionDeclaration* stmt) override {
         printIndent(); std::cout << "Function " << stmt->id << "(";
@@ -143,7 +162,7 @@ public:
     }
 
     void visitIdentifier(IdentifierExpression* expr) override {
-        printIndent(); std::cout << "Identifier(" << expr->name << ")\n";
+        printIndent(); std::cout << "Identifier(" << expr->name << expr->previous.lexeme << ")\n";
     }
 
     void visitBinary(BinaryExpression* expr) override {
@@ -199,6 +218,7 @@ public:
     void visitCall(CallExpression* expr) override {
         printIndent(); std::cout << "Call\n";
         indent++;
+        expr -> callee -> accept(*this);
         // expr->expression->accept(*this);
         for (auto& arg : expr->arguments) {
             arg->accept(*this);
@@ -260,6 +280,29 @@ public:
     void visitEmpty(EmptyStatement* stmt) override {
         
     }
+    
+     void visitFalseKeyword(FalseKeyword* expr) override {
+         printIndent(); std::cout << "False\n";
+     }
+    
+     void visitTrueKeyword(TrueKeyword* expr) override {
+         printIndent(); std::cout << "True\n";
+     }
+    
+     void visitNumericLiteral(NumericLiteral* expr) override {
+         printIndent(); std::cout << "Numeric ";
+         indent++;
+         cout << expr -> text << "\n";
+         indent--;
+     }
+    
+     void visitStringLiteral(StringLiteral* expr) override {
+         printIndent(); std::cout << "String ";
+         indent++;
+         cout << expr -> text << "\n";
+         indent--;
+     }
+
     
 };
 
