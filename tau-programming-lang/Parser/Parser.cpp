@@ -56,6 +56,9 @@ unique_ptr<Statement> Parser::parseEmptyStatement() {
     return make_unique<EmptyStatement>();
 }
 
+// ---------------------
+// Block Statement
+// ---------------------
 unique_ptr<Statement> Parser::parseBlockStatement() {
     consume(TokenType::LEFT_BRACKET, "Expected '{'");
     vector<unique_ptr<Statement>> body;
@@ -72,6 +75,9 @@ unique_ptr<Statement> Parser::parseExpressionStatement() {
     return make_unique<ExpressionStatement>(std::move(expr));
 }
 
+// ---------------------
+// If Statement
+// ---------------------
 unique_ptr<Statement> Parser::parseIfStatement() {
     consumeKeyword("if");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'");
@@ -85,6 +91,9 @@ unique_ptr<Statement> Parser::parseIfStatement() {
     return make_unique<IfStatement>(std::move(test), std::move(consequent), std::move(alternate));
 }
 
+// ---------------------
+// While Statement
+// ---------------------
 unique_ptr<Statement> Parser::parseWhileStatement() {
     consumeKeyword("while");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'");
@@ -94,6 +103,9 @@ unique_ptr<Statement> Parser::parseWhileStatement() {
     return make_unique<WhileStatement>(std::move(test), std::move(body));
 }
 
+// ---------------------
+// For Statement
+// ---------------------
 unique_ptr<Statement> Parser::parseForStatement() {
     consumeKeyword("for");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
@@ -126,6 +138,9 @@ unique_ptr<Statement> Parser::parseForStatement() {
     return make_unique<ForStatement>(std::move(init), std::move(test), std::move(update), std::move(body));
 }
 
+// ---------------------
+// Variable Statement
+// ---------------------
 unique_ptr<Statement> Parser::parseVariableStatement() {
     Token keyword = advance(); // var | let | const
     vector<VariableDeclarator> declarations;
@@ -143,6 +158,9 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
     return make_unique<VariableStatement>(keyword.lexeme, std::move(declarations));
 }
 
+// ---------------------
+// Function Declaration
+// ---------------------
 unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     consumeKeyword("function");
     auto id = consume(TokenType::IDENTIFIER, "Expected function name");
@@ -160,7 +178,7 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
 }
 
 // ---------------------
-// ClassDeclaration
+// Class Declaration
 // ---------------------
 unique_ptr<Statement> Parser::parseClassDeclaration() {
     consume(TokenType::CLASS, "Expect 'class'.");
@@ -208,7 +226,7 @@ vector<string> Parser::parseParameterList() {
 }
 
 // ---------------------
-// ContinueStatement
+// Continue Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseContinueStatement() {
     consumeKeyword("CONTINUE");
@@ -221,7 +239,7 @@ unique_ptr<Statement> Parser::parseContinueStatement() {
 }
 
 // ---------------------
-// DoWhileStatement
+// Do-While Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseDoWhileStatement() {
     consumeKeyword("DO");
@@ -235,7 +253,7 @@ unique_ptr<Statement> Parser::parseDoWhileStatement() {
 }
 
 // ---------------------
-// SwitchStatement
+// Switch Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseSwitchStatement() {
     consumeKeyword("SWITCH"); // "Expect 'switch'.");
@@ -272,7 +290,7 @@ unique_ptr<Statement> Parser::parseSwitchStatement() {
 }
 
 // ---------------------
-// ReturnStatement
+// Return Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseReturnStatement() {
     consumeKeyword("RETURN");
@@ -285,7 +303,7 @@ unique_ptr<Statement> Parser::parseReturnStatement() {
 }
 
 // ---------------------
-// ThrowStatement
+// Throw Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseThrowStatement() {
     consumeKeyword("THROW"); // "Expect 'throw'.");
@@ -295,7 +313,7 @@ unique_ptr<Statement> Parser::parseThrowStatement() {
 }
 
 // ---------------------
-// BreakStatement
+// Break Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseBreakStatement() {
     consumeKeyword("BREAK");
@@ -308,7 +326,7 @@ unique_ptr<Statement> Parser::parseBreakStatement() {
 }
 
 // ---------------------
-// TryStatement
+// Try Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseTryStatement() {
     consumeKeyword("TRY", "Expect 'try'.");
