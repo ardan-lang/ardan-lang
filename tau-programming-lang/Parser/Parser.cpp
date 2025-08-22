@@ -29,21 +29,21 @@ unique_ptr<Statement> Parser::parseStatement() {
         case TokenType::SEMI_COLON:       return parseEmptyStatement();
         case TokenType::LEFT_BRACKET:     return parseBlockStatement();
         case TokenType::KEYWORD: {
-            if (matchKeyword("if"))       return parseIfStatement();
-            if (matchKeyword("while"))    return parseWhileStatement();
-            if (matchKeyword("for"))      return parseForStatement();
-            // if (matchKeyword("do"))       return parseDoWhileStatement();
-            // if (matchKeyword("switch"))   return parseSwitchStatement();
-            // if (matchKeyword("try"))      return parseTryStatement();
-            // if (matchKeyword("throw"))    return parseThrowStatement();
-            // if (matchKeyword("return"))   return parseReturnStatement();
-            // if (matchKeyword("break"))    return parseBreakStatement();
-            // if (matchKeyword("continue")) return parseContinueStatement();
-            if (matchKeyword("var") ||
-                matchKeyword("let") ||
-                matchKeyword("const"))    return parseVariableStatement();
-            if (matchKeyword("function")) return parseFunctionDeclaration();
-            // if (matchKeyword("class"))    return parseClassDeclaration();
+            if (peek().lexeme == ("IF"))       return parseIfStatement();
+            if (peek().lexeme == ("WHILE"))    return parseWhileStatement();
+            if (peek().lexeme == ("FOR"))      return parseForStatement();
+            // if (peek().lexeme == ("do"))       return parseDoWhileStatement();
+            // if (peek().lexeme == ("switch"))   return parseSwitchStatement();
+            // if (peek().lexeme == ("try"))      return parseTryStatement();
+            // if (peek().lexeme == ("throw"))    return parseThrowStatement();
+            // if (peek().lexeme == ("return"))   return parseReturnStatement();
+            // if (peek().lexeme == ("break"))    return parseBreakStatement();
+            // if (peek().lexeme == ("continue")) return parseContinueStatement();
+            if (peek().lexeme == ("VAR") ||
+                peek().lexeme == ("LET") ||
+                peek().lexeme == ("CONST"))    return parseVariableStatement();
+            if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
+            // if (peek().lexeme == ("class"))    return parseClassDeclaration();
         }
         default:
             return parseExpressionStatement();
@@ -366,20 +366,21 @@ bool Parser::isAtEnd() {
     return peek().type == TokenType::END_OF_FILE;
 }
 
-bool Parser::matchKeyword(string keyword) {
-    if (check(peek().type)) {
+bool Parser::checkKeyword(const string& keyword) {
+    if (isAtEnd()) return false;
+    return peek().lexeme == keyword;
+}
+
+bool Parser::matchKeyword(const string& keyword) {
+    if (checkKeyword(keyword)) {
         advance();
         return true;
     }
     return false;
 }
 
-bool Parser::checkKeyword(string keyword) {
-    if (isAtEnd()) return false;
-    return peek().lexeme == keyword;
+Token Parser::consumeKeyword(const string& keyword) {
+    if (checkKeyword(keyword)) return advance();
+    throw std::runtime_error("Parse error: expected keyword '" + keyword + "'");
 }
 
-Token Parser::consumeKeyword(string keyword) {
-    if (checkKeyword(keyword)) return advance();
-    throw std::runtime_error("Parse error: expected " + keyword);
-}

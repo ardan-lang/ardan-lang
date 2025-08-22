@@ -48,11 +48,13 @@ private:
     // ───────────── Helpers (match, consume, check, etc.) ─────────────
 
     bool match(TokenType type);
-    bool matchKeyword(string keyword);
     bool match(initializer_list<TokenType> types);
     Token consume(TokenType type, const string& message);
-    Token consumeKeyword(string keyword);
-    bool checkKeyword(string keyword);
+
+    Token consumeKeyword(const string& keyword);
+    bool checkKeyword(const string& keyword);
+    bool matchKeyword(const string& keyword);
+
     bool check(TokenType type);
     Token advance();
     Token peek();
@@ -317,8 +319,17 @@ private:
     // ───────────── Primary expressions ─────────────
 
     unique_ptr<Expression> parsePrimary() {
-        if (match(TokenType::NUMBER)) return make_unique<LiteralExpression>(previous());
-        if (match(TokenType::STRING)) return make_unique<LiteralExpression>(previous());
+        if (match(TokenType::BOOLEAN)) {
+            if (previous().lexeme == "TRUE") {
+                return make_unique<TrueKeyword>();
+            }
+            
+            if (previous().lexeme == "FALSE") {
+                return make_unique<FalseKeyword>();
+            }
+        }
+        if (match(TokenType::NUMBER)) return make_unique<NumericLiteral>(previous().lexeme);
+        if (match(TokenType::STRING)) return make_unique<StringLiteral>(previous().lexeme);
         if (match(TokenType::IDENTIFIER)) return make_unique<IdentifierExpression>(previous());
         if (match(TokenType::KEYWORD)) {
             auto kw = previous();
@@ -353,6 +364,8 @@ private:
             consume(TokenType::RIGHT_BRACKET, "Expected '}'");
             return make_unique<ObjectLiteralExpression>(std::move(props));
         }
+        
+        cout << peek().lexeme << endl;
 
         throw error(peek(), "Unexpected token in primary expression");
     }
