@@ -224,7 +224,7 @@ vector<Token>& Scanner::getTokens() {
                     
                 }
                 
-                addToken(TokenType::MODULI);
+                addToken(TokenType::MODULI, "%");
                 break;
                 
             case '<':
@@ -467,7 +467,6 @@ void Scanner::collectString() {
     
     addToken(TokenType::STRING, concat);
     concat = "";
-    advance();
 
 }
 
@@ -484,7 +483,6 @@ void Scanner::collectLiteralString() {
     
     addToken(TokenType::STRING, concat);
     concat = "";
-    advance();
 
 }
 
@@ -520,7 +518,15 @@ void Scanner::collectIdentifier() {
     
     if(isKeyword(identifier)) {
         
-        addToken(TokenType::KEYWORD, keywords[identifier]);
+        if (keywords[identifier] == "TRUE" || keywords[identifier] == "FALSE") {
+            
+            addToken(TokenType::BOOLEAN, keywords[identifier]);
+            
+        } else {
+            
+            addToken(TokenType::KEYWORD, keywords[identifier]);
+            
+        }
 
     } else {
         
