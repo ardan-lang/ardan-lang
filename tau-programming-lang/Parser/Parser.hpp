@@ -34,7 +34,7 @@ private:
     unique_ptr<Statement> parseForStatement();
     unique_ptr<Statement> parseDoWhileStatement();
     unique_ptr<Statement> parseSwitchStatement();
-    // unique_ptr<Statement> parseTryStatement();
+    unique_ptr<Statement> parseTryStatement();
     unique_ptr<Statement> parseThrowStatement();
     unique_ptr<Statement> parseReturnStatement();
     
@@ -46,7 +46,7 @@ private:
     vector<string> parseParameterList();
     unique_ptr<Statement> parseExpressionStatement();
 
-    // ───────────── Helpers (match, consume, check, etc.) ─────────────
+    // ───────────── Helpers ─────────────
 
     bool match(TokenType type);
     bool match(initializer_list<TokenType> types);

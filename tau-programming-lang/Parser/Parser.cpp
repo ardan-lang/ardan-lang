@@ -34,7 +34,7 @@ unique_ptr<Statement> Parser::parseStatement() {
             if (peek().lexeme == ("FOR"))      return parseForStatement();
             if (peek().lexeme == ("DO"))       return parseDoWhileStatement();
             if (peek().lexeme == ("SWITCH"))   return parseSwitchStatement();
-            // if (peek().lexeme == ("TRY"))      return parseTryStatement();
+            if (peek().lexeme == ("TRY"))      return parseTryStatement();
             if (peek().lexeme == ("THROW"))    return parseThrowStatement();
             if (peek().lexeme == ("RETURN"))   return parseReturnStatement();
             if (peek().lexeme == ("BREAK"))    return parseBreakStatement();
@@ -310,26 +310,26 @@ unique_ptr<Statement> Parser::parseBreakStatement() {
 // ---------------------
 // TryStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseTryStatement() {
-//    consume(TokenType::TRY, "Expect 'try'.");
-//    auto block = parseBlockStatement();
-//
-//    unique_ptr<CatchClause> handler = nullptr;
-//    if (match(TokenType::CATCH)) {
-//        consume(TokenType::LEFT_PAREN, "Expect '(' after catch.");
-//        string param = consume(TokenType::IDENTIFIER, "Expect identifier in catch.").lexeme;
-//        consume(TokenType::RIGHT_PAREN, "Expect ')' after catch param.");
-//        auto body = parseBlockStatement();
-//        handler = make_unique<CatchClause>(param, std::move(body));
-//    }
-//
-//    unique_ptr<BlockStatement> finalizer = nullptr;
-//    if (match(TokenType::FINALLY)) {
-//        finalizer = parseBlockStatement();
-//    }
-//
-//    return make_unique<TryStatement>(std::move(block), std::move(handler), std::move(finalizer));
-//}
+unique_ptr<Statement> Parser::parseTryStatement() {
+    consumeKeyword("TRY", "Expect 'try'.");
+    auto block = parseBlockStatement();
+
+    unique_ptr<CatchClause> handler = nullptr;
+    if (matchKeyword("CATCH")) {
+        consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after catch.");
+        string param = consume(TokenType::IDENTIFIER, "Expect identifier in catch.").lexeme;
+        consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after catch param.");
+        auto body = parseBlockStatement();
+        handler = make_unique<CatchClause>(param, std::move(body));
+    }
+
+    unique_ptr<Statement> finalizer = nullptr;
+    if (matchKeyword("FINALLY")) {
+        finalizer = parseBlockStatement();
+    }
+
+    return make_unique<TryStatement>(std::move(block), std::move(handler), std::move(finalizer));
+}
 
 // ───────────── Helpers ─────────────
 

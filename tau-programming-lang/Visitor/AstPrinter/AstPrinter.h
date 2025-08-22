@@ -359,6 +359,50 @@ public:
         cout << "}\n";
     }
     
+    void visitCatch(CatchClause* stmt) override {
+        printIndent();
+        cout << "catch (" << stmt->param << ") ";
+        if (stmt->body) {
+            cout << "{\n";
+            indent++;
+            stmt->body->accept(*this);
+            indent--;
+            printIndent();
+            cout << "}\n";
+        } else {
+            cout << "{}\n";
+        }
+    }
+
+    void visitTry(TryStatement* stmt) override {
+        printIndent();
+        cout << "try ";
+        if (stmt->block) {
+            cout << "{\n";
+            indent++;
+            stmt->block->accept(*this);
+            indent--;
+            printIndent();
+            cout << "}";
+        }
+        cout << "\n";
+
+        if (stmt->handler) {
+            stmt->handler->accept(*this);
+        }
+
+        if (stmt->finalizer) {
+            printIndent();
+            cout << "finally ";
+            cout << "{\n";
+            indent++;
+            stmt->finalizer->accept(*this);
+            indent--;
+            printIndent();
+            cout << "}\n";
+        }
+    }
+
     
 };
 

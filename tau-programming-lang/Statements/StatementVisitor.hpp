@@ -28,6 +28,8 @@ class MethodDefinition;
 class DoWhileStatement;
 class SwitchStatement;
 class SwitchCase;
+class TryStatement;
+class CatchClause;
 
 class StatementVisitor {
 public:
@@ -52,6 +54,8 @@ public:
 
     virtual void visitSwitchCase(SwitchCase* stmt) = 0;
     virtual void visitSwitch(SwitchStatement* stmt) = 0;
+    virtual void visitTry(TryStatement* stmt) = 0;
+    virtual void visitCatch(CatchClause* stmt) = 0;
 
 };
 

@@ -66,6 +66,12 @@ int main(int argc, const char * argv[]) {
        default: print("other");
     }
 
+    try {
+    }
+    catch (e) {
+    }
+    finally {
+    }
 
     )";
 

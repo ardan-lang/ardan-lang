@@ -289,4 +289,34 @@ public:
 
 };
 
+class CatchClause : public Statement {
+public:
+    string param;
+    unique_ptr<Statement> body;
+    
+    CatchClause(string param,
+                unique_ptr<Statement> body) : param(param), body(std::move(body)) {}
+    
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitCatch(this);
+    }
+
+};
+
+class TryStatement : public Statement {
+public:
+    unique_ptr<Statement> block;
+    unique_ptr<CatchClause> handler;
+    unique_ptr<Statement> finalizer;
+    
+    TryStatement(unique_ptr<Statement> block,
+                 unique_ptr<CatchClause> handler,
+                 unique_ptr<Statement> finalizer) : block(std::move(block)), handler(std::move(handler)), finalizer(std::move(finalizer)) {}
+    
+      void accept(StatementVisitor& visitor) override {
+          visitor.visitTry(this);
+      }
+
+};
+
 #endif /* Statements_hpp */
