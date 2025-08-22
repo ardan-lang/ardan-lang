@@ -28,6 +28,10 @@ class ObjectLiteralExpression;
 class PropertyExpression;
 class SequenceExpression;
 class UpdateExpression;
+class FalseKeyword;
+class TrueKeyword;
+class NumericLiteral;
+class StringLiteral;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -51,7 +55,11 @@ public:
     virtual void visitProperty(PropertyExpression* expr) = 0;
     virtual void visitSequence(SequenceExpression* expr) = 0;
     virtual void visitUpdate(UpdateExpression* expr) = 0;
-    
+    virtual void visitFalseKeyword(FalseKeyword* expr) = 0;
+    virtual void visitTrueKeyword(TrueKeyword* expr) = 0;
+    virtual void visitNumericLiteral(NumericLiteral* expr) = 0;
+    virtual void visitStringLiteral(StringLiteral* expr) = 0;
+
 };
 
 #endif /* ExpressionVisitor_hpp */

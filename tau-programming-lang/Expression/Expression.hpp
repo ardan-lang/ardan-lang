@@ -209,4 +209,41 @@ public:
     }
 };
 
+class FalseKeyword : public Expression {
+public:
+    FalseKeyword() {}
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitFalseKeyword(this);
+    }
+
+};
+
+class TrueKeyword : public Expression {
+public:
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitTrueKeyword(this);
+    }
+
+};
+
+class NumericLiteral : public Expression {
+public:
+    const string text;
+    NumericLiteral(const string text) : text(text) {}
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitNumericLiteral(this);
+    }
+
+};
+
+class StringLiteral : public Expression {
+public:
+    StringLiteral(const string text) : text(text) {}
+    const string text;
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitStringLiteral(this);
+    }
+
+};
+
 #endif /* Expression_hpp */
