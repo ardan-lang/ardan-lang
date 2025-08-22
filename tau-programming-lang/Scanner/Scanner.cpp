@@ -76,7 +76,7 @@ vector<Token>& Scanner::getTokens() {
         switch (character) {
 
             case ',':
-                addToken(TokenType::COMMA);
+                addToken(TokenType::COMMA, ",");
                 break;
                 
             case '.':
@@ -290,7 +290,7 @@ vector<Token>& Scanner::getTokens() {
                     
                 }
                 
-                addToken(TokenType::GREATER_THAN);
+                addToken(TokenType::GREATER_THAN, ">");
                 break;
 
             case '&':
@@ -299,24 +299,24 @@ vector<Token>& Scanner::getTokens() {
                     
                     if(match('=')) {
                         
-                        addToken(TokenType::LOGICAL_AND_ASSIGN);
+                        addToken(TokenType::LOGICAL_AND_ASSIGN, "&&=");
                         break;
                         
                     }
                     
-                    addToken(TokenType::LOGICAL_AND);
+                    addToken(TokenType::LOGICAL_AND, "&&");
                     break;
                     
                 }
                 
                 if(match('=')) {
                     
-                    addToken(TokenType::BITWISE_AND_ASSIGN);
+                    addToken(TokenType::BITWISE_AND_ASSIGN, "&=");
                     break;
                     
                 }
 
-                addToken(TokenType::BITWISE_AND);
+                addToken(TokenType::BITWISE_AND, "&");
                 break;
                 
             case '|':
@@ -325,24 +325,24 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken(TokenType::LOGICAL_OR_ASSIGN);
+                        addToken(TokenType::LOGICAL_OR_ASSIGN, "||=");
                         break;
                         
                     }
                     
-                    addToken(TokenType::LOGICAL_OR);
+                    addToken(TokenType::LOGICAL_OR, "||");
                     break;
                     
                 }
                 
                 if (match('=')) {
                     
-                    addToken(TokenType::BITWISE_OR_ASSIGN);
+                    addToken(TokenType::BITWISE_OR_ASSIGN, "|=");
                     break;
                     
                 }
                 
-                addToken(TokenType::BITWISE_OR);
+                addToken(TokenType::BITWISE_OR, "|");
                 break;
                 
             case '!':
@@ -351,17 +351,17 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken(TokenType::STRICT_INEQUALITY);
+                        addToken(TokenType::STRICT_INEQUALITY, "!==");
                         break;
                         
                     }
 
-                    addToken(TokenType::INEQUALITY);
+                    addToken(TokenType::INEQUALITY, "!=");
                     break;
                     
                 }
                 
-                addToken(TokenType::LOGICAL_NOT);
+                addToken(TokenType::LOGICAL_NOT, "!");
                 break;
                 
             case '?':
@@ -370,40 +370,40 @@ vector<Token>& Scanner::getTokens() {
                     
                     if (match('=')) {
                         
-                        addToken(TokenType::NULLISH_COALESCING_ASSIGN);
+                        addToken(TokenType::NULLISH_COALESCING_ASSIGN, "??=");
                         break;
                         
                     }
                     
-                    addToken(TokenType::NULLISH_COALESCING);
+                    addToken(TokenType::NULLISH_COALESCING, "??");
                     break;
                     
                 }
                 
                 if (match('.')) {
                     
-                    addToken(TokenType::OPTIONAL_CHAINING);
+                    addToken(TokenType::OPTIONAL_CHAINING, "?.");
                     break;
                     
                 }
                 
-                addToken(TokenType::TERNARY);
+                addToken(TokenType::TERNARY, "?");
                 break;
                 
             case '~':
-                addToken(TokenType::BITWISE_NOT);
+                addToken(TokenType::BITWISE_NOT, "~");
                 break;
                 
             case '^':
                 
                 if (match('=')) {
                     
-                    addToken(TokenType::BITWISE_XOR_ASSIGN);
+                    addToken(TokenType::BITWISE_XOR_ASSIGN, "^=");
                     break;
                     
                 }
                 
-                addToken(TokenType::BITWISE_XOR);
+                addToken(TokenType::BITWISE_XOR, "^");
                 break;
                 
             case '\t':

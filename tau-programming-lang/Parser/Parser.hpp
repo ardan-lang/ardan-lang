@@ -66,15 +66,20 @@ private:
     }
 
     // ───────────── Lowest precedence → Highest ─────────────
-
+    
     unique_ptr<Expression> parseComma() {
-        auto expr = parseAssignment();
+        vector<unique_ptr<Expression>> exprs;
+        exprs.push_back(parseAssignment());
+
         while (match(TokenType::COMMA)) {
-            Token op = previous();
-            auto right = parseAssignment();
-            expr = make_unique<BinaryExpression>(op, std::move(expr), std::move(right));
+            exprs.push_back(parseAssignment());
         }
-        return expr;
+
+        if (exprs.size() == 1) {
+            return std::move(exprs[0]); // just a single expression, no need for sequence
+        }
+
+        return make_unique<SequenceExpression>(std::move(exprs));
     }
 
     unique_ptr<Expression> parseAssignment() {
