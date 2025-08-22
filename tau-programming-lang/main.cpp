@@ -53,6 +53,19 @@ int main(int argc, const char * argv[]) {
             print(name, age);
         }
     }
+    continue;
+    
+    do {
+       print("hello");
+       throw "Hello";
+    } while (x < 10);
+
+    switch(x) {
+       case 1: print("one"); break;
+       case 2: print("two"); break;
+       default: print("other");
+    }
+
 
     )";
 

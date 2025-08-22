@@ -249,4 +249,44 @@ public:
 
 };
 
+class DoWhileStatement : public Statement {
+public:
+    unique_ptr<Statement> body;
+    unique_ptr<Expression> condition;
+    DoWhileStatement(unique_ptr<Statement> body,
+                     unique_ptr<Expression> condition) : body(std::move(body)), condition(std::move(condition)) {}
+    
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitDoWhile(this);
+    }
+
+};
+
+class SwitchCase : public Statement {
+public:
+    unique_ptr<Expression> test;
+    vector<unique_ptr<Statement>> consequent;
+    
+    SwitchCase(unique_ptr<Expression> test,
+               vector<unique_ptr<Statement>> consequent) : test(std::move(test)), consequent(std::move(consequent)) {}
+    
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitSwitchCase(this);
+    }
+
+};
+
+class SwitchStatement : public Statement {
+public:
+    unique_ptr<Expression> discriminant;
+    vector<unique_ptr<SwitchCase>> cases;
+    SwitchStatement(unique_ptr<Expression> discriminant,
+                    vector<unique_ptr<SwitchCase>> cases) : discriminant(std::move(discriminant)), cases(std::move(cases)) {};
+    
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitSwitch(this);
+    }
+
+};
+
 #endif /* Statements_hpp */

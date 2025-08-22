@@ -18,11 +18,11 @@ using namespace std;
 
 class AstPrinter : public ExpressionVisitor, public StatementVisitor {
     int indent = 0;
-
+    
     void printIndent() {
         for (int i = 0; i < indent; i++) std::cout << "  ";
     }
-
+    
 public:
     // -------- Statements --------
     void visitExpression(ExpressionStatement* stmt) override {
@@ -31,7 +31,7 @@ public:
         stmt->expression->accept(*this);
         indent--;
     }
-
+    
     void visitBlock(BlockStatement* stmt) override {
         printIndent(); std::cout << "Block:\n";
         indent++;
@@ -40,7 +40,7 @@ public:
         }
         indent--;
     }
-
+    
     void visitVariable(VariableStatement* stmt) override {
         printIndent(); std::cout << "VariableDeclaration " << stmt->kind;
         std::cout << " =\n";
@@ -50,14 +50,14 @@ public:
             declarator.init->accept(*this);
         }
         indent--;
-//        if (stmt->init) {
-//            std::cout << " =\n";
-//            indent++;
-//            stmt->init->accept(*this);
-//            indent--;
-//        } else {
-//            std::cout << "\n";
-//        }
+        //        if (stmt->init) {
+        //            std::cout << " =\n";
+        //            indent++;
+        //            stmt->init->accept(*this);
+        //            indent--;
+        //        } else {
+        //            std::cout << "\n";
+        //        }
     }
     
     void visitFunction(FunctionDeclaration* stmt) override {
@@ -71,7 +71,7 @@ public:
         stmt->body->accept(*this);
         indent--;
     }
-
+    
     void visitIf(IfStatement* stmt) override {
         printIndent(); std::cout << "If\n";
         indent++;
@@ -84,7 +84,7 @@ public:
         }
         indent--;
     }
-
+    
     void visitWhile(WhileStatement* stmt) override {
         printIndent(); std::cout << "While\n";
         indent++;
@@ -92,7 +92,7 @@ public:
         stmt->body->accept(*this);
         indent--;
     }
-
+    
     void visitFor(ForStatement* stmt) override {
         printIndent(); std::cout << "For\n";
         indent++;
@@ -102,7 +102,7 @@ public:
         stmt->body->accept(*this);
         indent--;
     }
-
+    
     void visitReturn(ReturnStatement* stmt) override {
         printIndent(); std::cout << "Return\n";
         if (stmt->argument) {
@@ -111,48 +111,48 @@ public:
             indent--;
         }
     }
-
+    
     void visitBreak(BreakStatement* stmt) override {
         printIndent(); std::cout << "Break\n";
     }
-
+    
     void visitContinue(ContinueStatement* stmt) override {
         printIndent(); std::cout << "Continue\n";
     }
-
+    
     void visitThrow(ThrowStatement* stmt) override {
         printIndent(); std::cout << "Throw\n";
         indent++;
         stmt->argument->accept(*this);
         indent--;
     }
-
+    
     void visitTryCatch(TryCatchStatement* stmt) override {
-//        printIndent(); std::cout << "Try\n";
-//        indent++;
-//        stmt->block->accept(*this);
-//        indent--;
-//        printIndent(); std::cout << "Catch(" << stmt->param << ")\n";
-//        indent++;
-//        stmt->handler->accept(*this);
-//        indent--;
-//        if (stmt->finalizer) {
-//            printIndent(); std::cout << "Finally\n";
-//            indent++;
-//            stmt->finalizer->accept(*this);
-//            indent--;
-//        }
+        //        printIndent(); std::cout << "Try\n";
+        //        indent++;
+        //        stmt->block->accept(*this);
+        //        indent--;
+        //        printIndent(); std::cout << "Catch(" << stmt->param << ")\n";
+        //        indent++;
+        //        stmt->handler->accept(*this);
+        //        indent--;
+        //        if (stmt->finalizer) {
+        //            printIndent(); std::cout << "Finally\n";
+        //            indent++;
+        //            stmt->finalizer->accept(*this);
+        //            indent--;
+        //        }
     }
-
+    
     // -------- Expressions --------
     void visitLiteral(LiteralExpression* expr) override {
         printIndent(); std::cout << "Literal(" << expr->token.lexeme << ")\n";
     }
-
+    
     void visitIdentifier(IdentifierExpression* expr) override {
         printIndent(); std::cout << "Identifier(" << expr->name << expr->previous.lexeme << ")\n";
     }
-
+    
     void visitBinary(BinaryExpression* expr) override {
         printIndent(); std::cout << "Binary(" << expr->op.lexeme << ")\n";
         indent++;
@@ -160,7 +160,7 @@ public:
         expr->right->accept(*this);
         indent--;
     }
-
+    
     void visitUnary(UnaryExpression* expr) override {
         printIndent(); std::cout << "Unary(" << expr->op.lexeme << ")\n";
         indent++;
@@ -168,16 +168,16 @@ public:
         expr->right->accept(*this);
         indent--;
     }
-
+    
     void visitUpdate(UpdateExpression* expr) override {
         printIndent();
         std::cout << "Update(" << expr->op.lexeme
-                  << (expr->prefix ? " prefix" : " postfix") << ")\n";
+        << (expr->prefix ? " prefix" : " postfix") << ")\n";
         indent++;
         expr->argument->accept(*this);
         indent--;
     }
-
+    
     void visitAssignment(AssignmentExpression* expr) override {
         printIndent(); std::cout << "Assignment(" << expr->op.lexeme << ")\n";
         indent++;
@@ -185,7 +185,7 @@ public:
         expr->right->accept(*this);
         indent--;
     }
-
+    
     void visitLogical(LogicalExpression* expr) override {
         printIndent(); std::cout << "Logical(" << expr->op.lexeme << ")\n";
         indent++;
@@ -193,7 +193,7 @@ public:
         expr->right->accept(*this);
         indent--;
     }
-
+    
     void visitConditional(ConditionalExpression* expr) override {
         printIndent(); std::cout << "Conditional\n";
         indent++;
@@ -202,7 +202,7 @@ public:
         expr->alternate->accept(*this);
         indent--;
     }
-
+    
     void visitCall(CallExpression* expr) override {
         printIndent(); std::cout << "Call\n";
         indent++;
@@ -213,7 +213,7 @@ public:
         }
         indent--;
     }
-
+    
     void visitMember(MemberExpression* expr) override {
         printIndent(); std::cout << "Member(" << (expr->computed ? "computed" : "dot") << ")\n";
         indent++;
@@ -221,11 +221,11 @@ public:
         expr->property->accept(*this);
         indent--;
     }
-
+    
     void visitThis(ThisExpression* expr) override {
         printIndent(); std::cout << "This\n";
     }
-
+    
     void visitNew(NewExpression* expr) override {
         printIndent(); std::cout << "New\n";
         indent++;
@@ -233,21 +233,21 @@ public:
         for (auto& arg : expr->arguments) arg->accept(*this);
         indent--;
     }
-
+    
     void visitArray(ArrayLiteralExpression* expr) override {
         printIndent(); std::cout << "Array\n";
         indent++;
         for (auto& e : expr->elements) e->accept(*this);
         indent--;
     }
-
+    
     void visitObject(ObjectLiteralExpression* expr) override {
         printIndent(); std::cout << "Object\n";
         indent++;
         for (auto& prop : expr->properties) {
-//            printIndent(); std::cout << "Property " << prop.key << ":\n";
-//            indent++;
-//            prop.value->accept(*this);
+            //            printIndent(); std::cout << "Property " << prop.key << ":\n";
+            //            indent++;
+            //            prop.value->accept(*this);
             indent--;
         }
         indent--;
@@ -255,12 +255,12 @@ public:
     
     void visitSuper(SuperExpression* expr) override {
         printIndent(); std::cout << "Super:\n";
-
+        
     }
     
     void visitProperty(PropertyExpression* expr) override {
         printIndent(); std::cout << "Property:\n";
-
+        
     }
     
     void visitSequence(SequenceExpression* expr) override {
@@ -276,27 +276,27 @@ public:
         printIndent(); std::cout << "Empty\n";
     }
     
-     void visitFalseKeyword(FalseKeyword* expr) override {
-         printIndent(); std::cout << "False\n";
-     }
+    void visitFalseKeyword(FalseKeyword* expr) override {
+        printIndent(); std::cout << "False\n";
+    }
     
-     void visitTrueKeyword(TrueKeyword* expr) override {
-         printIndent(); std::cout << "True\n";
-     }
+    void visitTrueKeyword(TrueKeyword* expr) override {
+        printIndent(); std::cout << "True\n";
+    }
     
-     void visitNumericLiteral(NumericLiteral* expr) override {
-         printIndent(); std::cout << "Numeric ";
-         indent++;
-         cout << expr -> text << "\n";
-         indent--;
-     }
+    void visitNumericLiteral(NumericLiteral* expr) override {
+        printIndent(); std::cout << "Numeric ";
+        indent++;
+        cout << expr -> text << "\n";
+        indent--;
+    }
     
-     void visitStringLiteral(StringLiteral* expr) override {
-         printIndent(); std::cout << "String ";
-         indent++;
-         cout << expr -> text << "\n";
-         indent--;
-     }
+    void visitStringLiteral(StringLiteral* expr) override {
+        printIndent(); std::cout << "String ";
+        indent++;
+        cout << expr -> text << "\n";
+        indent--;
+    }
     
     void visitClass(ClassDeclaration* stmt) override {
         printIndent(); std::cout << "Class " << stmt->id << " {\n";
@@ -307,7 +307,7 @@ public:
         indent--;
         printIndent(); std::cout << "}\n";
     }
-
+    
     void visitMethodDefinition(MethodDefinition* stmt) override {
         printIndent(); std::cout << "Method " << stmt->name << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
@@ -317,6 +317,48 @@ public:
         std::cout << ") ";
         stmt->methodBody->accept(*this);
     }
+    
+    void visitDoWhile(DoWhileStatement* stmt) override {
+        cout << "DoWhileStatement {\n";
+        cout << "  body: ";
+        if (stmt->body) stmt->body->accept(*this);
+        cout << "\n  condition: ";
+        if (stmt->condition) stmt->condition->accept(*this);
+        cout << "\n}\n";
+    }
+    
+    void visitSwitchCase(SwitchCase* stmt) override {
+        cout << "SwitchCase {\n";
+        cout << "  test: ";
+        if (stmt->test) stmt->test->accept(*this);
+        else cout << "default"; // if `test` is null → default case
+        cout << "\n  consequent: [\n";
+        for (auto& cons : stmt->consequent) {
+            if (cons) {
+                cout << "    ";
+                cons->accept(*this);
+                cout << "\n";
+            }
+        }
+        cout << "  ]\n";
+        cout << "}\n";
+    }
+    
+    void visitSwitch(SwitchStatement* stmt) override {
+        cout << "SwitchStatement {\n";
+        cout << "  discriminant: ";
+        if (stmt->discriminant) stmt->discriminant->accept(*this);
+        cout << "\n  cases: [\n";
+        for (auto& scase : stmt->cases) {
+            if (scase) {
+                cout << "    ";
+                scase->accept(*this);
+            }
+        }
+        cout << "  ]\n";
+        cout << "}\n";
+    }
+    
     
 };
 

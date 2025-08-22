@@ -32,13 +32,13 @@ unique_ptr<Statement> Parser::parseStatement() {
             if (peek().lexeme == ("IF"))       return parseIfStatement();
             if (peek().lexeme == ("WHILE"))    return parseWhileStatement();
             if (peek().lexeme == ("FOR"))      return parseForStatement();
-            // if (peek().lexeme == ("do"))       return parseDoWhileStatement();
-            // if (peek().lexeme == ("switch"))   return parseSwitchStatement();
-            // if (peek().lexeme == ("try"))      return parseTryStatement();
-            // if (peek().lexeme == ("throw"))    return parseThrowStatement();
-            // if (peek().lexeme == ("return"))   return parseReturnStatement();
-            // if (peek().lexeme == ("break"))    return parseBreakStatement();
-            // if (peek().lexeme == ("continue")) return parseContinueStatement();
+            if (peek().lexeme == ("DO"))       return parseDoWhileStatement();
+            if (peek().lexeme == ("SWITCH"))   return parseSwitchStatement();
+            // if (peek().lexeme == ("TRY"))      return parseTryStatement();
+            if (peek().lexeme == ("THROW"))    return parseThrowStatement();
+            if (peek().lexeme == ("RETURN"))   return parseReturnStatement();
+            if (peek().lexeme == ("BREAK"))    return parseBreakStatement();
+            if (peek().lexeme == ("CONTINUE")) return parseContinueStatement();
             if (peek().lexeme == ("VAR") ||
                 peek().lexeme == ("LET") ||
                 peek().lexeme == ("CONST"))    return parseVariableStatement();
@@ -210,101 +210,102 @@ vector<string> Parser::parseParameterList() {
 // ---------------------
 // ContinueStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseContinueStatement() {
-//    consume(TokenType::CONTINUE, "Expect 'continue'.");
-//    string label = "";
-//    if (check(TokenType::IDENTIFIER)) {
-//        label = advance().lexeme;
-//    }
-//    consume(TokenType::SEMICOLON, "Expect ';' after continue.");
-//    return make_unique<ContinueStatement>(label);
-//}
+unique_ptr<Statement> Parser::parseContinueStatement() {
+    consumeKeyword("CONTINUE");
+    string label = "";
+    if (check(TokenType::IDENTIFIER)) {
+        label = advance().lexeme;
+    }
+    consume(TokenType::SEMI_COLON, "Expect ';' after continue.");
+    return make_unique<ContinueStatement>(label);
+}
 
 // ---------------------
 // DoWhileStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseDoWhileStatement() {
-//    consume(TokenType::DO, "Expect 'do'.");
-//    auto body = parseStatement();
-//    consume(TokenType::WHILE, "Expect 'while' after do-while body.");
-//    consume(TokenType::LEFT_PAREN, "Expect '(' after while.");
-//    auto condition = parseExpression();
-//    consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
-//    consume(TokenType::SEMICOLON, "Expect ';' after do-while.");
-//    return make_unique<DoWhileStatement>(std::move(body), std::move(condition));
-//}
+unique_ptr<Statement> Parser::parseDoWhileStatement() {
+    consumeKeyword("DO");
+    auto body = parseStatement();
+    consumeKeyword("WHILE"); // "Expect 'while' after do-while body."
+    consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after while.");
+    auto condition = parseExpression();
+    consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after condition.");
+    consume(TokenType::SEMI_COLON, "Expect ';' after do-while.");
+    return make_unique<DoWhileStatement>(std::move(body), std::move(condition));
+}
 
 // ---------------------
 // SwitchStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseSwitchStatement() {
-//    consume(TokenType::SWITCH, "Expect 'switch'.");
-//    consume(TokenType::LEFT_PAREN, "Expect '(' after 'switch'.");
-//    auto discriminant = parseExpression();
-//    consume(TokenType::RIGHT_PAREN, "Expect ')' after switch discriminant.");
-//    consume(TokenType::LEFT_BRACE, "Expect '{' before switch body.");
-//
-//    vector<unique_ptr<SwitchCase>> cases;
-//    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
-//        if (match(TokenType::CASE)) {
-//            auto test = parseExpression();
-//            consume(TokenType::COLON, "Expect ':' after case.");
-//            vector<unique_ptr<Statement>> consequent;
-//            while (!check(TokenType::CASE) && !check(TokenType::DEFAULT) && !check(TokenType::RIGHT_BRACE)) {
-//                consequent.push_back(parseStatement());
-//            }
-//            cases.push_back(make_unique<SwitchCase>(std::move(test), std::move(consequent)));
-//        } else if (match(TokenType::DEFAULT)) {
-//            consume(TokenType::COLON, "Expect ':' after default.");
-//            vector<unique_ptr<Statement>> consequent;
-//            while (!check(TokenType::CASE) && !check(TokenType::RIGHT_BRACE)) {
-//                consequent.push_back(parseStatement());
-//            }
-//            cases.push_back(make_unique<SwitchCase>(nullptr, std::move(consequent)));
-//        } else {
-//            throw error(peek(), "Unexpected token in switch.");
-//        }
-//    }
-//
-//    consume(TokenType::RIGHT_BRACE, "Expect '}' after switch cases.");
-//    return make_unique<SwitchStatement>(std::move(discriminant), std::move(cases));
-//}
+unique_ptr<Statement> Parser::parseSwitchStatement() {
+    consumeKeyword("SWITCH"); // "Expect 'switch'.");
+    consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after 'switch'.");
+    auto discriminant = parseExpression();
+    consume(TokenType::RIGHT_PARENTHESIS,
+            "Expect ')' after switch discriminant.");
+    consume(TokenType::LEFT_BRACKET, "Expect '{' before switch body.");
+
+    vector<unique_ptr<SwitchCase>> cases;
+    while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+        if (matchKeyword("CASE")) {
+            auto test = parseExpression();
+            consume(TokenType::COLON, "Expect ':' after case.");
+            vector<unique_ptr<Statement>> consequent;
+            while (!checkKeyword("CASE") && !checkKeyword("DEFAULT") && !check(TokenType::RIGHT_BRACKET)) {
+                consequent.push_back(parseStatement());
+            }
+            cases.push_back(make_unique<SwitchCase>(std::move(test), std::move(consequent)));
+        } else if (matchKeyword("DEFAULT")) {
+            consume(TokenType::COLON, "Expect ':' after default.");
+            vector<unique_ptr<Statement>> consequent;
+            while (!checkKeyword("CASE") && !check(TokenType::RIGHT_BRACKET)) {
+                consequent.push_back(parseStatement());
+            }
+            cases.push_back(make_unique<SwitchCase>(nullptr, std::move(consequent)));
+        } else {
+            throw error(peek(), "Unexpected token in switch.");
+        }
+    }
+
+    consume(TokenType::RIGHT_BRACKET, "Expect '}' after switch cases.");
+    return make_unique<SwitchStatement>(std::move(discriminant), std::move(cases));
+}
 
 // ---------------------
 // ReturnStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseReturnStatement() {
-//    consume(TokenType::RETURN, "Expect 'return'.");
-//    unique_ptr<Expression> value = nullptr;
-//    if (!check(TokenType::SEMICOLON)) {
-//        value = parseExpression();
-//    }
-//    consume(TokenType::SEMICOLON, "Expect ';' after return.");
-//    return make_unique<ReturnStatement>(std::move(value));
-//}
+unique_ptr<Statement> Parser::parseReturnStatement() {
+    consumeKeyword("RETURN");
+    unique_ptr<Expression> value = nullptr;
+    if (!check(TokenType::SEMI_COLON)) {
+        value = parseExpression();
+    }
+    consume(TokenType::SEMI_COLON, "Expect ';' after return.");
+    return make_unique<ReturnStatement>(std::move(value));
+}
 
 // ---------------------
 // ThrowStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseThrowStatement() {
-//    consume(TokenType::THROW, "Expect 'throw'.");
-//    auto expr = parseExpression();
-//    consume(TokenType::SEMICOLON, "Expect ';' after throw.");
-//    return make_unique<ThrowStatement>(std::move(expr));
-//}
+unique_ptr<Statement> Parser::parseThrowStatement() {
+    consumeKeyword("THROW"); // "Expect 'throw'.");
+    auto expr = parseExpression();
+    consume(TokenType::SEMI_COLON, "Expect ';' after throw.");
+    return make_unique<ThrowStatement>(std::move(expr));
+}
 
 // ---------------------
 // BreakStatement
 // ---------------------
-//unique_ptr<Statement> Parser::parseBreakStatement() {
-//    consume(TokenType::BREAK, "Expect 'break'.");
-//    string label = "";
-//    if (check(TokenType::IDENTIFIER)) {
-//        label = advance().lexeme;
-//    }
-//    consume(TokenType::SEMICOLON, "Expect ';' after break.");
-//    return make_unique<BreakStatement>(label);
-//}
+unique_ptr<Statement> Parser::parseBreakStatement() {
+    consumeKeyword("BREAK");
+    string label = "";
+    if (check(TokenType::IDENTIFIER)) {
+        label = advance().lexeme;
+    }
+    consume(TokenType::SEMI_COLON, "Expect ';' after break.");
+    return make_unique<BreakStatement>(label);
+}
 
 // ---------------------
 // TryStatement
@@ -330,7 +331,7 @@ vector<string> Parser::parseParameterList() {
 //    return make_unique<TryStatement>(std::move(block), std::move(handler), std::move(finalizer));
 //}
 
-// ───────────── Helpers (match, consume, check, etc.) ─────────────
+// ───────────── Helpers ─────────────
 
 // Try to match a single token type
 bool Parser::match(TokenType type) {
@@ -401,5 +402,10 @@ bool Parser::matchKeyword(const string& keyword) {
 Token Parser::consumeKeyword(const string& keyword) {
     if (checkKeyword(keyword)) return advance();
     throw std::runtime_error("Parse error: expected keyword '" + keyword + "'");
+}
+
+Token Parser::consumeKeyword(const string& keyword, const string& message) {
+    if (checkKeyword(keyword)) return advance();
+    throw std::runtime_error(message);
 }
 

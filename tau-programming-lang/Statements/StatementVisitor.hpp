@@ -25,6 +25,9 @@ class ThrowStatement;
 class TryCatchStatement;
 class ClassDeclaration;
 class MethodDefinition;
+class DoWhileStatement;
+class SwitchStatement;
+class SwitchCase;
 
 class StatementVisitor {
 public:
@@ -45,6 +48,11 @@ public:
     virtual void visitTryCatch(TryCatchStatement* stmt) = 0;
     virtual void visitClass(ClassDeclaration* stmt) = 0;
     virtual void visitMethodDefinition(MethodDefinition* stmt) = 0;
+    virtual void visitDoWhile(DoWhileStatement* stmt) = 0;
+
+    virtual void visitSwitchCase(SwitchCase* stmt) = 0;
+    virtual void visitSwitch(SwitchStatement* stmt) = 0;
+
 };
 
 #endif /* StatementVisitor_hpp */

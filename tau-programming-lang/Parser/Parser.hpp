@@ -32,14 +32,14 @@ private:
     unique_ptr<Statement> parseIfStatement();
     unique_ptr<Statement> parseWhileStatement();
     unique_ptr<Statement> parseForStatement();
-    // unique_ptr<Statement> parseDoWhileStatement();
-    // unique_ptr<Statement> parseSwitchStatement();
+    unique_ptr<Statement> parseDoWhileStatement();
+    unique_ptr<Statement> parseSwitchStatement();
     // unique_ptr<Statement> parseTryStatement();
-    // unique_ptr<Statement> parseThrowStatement();
-    // unique_ptr<Statement> parseReturnStatement();
+    unique_ptr<Statement> parseThrowStatement();
+    unique_ptr<Statement> parseReturnStatement();
     
-    // unique_ptr<Statement> parseBreakStatement();
-    // unique_ptr<Statement> parseContinueStatement();
+    unique_ptr<Statement> parseBreakStatement();
+    unique_ptr<Statement> parseContinueStatement();
     unique_ptr<Statement> parseVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
@@ -53,6 +53,7 @@ private:
     Token consume(TokenType type, const string& message);
 
     Token consumeKeyword(const string& keyword);
+    Token consumeKeyword(const string& keyword, const string& message);
     bool checkKeyword(const string& keyword);
     bool matchKeyword(const string& keyword);
 
