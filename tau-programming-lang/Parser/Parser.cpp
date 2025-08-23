@@ -256,7 +256,7 @@ unique_ptr<Statement> Parser::parseContinueStatement() {
 unique_ptr<Statement> Parser::parseDoWhileStatement() {
     consumeKeyword("DO");
     auto body = parseStatement();
-    consumeKeyword("WHILE"); // "Expect 'while' after do-while body."
+    consumeKeyword("WHILE", "Expect 'while' after do-while body.");
     consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after while.");
     auto condition = parseExpression();
     consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after condition.");
@@ -268,7 +268,7 @@ unique_ptr<Statement> Parser::parseDoWhileStatement() {
 // Switch Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseSwitchStatement() {
-    consumeKeyword("SWITCH"); // "Expect 'switch'.");
+    consumeKeyword("SWITCH", "Expect 'switch'.");
     consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after 'switch'.");
     auto discriminant = parseExpression();
     consume(TokenType::RIGHT_PARENTHESIS,
