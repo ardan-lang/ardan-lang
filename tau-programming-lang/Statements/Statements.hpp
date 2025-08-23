@@ -237,11 +237,12 @@ public:
     const string id;
     unique_ptr<Expression> superClass;
     vector<unique_ptr<MethodDefinition>> body;
-    
+    vector<unique_ptr<Statement>> fields;
+
     ClassDeclaration(const string id,
                      unique_ptr<Expression> superClass,
-                     vector<unique_ptr<MethodDefinition>> body) : id(id), superClass(std::move(superClass)), body(std::move(body)) {
-    };
+                     vector<unique_ptr<MethodDefinition>> body,
+                     vector<unique_ptr<Statement>> fields) : id(id), superClass(std::move(superClass)), body(std::move(body)), fields(std::move(fields)) {};
     
     void accept(StatementVisitor& visitor) override {
         visitor.visitClass(this);

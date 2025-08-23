@@ -34,45 +34,61 @@ int main(int argc, const char * argv[]) {
                         ++i;
                         call();
 
+                    (g,d,t,34);
+                        var x = (1, 2, 3);
+                        class Foo {
+                            greet(name, age) {
+                                print(name, age);
+                            }
+                        }
+                        continue;
+                        
+                        do {
+                           print("hello");
+                           throw "Hello";
+                        } while (x < 10);
+
+                        switch(x) {
+                           case 1: print("one"); break;
+                           case 2: print("two"); break;
+                           default: print("other");
+                        }
+
+                        try {}
+                        catch (e) {}
+                        finally {}
+                    class Person {
+                      
+                      var name = "Unknown";
+                      var age = 0;
+
+                      constructor(name, age) {
+                        this.name = name; 
+                        this.age = age;
+                      }
+
+                      greet() {
+                        console.log(`Hi, I'm ${this.name} and I'm ${this.age} years old.`);
+                      }
+                    }
+
                     )";
     
-    string lang = R"(
-                      var mod = 8%5;
-                      var bl = true;
-                      mod %= 9;
-                      var square = 9**9;
-                      var ref = ref1 == uiop;
-                      var d="nnamdi chidume";
-                      var t= 90;
-                      var g= sqrt();
-                      print(g,d,t,34);
-                          (g,d,t,34);
-    var x = (1, 2, 3);
-    class Foo {
-        greet(name, age) {
-            print(name, age);
-        }
-    }
-    continue;
-    
-    do {
-       print("hello");
-       throw "Hello";
-    } while (x < 10);
+    string lang = R"(    
+                    class Person {
+                      
+                      var name = "Unknown";
+                      var age = 0;
 
-    switch(x) {
-       case 1: print("one"); break;
-       case 2: print("two"); break;
-       default: print("other");
-    }
+                      constructor(name, age) {
+                        this.name = name; 
+                        this.age = age;
+                      }
 
-    try {
-    }
-    catch (e) {
-    }
-    finally {
-    }
-
+                      greet() {
+                        console.log(`Hi, I'm ${this.name} and I'm ${this.age} years old.`);
+                      }
+                    }
     )";
 
     Scanner scanner(lang);

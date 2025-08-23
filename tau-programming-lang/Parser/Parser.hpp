@@ -13,6 +13,7 @@
 #include "../Scanner/Token/Token.hpp"
 #include "../Scanner/Token/TokenType.h"
 #include "../Statements/Statements.hpp"
+#include "../overloads/operators.h"
 
 class Parser {
     vector<Token> tokens;
@@ -307,7 +308,7 @@ private:
     }
 
     unique_ptr<Expression> parseNewMember() {
-        if (match(TokenType::KEYWORD) && previous().lexeme == "new") {
+        if (matchKeyword("NEW")) {
             auto ctor = parseNewMember();
             vector<unique_ptr<Expression>> args;
             if (match(TokenType::LEFT_PARENTHESIS)) {
@@ -326,6 +327,7 @@ private:
     // ───────────── Primary expressions ─────────────
 
     unique_ptr<Expression> parsePrimary() {
+        
         if (match(TokenType::BOOLEAN)) {
             if (previous().lexeme == "TRUE") {
                 return make_unique<TrueKeyword>();
@@ -340,8 +342,8 @@ private:
         if (match(TokenType::IDENTIFIER)) return make_unique<IdentifierExpression>(previous());
         if (match(TokenType::KEYWORD)) {
             auto kw = previous();
-            if (kw.lexeme == "this") return make_unique<ThisExpression>();
-            if (kw.lexeme == "super") return make_unique<SuperExpression>();
+            if (kw.lexeme == "THIS") return make_unique<ThisExpression>();
+            if (kw.lexeme == "SUPER") return make_unique<SuperExpression>();
         }
         if (match(TokenType::LEFT_PARENTHESIS)) {
             auto expr = parseExpression();
@@ -372,8 +374,6 @@ private:
             return make_unique<ObjectLiteralExpression>(std::move(props));
         }
         
-        cout << peek().lexeme << endl;
-
         throw error(peek(), "Unexpected token in primary expression");
     }
     

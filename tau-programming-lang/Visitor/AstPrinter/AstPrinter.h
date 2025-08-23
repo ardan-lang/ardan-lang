@@ -218,7 +218,12 @@ public:
         printIndent(); std::cout << "Member(" << (expr->computed ? "computed" : "dot") << ")\n";
         indent++;
         expr->object->accept(*this);
-        expr->property->accept(*this);
+        
+        if (expr->computed) {
+            expr->property->accept(*this);
+        } else {
+            printIndent(); cout << expr->name.lexeme << "\n";
+        }
         indent--;
     }
     
@@ -301,6 +306,9 @@ public:
     void visitClass(ClassDeclaration* stmt) override {
         printIndent(); std::cout << "Class " << stmt->id << " {\n";
         indent++;
+        for (auto& field : stmt->fields) {
+            field->accept(*this);
+        }
         for (auto& method : stmt->body) {
             method->accept(*this);
         }
@@ -402,7 +410,6 @@ public:
             cout << "}\n";
         }
     }
-
     
 };
 

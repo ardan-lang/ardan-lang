@@ -6,6 +6,7 @@
 //
 
 #include "Parser.hpp"
+#include "../overloads/operators.h"
 #include "../Statements/Statements.hpp"
 #include "../Visitor/AstPrinter/AstPrinter.h"
 #include <stdexcept>
@@ -43,6 +44,7 @@ unique_ptr<Statement> Parser::parseStatement() {
                 peek().lexeme == ("LET") ||
                 peek().lexeme == ("CONST"))    return parseVariableStatement();
             if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
+            if (peek().lexeme == ("THIS")) return parseExpressionStatement();
         }
         case TokenType::CLASS:
             return parseClassDeclaration();
@@ -79,13 +81,13 @@ unique_ptr<Statement> Parser::parseExpressionStatement() {
 // If Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseIfStatement() {
-    consumeKeyword("if");
+    consumeKeyword("IF");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'");
     auto test = parseExpression();
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
     auto consequent = parseStatement();
     unique_ptr<Statement> alternate = nullptr;
-    if (matchKeyword("else")) {
+    if (matchKeyword("ELSE")) {
         alternate = parseStatement();
     }
     return make_unique<IfStatement>(std::move(test), std::move(consequent), std::move(alternate));
@@ -95,7 +97,7 @@ unique_ptr<Statement> Parser::parseIfStatement() {
 // While Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseWhileStatement() {
-    consumeKeyword("while");
+    consumeKeyword("WHILE");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'");
     auto test = parseExpression();
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
@@ -107,12 +109,12 @@ unique_ptr<Statement> Parser::parseWhileStatement() {
 // For Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseForStatement() {
-    consumeKeyword("for");
+    consumeKeyword("FOR");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
 
     unique_ptr<Statement> init = nullptr;
     if (!check(TokenType::SEMI_COLON)) {
-        if (matchKeyword("var") || matchKeyword("let") || matchKeyword("const")) {
+        if (matchKeyword("VAR") || matchKeyword("LET") || matchKeyword("CONST")) {
             init = parseVariableStatement();
         } else {
             init = parseExpressionStatement();
@@ -162,7 +164,7 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
 // Function Declaration
 // ---------------------
 unique_ptr<Statement> Parser::parseFunctionDeclaration() {
-    consumeKeyword("function");
+    consumeKeyword("FUNCTION");
     auto id = consume(TokenType::IDENTIFIER, "Expected function name");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '('");
     vector<string> params;
@@ -195,19 +197,31 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
 
     consume(TokenType::LEFT_BRACKET, "Expect '{' before class body.");
     vector<unique_ptr<MethodDefinition>> body;
+    vector<unique_ptr<Statement>> fields;
     while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
         
         // The parser is not implementing the full JavaScript/TypeScript/ECMAScript method syntax
         // (which can include things like async, static, getters/setters, parameter lists with default values, type annotations, etc.).
+        if (checkKeyword("VAR") || checkKeyword("CONST") || checkKeyword("LET")) {
+            
+            fields.push_back(parseVariableStatement());
+            
+        } else {
+            
+            const string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
+            vector<string> params = parseParameterList();
+            unique_ptr<Statement> methodBody = parseBlockStatement();
+            body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
+            
+        }
         
-        const string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
-        vector<string> params = parseParameterList();
-        unique_ptr<Statement> methodBody = parseBlockStatement();
-        body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
     }
     consume(TokenType::RIGHT_BRACKET, "Expect '}' after class body.");
 
-    return make_unique<ClassDeclaration>(id, std::move(superClass), std::move(body));
+    return make_unique<ClassDeclaration>(id,
+                                         std::move(superClass),
+                                         std::move(body),
+                                         std::move(fields));
 }
 
 vector<string> Parser::parseParameterList() {
