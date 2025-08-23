@@ -44,7 +44,7 @@ private:
     unique_ptr<Statement> parseVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
-    vector<string> parseParameterList();
+    vector<unique_ptr<Expression>> parseParameterList();
     unique_ptr<Statement> parseExpressionStatement();
 
     // ───────────── Helpers ─────────────

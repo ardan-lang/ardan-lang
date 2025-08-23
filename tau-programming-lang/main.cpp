@@ -89,6 +89,13 @@ int main(int argc, const char * argv[]) {
                         console.log(`Hi, I'm ${this.name} and I'm ${this.age} years old.`);
                       }
                     }
+    
+    var person = new Person(67, pot);
+    
+    function getName(67, pot) {
+    
+    }
+    function n(90, uiop, ui=90){}
     )";
 
     Scanner scanner(lang);

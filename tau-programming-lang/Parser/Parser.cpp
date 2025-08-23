@@ -167,11 +167,12 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     consumeKeyword("FUNCTION");
     auto id = consume(TokenType::IDENTIFIER, "Expected function name");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '('");
-    vector<string> params;
+    vector<unique_ptr<Expression>> params;
     if (!check(TokenType::RIGHT_PARENTHESIS)) {
         do {
-            auto param = consume(TokenType::IDENTIFIER, "Expected parameter name");
-            params.push_back(param.lexeme);
+            // auto param = consume(TokenType::IDENTIFIER, "Expected parameter name");
+            // params.push_back(param.lexeme);
+            params.push_back(parseAssignment());
         } while (match(TokenType::COMMA));
     }
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
@@ -209,7 +210,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
         } else {
             
             const string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
-            vector<string> params = parseParameterList();
+            vector<unique_ptr<Expression>> params = parseParameterList();
             unique_ptr<Statement> methodBody = parseBlockStatement();
             body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
             
@@ -224,14 +225,15 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
                                          std::move(fields));
 }
 
-vector<string> Parser::parseParameterList() {
-    vector<string> params;
+vector<unique_ptr<Expression>> Parser::parseParameterList() {
+    vector<unique_ptr<Expression>> params;
 
     consume(TokenType::LEFT_PARENTHESIS, "Expect '(' before parameter list.");
     if (!check(TokenType::RIGHT_PARENTHESIS)) {
         do {
-            string param = consume(TokenType::IDENTIFIER, "Expect parameter name.").lexeme;
-            params.push_back(param);
+            // string param = consume(TokenType::IDENTIFIER, "Expect parameter name.").lexeme;
+            // params.push_back(param);
+            params.push_back(parseAssignment());
         } while (match(TokenType::COMMA));
     }
     consume(TokenType::RIGHT_PARENTHESIS, "Expect ')' after parameters.");
@@ -320,7 +322,7 @@ unique_ptr<Statement> Parser::parseReturnStatement() {
 // Throw Statement
 // ---------------------
 unique_ptr<Statement> Parser::parseThrowStatement() {
-    consumeKeyword("THROW"); // "Expect 'throw'.");
+    consumeKeyword("THROW", "Expect 'throw'.");
     auto expr = parseExpression();
     consume(TokenType::SEMI_COLON, "Expect ';' after throw.");
     return make_unique<ThrowStatement>(std::move(expr));

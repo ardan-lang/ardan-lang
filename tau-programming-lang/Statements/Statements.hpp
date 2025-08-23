@@ -130,11 +130,11 @@ public:
 class FunctionDeclaration : public Statement {
 public:
     string id;
-    vector<string> params;
+    vector<unique_ptr<Expression>> params;
     unique_ptr<Statement> body;
 
     FunctionDeclaration(string id,
-                        vector<string> params,
+                        vector<unique_ptr<Expression>> params,
                         unique_ptr<Statement> body)
         : id(std::move(id)),
           params(std::move(params)),
@@ -222,9 +222,9 @@ public:
 class MethodDefinition : public Statement {
 public:
     const string name;
-    vector<string> params;
+    vector<unique_ptr<Expression>> params;
     unique_ptr<Statement> methodBody;
-    MethodDefinition(const string name, vector<string> params, unique_ptr<Statement> methodBody) : name(name), params(std::move(params)), methodBody(std::move(methodBody)) {}
+    MethodDefinition(const string name, vector<unique_ptr<Expression>> params, unique_ptr<Statement> methodBody) : name(name), params(std::move(params)), methodBody(std::move(methodBody)) {}
     
     void accept(StatementVisitor& visitor) override {
         visitor.visitMethodDefinition(this);

@@ -63,8 +63,9 @@ public:
     void visitFunction(FunctionDeclaration* stmt) override {
         printIndent(); std::cout << "Function " << stmt->id << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
-            std::cout << stmt->params[i];
-            if (i < stmt->params.size() - 1) std::cout << ", ";
+            stmt->params[i]->accept(*this);
+//            std::cout << stmt->params[i];
+//            if (i < stmt->params.size() - 1) std::cout << ", ";
         }
         std::cout << ")\n";
         indent++;
@@ -250,9 +251,9 @@ public:
         printIndent(); std::cout << "Object\n";
         indent++;
         for (auto& prop : expr->properties) {
-            //            printIndent(); std::cout << "Property " << prop.key << ":\n";
-            //            indent++;
-            //            prop.value->accept(*this);
+            printIndent(); std::cout << "Property " << prop->key << ":\n";
+            indent++;
+            prop->value->accept(*this);
             indent--;
         }
         indent--;
@@ -319,8 +320,9 @@ public:
     void visitMethodDefinition(MethodDefinition* stmt) override {
         printIndent(); std::cout << "Method " << stmt->name << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
-            std::cout << stmt->params[i];
-            if (i < stmt->params.size() - 1) std::cout << ", ";
+            stmt->params[i]->accept(*this);
+//            std::cout << stmt->params[i];
+//            if (i < stmt->params.size() - 1) std::cout << ", ";
         }
         std::cout << ") ";
         stmt->methodBody->accept(*this);
