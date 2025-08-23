@@ -28,6 +28,9 @@ public:
     bool eof();
     bool isDigit();
     bool isAlpha();
+    bool isAlpha(char c);
+    bool isAlphaNumeric(char c);
+    bool isAlphaNumeric();
     void collectString();
     void collectNumber();
     void collectIdentifier();

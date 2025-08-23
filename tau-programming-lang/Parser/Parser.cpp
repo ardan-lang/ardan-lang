@@ -44,7 +44,7 @@ unique_ptr<Statement> Parser::parseStatement() {
                 peek().lexeme == ("LET") ||
                 peek().lexeme == ("CONST"))    return parseVariableStatement();
             if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
-            if (peek().lexeme == ("THIS")) return parseExpressionStatement();
+            else return parseExpressionStatement();
         }
         case TokenType::CLASS:
             return parseClassDeclaration();

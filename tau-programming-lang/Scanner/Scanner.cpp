@@ -593,10 +593,29 @@ bool Scanner::isDigit() {
 
 bool Scanner::isAlpha() {
     
-    char character = currentCharacter();
+    char c = currentCharacter();
+    
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           c == '_' || c == '$';
+}
 
-    return character >= 'a' && (character <= 'z' || character == '_' || character == '$');
+bool Scanner::isAlpha(char c) {
+        
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           c == '_' || c == '$';
+}
 
+bool Scanner::isAlphaNumeric() {
+    
+    char c = currentCharacter();
+    
+    return isAlpha(c) || (c >= '0' && c <= '9');
+}
+
+bool Scanner::isAlphaNumeric(char c) {
+    return isAlpha(c) || (c >= '0' && c <= '9');
 }
 
 bool Scanner::eof() {
