@@ -63,9 +63,7 @@ public:
     void visitFunction(FunctionDeclaration* stmt) override {
         printIndent(); std::cout << "Function " << stmt->id << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
-            stmt->params[i]->accept(*this);
-//            std::cout << stmt->params[i];
-//            if (i < stmt->params.size() - 1) std::cout << ", ";
+            stmt->params[i]->accept(*this); std::cout << ", ";
         }
         std::cout << ")\n";
         indent++;
@@ -126,23 +124,6 @@ public:
         indent++;
         stmt->argument->accept(*this);
         indent--;
-    }
-    
-    void visitTryCatch(TryCatchStatement* stmt) override {
-        //        printIndent(); std::cout << "Try\n";
-        //        indent++;
-        //        stmt->block->accept(*this);
-        //        indent--;
-        //        printIndent(); std::cout << "Catch(" << stmt->param << ")\n";
-        //        indent++;
-        //        stmt->handler->accept(*this);
-        //        indent--;
-        //        if (stmt->finalizer) {
-        //            printIndent(); std::cout << "Finally\n";
-        //            indent++;
-        //            stmt->finalizer->accept(*this);
-        //            indent--;
-        //        }
     }
     
     // -------- Expressions --------
@@ -320,7 +301,7 @@ public:
     void visitMethodDefinition(MethodDefinition* stmt) override {
         printIndent(); std::cout << "Method " << stmt->name << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
-            stmt->params[i]->accept(*this);
+            stmt->params[i]->accept(*this); std::cout << ", ";
 //            std::cout << stmt->params[i];
 //            if (i < stmt->params.size() - 1) std::cout << ", ";
         }
@@ -371,7 +352,7 @@ public:
     
     void visitCatch(CatchClause* stmt) override {
         printIndent();
-        cout << "catch (" << stmt->param << ") ";
+        cout << "Catch (" << stmt->param << ") ";
         if (stmt->body) {
             cout << "{\n";
             indent++;
@@ -385,8 +366,8 @@ public:
     }
 
     void visitTry(TryStatement* stmt) override {
-        printIndent();
-        cout << "try ";
+        printIndent(); std::cout << "Try\n";
+
         if (stmt->block) {
             cout << "{\n";
             indent++;
@@ -403,7 +384,7 @@ public:
 
         if (stmt->finalizer) {
             printIndent();
-            cout << "finally ";
+            cout << "Finally ";
             cout << "{\n";
             indent++;
             stmt->finalizer->accept(*this);

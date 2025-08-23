@@ -170,8 +170,6 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     vector<unique_ptr<Expression>> params;
     if (!check(TokenType::RIGHT_PARENTHESIS)) {
         do {
-            // auto param = consume(TokenType::IDENTIFIER, "Expected parameter name");
-            // params.push_back(param.lexeme);
             params.push_back(parseAssignment());
         } while (match(TokenType::COMMA));
     }
@@ -231,8 +229,6 @@ vector<unique_ptr<Expression>> Parser::parseParameterList() {
     consume(TokenType::LEFT_PARENTHESIS, "Expect '(' before parameter list.");
     if (!check(TokenType::RIGHT_PARENTHESIS)) {
         do {
-            // string param = consume(TokenType::IDENTIFIER, "Expect parameter name.").lexeme;
-            // params.push_back(param);
             params.push_back(parseAssignment());
         } while (match(TokenType::COMMA));
     }

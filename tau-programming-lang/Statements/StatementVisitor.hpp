@@ -22,7 +22,6 @@ class ReturnStatement;
 class BreakStatement;
 class ContinueStatement;
 class ThrowStatement;
-class TryCatchStatement;
 class ClassDeclaration;
 class MethodDefinition;
 class DoWhileStatement;
@@ -47,7 +46,6 @@ public:
     virtual void visitBreak(BreakStatement* stmt) = 0;
     virtual void visitContinue(ContinueStatement* stmt) = 0;
     virtual void visitThrow(ThrowStatement* stmt) = 0;
-    virtual void visitTryCatch(TryCatchStatement* stmt) = 0;
     virtual void visitClass(ClassDeclaration* stmt) = 0;
     virtual void visitMethodDefinition(MethodDefinition* stmt) = 0;
     virtual void visitDoWhile(DoWhileStatement* stmt) = 0;

@@ -96,6 +96,49 @@ int main(int argc, const char * argv[]) {
     
     }
     function n(90, uiop, ui=90){}
+    
+    x = 10;
+    callFunction(7, u, true, 89, false, "78", call());
+    !w;
+    ++i;
+    i++;
+    obj.method();
+    obj.method;
+    x;
+    var y = 10;
+    let t = 90 + 9;
+    x += 9;
+    (6, 7);
+    function n(90, uiop, ui=90){}
+    
+                            try {
+        x;
+        var y = 10;
+        let t = 90 + 9;
+        x += 9;
+        (6, 7);
+        function n(90, uiop, ui=90){}
+
+    }
+                            catch (e) {
+        x;
+        var y = 10;
+        let t = 90 + 9;
+        x += 9;
+        (6, 7);
+        function n(90, uiop, ui=90){}
+
+    }
+                            finally {
+        x;
+        var y = 10;
+        let t = 90 + 9;
+        x += 9;
+        (6, 7);
+        function n(90, uiop, ui=90){}
+
+    }
+
     )";
 
     Scanner scanner(lang);

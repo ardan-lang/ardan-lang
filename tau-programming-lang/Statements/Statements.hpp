@@ -197,28 +197,6 @@ public:
     }
 };
 
-// --- TryCatchStatement ---
-class TryCatchStatement : public Statement {
-public:
-    unique_ptr<BlockStatement> tryBlock;
-    string catchParam; // identifier inside catch
-    unique_ptr<BlockStatement> catchBlock;
-    unique_ptr<BlockStatement> finallyBlock;
-
-    TryCatchStatement(unique_ptr<BlockStatement> tryBlock,
-                      string catchParam,
-                      unique_ptr<BlockStatement> catchBlock,
-                      unique_ptr<BlockStatement> finallyBlock)
-        : tryBlock(std::move(tryBlock)),
-          catchParam(std::move(catchParam)),
-          catchBlock(std::move(catchBlock)),
-          finallyBlock(std::move(finallyBlock)) {}
-
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitTryCatch(this);
-    }
-};
-
 class MethodDefinition : public Statement {
 public:
     const string name;
