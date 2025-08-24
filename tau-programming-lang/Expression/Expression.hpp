@@ -26,15 +26,15 @@ public:
     virtual void accept(ExpressionVisitor& visitor) = 0;
 };
 
-// 1. Literal: number, string, etc
+// Literal
 class LiteralExpression : public Expression {
 public:
-    Token token; // STRING, NUMBER, etc
+    Token token;
     explicit LiteralExpression(Token token) : token(token) {}
     void accept(ExpressionVisitor& visitor) override { visitor.visitLiteral(this); }
 };
 
-// 2. Identifier
+// Identifier
 class IdentifierExpression : public Expression {
 public:
     string name;
@@ -45,7 +45,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitIdentifier(this); }
 };
 
-// 3. Unary: !x, -x, +x, typeof x
+// Unary: !x, -x, +x, typeof x
 class UnaryExpression : public Expression {
 public:
     Token op;
@@ -55,7 +55,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitUnary(this); }
 };
 
-// 4. Binary: x + y, x * y, etc
+// Binary: x + y, x * y,
 class BinaryExpression : public Expression {
 public:
     unique_ptr<Expression> left;
@@ -70,7 +70,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitBinary(this); }
 };
 
-// 5. Assignment: x = y, x += y
+// Assignment: x = y, x += y
 class AssignmentExpression : public Expression {
 public:
     unique_ptr<Expression> left;
@@ -81,7 +81,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitAssignment(this); }
 };
 
-// 6. Conditional (ternary): cond ? then : else
+// Conditional (ternary): cond ? then : else
 class ConditionalExpression : public Expression {
 public:
     unique_ptr<Expression> test;
@@ -94,7 +94,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitConditional(this); }
 };
 
-// 7. Logical: &&, ||, ??
+// Logical: &&, ||, ??
 class LogicalExpression : public Expression {
 public:
     unique_ptr<Expression> left;
@@ -105,7 +105,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitLogical(this); }
 };
 
-// 8. Call: f(x,y)
+// Call: f(x,y)
 class CallExpression : public Expression {
 public:
     unique_ptr<Expression> callee;
@@ -115,7 +115,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitCall(this); }
 };
 
-// 9. Member: obj.prop or obj["prop"]
+// Member: obj.prop or obj["prop"]
 class MemberExpression : public Expression {
 public:
     unique_ptr<Expression> object;
@@ -133,19 +133,19 @@ public:
     
 };
 
-// 10. this
+// this
 class ThisExpression : public Expression {
 public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitThis(this); }
 };
 
-// 11. super
+// super
 class SuperExpression : public Expression {
 public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitSuper(this); }
 };
 
-// 12. new expr()
+// new expr()
 class NewExpression : public Expression {
 public:
     unique_ptr<Expression> callee;
@@ -155,7 +155,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitNew(this); }
 };
 
-// 13. [a,b,...]
+// [a,b,...]
 class ArrayLiteralExpression : public Expression {
 public:
     vector<unique_ptr<Expression>> elements;
@@ -164,19 +164,16 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitArray(this); }
 };
 
-// 14. { key: value, ... }
+// { key: value, ... }
 class ObjectLiteralExpression : public Expression {
 public:
-    vector<unique_ptr<class PropertyExpression>> properties;
     vector<pair<Token, unique_ptr<Expression>>> props;
-    explicit ObjectLiteralExpression(vector<unique_ptr<PropertyExpression>> properties)
-        : properties(std::move(properties)) {}
     explicit ObjectLiteralExpression(vector<pair<Token, unique_ptr<Expression>>> props)
         : props(std::move(props)) {}
     void accept(ExpressionVisitor& visitor) override { visitor.visitObject(this); }
 };
 
-// 15. key:value inside object
+// key:value inside object
 class PropertyExpression : public Expression {
 public:
     unique_ptr<Expression> key;
@@ -186,7 +183,7 @@ public:
     void accept(ExpressionVisitor& visitor) override { visitor.visitProperty(this); }
 };
 
-// 16. Sequence (comma operator): (a, b, c)
+// Sequence (comma operator): (a, b, c)
 class SequenceExpression : public Expression {
 public:
     vector<unique_ptr<Expression>> expressions;

@@ -227,10 +227,10 @@ public:
     void visitObject(ObjectLiteralExpression* expr) override {
         printIndent(); std::cout << "Object\n";
         indent++;
-        for (auto& prop : expr->properties) {
-            printIndent(); std::cout << "Property " << prop->key << ":\n";
+        for (auto& prop : expr->props) {
+            printIndent(); std::cout << "Property " << prop.first.lexeme << ":\n";
             indent++;
-            prop->value->accept(*this);
+            prop.second->accept(*this);
             indent--;
         }
         indent--;

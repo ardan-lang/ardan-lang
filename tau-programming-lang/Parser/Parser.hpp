@@ -379,7 +379,7 @@ private:
                 do {
                     Token key = consume(TokenType::IDENTIFIER, "Expected property key");
                     consume(TokenType::COLON, "Expected ':' after property key");
-                    auto value = parseExpression();
+                    auto value = parseAssignment();
                     props.push_back({ key, std::move(value) });
                 } while (match(TokenType::COMMA));
             }

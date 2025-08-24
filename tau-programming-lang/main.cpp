@@ -160,10 +160,6 @@ int main(int argc, const char * argv[]) {
       console.log(value);
     }
         for (let key in person) {    }
-
-    )";
-    
-    string lang = R"(
         var t;
         for (let key in person) {    }
         for (let value of iterable) {
@@ -176,7 +172,13 @@ int main(int argc, const char * argv[]) {
     
     while(true) {}
     while(9<0) {}
+    true;
+    var arr = [8, 9];
 
+    )";
+    
+    string lang = R"(
+    var user = {name: "chi", age: 90};
     )";
 
     Scanner scanner(lang);
