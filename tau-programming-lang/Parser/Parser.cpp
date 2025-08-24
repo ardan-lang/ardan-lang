@@ -130,35 +130,6 @@ unique_ptr<Statement> Parser::parseForVariableStatement() {
 }
 
 unique_ptr<Statement> Parser::parseForStatement() {
-//    consumeKeyword("FOR");
-//    consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
-//
-//    unique_ptr<Statement> finalStmt = nullptr;
-//
-//    unique_ptr<Statement> init = nullptr;
-//    if (!check(TokenType::SEMI_COLON)) {
-//        if (checkKeyword("VAR") || checkKeyword("LET") || checkKeyword("CONST")) {
-//            init = parseVariableStatement();
-//        } else {
-//            init = parseExpressionStatement();
-//        }
-//    } else {
-//        auto kw = peek();
-//        
-//        if (kw.type == TokenType::KEYWORD && kw.lexeme == "IN") {
-//            finalStmt = parseForInStatement(init);
-//        }
-//        
-//        if (kw.type == TokenType::KEYWORD && kw.lexeme == "OF") {
-//            finalStmt = parseForOfStatement(init);
-//        }
-//
-//        if (kw.type == TokenType::SEMI_COLON) {
-//            finalStmt = parseTraditionalForStatement(init);
-//        }
-//    }
-//    
-//    return finalStmt;
     consumeKeyword("FOR");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
 
@@ -171,12 +142,14 @@ unique_ptr<Statement> Parser::parseForStatement() {
             init = parseExpressionStatement();
         }
     }
+    
+    auto kw = peek();
 
-    if (matchKeyword("IN")) {
+    if (kw.lexeme == ("IN") && kw.type == TokenType::KEYWORD) {
         return parseForInStatement(init);
     }
 
-    if (matchKeyword("OF")) {
+    if (kw.lexeme == ("OF") && kw.type == TokenType::KEYWORD) {
         return parseForOfStatement(init);
     }
 
@@ -185,8 +158,6 @@ unique_ptr<Statement> Parser::parseForStatement() {
 
 unique_ptr<Statement> Parser::parseTraditionalForStatement(unique_ptr<Statement>& init) {
     
-    // consume(TokenType::SEMI_COLON, "Expected ';'");
-
     unique_ptr<Expression> test = nullptr;
     if (!check(TokenType::SEMI_COLON)) {
         test = parseExpression();
@@ -207,7 +178,7 @@ unique_ptr<Statement> Parser::parseTraditionalForStatement(unique_ptr<Statement>
 
 unique_ptr<Statement> Parser::parseForInStatement(unique_ptr<Statement>& init) {
     
-    // consume(TokenType::KEYWORD, "Expect 'in'");
+    consume(TokenType::KEYWORD, "Expect 'in'");
     
     // parse
     auto objectExpr = parseExpression();
@@ -223,6 +194,9 @@ unique_ptr<Statement> Parser::parseForInStatement(unique_ptr<Statement>& init) {
 }
 
 unique_ptr<Statement> Parser::parseForOfStatement(unique_ptr<Statement>& init) {
+
+    consume(TokenType::KEYWORD, "Expect 'of'");
+
     // right-hand expression (iterable)
     auto iterableExpr = parseExpression();
 
