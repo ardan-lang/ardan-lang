@@ -286,7 +286,7 @@ private:
         return expr;
     }
 
-    // ───────────── LHS: calls, member access, new, super, etc. ─────────────
+    // ───────────── LHS: calls, member access, new, super ─────────────
 
     unique_ptr<Expression> parseLeftHandSide() {
         auto expr = parseNewMember();
