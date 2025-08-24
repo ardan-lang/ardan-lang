@@ -202,12 +202,32 @@ public:
     const string name;
     vector<unique_ptr<Expression>> params;
     unique_ptr<Statement> methodBody;
-    MethodDefinition(const string name, vector<unique_ptr<Expression>> params, unique_ptr<Statement> methodBody) : name(name), params(std::move(params)), methodBody(std::move(methodBody)) {}
-    
+    vector<unique_ptr<Expression>> modifiers;
+
+    MethodDefinition(const string name,
+                     vector<unique_ptr<Expression>> params,
+                     unique_ptr<Statement> methodBody,
+                     vector<unique_ptr<Expression>> modifiers)
+        : name((name)),
+          params(std::move(params)),
+          methodBody(std::move(methodBody)),
+          modifiers(std::move(modifiers)) {}
+
     void accept(StatementVisitor& visitor) override {
         visitor.visitMethodDefinition(this);
     }
+};
 
+class PropertyDeclaration {
+public:
+    vector<unique_ptr<Expression>> modifiers;
+    unique_ptr<Statement> property;
+    PropertyDeclaration(
+                        vector<unique_ptr<Expression>> modifiers,
+                        unique_ptr<Statement> property
+                        ) :
+    modifiers(std::move(modifiers)),
+    property(std::move(property)) {}
 };
 
 class ClassDeclaration : public Statement {
@@ -215,17 +235,20 @@ public:
     const string id;
     unique_ptr<Expression> superClass;
     vector<unique_ptr<MethodDefinition>> body;
-    vector<unique_ptr<Statement>> fields;
+    vector<unique_ptr<PropertyDeclaration>> fields;
 
     ClassDeclaration(const string id,
                      unique_ptr<Expression> superClass,
                      vector<unique_ptr<MethodDefinition>> body,
-                     vector<unique_ptr<Statement>> fields) : id(id), superClass(std::move(superClass)), body(std::move(body)), fields(std::move(fields)) {};
-    
+                     vector<unique_ptr<PropertyDeclaration>> fields)
+        : id((id)),
+          superClass(std::move(superClass)),
+          body(std::move(body)),
+          fields(std::move(fields)) {}
+
     void accept(StatementVisitor& visitor) override {
         visitor.visitClass(this);
     }
-
 };
 
 class DoWhileStatement : public Statement {

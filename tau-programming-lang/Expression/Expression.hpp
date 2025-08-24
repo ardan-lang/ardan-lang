@@ -246,4 +246,40 @@ public:
 
 };
 
+class PublicKeyword : public Expression {
+public:
+    PublicKeyword() {}
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitPublicKeyword(this);
+    }
+
+};
+
+class PrivateKeyword : public Expression {
+public:
+    PrivateKeyword() {}
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitPrivateKeyword(this);
+    }
+
+};
+
+class ProtectedKeyword : public Expression {
+public:
+    ProtectedKeyword() {}
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitProtectedKeyword(this);
+    }
+
+};
+
+class StaticKeyword : public Expression {
+public:
+    StaticKeyword() {}
+    void accept(ExpressionVisitor& visitor) override {
+        visitor.visitStaticKeyword(this);
+    }
+
+};
+
 #endif /* Expression_hpp */

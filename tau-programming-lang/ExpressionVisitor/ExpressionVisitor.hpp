@@ -32,6 +32,10 @@ class FalseKeyword;
 class TrueKeyword;
 class NumericLiteral;
 class StringLiteral;
+class PublicKeyword;
+class PrivateKeyword;
+class ProtectedKeyword;
+class StaticKeyword;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -59,6 +63,10 @@ public:
     virtual void visitTrueKeyword(TrueKeyword* expr) = 0;
     virtual void visitNumericLiteral(NumericLiteral* expr) = 0;
     virtual void visitStringLiteral(StringLiteral* expr) = 0;
+    virtual void visitPublicKeyword(PublicKeyword* expr) = 0;
+    virtual void visitPrivateKeyword(PrivateKeyword* expr) = 0;
+    virtual void visitProtectedKeyword(ProtectedKeyword* expr) = 0;
+    virtual void visitStaticKeyword(StaticKeyword* expr) = 0;
 
 };
 

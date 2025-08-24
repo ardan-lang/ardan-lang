@@ -44,6 +44,9 @@ private:
     unique_ptr<Statement> parseVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
+    vector<unique_ptr<Expression>> parseClassModifiers();
+    void parseClassMember(vector<unique_ptr<MethodDefinition>>& methods, vector<unique_ptr<PropertyDeclaration>>& fields);
+
     vector<unique_ptr<Expression>> parseParameterList();
     unique_ptr<Statement> parseExpressionStatement();
 
@@ -344,6 +347,10 @@ private:
             auto kw = previous();
             if (kw.lexeme == "THIS") return make_unique<ThisExpression>();
             if (kw.lexeme == "SUPER") return make_unique<SuperExpression>();
+            if (kw.lexeme == "PRIVATE") return make_unique<PrivateKeyword>();
+            if (kw.lexeme == "PUBLIC") return make_unique<PublicKeyword>();
+            if (kw.lexeme == "PROTECTED") return make_unique<ProtectedKeyword>();
+            if (kw.lexeme == "STATIC") return make_unique<StaticKeyword>();
         }
         if (match(TokenType::LEFT_PARENTHESIS)) {
             auto expr = parseExpression();
@@ -373,7 +380,7 @@ private:
             consume(TokenType::RIGHT_BRACKET, "Expected '}'");
             return make_unique<ObjectLiteralExpression>(std::move(props));
         }
-        
+        cout << peek().type << endl;
         throw error(peek(), "Unexpected token in primary expression");
     }
     

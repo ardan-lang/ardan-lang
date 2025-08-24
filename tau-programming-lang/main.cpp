@@ -74,7 +74,7 @@ int main(int argc, const char * argv[]) {
 
                     )";
     
-    string lang = R"(    
+    string __lang = R"(    
                     class Person {
                       
                       var name = "Unknown";
@@ -137,6 +137,24 @@ int main(int argc, const char * argv[]) {
         (6, 7);
         function n(90, uiop, ui=90){}
 
+    }
+
+    )";
+    
+    string lang = R"(
+    class Person {
+      
+      public var name = "Unknown";
+      static public var age = 0;
+
+      constructor(name, age) {
+        this.name = name;
+        this.age = age;
+      }
+
+      private greet() {
+        console.log(`Hi, I'm ${this.name} and I'm ${this.age} years old.`);
+      }
     }
 
     )";

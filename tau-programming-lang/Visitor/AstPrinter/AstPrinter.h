@@ -288,22 +288,29 @@ public:
     void visitClass(ClassDeclaration* stmt) override {
         printIndent(); std::cout << "Class " << stmt->id << " {\n";
         indent++;
+        
         for (auto& field : stmt->fields) {
-            field->accept(*this);
+            for (auto& modifier : field->modifiers) {
+                modifier->accept(*this);
+            }
+            field->property->accept(*this);
         }
+        
         for (auto& method : stmt->body) {
             method->accept(*this);
         }
+        
         indent--;
         printIndent(); std::cout << "}\n";
     }
     
     void visitMethodDefinition(MethodDefinition* stmt) override {
+        for(auto& modifier : stmt->modifiers) {
+            modifier->accept(*this);
+        }
         printIndent(); std::cout << "Method " << stmt->name << "(";
         for (size_t i = 0; i < stmt->params.size(); i++) {
             stmt->params[i]->accept(*this); std::cout << ", ";
-//            std::cout << stmt->params[i];
-//            if (i < stmt->params.size() - 1) std::cout << ", ";
         }
         std::cout << ") ";
         stmt->methodBody->accept(*this);
@@ -393,6 +400,23 @@ public:
             cout << "}\n";
         }
     }
+    
+    void visitPublicKeyword(PublicKeyword* expr) override {
+        printIndent(); std::cout << "public";
+    }
+    
+    void visitPrivateKeyword(PrivateKeyword* expr) override {
+        printIndent(); std::cout << "private";
+    }
+    
+    void visitProtectedKeyword(ProtectedKeyword* expr) override {
+        printIndent(); std::cout << "protected";
+    }
+    
+    void visitStaticKeyword(StaticKeyword* expr) override {
+        printIndent(); std::cout << "static";
+    }
+
     
 };
 

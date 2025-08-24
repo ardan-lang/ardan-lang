@@ -195,32 +195,62 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     }
 
     consume(TokenType::LEFT_BRACKET, "Expect '{' before class body.");
-    vector<unique_ptr<MethodDefinition>> body;
-    vector<unique_ptr<Statement>> fields;
+    vector<unique_ptr<MethodDefinition>> methods;
+    vector<unique_ptr<PropertyDeclaration>> fields;
+
     while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
-        
-        // The parser is not implementing the full JavaScript/TypeScript/ECMAScript method syntax
-        // (which can include things like async, static, getters/setters, parameter lists with default values, type annotations, etc.).
-        if (checkKeyword("VAR") || checkKeyword("CONST") || checkKeyword("LET")) {
-            
-            fields.push_back(parseVariableStatement());
-            
-        } else {
-            
-            const string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
-            vector<unique_ptr<Expression>> params = parseParameterList();
-            unique_ptr<Statement> methodBody = parseBlockStatement();
-            body.push_back(make_unique<MethodDefinition>(name, std::move(params), std::move(methodBody)));
-            
-        }
-        
+        parseClassMember(methods, fields);
     }
+
     consume(TokenType::RIGHT_BRACKET, "Expect '}' after class body.");
 
-    return make_unique<ClassDeclaration>(id,
-                                         std::move(superClass),
-                                         std::move(body),
-                                         std::move(fields));
+    return make_unique<ClassDeclaration>(
+        id,
+        std::move(superClass),
+        std::move(methods),
+        std::move(fields)
+    );
+}
+
+vector<unique_ptr<Expression>> Parser::parseClassModifiers() {
+    vector<unique_ptr<Expression>> modifiers;
+    while (check(TokenType::KEYWORD)) {
+        string kw = peek().lexeme;
+        if (kw == "PRIVATE" || kw == "PUBLIC" || kw == "PROTECTED" || kw == "STATIC") {
+            modifiers.push_back(parseExpression());
+        } else {
+            break;
+        }
+    }
+    return modifiers;
+}
+
+void Parser::parseClassMember(
+    vector<unique_ptr<MethodDefinition>>& methods,
+    vector<unique_ptr<PropertyDeclaration>>& fields
+) {
+    vector<unique_ptr<Expression>> modifiers = parseClassModifiers();
+
+    if (checkKeyword("VAR") || checkKeyword("CONST") || checkKeyword("LET")) {
+        // Class field
+        unique_ptr<Statement> property = parseVariableStatement();
+        fields.push_back(make_unique<PropertyDeclaration>(
+            std::move(modifiers),
+            std::move(property)
+        ));
+    } else {
+        // Class method
+        const string name = consume(TokenType::IDENTIFIER, "Expect method name.").lexeme;
+        vector<unique_ptr<Expression>> params = parseParameterList();
+        unique_ptr<Statement> body = parseBlockStatement();
+
+        methods.push_back(make_unique<MethodDefinition>(
+            name,
+            std::move(params),
+            std::move(body),
+            std::move(modifiers)
+        ));
+    }
 }
 
 vector<unique_ptr<Expression>> Parser::parseParameterList() {
