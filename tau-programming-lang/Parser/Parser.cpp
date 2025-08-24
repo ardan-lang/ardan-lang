@@ -114,7 +114,7 @@ unique_ptr<Statement> Parser::parseForStatement() {
 
     unique_ptr<Statement> init = nullptr;
     if (!check(TokenType::SEMI_COLON)) {
-        if (matchKeyword("VAR") || matchKeyword("LET") || matchKeyword("CONST")) {
+        if (checkKeyword("VAR") || checkKeyword("LET") || checkKeyword("CONST")) {
             init = parseVariableStatement();
         } else {
             init = parseExpressionStatement();
