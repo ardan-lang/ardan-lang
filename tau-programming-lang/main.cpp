@@ -138,10 +138,6 @@ int main(int argc, const char * argv[]) {
         function n(90, uiop, ui=90){}
 
     }
-
-    )";
-    
-    string lang = R"(
     class Person {
       
       public var name = "Unknown";
@@ -156,6 +152,30 @@ int main(int argc, const char * argv[]) {
         console.log(`Hi, I'm ${this.name} and I'm ${this.age} years old.`);
       }
     }
+    for(let i = 0; i < 9; i++) {}
+    
+    if(true){}
+    for (let value of iterable) {
+      value += 1;
+      console.log(value);
+    }
+        for (let key in person) {    }
+
+    )";
+    
+    string lang = R"(
+        var t;
+        for (let key in person) {    }
+        for (let value of iterable) {
+          value += 1;
+          console.log(value);
+        }
+    for(let i = 0; i < 9; i++) {}
+    for(i = 0; i < 9; i++) {}
+    for(i; i < 9; i++) {}
+    
+    while(true) {}
+    while(9<0) {}
 
     )";
 

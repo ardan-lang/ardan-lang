@@ -29,6 +29,8 @@ class SwitchStatement;
 class SwitchCase;
 class TryStatement;
 class CatchClause;
+class ForInStatement;
+class ForOfStatement;
 
 class StatementVisitor {
 public:
@@ -54,6 +56,8 @@ public:
     virtual void visitSwitch(SwitchStatement* stmt) = 0;
     virtual void visitTry(TryStatement* stmt) = 0;
     virtual void visitCatch(CatchClause* stmt) = 0;
+    virtual void visitForIn(ForInStatement* stmt) = 0;
+    virtual void visitForOf(ForOfStatement* stmt) = 0;
 
 };
 

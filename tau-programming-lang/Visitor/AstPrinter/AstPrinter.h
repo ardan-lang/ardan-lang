@@ -45,19 +45,15 @@ public:
         printIndent(); std::cout << "VariableDeclaration " << stmt->kind;
         std::cout << " =\n";
         indent++;
-        for (auto& declarator : stmt->declarations) {
-            std::cout << declarator.id << "\n";
-            declarator.init->accept(*this);
+        if ((stmt->declarations).size() > 0) {
+            for (auto& declarator : stmt->declarations) {
+                std::cout << declarator.id << "\n";
+                if (declarator.init) {
+                    declarator.init->accept(*this);
+                }
+            }
+            indent--;
         }
-        indent--;
-        //        if (stmt->init) {
-        //            std::cout << " =\n";
-        //            indent++;
-        //            stmt->init->accept(*this);
-        //            indent--;
-        //        } else {
-        //            std::cout << "\n";
-        //        }
     }
     
     void visitFunction(FunctionDeclaration* stmt) override {
@@ -416,8 +412,25 @@ public:
     void visitStaticKeyword(StaticKeyword* expr) override {
         printIndent(); std::cout << "static";
     }
-
     
+    void visitForIn(ForInStatement* stmt) override {
+        printIndent(); std::cout << "ForIn\n";
+        indent++;
+        if (stmt->init) stmt->init->accept(*this);
+        if (stmt->object) stmt->object->accept(*this);
+        stmt->body->accept(*this);
+        indent--;
+    }
+
+    void visitForOf(ForOfStatement* stmt) override {
+        printIndent(); std::cout << "ForOf\n";
+        indent++;
+        if (stmt->left) stmt->left->accept(*this);
+        if (stmt->right) stmt->right->accept(*this);
+        stmt->body->accept(*this);
+        indent--;
+    }
+
 };
 
 #endif /* AstPrinter_h */

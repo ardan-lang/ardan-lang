@@ -108,20 +108,84 @@ unique_ptr<Statement> Parser::parseWhileStatement() {
 // ---------------------
 // For Statement
 // ---------------------
+
+unique_ptr<Statement> Parser::parseForVariableStatement() {
+    Token keyword = advance(); // var | let | const
+    vector<VariableDeclarator> declarations;
+
+    do {
+        auto id = consume(TokenType::IDENTIFIER, "Expected variable name");
+        unique_ptr<Expression> init = nullptr;
+        if (match(TokenType::ASSIGN)) {
+            init = parseAssignment();
+        }
+        declarations.push_back(VariableDeclarator{id.lexeme, std::move(init)});
+    } while (match(TokenType::COMMA));
+
+    if (check(TokenType::SEMI_COLON)) {
+        consume(TokenType::SEMI_COLON, "Expected ';' after variable declaration");
+    }
+    
+    return make_unique<VariableStatement>(keyword.lexeme, std::move(declarations));
+}
+
 unique_ptr<Statement> Parser::parseForStatement() {
+//    consumeKeyword("FOR");
+//    consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
+//
+//    unique_ptr<Statement> finalStmt = nullptr;
+//
+//    unique_ptr<Statement> init = nullptr;
+//    if (!check(TokenType::SEMI_COLON)) {
+//        if (checkKeyword("VAR") || checkKeyword("LET") || checkKeyword("CONST")) {
+//            init = parseVariableStatement();
+//        } else {
+//            init = parseExpressionStatement();
+//        }
+//    } else {
+//        auto kw = peek();
+//        
+//        if (kw.type == TokenType::KEYWORD && kw.lexeme == "IN") {
+//            finalStmt = parseForInStatement(init);
+//        }
+//        
+//        if (kw.type == TokenType::KEYWORD && kw.lexeme == "OF") {
+//            finalStmt = parseForOfStatement(init);
+//        }
+//
+//        if (kw.type == TokenType::SEMI_COLON) {
+//            finalStmt = parseTraditionalForStatement(init);
+//        }
+//    }
+//    
+//    return finalStmt;
     consumeKeyword("FOR");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'");
 
     unique_ptr<Statement> init = nullptr;
+
     if (!check(TokenType::SEMI_COLON)) {
         if (checkKeyword("VAR") || checkKeyword("LET") || checkKeyword("CONST")) {
-            init = parseVariableStatement();
+            init = parseForVariableStatement();
         } else {
             init = parseExpressionStatement();
         }
-    } else {
-        consume(TokenType::SEMI_COLON, "Expected ';'");
     }
+
+    if (matchKeyword("IN")) {
+        return parseForInStatement(init);
+    }
+
+    if (matchKeyword("OF")) {
+        return parseForOfStatement(init);
+    }
+
+    return parseTraditionalForStatement(init);
+}
+
+unique_ptr<Statement> Parser::parseTraditionalForStatement(unique_ptr<Statement>& init) {
+    
+    // consume(TokenType::SEMI_COLON, "Expected ';'");
 
     unique_ptr<Expression> test = nullptr;
     if (!check(TokenType::SEMI_COLON)) {
@@ -138,6 +202,36 @@ unique_ptr<Statement> Parser::parseForStatement() {
     auto body = parseStatement();
 
     return make_unique<ForStatement>(std::move(init), std::move(test), std::move(update), std::move(body));
+
+}
+
+unique_ptr<Statement> Parser::parseForInStatement(unique_ptr<Statement>& init) {
+    
+    // consume(TokenType::KEYWORD, "Expect 'in'");
+    
+    // parse
+    auto objectExpr = parseExpression();
+
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+    
+    auto body = parseStatement();
+
+    return make_unique<ForInStatement>(std::move(init),
+                                       std::move(objectExpr),
+                                       std::move(body));
+
+}
+
+unique_ptr<Statement> Parser::parseForOfStatement(unique_ptr<Statement>& init) {
+    // right-hand expression (iterable)
+    auto iterableExpr = parseExpression();
+
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after iterable");
+    auto body = parseStatement();
+
+    return make_unique<ForOfStatement>(std::move(init),
+                                       std::move(iterableExpr),
+                                       std::move(body));
 }
 
 // ---------------------

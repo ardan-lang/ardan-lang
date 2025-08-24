@@ -109,6 +109,42 @@ public:
     }
 };
 
+class ForInStatement : public Statement {
+public:
+    unique_ptr<Statement> init;
+    unique_ptr<Expression> object;
+    unique_ptr<Statement> body;
+
+    ForInStatement(unique_ptr<Statement> init,
+                 unique_ptr<Expression> object,
+                 unique_ptr<Statement> body)
+        : init(std::move(init)),
+          object(std::move(object)),
+          body(std::move(body)) {}
+
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitForIn(this);
+    }
+};
+
+class ForOfStatement : public Statement {
+public:
+    std::unique_ptr<Statement> left; // variable declaration or expression
+    std::unique_ptr<Expression> right; // iterable expression
+    std::unique_ptr<Statement> body;
+
+    ForOfStatement(std::unique_ptr<Statement> left,
+                   std::unique_ptr<Expression> right,
+                   std::unique_ptr<Statement> body)
+        : left(std::move(left)),
+          right(std::move(right)),
+          body(std::move(body)) {}
+
+    void accept(StatementVisitor& visitor) override {
+        visitor.visitForOf(this);
+    }
+};
+
 struct VariableDeclarator {
     string id;
     unique_ptr<Expression> init; // may be null

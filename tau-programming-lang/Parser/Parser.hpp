@@ -32,7 +32,13 @@ private:
     unique_ptr<Statement> parseBlockStatement();
     unique_ptr<Statement> parseIfStatement();
     unique_ptr<Statement> parseWhileStatement();
+    
     unique_ptr<Statement> parseForStatement();
+    unique_ptr<Statement> parseTraditionalForStatement(unique_ptr<Statement>& init);
+    unique_ptr<Statement> parseForInStatement(unique_ptr<Statement>& init);
+    unique_ptr<Statement> parseForOfStatement(unique_ptr<Statement>& init);
+    unique_ptr<Statement> parseForVariableStatement();
+
     unique_ptr<Statement> parseDoWhileStatement();
     unique_ptr<Statement> parseSwitchStatement();
     unique_ptr<Statement> parseTryStatement();
