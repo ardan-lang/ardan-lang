@@ -5,4 +5,160 @@
 //  Created by Chidume Nnamdi on 24/08/2025.
 //
 
-#include "Interpreter.hpp"
+#include "Interpreter.h"
+#include "../Statements/Statements.hpp"
+#include "../Expression/Expression.hpp"
+
+Interpreter::Interpreter() {}
+
+R Interpreter::visitExpression(ExpressionStatement* stmt) {
+    return stmt->expression->accept(*this);
+}
+
+R Interpreter::visitBlock(BlockStatement* stmt) {
+    for (auto& s : stmt->body) {
+        s->accept(*this);
+    }
+    return true;
+}
+
+R Interpreter::visitVariable(VariableStatement* stmt) {
+    
+    const string kind = stmt->kind;
+    
+    if ((stmt->declarations).size() > 0) {
+        for (auto& declarator : stmt->declarations) {
+            if (declarator.init) {
+                
+                R value = declarator.init->accept(*this);
+                
+                env.setValue(declarator.id, value);
+            }
+        }
+    }
+    
+    return true;
+    
+}
+
+
+R Interpreter::visitCall(CallExpression* expr) {
+    
+    vector<R> vectorArg;
+    
+    auto callee = expr->callee->accept(*this);
+    
+    for (auto& arg : expr->arguments) {
+        auto _arg = arg->accept(*this);
+        vectorArg.push_back(_arg);
+    }
+
+    // If the callee is "print"
+    if (holds_alternative<std::string>(callee) &&
+        get<std::string>(callee) == "print")
+    {
+        for (auto& v : vectorArg) {
+            printValue(v);
+            std::cout << " ";
+        }
+        cout << std::endl;
+        return std::monostate{};
+    }
+    
+    throw runtime_error("Unknown function call");
+    
+}
+
+R Interpreter::visitFalseKeyword(FalseKeyword* expr) {
+    return false;
+}
+
+R Interpreter::visitTrueKeyword(TrueKeyword* expr) {
+    return true;
+}
+
+R Interpreter::visitNumericLiteral(NumericLiteral* expr) {
+    return expr->text;
+}
+
+R Interpreter::visitStringLiteral(StringLiteral* expr) {
+    return expr->text;
+}
+
+R Interpreter::visitIdentifier(IdentifierExpression* expr) {
+    return env.getValue(expr->name);
+}
+
+R Interpreter::visitFunction(FunctionDeclaration* stmt) {
+    
+    //auto id = stmt->id;
+    
+//    for (size_t i = 0; i < stmt->params.size(); i++) {
+//        stmt->params[i]->accept(*this);
+//    }
+
+//    stmt->body->accept(*this);
+    //env.setValue(id, {stmt->params, stmt->body});
+
+    return true;
+}
+
+R Interpreter::visitIf(IfStatement* stmt) {
+    return true;
+}
+
+R Interpreter::visitWhile(WhileStatement* stmt) {
+    return true;
+}
+
+R Interpreter::visitFor(ForStatement* stmt) {    return true;
+}
+R Interpreter::visitReturn(ReturnStatement* stmt) {    return true;
+}
+R Interpreter::visitBreak(BreakStatement* stmt) {    return true;
+}
+R Interpreter::visitContinue(ContinueStatement* stmt) {    return true;
+}
+R Interpreter::visitThrow(ThrowStatement* stmt) {    return true;
+}
+R Interpreter::visitEmpty(EmptyStatement* stmt) {    return true;
+}
+R Interpreter::visitClass(ClassDeclaration* stmt) {    return true;
+}
+R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {    return true;
+}
+R Interpreter::visitDoWhile(DoWhileStatement* stmt) {    return true;
+}
+R Interpreter::visitSwitchCase(SwitchCase* stmt) {    return true;
+}
+R Interpreter::visitSwitch(SwitchStatement* stmt) {    return true;
+}
+R Interpreter::visitCatch(CatchClause* stmt) {    return true;
+}
+R Interpreter::visitTry(TryStatement* stmt) {    return true;
+}
+R Interpreter::visitForIn(ForInStatement* stmt) {    return true;
+}
+R Interpreter::visitForOf(ForOfStatement* stmt) {    return true;
+}
+
+// -------- Expressions --------
+R Interpreter::visitLiteral(LiteralExpression* expr) { return true; }
+R Interpreter::visitBinary(BinaryExpression* expr) { return true; }
+R Interpreter::visitUnary(UnaryExpression* expr) { return true; }
+R Interpreter::visitUpdate(UpdateExpression* expr) { return true; }
+R Interpreter::visitAssignment(AssignmentExpression* expr) { return true; }
+R Interpreter::visitLogical(LogicalExpression* expr) { return true; }
+R Interpreter::visitConditional(ConditionalExpression* expr) { return true; }
+R Interpreter::visitMember(MemberExpression* expr) { return true; }
+R Interpreter::visitThis(ThisExpression* expr) { return true; }
+R Interpreter::visitNew(NewExpression* expr) { return true; }
+R Interpreter::visitArray(ArrayLiteralExpression* expr) { return true; }
+R Interpreter::visitObject(ObjectLiteralExpression* expr) { return true; }
+R Interpreter::visitSuper(SuperExpression* expr) { return true; }
+R Interpreter::visitProperty(PropertyExpression* expr) { return true; }
+R Interpreter::visitSequence(SequenceExpression* expr) { return true; }
+R Interpreter::visitPublicKeyword(PublicKeyword* expr) { return true; }
+R Interpreter::visitPrivateKeyword(PrivateKeyword* expr) { return true; }
+R Interpreter::visitProtectedKeyword(ProtectedKeyword* expr) { return true; }
+R Interpreter::visitStaticKeyword(StaticKeyword* expr) { return true; }

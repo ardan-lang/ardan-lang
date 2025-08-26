@@ -14,13 +14,24 @@
 #include <cstring>
 #include "../Expression/Expression.hpp"
 #include "StatementVisitor.hpp"
+#include "../Interpreter/R.hpp"
 
 using namespace std;
 
 class Statement {
 public:
-    virtual void accept(StatementVisitor& visitor) = 0;
+    virtual R accept(StatementVisitor& visitor) = 0;
     virtual ~Statement() = default;
+};
+
+class EmptyStatement : public Statement {
+public:
+    EmptyStatement() {}
+
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitEmpty(this);
+    }
+    
 };
 
 class BlockStatement : public Statement {
@@ -30,18 +41,9 @@ public:
     BlockStatement(vector<unique_ptr<Statement>> body)
         : body(std::move(body)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitBlock(this);
+    R accept(StatementVisitor& visitor) override {
+        return visitor.visitBlock(this);
     }
-};
-
-class EmptyStatement : public Statement {
-public:
-    EmptyStatement() {}
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitEmpty(this);
-    }
-    
 };
 
 class ExpressionStatement : public Statement {
@@ -51,8 +53,8 @@ public:
     ExpressionStatement(unique_ptr<Expression> expression)
         : expression(std::move(expression)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitExpression(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitExpression(this);
     }
 };
 
@@ -69,8 +71,8 @@ public:
           consequent(std::move(consequent)),
           alternate(std::move(alternate)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitIf(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitIf(this);
     }
 };
 
@@ -83,8 +85,8 @@ public:
                    unique_ptr<Statement> body)
         : test(std::move(test)), body(std::move(body)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitWhile(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitWhile(this);
     }
 };
 
@@ -104,8 +106,8 @@ public:
           update(std::move(update)),
           body(std::move(body)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitFor(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitFor(this);
     }
 };
 
@@ -114,16 +116,16 @@ public:
     unique_ptr<Statement> init;
     unique_ptr<Expression> object;
     unique_ptr<Statement> body;
-
+    
     ForInStatement(unique_ptr<Statement> init,
-                 unique_ptr<Expression> object,
-                 unique_ptr<Statement> body)
-        : init(std::move(init)),
-          object(std::move(object)),
-          body(std::move(body)) {}
-
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitForIn(this);
+                   unique_ptr<Expression> object,
+                   unique_ptr<Statement> body)
+    : init(std::move(init)),
+    object(std::move(object)),
+    body(std::move(body)) {}
+    
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitForIn(this);
     }
 };
 
@@ -140,8 +142,8 @@ public:
           right(std::move(right)),
           body(std::move(body)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitForOf(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitForOf(this);
     }
 };
 
@@ -158,8 +160,8 @@ public:
     VariableStatement(string kind, vector<VariableDeclarator> declarations)
         : kind(std::move(kind)), declarations(std::move(declarations)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitVariable(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitVariable(this);
     }
 };
 
@@ -176,8 +178,8 @@ public:
           params(std::move(params)),
           body(std::move(body)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitFunction(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitFunction(this);
     }
 };
 
@@ -189,8 +191,8 @@ public:
     ReturnStatement(unique_ptr<Expression> argument)
         : argument(std::move(argument)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitReturn(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitReturn(this);
     }
 };
 
@@ -202,8 +204,8 @@ public:
     BreakStatement(string label = "")
         : label(std::move(label)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitBreak(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitBreak(this);
     }
 };
 
@@ -215,8 +217,8 @@ public:
     ContinueStatement(string label = "")
         : label(std::move(label)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitContinue(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitContinue(this);
     }
 };
 
@@ -228,8 +230,8 @@ public:
     ThrowStatement(unique_ptr<Expression> argument)
         : argument(std::move(argument)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitThrow(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitThrow(this);
     }
 };
 
@@ -249,8 +251,8 @@ public:
           methodBody(std::move(methodBody)),
           modifiers(std::move(modifiers)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitMethodDefinition(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitMethodDefinition(this);
     }
 };
 
@@ -282,8 +284,8 @@ public:
           body(std::move(body)),
           fields(std::move(fields)) {}
 
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitClass(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitClass(this);
     }
 };
 
@@ -294,8 +296,8 @@ public:
     DoWhileStatement(unique_ptr<Statement> body,
                      unique_ptr<Expression> condition) : body(std::move(body)), condition(std::move(condition)) {}
     
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitDoWhile(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitDoWhile(this);
     }
 
 };
@@ -308,8 +310,8 @@ public:
     SwitchCase(unique_ptr<Expression> test,
                vector<unique_ptr<Statement>> consequent) : test(std::move(test)), consequent(std::move(consequent)) {}
     
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitSwitchCase(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitSwitchCase(this);
     }
 
 };
@@ -321,8 +323,8 @@ public:
     SwitchStatement(unique_ptr<Expression> discriminant,
                     vector<unique_ptr<SwitchCase>> cases) : discriminant(std::move(discriminant)), cases(std::move(cases)) {};
     
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitSwitch(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitSwitch(this);
     }
 
 };
@@ -335,8 +337,8 @@ public:
     CatchClause(string param,
                 unique_ptr<Statement> body) : param(param), body(std::move(body)) {}
     
-    void accept(StatementVisitor& visitor) override {
-        visitor.visitCatch(this);
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitCatch(this);
     }
 
 };
@@ -351,9 +353,9 @@ public:
                  unique_ptr<CatchClause> handler,
                  unique_ptr<Statement> finalizer) : block(std::move(block)), handler(std::move(handler)), finalizer(std::move(finalizer)) {}
     
-      void accept(StatementVisitor& visitor) override {
-          visitor.visitTry(this);
-      }
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitTry(this);
+    }
 
 };
 

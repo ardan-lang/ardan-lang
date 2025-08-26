@@ -9,5 +9,15 @@
 #define R_hpp
 
 #include <stdio.h>
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+using R = variant<
+monostate,
+double,
+string,
+bool>;
 
 #endif /* R_hpp */

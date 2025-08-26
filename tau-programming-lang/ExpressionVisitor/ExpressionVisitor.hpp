@@ -9,6 +9,7 @@
 #define ExpressionVisitor_hpp
 
 #include <stdio.h>
+#include "../Interpreter/R.hpp"
 
 // Forward declare all expression classes
 class LiteralExpression;
@@ -42,31 +43,31 @@ class ExpressionVisitor {
 public:
     virtual ~ExpressionVisitor() = default;
 
-    virtual void visitLiteral(LiteralExpression* expr) = 0;
-    virtual void visitIdentifier(IdentifierExpression* expr) = 0;
-    virtual void visitUnary(UnaryExpression* expr) = 0;
-    virtual void visitBinary(BinaryExpression* expr) = 0;
-    virtual void visitAssignment(AssignmentExpression* expr) = 0;
-    virtual void visitConditional(ConditionalExpression* expr) = 0;
-    virtual void visitLogical(LogicalExpression* expr) = 0;
-    virtual void visitCall(CallExpression* expr) = 0;
-    virtual void visitMember(MemberExpression* expr) = 0;
-    virtual void visitThis(ThisExpression* expr) = 0;
-    virtual void visitSuper(SuperExpression* expr) = 0;
-    virtual void visitNew(NewExpression* expr) = 0;
-    virtual void visitArray(ArrayLiteralExpression* expr) = 0;
-    virtual void visitObject(ObjectLiteralExpression* expr) = 0;
-    virtual void visitProperty(PropertyExpression* expr) = 0;
-    virtual void visitSequence(SequenceExpression* expr) = 0;
-    virtual void visitUpdate(UpdateExpression* expr) = 0;
-    virtual void visitFalseKeyword(FalseKeyword* expr) = 0;
-    virtual void visitTrueKeyword(TrueKeyword* expr) = 0;
-    virtual void visitNumericLiteral(NumericLiteral* expr) = 0;
-    virtual void visitStringLiteral(StringLiteral* expr) = 0;
-    virtual void visitPublicKeyword(PublicKeyword* expr) = 0;
-    virtual void visitPrivateKeyword(PrivateKeyword* expr) = 0;
-    virtual void visitProtectedKeyword(ProtectedKeyword* expr) = 0;
-    virtual void visitStaticKeyword(StaticKeyword* expr) = 0;
+    virtual R visitLiteral(LiteralExpression* expr) = 0;
+    virtual R visitIdentifier(IdentifierExpression* expr) = 0;
+    virtual R visitUnary(UnaryExpression* expr) = 0;
+    virtual R visitBinary(BinaryExpression* expr) = 0;
+    virtual R visitAssignment(AssignmentExpression* expr) = 0;
+    virtual R visitConditional(ConditionalExpression* expr) = 0;
+    virtual R visitLogical(LogicalExpression* expr) = 0;
+    virtual R visitCall(CallExpression* expr) = 0;
+    virtual R visitMember(MemberExpression* expr) = 0;
+    virtual R visitThis(ThisExpression* expr) = 0;
+    virtual R visitSuper(SuperExpression* expr) = 0;
+    virtual R visitNew(NewExpression* expr) = 0;
+    virtual R visitArray(ArrayLiteralExpression* expr) = 0;
+    virtual R visitObject(ObjectLiteralExpression* expr) = 0;
+    virtual R visitProperty(PropertyExpression* expr) = 0;
+    virtual R visitSequence(SequenceExpression* expr) = 0;
+    virtual R visitUpdate(UpdateExpression* expr) = 0;
+    virtual R visitFalseKeyword(FalseKeyword* expr) = 0;
+    virtual R visitTrueKeyword(TrueKeyword* expr) = 0;
+    virtual R visitNumericLiteral(NumericLiteral* expr) = 0;
+    virtual R visitStringLiteral(StringLiteral* expr) = 0;
+    virtual R visitPublicKeyword(PublicKeyword* expr) = 0;
+    virtual R visitPrivateKeyword(PrivateKeyword* expr) = 0;
+    virtual R visitProtectedKeyword(ProtectedKeyword* expr) = 0;
+    virtual R visitStaticKeyword(StaticKeyword* expr) = 0;
 
 };
 

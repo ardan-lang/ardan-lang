@@ -14,6 +14,7 @@
 #include "../Scanner/Token/Token.hpp"
 #include "../Scanner/Token/TokenType.h"
 #include "../ExpressionVisitor/ExpressionVisitor.hpp"
+#include "../Interpreter/R.hpp"
 
 using std::string;
 using std::unique_ptr;
@@ -23,7 +24,7 @@ using std::vector;
 class Expression {
 public:
     virtual ~Expression() = default;
-    virtual void accept(ExpressionVisitor& visitor) = 0;
+    virtual R accept(ExpressionVisitor& visitor) = 0;
 };
 
 // Literal
@@ -31,18 +32,20 @@ class LiteralExpression : public Expression {
 public:
     Token token;
     explicit LiteralExpression(Token token) : token(token) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitLiteral(this); }
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitLiteral(this); }
 };
 
 // Identifier
 class IdentifierExpression : public Expression {
 public:
     string name;
-    Token previous;
+    Token token;
     
     explicit IdentifierExpression(const string& name) : name(name) {}
-    explicit IdentifierExpression(Token previous) : previous(previous) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitIdentifier(this); }
+    explicit IdentifierExpression(Token token) : token(token), name(token.lexeme) {}
+
+    R accept(ExpressionVisitor& visitor) { return visitor.visitIdentifier(this); }
 };
 
 // Unary: !x, -x, +x, typeof x
@@ -52,7 +55,9 @@ public:
     unique_ptr<Expression> right;
     UnaryExpression(Token op, unique_ptr<Expression> right)
         : op(op), right(std::move(right)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitUnary(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitUnary(this); }
 };
 
 // Binary: x + y, x * y,
@@ -67,7 +72,8 @@ public:
     
     BinaryExpression(Token op, unique_ptr<Expression> expr, unique_ptr<Expression> right) : left(std::move(expr)), op(op), right(std::move(right)) {}
     
-    void accept(ExpressionVisitor& visitor) override { visitor.visitBinary(this); }
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitBinary(this); }
 };
 
 // Assignment: x = y, x += y
@@ -78,7 +84,9 @@ public:
     unique_ptr<Expression> right;
     AssignmentExpression(unique_ptr<Expression> left, Token op, unique_ptr<Expression> right)
         : left(std::move(left)), op(op), right(std::move(right)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitAssignment(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitAssignment(this); }
 };
 
 // Conditional (ternary): cond ? then : else
@@ -91,7 +99,9 @@ public:
                           unique_ptr<Expression> consequent,
                           unique_ptr<Expression> alternate)
         : test(std::move(test)), consequent(std::move(consequent)), alternate(std::move(alternate)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitConditional(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitConditional(this); }
 };
 
 // Logical: &&, ||, ??
@@ -102,7 +112,9 @@ public:
     unique_ptr<Expression> right;
     LogicalExpression(unique_ptr<Expression> left, Token op, unique_ptr<Expression> right)
         : left(std::move(left)), op(op), right(std::move(right)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitLogical(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitLogical(this); }
 };
 
 // Call: f(x,y)
@@ -112,7 +124,9 @@ public:
     vector<unique_ptr<Expression>> arguments;
     CallExpression(unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
         : callee(std::move(callee)), arguments(std::move(arguments)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitCall(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitCall(this); }
 };
 
 // Member: obj.prop or obj["prop"]
@@ -129,20 +143,23 @@ public:
     MemberExpression(unique_ptr<Expression> object, Token name, bool computed)
         : object(std::move(object)), name(name), computed(computed) {}
 
-    void accept(ExpressionVisitor& visitor) override { visitor.visitMember(this); }
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitMember(this); }
     
 };
 
 // this
 class ThisExpression : public Expression {
 public:
-    void accept(ExpressionVisitor& visitor) override { visitor.visitThis(this); }
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitThis(this); }
 };
 
 // super
 class SuperExpression : public Expression {
 public:
-    void accept(ExpressionVisitor& visitor) override { visitor.visitSuper(this); }
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitSuper(this); }
 };
 
 // new expr()
@@ -152,7 +169,9 @@ public:
     vector<unique_ptr<Expression>> arguments;
     NewExpression(unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
         : callee(std::move(callee)), arguments(std::move(arguments)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitNew(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitNew(this); }
 };
 
 // [a,b,...]
@@ -161,7 +180,9 @@ public:
     vector<unique_ptr<Expression>> elements;
     explicit ArrayLiteralExpression(vector<unique_ptr<Expression>> elements)
         : elements(std::move(elements)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitArray(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitArray(this); }
 };
 
 // { key: value, ... }
@@ -170,7 +191,9 @@ public:
     vector<pair<Token, unique_ptr<Expression>>> props;
     explicit ObjectLiteralExpression(vector<pair<Token, unique_ptr<Expression>>> props)
         : props(std::move(props)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitObject(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitObject(this); }
 };
 
 // key:value inside object
@@ -180,7 +203,9 @@ public:
     unique_ptr<Expression> value;
     PropertyExpression(unique_ptr<Expression> key, unique_ptr<Expression> value)
         : key(std::move(key)), value(std::move(value)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitProperty(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitProperty(this); }
 };
 
 // Sequence (comma operator): (a, b, c)
@@ -189,7 +214,9 @@ public:
     vector<unique_ptr<Expression>> expressions;
     explicit SequenceExpression(vector<unique_ptr<Expression>> expressions)
         : expressions(std::move(expressions)) {}
-    void accept(ExpressionVisitor& visitor) override { visitor.visitSequence(this); }
+    
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitSequence(this); }
 };
 
 class UpdateExpression : public Expression {
@@ -201,24 +228,28 @@ public:
     explicit UpdateExpression(Token op, unique_ptr<Expression> argument, bool prefix)
         : op(op), argument(std::move(argument)), prefix(prefix) {}
 
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitUpdate(this);
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitUpdate(this);
     }
 };
 
 class FalseKeyword : public Expression {
 public:
     FalseKeyword() {}
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitFalseKeyword(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitFalseKeyword(this);
     }
 
 };
 
 class TrueKeyword : public Expression {
 public:
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitTrueKeyword(this);
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitTrueKeyword(this);
     }
 
 };
@@ -227,8 +258,10 @@ class NumericLiteral : public Expression {
 public:
     const string text;
     NumericLiteral(const string text) : text(text) {}
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitNumericLiteral(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitNumericLiteral(this);
     }
 
 };
@@ -237,8 +270,10 @@ class StringLiteral : public Expression {
 public:
     StringLiteral(const string text) : text(text) {}
     const string text;
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitStringLiteral(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitStringLiteral(this);
     }
 
 };
@@ -246,8 +281,10 @@ public:
 class PublicKeyword : public Expression {
 public:
     PublicKeyword() {}
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitPublicKeyword(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitPublicKeyword(this);
     }
 
 };
@@ -255,8 +292,10 @@ public:
 class PrivateKeyword : public Expression {
 public:
     PrivateKeyword() {}
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitPrivateKeyword(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitPrivateKeyword(this);
     }
 
 };
@@ -264,8 +303,10 @@ public:
 class ProtectedKeyword : public Expression {
 public:
     ProtectedKeyword() {}
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitProtectedKeyword(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitProtectedKeyword(this);
     }
 
 };
@@ -273,8 +314,10 @@ public:
 class StaticKeyword : public Expression {
 public:
     StaticKeyword() {}
-    void accept(ExpressionVisitor& visitor) override {
-        visitor.visitStaticKeyword(this);
+    
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitStaticKeyword(this);
     }
 
 };

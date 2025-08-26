@@ -11,37 +11,41 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-//#include "../ExpressionVisitor/ExpressionVisitor.hpp"
-//#include "../Statements/StatementVisitor.hpp"
+#include "../ExpressionVisitor/ExpressionVisitor.hpp"
+#include "../Statements/StatementVisitor.hpp"
+#include "R.hpp"
+#include "Env.h"
 
 using namespace std;
-using R = std::variant<std::monostate, double, std::string, bool>;
 
-class Interpreter : public ExpressionVisitor<R>, public StatementVisitor<void> {
+class Interpreter : public ExpressionVisitor, public StatementVisitor {
+
+private:
+    Env env;
     
 public:
-    
-    void visitExpression(ExpressionStatement* stmt) override;
-    void visitBlock(BlockStatement* stmt) override;
-    void visitVariable(VariableStatement* stmt) override;
-    void visitFunction(FunctionDeclaration* stmt) override;
-    void visitIf(IfStatement* stmt) override;
-    void visitWhile(WhileStatement* stmt) override;
-    void visitFor(ForStatement* stmt) override;
-    void visitReturn(ReturnStatement* stmt) override;
-    void visitBreak(BreakStatement* stmt) override;
-    void visitContinue(ContinueStatement* stmt) override;
-    void visitThrow(ThrowStatement* stmt) override;
-    void visitEmpty(EmptyStatement* stmt) override;
-    void visitClass(ClassDeclaration* stmt) override;
-    void visitMethodDefinition(MethodDefinition* stmt) override;
-    void visitDoWhile(DoWhileStatement* stmt) override;
-    void visitSwitchCase(SwitchCase* stmt) override;
-    void visitSwitch(SwitchStatement* stmt) override;
-    void visitCatch(CatchClause* stmt) override;
-    void visitTry(TryStatement* stmt) override;
-    void visitForIn(ForInStatement* stmt) override;
-    void visitForOf(ForOfStatement* stmt) override;
+    Interpreter();
+    R visitExpression(ExpressionStatement* stmt) override;
+    R visitBlock(BlockStatement* stmt) override;
+    R visitVariable(VariableStatement* stmt) override;
+    R visitFunction(FunctionDeclaration* stmt) override;
+    R visitIf(IfStatement* stmt) override;
+    R visitWhile(WhileStatement* stmt) override;
+    R visitFor(ForStatement* stmt) override;
+    R visitReturn(ReturnStatement* stmt) override;
+    R visitBreak(BreakStatement* stmt) override;
+    R visitContinue(ContinueStatement* stmt) override;
+    R visitThrow(ThrowStatement* stmt) override;
+    R visitEmpty(EmptyStatement* stmt) override;
+    R visitClass(ClassDeclaration* stmt) override;
+    R visitMethodDefinition(MethodDefinition* stmt) override;
+    R visitDoWhile(DoWhileStatement* stmt) override;
+    R visitSwitchCase(SwitchCase* stmt) override;
+    R visitSwitch(SwitchStatement* stmt) override;
+    R visitCatch(CatchClause* stmt) override;
+    R visitTry(TryStatement* stmt) override;
+    R visitForIn(ForInStatement* stmt) override;
+    R visitForOf(ForOfStatement* stmt) override;
     
     // -------- Expressions --------
     R visitLiteral(LiteralExpression* expr) override;
@@ -69,6 +73,18 @@ public:
     R visitPrivateKeyword(PrivateKeyword* expr) override;
     R visitProtectedKeyword(ProtectedKeyword* expr) override;
     R visitStaticKeyword(StaticKeyword* expr) override;
+        
+    inline void printValue(const R& value) {
+        if (std::holds_alternative<std::monostate>(value)) {
+            std::cout << "nil";
+        } else if (std::holds_alternative<double>(value)) {
+            std::cout << std::get<double>(value);
+        } else if (std::holds_alternative<std::string>(value)) {
+            std::cout << std::get<std::string>(value);
+        } else if (std::holds_alternative<bool>(value)) {
+            std::cout << (std::get<bool>(value) ? "true" : "false");
+        }
+    }
     
 };
 
