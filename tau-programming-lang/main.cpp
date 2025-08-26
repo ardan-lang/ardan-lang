@@ -9,8 +9,10 @@
 #include <cstring>
 #include "Scanner/Scanner.hpp"
 #include "overloads/operators.h"
-#include "Visitor/AstPrinter/AstPrinter.h"
 #include "Parser/Parser.hpp"
+
+#include "Visitor/AstPrinter/AstPrinter.h"
+#include "Interpreter/Interpreter.h"
 
 using namespace std;
 
@@ -174,11 +176,13 @@ int main(int argc, const char * argv[]) {
     while(9<0) {}
     true;
     var arr = [8, 9];
+    var user = {name: "chi", age: 90};
 
     )";
     
     string lang = R"(
-    var user = {name: "chi", age: 90};
+    var name = "Nnamdi Chidume";
+    print(name, true);
     )";
 
     Scanner scanner(lang);
@@ -190,9 +194,16 @@ int main(int argc, const char * argv[]) {
     auto ast = parser.parse();
     
     AstPrinter printer;
+    Interpreter interpreter;
     
+    cout << endl;
+    cout << "---------------" << endl;
+    cout << "Interpreting..." << endl;
+    cout << "---------------" << endl;
+    cout << endl;
+
     for (auto& stmt : ast) {
-        stmt->accept(printer);
+        stmt->accept(interpreter);
     }
     
     return EXIT_SUCCESS;
