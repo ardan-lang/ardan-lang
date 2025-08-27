@@ -428,8 +428,23 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
 }
 
 R Interpreter::visitAssignment(AssignmentExpression* expr) { return true; }
+
 R Interpreter::visitLogical(LogicalExpression* expr) { return true; }
-R Interpreter::visitConditional(ConditionalExpression* expr) { return true; }
+
+R Interpreter::visitConditional(ConditionalExpression* expr) {
+
+    R test_value = expr->test->accept(*this);
+    
+    if (truthy(test_value)) {
+        return expr->consequent->accept(*this);
+    } else {
+        return expr->alternate->accept(*this);
+    }
+        
+    return true;
+        
+}
+
 R Interpreter::visitMember(MemberExpression* expr) { return true; }
 R Interpreter::visitThis(ThisExpression* expr) { return true; }
 R Interpreter::visitNew(NewExpression* expr) { return true; }
@@ -437,7 +452,22 @@ R Interpreter::visitArray(ArrayLiteralExpression* expr) { return true; }
 R Interpreter::visitObject(ObjectLiteralExpression* expr) { return true; }
 R Interpreter::visitSuper(SuperExpression* expr) { return true; }
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }
-R Interpreter::visitSequence(SequenceExpression* expr) { return true; }
+
+R Interpreter::visitSequence(SequenceExpression* expr) {
+    
+    R last_value;
+    
+    for (auto& expression : expr->expressions) {
+        
+        Expression* raw = expression.get();
+        R value = raw->accept(*this);
+        last_value = value;
+        
+    }
+    
+    return last_value;
+}
+
 R Interpreter::visitPublicKeyword(PublicKeyword* expr) { return true; }
 R Interpreter::visitPrivateKeyword(PrivateKeyword* expr) { return true; }
 R Interpreter::visitProtectedKeyword(ProtectedKeyword* expr) { return true; }

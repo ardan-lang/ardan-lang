@@ -51,7 +51,7 @@ bool isNullish(const R& value) {
     return false;
 }
 
-bool truthy(const R& value) {
+bool _truthy(const R& value) {
     if (holds_alternative<bool>(value)) {
         return get<bool>(value);
     }
@@ -66,6 +66,35 @@ bool truthy(const R& value) {
     }
     // fallback (objects, functions, etc. if you add them later)
     return true;
+}
+
+bool _isNullish(const R& value) {
+    return holds_alternative<monostate>(value);
+}
+
+bool truthy(const R& value) {
+    if (holds_alternative<bool>(value)) {
+        return get<bool>(value);
+    }
+    else if (holds_alternative<double>(value)) {
+        return get<double>(value) != 0.0;
+    }
+    else if (holds_alternative<int>(value)) {
+        return get<int>(value) != 0;
+    }
+    else if (holds_alternative<size_t>(value)) {
+        return get<size_t>(value) != 0;
+    }
+    else if (holds_alternative<char>(value)) {
+        return get<char>(value) != '\0';
+    }
+    else if (holds_alternative<string>(value)) {
+        return !get<string>(value).empty();
+    }
+    else if (holds_alternative<monostate>(value)) {
+        return false; // undefined/null
+    }
+    return true; // fallback
 }
 
 #endif /* Utils_h */

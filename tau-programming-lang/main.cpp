@@ -188,9 +188,13 @@ int main(int argc, const char * argv[]) {
     function displayName(name) {
         print(name, true);
     }
-            var name = "namdi Chidume";
+            var name = "Nnamdi Chidume";
 
     displayName(name);
+    var i = 9;
+    print(i);
+    ++i;
+    print(i);
     )";
 
     Scanner scanner(lang);
