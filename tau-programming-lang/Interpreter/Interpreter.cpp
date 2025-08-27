@@ -11,8 +11,6 @@
 #include "../Statements/Statements.hpp"
 #include "../Expression/Expression.hpp"
 #include "../Visitor/AstPrinter/AstPrinter.h"
-//#include "../Scanner/Token/Token.hpp"
-//#include "../Scanner/Token/TokenType.h"
 #include "Utils/Utils.h"
 
 Interpreter::Interpreter() {
