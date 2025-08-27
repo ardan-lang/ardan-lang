@@ -11,6 +11,16 @@
 
 Interpreter::Interpreter() {}
 
+void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
+    for (unique_ptr<Statement>& stmt : ast) {
+        stmt->accept(*this);
+    }
+}
+
+void Interpreter::executeBlock(unique_ptr<Statement> block) {
+    block->accept(*this);
+}
+
 R Interpreter::visitExpression(ExpressionStatement* stmt) {
     return stmt->expression->accept(*this);
 }
@@ -65,6 +75,15 @@ R Interpreter::visitCall(CallExpression* expr) {
         return std::monostate{};
     }
     
+    // search call name in function declarations.
+
+    vector<Expression*> args = env.getFunctionParams(get<std::string>(callee));
+    Statement* body = env.getFunctionBody(get<std::string>(callee));
+    
+    if (body != nullptr) {
+        body->accept(*this);
+    }
+    
     throw runtime_error("Unknown function call");
     
 }
@@ -91,14 +110,9 @@ R Interpreter::visitIdentifier(IdentifierExpression* expr) {
 
 R Interpreter::visitFunction(FunctionDeclaration* stmt) {
     
-    //auto id = stmt->id;
-    
-//    for (size_t i = 0; i < stmt->params.size(); i++) {
-//        stmt->params[i]->accept(*this);
-//    }
-
-//    stmt->body->accept(*this);
-    //env.setValue(id, {stmt->params, stmt->body});
+    auto id = stmt->id;
+        
+    env.setFunctionDeclarations(id, std::move(stmt->params), std::move(stmt->body));
 
     return true;
 }
@@ -113,6 +127,7 @@ R Interpreter::visitWhile(WhileStatement* stmt) {
 
 R Interpreter::visitFor(ForStatement* stmt) {    return true;
 }
+
 R Interpreter::visitReturn(ReturnStatement* stmt) {    return true;
 }
 R Interpreter::visitBreak(BreakStatement* stmt) {    return true;

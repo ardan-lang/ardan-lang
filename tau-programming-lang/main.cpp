@@ -181,8 +181,11 @@ int main(int argc, const char * argv[]) {
     )";
     
     string lang = R"(
-    var name = "Nnamdi Chidume";
-    print(name, true);
+    function displayName() {
+        var name = "Nnamdi Chidume";
+        print(name, true);
+    }
+    displayName();
     )";
 
     Scanner scanner(lang);
@@ -191,7 +194,7 @@ int main(int argc, const char * argv[]) {
     }
     
     Parser parser(scanner.getTokens());
-    auto ast = parser.parse();
+    vector<unique_ptr<Statement>> ast = parser.parse();
     
     AstPrinter printer;
     Interpreter interpreter;
@@ -202,9 +205,7 @@ int main(int argc, const char * argv[]) {
     cout << "---------------" << endl;
     cout << endl;
 
-    for (auto& stmt : ast) {
-        stmt->accept(interpreter);
-    }
+    interpreter.execute(ast);
     
     return EXIT_SUCCESS;
 }
