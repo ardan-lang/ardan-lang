@@ -21,10 +21,11 @@ using namespace std;
 class Interpreter : public ExpressionVisitor, public StatementVisitor {
 
 private:
-    Env env;
+    Env* env;
     
 public:
     Interpreter();
+    ~Interpreter();
     void execute(vector<unique_ptr<Statement>> ast);
     void executeBlock(unique_ptr<Statement> block);
 

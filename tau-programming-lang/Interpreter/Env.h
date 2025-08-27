@@ -35,7 +35,11 @@ public:
     void setValue(const string& key, R value) {
         variables[key] = std::move(value);
     }
-    
+
+    void setStackValue(const string& key, R value) {
+        stack[key] = std::move(value);
+    }
+
     void setFunctionDeclarations(
         const string& name,
         vector<unique_ptr<Expression>> argList,
@@ -63,12 +67,22 @@ public:
         }
         return result;
     }
+    
+    unordered_map<string, R> getStack() {
+        return stack;
+    }
+    
+    void clearStack() {
+        stack = {};
+    }
 
 private:
     unordered_map<string, R> variables = {
         {"print", "print"}
     };
-    
+
+    unordered_map<string, R> stack = {};
+
     unordered_map<string, vector<unique_ptr<Expression>>> params;
     unordered_map<string, unique_ptr<Statement>> body;
 

@@ -177,15 +177,20 @@ int main(int argc, const char * argv[]) {
     true;
     var arr = [8, 9];
     var user = {name: "chi", age: 90};
-
-    )";
-    
-    string lang = R"(
     function displayName() {
         var name = "Nnamdi Chidume";
         print(name, true);
     }
-    displayName();
+
+    )";
+    
+    string lang = R"(
+    function displayName(name) {
+        print(name, true);
+    }
+            var name = "namdi Chidume";
+
+    displayName(name);
     )";
 
     Scanner scanner(lang);
