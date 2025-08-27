@@ -165,14 +165,69 @@ R Interpreter::visitFunction(FunctionDeclaration* stmt) {
 }
 
 R Interpreter::visitIf(IfStatement* stmt) {
+    
+    if (truthy(stmt->test->accept(*this))) {
+        
+        stmt->consequent->accept(*this);
+        
+    } else {
+        
+        stmt->alternate->accept(*this);
+        
+    }
+    
     return true;
+    
 }
 
 R Interpreter::visitWhile(WhileStatement* stmt) {
+    
+    while (truthy(stmt->test->accept(*this))) {
+        
+        stmt->body->accept(*this);
+        
+    }
+    
     return true;
+    
 }
 
 R Interpreter::visitFor(ForStatement* stmt) {
+    
+    if (stmt->init == nullptr) {
+        throw runtime_error("Initializer must be declared and initialized.");
+        return false;
+    }
+
+    if (stmt->test == nullptr) {
+        throw runtime_error("Condition must be declared and initialized.");
+        return false;
+    }
+
+    if (stmt->update == nullptr) {
+        throw runtime_error("Update statement must be declared and initialized.");
+        return false;
+    }
+    
+    stmt->init->accept(*this);
+    
+    while (truthy(stmt->test->accept(*this))) {
+        
+        stmt->body->accept(*this);
+
+        stmt->update->accept(*this);
+        
+    }
+
+    return true;
+    
+}
+
+R Interpreter::visitForIn(ForInStatement* stmt) {
+    return true;
+}
+
+R Interpreter::visitForOf(ForOfStatement* stmt) {
     return true;
 }
 
@@ -187,16 +242,38 @@ R Interpreter::visitBreak(BreakStatement* stmt) {
 R Interpreter::visitContinue(ContinueStatement* stmt) {
     return true;
 }
-R Interpreter::visitThrow(ThrowStatement* stmt) {    return true;
+
+R Interpreter::visitThrow(ThrowStatement* stmt) {
+    
+    throw runtime_error(toString(stmt->argument->accept(*this)));
+    
+    return false;
 }
+
 R Interpreter::visitEmpty(EmptyStatement* stmt) {    return true;
 }
 R Interpreter::visitClass(ClassDeclaration* stmt) {    return true;
 }
 R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {    return true;
 }
-R Interpreter::visitDoWhile(DoWhileStatement* stmt) {    return true;
+
+R Interpreter::visitDoWhile(DoWhileStatement* stmt) {
+    
+    if (stmt->condition == nullptr) {
+        throw runtime_error("The test condition must evaluate to a bool.");
+        return false;
+    }
+    
+    do {
+        
+        stmt->body->accept(*this);
+        
+    } while(truthy(stmt->condition->accept(*this)));
+        
+    return true;
+    
 }
+
 R Interpreter::visitSwitchCase(SwitchCase* stmt) {    return true;
 }
 R Interpreter::visitSwitch(SwitchStatement* stmt) {    return true;
@@ -204,10 +281,6 @@ R Interpreter::visitSwitch(SwitchStatement* stmt) {    return true;
 R Interpreter::visitCatch(CatchClause* stmt) {    return true;
 }
 R Interpreter::visitTry(TryStatement* stmt) {    return true;
-}
-R Interpreter::visitForIn(ForInStatement* stmt) {    return true;
-}
-R Interpreter::visitForOf(ForOfStatement* stmt) {    return true;
 }
 
 // -------- Expressions --------
