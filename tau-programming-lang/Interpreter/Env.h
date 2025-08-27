@@ -31,9 +31,17 @@ public:
         if (parent) return parent->getValue(key);
         throw runtime_error("Undefined variable: " + key);
     }
+    
+    R get(const string& key) {
+        return getValue(key);
+    }
 
     void setValue(const string& key, R value) {
         variables[key] = std::move(value);
+    }
+    
+    void assign(const string& key, R value) {
+        setValue(key, value);
     }
 
     void setStackValue(const string& key, R value) {

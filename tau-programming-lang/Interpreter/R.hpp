@@ -15,6 +15,6 @@
 using namespace std;
 
 // using R = variant<monostate, double, string, bool>;
-using R = variant<monostate, double, size_t, int, char, string, bool>;
+using R = variant<monostate, nullptr_t, double, size_t, int, char, string, bool>;
 
 #endif /* R_hpp */

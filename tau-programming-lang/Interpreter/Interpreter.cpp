@@ -5,11 +5,15 @@
 //  Created by Chidume Nnamdi on 24/08/2025.
 //
 
+#include <memory>
+
 #include "Interpreter.h"
 #include "../Statements/Statements.hpp"
 #include "../Expression/Expression.hpp"
 #include "../Visitor/AstPrinter/AstPrinter.h"
-#include <memory>
+//#include "../Scanner/Token/Token.hpp"
+//#include "../Scanner/Token/TokenType.h"
+#include "Utils/Utils.h"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -207,10 +211,222 @@ R Interpreter::visitForOf(ForOfStatement* stmt) {    return true;
 }
 
 // -------- Expressions --------
-R Interpreter::visitLiteral(LiteralExpression* expr) { return true; }
-R Interpreter::visitBinary(BinaryExpression* expr) { return true; }
-R Interpreter::visitUnary(UnaryExpression* expr) { return true; }
-R Interpreter::visitUpdate(UpdateExpression* expr) { return true; }
+R Interpreter::visitLiteral(LiteralExpression* expr) {
+    return expr->token.lexeme;
+}
+
+R Interpreter::visitBinary(BinaryExpression* expr) {
+    R lvalue = expr->left->accept(*this);
+    R rvalue = expr->right->accept(*this);
+
+    switch (expr->op.type) {
+        // --- Arithmetic ---
+        case TokenType::ADD: {
+            if (holds_alternative<string>(lvalue) || holds_alternative<string>(rvalue)) {
+                return toString(lvalue) + toString(rvalue);
+            }
+            return toNumber(lvalue) + toNumber(rvalue);
+        }
+        case TokenType::MINUS:
+            return toNumber(lvalue) - toNumber(rvalue);
+        case TokenType::MUL:
+            return toNumber(lvalue) * toNumber(rvalue);
+        case TokenType::DIV:
+            return toNumber(lvalue) / toNumber(rvalue);
+        case TokenType::MODULI:
+            return fmod(toNumber(lvalue), toNumber(rvalue));
+        case TokenType::POWER:
+            return pow(toNumber(lvalue), toNumber(rvalue));
+
+        // --- Comparisons ---
+        case TokenType::VALUE_EQUAL:       return toNumber(lvalue) == toNumber(rvalue);
+        case TokenType::REFERENCE_EQUAL:   return lvalue == rvalue; // shallow equality
+        case TokenType::INEQUALITY:        return toNumber(lvalue) != toNumber(rvalue);
+        case TokenType::STRICT_INEQUALITY: return lvalue != rvalue;
+
+        case TokenType::LESS_THAN:         return toNumber(lvalue) < toNumber(rvalue);
+        case TokenType::LESS_THAN_EQUAL:   return toNumber(lvalue) <= toNumber(rvalue);
+        case TokenType::GREATER_THAN:      return toNumber(lvalue) > toNumber(rvalue);
+        case TokenType::GREATER_THAN_EQUAL:return toNumber(lvalue) >= toNumber(rvalue);
+
+        // --- Logical ---
+        case TokenType::LOGICAL_AND:       return truthy(lvalue) && truthy(rvalue);
+        case TokenType::LOGICAL_OR:        return truthy(lvalue) || truthy(rvalue);
+        case TokenType::NULLISH_COALESCING:return (isNullish(lvalue) ? rvalue : lvalue);
+
+        // --- Bitwise ---
+        case TokenType::BITWISE_AND:       return (int)toNumber(lvalue) & (int)toNumber(rvalue);
+        case TokenType::BITWISE_OR:        return (int)toNumber(lvalue) | (int)toNumber(rvalue);
+        case TokenType::BITWISE_XOR:       return (int)toNumber(lvalue) ^ (int)toNumber(rvalue);
+        case TokenType::BITWISE_LEFT_SHIFT:return (int)toNumber(lvalue) << (int)toNumber(rvalue);
+        case TokenType::BITWISE_RIGHT_SHIFT:return (int)toNumber(lvalue) >> (int)toNumber(rvalue);
+        case TokenType::UNSIGNED_RIGHT_SHIFT:return ((unsigned int)toNumber(lvalue)) >> (int)toNumber(rvalue);
+
+        // --- Assignment & Compound Assignment ---
+        case TokenType::ASSIGN:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_MINUS:
+        case TokenType::ASSIGN_MUL:
+        case TokenType::ASSIGN_DIV:
+        case TokenType::MODULI_ASSIGN:
+        case TokenType::POWER_ASSIGN:
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN:
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_AND_ASSIGN:
+        case TokenType::BITWISE_OR_ASSIGN:
+        case TokenType::BITWISE_XOR_ASSIGN:
+        case TokenType::LOGICAL_AND_ASSIGN:
+        case TokenType::LOGICAL_OR_ASSIGN:
+        case TokenType::NULLISH_COALESCING_ASSIGN: {
+            // Left must be identifier
+            auto* ident = dynamic_cast<IdentifierExpression*>(expr->left.get());
+            if (!ident) throw runtime_error("Invalid left-hand side in assignment");
+
+            string name = ident->name;
+            R current = env->get(name);
+
+            R newVal;
+            switch (expr->op.type) {
+                case TokenType::ASSIGN: newVal = rvalue; break;
+                case TokenType::ASSIGN_ADD: newVal = visitBinary(new BinaryExpression(Token(TokenType::ADD), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::ASSIGN_MINUS: newVal = visitBinary(new BinaryExpression(Token(TokenType::MINUS), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::ASSIGN_MUL: newVal = visitBinary(new BinaryExpression(Token(TokenType::MUL), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::ASSIGN_DIV: newVal = visitBinary(new BinaryExpression(Token(TokenType::DIV), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::MODULI_ASSIGN: newVal = fmod(toNumber(current), toNumber(rvalue)); break;
+                case TokenType::POWER_ASSIGN: newVal = pow(toNumber(current), toNumber(rvalue)); break;
+                case TokenType::BITWISE_AND_ASSIGN: newVal = (int)toNumber(current) & (int)toNumber(rvalue); break;
+                case TokenType::BITWISE_OR_ASSIGN: newVal = (int)toNumber(current) | (int)toNumber(rvalue); break;
+                case TokenType::BITWISE_XOR_ASSIGN: newVal = (int)toNumber(current) ^ (int)toNumber(rvalue); break;
+                case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: newVal = (int)toNumber(current) << (int)toNumber(rvalue); break;
+                case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: newVal = (int)toNumber(current) >> (int)toNumber(rvalue); break;
+                case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: newVal = ((unsigned int)toNumber(current)) >> (int)toNumber(rvalue); break;
+                case TokenType::LOGICAL_AND_ASSIGN: newVal = truthy(current) ? rvalue : current; break;
+                case TokenType::LOGICAL_OR_ASSIGN: newVal = truthy(current) ? current : rvalue; break;
+                case TokenType::NULLISH_COALESCING_ASSIGN: newVal = isNullish(current) ? rvalue : current; break;
+                default: throw runtime_error("Unsupported assignment op");
+            }
+
+            env->assign(name, newVal); // update variable
+            return newVal;
+        }
+
+        default:
+            throw runtime_error("Unknown binary operator: " + expr->op.lexeme);
+    }
+}
+
+R Interpreter::visitUnary(UnaryExpression* expr) {
+    
+    Token token = expr->op;
+    
+    R rvalue = expr->right->accept(*this);
+        
+    switch (token.type) {
+
+            // !true
+        case TokenType::LOGICAL_NOT: {
+            
+            // R post_r_value = env->get(toString(rvalue));
+            if (holds_alternative<bool>(rvalue)) {
+                return !get<bool>(rvalue);
+            }
+            
+            throw runtime_error("Logical NOT lvalue must be a bool.");
+
+        }
+          
+            // ~9
+        case TokenType::BITWISE_NOT: {
+            
+            if (holds_alternative<int>(rvalue)) return ~(get<int>(rvalue));
+            if (holds_alternative<size_t>(rvalue)) return ~(get<size_t>(rvalue));
+            if (holds_alternative<char>(rvalue)) return ~(get<char>(rvalue));
+            if (holds_alternative<bool>(rvalue)) return ~(get<bool>(rvalue) ? 1 : 0);
+
+            throw runtime_error("Invalid operand to perform ~.");
+            
+        }
+            // ++age
+        case TokenType::INCREMENT: {
+            
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
+                
+                R value = env->get(ident->name);
+                
+                env->assign(ident->name, (toNumber(rvalue) + 1));
+                
+                return value;
+                
+            }
+            
+            throw runtime_error("Invalid operand, the opearnd must be a variable.");
+            
+        }
+            
+            // --age
+        case TokenType::DECREMENT: {
+
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
+                
+                R value = env->get(ident->name);
+                
+                env->assign(ident->name, (toNumber(rvalue) - 1));
+                
+                return value;
+                
+            }
+            
+            throw runtime_error("Invalid operand, the opearnd must be a variable.");
+
+        }
+            
+        // case TokenType::ADD: {}
+            
+        // case TokenType::MINUS: {}
+            
+        default:
+            throw runtime_error("Unknown op found.");
+            break;
+    }
+    
+}
+
+R Interpreter::visitUpdate(UpdateExpression* expr) {
+        
+    R value = expr->argument->accept(*this);
+
+    switch (expr->op.type) {
+            
+        case TokenType::INCREMENT: {
+            
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
+                R sum = toNumber(value) + 1;
+                env->assign(ident->name, sum);
+            }
+            
+            return monostate();
+        }
+            
+        case TokenType::DECREMENT: {
+            
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
+                R sum = toNumber(value) - 1;
+                env->assign(ident->name, sum);
+            }
+
+            return monostate();
+        }
+            
+        default:
+            throw runtime_error("Unknown op found.");
+            break;
+    }
+    
+    return true;
+    
+}
+
 R Interpreter::visitAssignment(AssignmentExpression* expr) { return true; }
 R Interpreter::visitLogical(LogicalExpression* expr) { return true; }
 R Interpreter::visitConditional(ConditionalExpression* expr) { return true; }
