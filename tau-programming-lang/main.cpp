@@ -205,7 +205,7 @@ int main(int argc, const char * argv[]) {
     cout << "---------------" << endl;
     cout << endl;
 
-    interpreter.execute(ast);
+    interpreter.execute(std::move(ast));
     
     return EXIT_SUCCESS;
 }
