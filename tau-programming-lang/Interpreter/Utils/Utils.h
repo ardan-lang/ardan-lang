@@ -15,6 +15,7 @@
 #include <variant>
 #include <stdexcept>
 #include "../R.hpp"
+#include "../ExecutionContext/JSObject.h"
 
 using namespace std;
 
@@ -98,37 +99,50 @@ bool truthy(const R& value) {
 }
 
 bool equals(const R& a, const R& b) {
-    return visit([](auto&& lhs, auto&& rhs) -> bool {
-        using L = decay_t<decltype(lhs)>;
-        using Rhs = decay_t<decltype(rhs)>;
+    return std::visit([](auto&& lhs, auto&& rhs) -> bool {
+        using L = std::decay_t<decltype(lhs)>;
+        using Rhs = std::decay_t<decltype(rhs)>;
 
-        // Null / empty cases
-        if constexpr (is_same_v<L, monostate> || is_same_v<L, nullptr_t> ||
-                      is_same_v<Rhs, monostate> || is_same_v<Rhs, nullptr_t>) {
-            return is_same_v<L, Rhs>; // only equal if *both* are null-like
+        // --- Nullish (undefined / null) ---
+        if constexpr ((std::is_same_v<L, std::monostate> || std::is_same_v<L, std::nullptr_t>) ||
+                      (std::is_same_v<Rhs, std::monostate> || std::is_same_v<Rhs, std::nullptr_t>)) {
+            return std::is_same_v<L, Rhs>; // only equal if *both* are null-like
         }
-        // Numeric types (int, double, size_t, char treated as numeric)
-        else if constexpr (is_arithmetic_v<L> && is_arithmetic_v<Rhs>) {
+
+        // --- Numbers (int, double, size_t, char) ---
+        else if constexpr (std::is_arithmetic_v<L> && std::is_arithmetic_v<Rhs>) {
             return static_cast<long double>(lhs) == static_cast<long double>(rhs);
         }
-        // String strict comparison
-        else if constexpr (is_same_v<L, string> && is_same_v<Rhs, string>) {
+
+        // --- String strict comparison ---
+        else if constexpr (std::is_same_v<L, std::string> && std::is_same_v<Rhs, std::string>) {
             return lhs == rhs;
         }
-        // Mixed string <-> numeric (optional feature)
-        else if constexpr (is_same_v<L, string> && is_arithmetic_v<Rhs>) {
-            try {
-                return stold(lhs) == static_cast<long double>(rhs);
-            } catch (...) { return false; }
+
+        // --- String <-> Number coercion (like JS `==`) ---
+        else if constexpr (std::is_same_v<L, std::string> && std::is_arithmetic_v<Rhs>) {
+            try { return std::stold(lhs) == static_cast<long double>(rhs); }
+            catch (...) { return false; }
         }
-        else if constexpr (is_arithmetic_v<L> && is_same_v<Rhs, string>) {
-            try {
-                return static_cast<long double>(lhs) == stold(rhs);
-            } catch (...) { return false; }
+        else if constexpr (std::is_arithmetic_v<L> && std::is_same_v<Rhs, std::string>) {
+            try { return static_cast<long double>(lhs) == std::stold(rhs); }
+            catch (...) { return false; }
         }
-        // Fallback strict compare
+
+        // --- Reference equality for objects ---
+        else if constexpr (std::is_same_v<L, std::shared_ptr<JSObject>> &&
+                           std::is_same_v<Rhs, std::shared_ptr<JSObject>>) {
+            return lhs == rhs; // true only if both point to same object
+        }
+
+        // --- Fallback strict comparison (bool, char, etc.) ---
+        else if constexpr (std::equality_comparable_with<L, Rhs>) {
+            return lhs == rhs;
+        }
+
+        // --- Otherwise not comparable ---
         else {
-            return lhs == rhs;
+            return false;
         }
     }, a, b);
 }

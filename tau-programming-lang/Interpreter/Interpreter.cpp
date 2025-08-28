@@ -349,6 +349,9 @@ R Interpreter::visitSwitch(SwitchStatement* stmt) {
 }
 
 R Interpreter::visitCatch(CatchClause* stmt) {
+    if (stmt->body) {
+        stmt->body->accept(*this);
+    }
     return true;
 }
 
@@ -431,9 +434,9 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
 
         // --- Comparisons ---
         case TokenType::VALUE_EQUAL:       return toNumber(lvalue) == toNumber(rvalue);
-        case TokenType::REFERENCE_EQUAL:   return lvalue == rvalue; // shallow equality
+        case TokenType::REFERENCE_EQUAL:   return equals(lvalue, rvalue);
         case TokenType::INEQUALITY:        return toNumber(lvalue) != toNumber(rvalue);
-        case TokenType::STRICT_INEQUALITY: return lvalue != rvalue;
+        case TokenType::STRICT_INEQUALITY: return !equals(lvalue, rvalue);
 
         case TokenType::LESS_THAN:         return toNumber(lvalue) < toNumber(rvalue);
         case TokenType::LESS_THAN_EQUAL:   return toNumber(lvalue) <= toNumber(rvalue);

@@ -1,0 +1,41 @@
+//
+//  JSObject.h
+//  tau-programming-lang
+//
+//  Created by Chidume Nnamdi on 28/08/2025.
+//
+
+#ifndef JSObject_h
+#define JSObject_h
+
+#include <stdio.h>
+#include <iostream>
+#include <string>
+#include <any>
+#include "Value.h"
+
+using namespace std;
+
+class JSObject {
+    unordered_map<string, Value> properties;
+public:
+
+    bool operator==(const JSObject& other) const {
+        return this == &other;
+    }
+    
+    bool operator!=(const JSObject& other) const {
+        return !(*this == other);
+    }
+
+    void set(const string& key, const Value& val) {
+        properties[key] = val;
+    }
+    
+    Value get(const string& key) {
+        return properties.count(key) ? properties.at(key) : Value::undefined();
+    }
+    
+};
+
+#endif /* JSObject_h */
