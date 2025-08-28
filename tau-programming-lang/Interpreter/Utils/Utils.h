@@ -97,4 +97,40 @@ bool truthy(const R& value) {
     return true; // fallback
 }
 
+bool equals(const R& a, const R& b) {
+    return visit([](auto&& lhs, auto&& rhs) -> bool {
+        using L = decay_t<decltype(lhs)>;
+        using Rhs = decay_t<decltype(rhs)>;
+
+        // Null / empty cases
+        if constexpr (is_same_v<L, monostate> || is_same_v<L, nullptr_t> ||
+                      is_same_v<Rhs, monostate> || is_same_v<Rhs, nullptr_t>) {
+            return is_same_v<L, Rhs>; // only equal if *both* are null-like
+        }
+        // Numeric types (int, double, size_t, char treated as numeric)
+        else if constexpr (is_arithmetic_v<L> && is_arithmetic_v<Rhs>) {
+            return static_cast<long double>(lhs) == static_cast<long double>(rhs);
+        }
+        // String strict comparison
+        else if constexpr (is_same_v<L, string> && is_same_v<Rhs, string>) {
+            return lhs == rhs;
+        }
+        // Mixed string <-> numeric (optional feature)
+        else if constexpr (is_same_v<L, string> && is_arithmetic_v<Rhs>) {
+            try {
+                return stold(lhs) == static_cast<long double>(rhs);
+            } catch (...) { return false; }
+        }
+        else if constexpr (is_arithmetic_v<L> && is_same_v<Rhs, string>) {
+            try {
+                return static_cast<long double>(lhs) == stold(rhs);
+            } catch (...) { return false; }
+        }
+        // Fallback strict compare
+        else {
+            return lhs == rhs;
+        }
+    }, a, b);
+}
+
 #endif /* Utils_h */

@@ -272,10 +272,41 @@ R Interpreter::visitDoWhile(DoWhileStatement* stmt) {
     
 }
 
-R Interpreter::visitSwitchCase(SwitchCase* stmt) {    return true;
+R Interpreter::visitSwitchCase(SwitchCase* stmt) {
+    
+    for (auto& current_stmt : stmt->consequent) {
+        current_stmt->accept(*this);
+    }
+    
+    return true;
 }
-R Interpreter::visitSwitch(SwitchStatement* stmt) {    return true;
+
+R Interpreter::visitSwitch(SwitchStatement* stmt) {
+    
+    R value = stmt->discriminant->accept(*this);
+    
+    for (auto& current_case : stmt->cases) {
+        
+        if (current_case->test == nullptr) {
+            // we have hit default case
+            current_case->accept(*this);
+            continue;
+        }
+        
+        R testVal = current_case->test->accept(*this);
+                
+        bool eq = equals(value, testVal);
+                
+        if (eq) {
+            current_case->accept(*this);
+            break;
+        }
+        
+    }
+    
+    return true;
 }
+
 R Interpreter::visitCatch(CatchClause* stmt) {    return true;
 }
 R Interpreter::visitTry(TryStatement* stmt) {    return true;

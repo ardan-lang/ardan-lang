@@ -195,6 +195,16 @@ int main(int argc, const char * argv[]) {
     print(i);
     ++i;
     print(i);
+    
+    switch(i) {
+    case 9: 
+        print("9er");
+    case 10:
+        print("10er");
+    default:
+        print("default");
+    }
+    
     )";
 
     Scanner scanner(lang);
