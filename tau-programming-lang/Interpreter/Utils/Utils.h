@@ -52,27 +52,6 @@ bool isNullish(const R& value) {
     return false;
 }
 
-bool _truthy(const R& value) {
-    if (holds_alternative<bool>(value)) {
-        return get<bool>(value);
-    }
-    else if (holds_alternative<double>(value)) {
-        return get<double>(value) != 0.0;
-    }
-    else if (holds_alternative<string>(value)) {
-        return !get<string>(value).empty();
-    }
-    else if (holds_alternative<std::nullptr_t>(value)) {
-        return false;
-    }
-    // fallback (objects, functions, etc. if you add them later)
-    return true;
-}
-
-bool _isNullish(const R& value) {
-    return holds_alternative<monostate>(value);
-}
-
 bool truthy(const R& value) {
     if (holds_alternative<bool>(value)) {
         return get<bool>(value);
@@ -145,6 +124,48 @@ bool equals(const R& a, const R& b) {
             return false;
         }
     }, a, b);
+}
+
+inline Value toValue(const R& r) {
+    Value v;
+    std::visit([&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+
+        if constexpr (std::is_same_v<T, std::monostate>) {
+            v.type = ValueType::UNDEFINED;
+        }
+        else if constexpr (std::is_same_v<T, std::nullptr_t>) {
+            v.type = ValueType::NULLTYPE;
+        }
+        else if constexpr (std::is_same_v<T, double>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = arg;
+        }
+        else if constexpr (std::is_same_v<T, size_t> ||
+                           std::is_same_v<T, int>   ||
+                           std::is_same_v<T, char>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<double>(arg);
+        }
+        else if constexpr (std::is_same_v<T, std::string>) {
+            v.type = ValueType::STRING;
+            v.stringValue = arg;
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+            v.type = ValueType::BOOLEAN;
+            v.boolValue = arg;
+        }
+        else if constexpr (std::is_same_v<T, std::shared_ptr<JSObject>>) {
+            v.type = ValueType::OBJECT;
+            v.objectValue = arg;
+        }
+        else if constexpr (std::is_same_v<T, std::shared_ptr<Value>>) {
+            // unwrap nested Value
+            v = *arg;
+        }
+    }, r);
+
+    return v;
 }
 
 #endif /* Utils_h */

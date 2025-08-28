@@ -17,6 +17,6 @@
 
 using namespace std;
 
-using R = variant<monostate, nullptr_t, double, size_t, int, char, string, bool, std::shared_ptr<JSObject>>;
+using R = variant<monostate, nullptr_t, double, size_t, int, char, string, bool, std::shared_ptr<JSObject>, std::shared_ptr<Value>>;
 
 #endif /* R_hpp */

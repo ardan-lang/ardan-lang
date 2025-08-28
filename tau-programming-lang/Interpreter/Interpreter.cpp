@@ -12,6 +12,7 @@
 #include "../Expression/Expression.hpp"
 #include "../Visitor/AstPrinter/AstPrinter.h"
 #include "Utils/Utils.h"
+#include "ExecutionContext/JSArray.h"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -646,7 +647,23 @@ R Interpreter::visitConditional(ConditionalExpression* expr) {
 R Interpreter::visitMember(MemberExpression* expr) { return true; }
 R Interpreter::visitThis(ThisExpression* expr) { return true; }
 R Interpreter::visitNew(NewExpression* expr) { return true; }
-R Interpreter::visitArray(ArrayLiteralExpression* expr) { return true; }
+
+R Interpreter::visitArray(ArrayLiteralExpression* expr) {
+    
+    auto arr = make_shared<JSArray>();
+    
+    int index = 0;
+    
+    for(auto& element : expr->elements) {
+        const R value = element->accept(*this);
+        arr->setIndex(index, toValue(value));
+        index++;
+    }
+
+    
+    return arr;
+}
+
 R Interpreter::visitObject(ObjectLiteralExpression* expr) { return true; }
 R Interpreter::visitSuper(SuperExpression* expr) { return true; }
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }

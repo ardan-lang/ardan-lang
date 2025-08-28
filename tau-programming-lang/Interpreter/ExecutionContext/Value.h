@@ -19,7 +19,7 @@ enum class ValueType {
     NUMBER,
     STRING,
     BOOLEAN,
-    OBJECT,   // includes JSObject + JSArray
+    OBJECT,
     UNDEFINED,
     NULLTYPE
 };
@@ -42,6 +42,16 @@ public:
     static Value object(std::shared_ptr<JSObject> obj) { Value v; v.type=ValueType::OBJECT; v.objectValue=obj; return v; }
     static Value undefined() { return Value(); }
     static Value nullVal() { Value v; v.type=ValueType::NULLTYPE; return v; }
+
+    Value(int n) {
+        type = ValueType::NUMBER;
+        numberValue = static_cast<double>(n);
+    }
+
+    Value(double n) {
+        type = ValueType::NUMBER;
+        numberValue = n;
+    }
 
     std::string toString() const {
         switch(type) {

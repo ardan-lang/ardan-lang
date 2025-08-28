@@ -12,6 +12,8 @@
 #include <iostream>
 #include <string>
 #include <any>
+#include "JSObject.h"
+#include "Value.h"
 
 using namespace std;
 
