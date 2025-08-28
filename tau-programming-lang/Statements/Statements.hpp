@@ -305,8 +305,12 @@ public:
 class SwitchCase : public Statement {
 public:
     unique_ptr<Expression> test;
+    
+    // TODO: change this to body
     vector<unique_ptr<Statement>> consequent;
     
+    unique_ptr<Statement> body;
+
     SwitchCase(unique_ptr<Expression> test,
                vector<unique_ptr<Statement>> consequent) : test(std::move(test)), consequent(std::move(consequent)) {}
     
@@ -320,6 +324,7 @@ class SwitchStatement : public Statement {
 public:
     unique_ptr<Expression> discriminant;
     vector<unique_ptr<SwitchCase>> cases;
+    
     SwitchStatement(unique_ptr<Expression> discriminant,
                     vector<unique_ptr<SwitchCase>> cases) : discriminant(std::move(discriminant)), cases(std::move(cases)) {};
     

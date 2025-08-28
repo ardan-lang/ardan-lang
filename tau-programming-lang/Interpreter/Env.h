@@ -83,6 +83,9 @@ public:
     void clearStack() {
         stack = {};
     }
+    
+    bool break_from_current_loop = false;
+    bool continue_from_current_loop = false;
 
 private:
     unordered_map<string, R> variables = {
@@ -90,6 +93,7 @@ private:
     };
 
     unordered_map<string, R> stack = {};
+    unordered_map<string, R> heap = {};
 
     unordered_map<string, vector<unique_ptr<Expression>>> params;
     unordered_map<string, unique_ptr<Statement>> body;

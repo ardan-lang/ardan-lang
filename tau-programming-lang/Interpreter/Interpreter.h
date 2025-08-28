@@ -22,7 +22,12 @@ class Interpreter : public ExpressionVisitor, public StatementVisitor {
 
 private:
     Env* env;
-    
+    struct BreakException {};
+    struct ContinueException {};
+    struct ReturnException {
+        R value;
+    };
+
 public:
     Interpreter();
     ~Interpreter();

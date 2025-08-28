@@ -48,6 +48,7 @@ R Interpreter::visitBlock(BlockStatement* stmt) {
         s->accept(*this);
     }
     
+    previous->clearStack();
     delete env;                    // cleanup after block
     env = previous;                // restore old scope
     
@@ -122,8 +123,16 @@ R Interpreter::visitCall(CallExpression* expr) {
     // AstPrinter printer;
 
     if (body != nullptr) {
-
-        body->accept(*this);
+        
+        try {
+            
+            body->accept(*this);
+            
+        } catch (ReturnException& r) {
+            
+            return r.value;
+            
+        }
         
         return monostate();
     }
@@ -182,11 +191,23 @@ R Interpreter::visitWhile(WhileStatement* stmt) {
     
     while (truthy(stmt->test->accept(*this))) {
         
-        stmt->body->accept(*this);
+        try {
+            
+            stmt->body->accept(*this);
+            
+        } catch(BreakException&) {
+            
+            break;
+            
+        } catch(ContinueException&) {
+            
+            continue;
+            
+        }
         
     }
     
-    return true;
+    return monostate{};
     
 }
 
@@ -211,8 +232,20 @@ R Interpreter::visitFor(ForStatement* stmt) {
     
     while (truthy(stmt->test->accept(*this))) {
         
-        stmt->body->accept(*this);
-
+        try {
+            
+            stmt->body->accept(*this);
+            
+        } catch(BreakException&) {
+            
+            break;
+            
+        } catch(ContinueException&) {
+            
+            continue;
+            
+        }
+        
         stmt->update->accept(*this);
         
     }
@@ -221,24 +254,27 @@ R Interpreter::visitFor(ForStatement* stmt) {
     
 }
 
+// loop over objects keys
 R Interpreter::visitForIn(ForInStatement* stmt) {
     return true;
 }
 
+// loop over iterables: array, string
 R Interpreter::visitForOf(ForOfStatement* stmt) {
     return true;
 }
 
 R Interpreter::visitReturn(ReturnStatement* stmt) {
-    return true;
+    R value = stmt->argument ? stmt->argument->accept(*this) : monostate{};
+    throw ReturnException{ value };
 }
 
 R Interpreter::visitBreak(BreakStatement* stmt) {
-    return true;
+    throw BreakException();
 }
 
 R Interpreter::visitContinue(ContinueStatement* stmt) {
-    return true;
+    throw ContinueException();
 }
 
 R Interpreter::visitThrow(ThrowStatement* stmt) {
@@ -248,11 +284,16 @@ R Interpreter::visitThrow(ThrowStatement* stmt) {
     return false;
 }
 
-R Interpreter::visitEmpty(EmptyStatement* stmt) {    return true;
+R Interpreter::visitEmpty(EmptyStatement* stmt) {
+    return true;
 }
-R Interpreter::visitClass(ClassDeclaration* stmt) {    return true;
+
+R Interpreter::visitClass(ClassDeclaration* stmt) {
+    return true;
 }
-R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {    return true;
+
+R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {
+    return true;
 }
 
 R Interpreter::visitDoWhile(DoWhileStatement* stmt) {
@@ -307,9 +348,57 @@ R Interpreter::visitSwitch(SwitchStatement* stmt) {
     return true;
 }
 
-R Interpreter::visitCatch(CatchClause* stmt) {    return true;
+R Interpreter::visitCatch(CatchClause* stmt) {
+    return true;
 }
-R Interpreter::visitTry(TryStatement* stmt) {    return true;
+
+R Interpreter::visitTry(TryStatement* stmt) {
+    try {
+        if (stmt->block)
+            stmt->block->accept(*this);
+    } catch (const std::exception& err) {
+        if (stmt->handler) {
+            // Enter a new environment scope for catch
+            Env* previous = env;
+            env = new Env(previous);
+            // Bind the exception to the catch variable
+            env->setValue(stmt->handler->param, std::string(err.what()));
+            try {
+                stmt->handler->accept(*this); // invokes visitCatch
+            } catch(...) {
+                delete env;
+                env = previous;
+                throw;
+            }
+            delete env;
+            env = previous;
+        } else {
+            // No catch handler: propagate
+            throw;
+        }
+    } catch (...) {
+        // Non-std::exception: only handle if catch handler present
+        if (stmt->handler) {
+            Env* previous = env;
+            env = new Env(previous);
+            env->setValue(stmt->handler->param, "unknown error");
+            try {
+                stmt->handler->accept(*this);
+            } catch(...) {
+                delete env;
+                env = previous;
+                throw;
+            }
+            delete env;
+            env = previous;
+        } else {
+            throw;
+        }
+    }
+    if (stmt->finalizer) {
+        stmt->finalizer->accept(*this);
+    }
+    return true;
 }
 
 // -------- Expressions --------
@@ -529,9 +618,13 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
     
 }
 
-R Interpreter::visitAssignment(AssignmentExpression* expr) { return true; }
+R Interpreter::visitAssignment(AssignmentExpression* expr) {
+    return true;
+}
 
-R Interpreter::visitLogical(LogicalExpression* expr) { return true; }
+R Interpreter::visitLogical(LogicalExpression* expr) {
+    return true;
+}
 
 R Interpreter::visitConditional(ConditionalExpression* expr) {
 
