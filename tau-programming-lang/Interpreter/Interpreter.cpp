@@ -13,6 +13,7 @@
 #include "../Visitor/AstPrinter/AstPrinter.h"
 #include "Utils/Utils.h"
 #include "ExecutionContext/JSArray.h"
+#include "ExecutionContext/Value.h"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -678,11 +679,45 @@ R Interpreter::visitMember(MemberExpression* expr) {
 //    bool computed; // true for [], false for .
 //    Token name;
     
-    return true;
+    R object_value = expr->object->accept(*this);
     
+    if (!holds_alternative<string>(object_value)) {
+        throw runtime_error("The object name must be an identifier.");
+    }
+    
+    string property_name;
+    string object_name = get<string>(object_value);
+    
+    if (expr->computed) {
+        
+        // []
+        R property_value = expr->property->accept(*this);
+        
+        if (!holds_alternative<string>(property_value)) {
+            throw runtime_error("The computed property is not supported. It must be a string.");
+        }
+        
+        property_name = get<string>(property_value);
+        
+    } else {
+        // .
+        
+        property_name = expr->name.lexeme;
+
+    }
+    
+    R object_instance = env->get(object_name);
+    shared_ptr<JSObject> js_object_instance = get<shared_ptr<JSObject>>(object_instance);
+    
+     Value return_value = js_object_instance->get(property_name);
+    
+    return std::make_shared<Value>(return_value);
+
 }
 
-R Interpreter::visitThis(ThisExpression* expr) { return true; }
+R Interpreter::visitThis(ThisExpression* expr) {
+    return true;
+}
 
 R Interpreter::visitNew(NewExpression* expr) {
 
@@ -698,21 +733,39 @@ R Interpreter::visitNew(NewExpression* expr) {
         // get from env
         R value = env->get(class_name);
         
-        if (!holds_alternative<JSClass>(value)) {
-            throw runtime_error("New keyword should always instantia a class.");
+        if (!holds_alternative<std::shared_ptr<JSClass>>(value)) {
+            throw runtime_error("New keyword should always instantiate a class.");
             return monostate();
         }
-        
-        JSClass* new_class = get<JSClass*>(value);
+
+        std::shared_ptr<JSClass> new_class = std::get<std::shared_ptr<JSClass>>(value);
         
         // set properties from class value to object.
         // remember modifiers
         
         for (auto& field : new_class->fields) {
-            
-            R prop_value = field.second->property->accept(*this);
-            object->set(field.first, get<Value>(prop_value));
-            
+
+            // property is a Statement: VariableStatement
+            if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
+
+                for (auto& declarator : variable->declarations) {
+                    
+                    if (declarator.init == nullptr) {
+                        throw runtime_error("Missing initializer in const declaration: " + declarator.id);
+                    }
+                    
+                    if (declarator.init) {
+                        
+                        R value = declarator.init->accept(*this);
+
+                        // TODO: fix
+                        object->set(declarator.id, toValue(value));
+
+                    }
+                }
+
+            }
+
         }
         
         // copy methods
@@ -721,7 +774,6 @@ R Interpreter::visitNew(NewExpression* expr) {
         }
         
         // remember, the args passed the "new" call.
-        
         
     }
     
