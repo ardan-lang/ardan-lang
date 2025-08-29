@@ -290,7 +290,34 @@ R Interpreter::visitEmpty(EmptyStatement* stmt) {
 }
 
 R Interpreter::visitClass(ClassDeclaration* stmt) {
-    return true;
+    
+    auto js_class = make_shared<JSClass>();
+    
+    // loop through fields
+    for (auto& field : stmt->fields) {
+        
+        // check tha field is a variable statement
+        if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field->property.get())) {
+     
+            js_class->fields[variable->kind] = std::move(field);
+     
+        }
+        
+    }
+    
+    // loop through methods
+    for (auto& method : stmt->body) {
+        js_class->methods[method->name] = std::move(method);
+    }
+    
+    js_class->name = stmt->id;
+    
+    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(stmt->superClass.get())) {
+        js_class->superClass = ident->name;
+    }
+
+    return js_class;
+    
 }
 
 R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {
@@ -644,9 +671,55 @@ R Interpreter::visitConditional(ConditionalExpression* expr) {
         
 }
 
-R Interpreter::visitMember(MemberExpression* expr) { return true; }
+R Interpreter::visitMember(MemberExpression* expr) {
+
+//    unique_ptr<Expression> object;
+//    unique_ptr<Expression> property;
+//    bool computed; // true for [], false for .
+//    Token name;
+    
+    return true;
+    
+}
+
 R Interpreter::visitThis(ThisExpression* expr) { return true; }
-R Interpreter::visitNew(NewExpression* expr) { return true; }
+
+R Interpreter::visitNew(NewExpression* expr) {
+
+//    unique_ptr<Expression> callee;
+//    vector<unique_ptr<Expression>> arguments;
+
+    auto object = make_shared<JSObject>();
+    
+    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
+
+        const string class_name = ident->name;
+        
+        // get from env
+        R value = env->get(class_name);
+        
+        if (!holds_alternative<JSClass>(value)) {
+            throw runtime_error("New keyword should always instantia a class.");
+            return monostate();
+        }
+        
+        JSClass* new_class = get<JSClass*>(value);
+        
+        // set properties from class value to object.
+        
+        for (auto& field : new_class->fields) {
+            
+        }
+        
+        // copy methods
+        
+        // remember, the args passed the "new" call.
+        
+    }
+    
+    return object;
+    
+}
 
 R Interpreter::visitArray(ArrayLiteralExpression* expr) {
     
@@ -659,12 +732,23 @@ R Interpreter::visitArray(ArrayLiteralExpression* expr) {
         arr->setIndex(index, toValue(value));
         index++;
     }
-
-    
+        
     return arr;
+    
 }
 
-R Interpreter::visitObject(ObjectLiteralExpression* expr) { return true; }
+R Interpreter::visitObject(ObjectLiteralExpression* expr) {
+    
+    auto object = make_shared<JSObject>();
+    
+    for (auto& prop : expr->props) {
+        object->set(prop.first.lexeme, toValue(prop.second->accept(*this)));
+    }
+
+    return object;
+    
+}
+
 R Interpreter::visitSuper(SuperExpression* expr) { return true; }
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }
 
