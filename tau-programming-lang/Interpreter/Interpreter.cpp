@@ -673,11 +673,11 @@ R Interpreter::visitConditional(ConditionalExpression* expr) {
 }
 
 R Interpreter::visitMember(MemberExpression* expr) {
-
-//    unique_ptr<Expression> object;
-//    unique_ptr<Expression> property;
-//    bool computed; // true for [], false for .
-//    Token name;
+    
+    //    unique_ptr<Expression> object;
+    //    unique_ptr<Expression> property;
+    //    bool computed; // true for [], false for .
+    //    Token name;
     
     R object_value = expr->object->accept(*this);
     
@@ -703,16 +703,16 @@ R Interpreter::visitMember(MemberExpression* expr) {
         // .
         
         property_name = expr->name.lexeme;
-
+        
     }
     
     R object_instance = env->get(object_name);
     shared_ptr<JSObject> js_object_instance = get<shared_ptr<JSObject>>(object_instance);
     
-     Value return_value = js_object_instance->get(property_name);
+    Value return_value = js_object_instance->get(property_name);
     
     return std::make_shared<Value>(return_value);
-
+    
 }
 
 R Interpreter::visitThis(ThisExpression* expr) {
@@ -810,6 +810,7 @@ R Interpreter::visitObject(ObjectLiteralExpression* expr) {
 }
 
 R Interpreter::visitSuper(SuperExpression* expr) { return true; }
+
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }
 
 R Interpreter::visitSequence(SequenceExpression* expr) {
@@ -827,8 +828,8 @@ R Interpreter::visitSequence(SequenceExpression* expr) {
     return last_value;
 }
 
-R Interpreter::visitPublicKeyword(PublicKeyword* expr) { return true; }
-R Interpreter::visitPrivateKeyword(PrivateKeyword* expr) { return true; }
-R Interpreter::visitProtectedKeyword(ProtectedKeyword* expr) { return true; }
-R Interpreter::visitStaticKeyword(StaticKeyword* expr) { return true; }
+R Interpreter::visitPublicKeyword(PublicKeyword* expr) { return "public"; }
+R Interpreter::visitPrivateKeyword(PrivateKeyword* expr) { return "private"; }
+R Interpreter::visitProtectedKeyword(ProtectedKeyword* expr) { return "protected"; }
+R Interpreter::visitStaticKeyword(StaticKeyword* expr) { return "static"; }
 
