@@ -52,6 +52,11 @@ public:
         type = ValueType::NUMBER;
         numberValue = n;
     }
+    
+    Value(const string& str) {
+        stringValue = str;
+        type = ValueType::STRING;
+    }
 
     std::string toString() const {
         switch(type) {

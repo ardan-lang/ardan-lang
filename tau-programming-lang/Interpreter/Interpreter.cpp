@@ -706,14 +706,22 @@ R Interpreter::visitNew(NewExpression* expr) {
         JSClass* new_class = get<JSClass*>(value);
         
         // set properties from class value to object.
+        // remember modifiers
         
         for (auto& field : new_class->fields) {
+            
+            R prop_value = field.second->property->accept(*this);
+            object->set(field.first, get<Value>(prop_value));
             
         }
         
         // copy methods
+        for (auto& method : new_class->methods) {
+            object->set(method.first, Value("@@method@@"));
+        }
         
         // remember, the args passed the "new" call.
+        
         
     }
     
