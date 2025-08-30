@@ -43,6 +43,10 @@ public:
         js_class = js_klass;
     }
     
+    const unordered_map<string, Value>* get_all_properties() {
+        return &properties;
+    }
+    
     shared_ptr<JSClass> getKlass() {
         return js_class;
     }

@@ -32,7 +32,8 @@ using R = std::variant<
     bool,
     std::shared_ptr<JSObject>,
     std::shared_ptr<Value>,
-    std::shared_ptr<JSClass>
+    std::shared_ptr<JSClass>,
+    std::shared_ptr<JSArray>
 >;
 
 #endif /* R_hpp */

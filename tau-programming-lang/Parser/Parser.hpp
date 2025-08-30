@@ -367,7 +367,7 @@ private:
             vector<unique_ptr<Expression>> elements;
             if (!check(TokenType::RIGHT_SQUARE_BRACKET)) {
                 do {
-                    elements.push_back(parseExpression());
+                    elements.push_back(parseAssignment());
                 } while (match(TokenType::COMMA));
             }
             consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']'");

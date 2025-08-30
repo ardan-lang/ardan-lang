@@ -310,8 +310,11 @@ R Interpreter::visitForIn(ForInStatement* stmt) {
     string variable;
     
     if (VariableStatement* variable_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
-        stmt->init->accept(*this);
-        variable = variable_stmt->kind;
+        
+        if (variable_stmt->declarations.size() == 1) {
+            variable = variable_stmt->declarations[0].id;
+        }
+        
     } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
         variable = ident->name;
     }
@@ -320,9 +323,28 @@ R Interpreter::visitForIn(ForInStatement* stmt) {
     R value = stmt->object->accept(*this);
     shared_ptr<JSObject> js_object = get<shared_ptr<JSObject>>(value);
     
-    
+    // loop through the object fields
+    for (auto& field : *js_object->get_all_properties()) {
+        
+        try {
+            
+            env->setStackValue(variable, field.first);
+            stmt->body->accept(*this);
+            
+        } catch(BreakException&) {
+            
+            break;
+            
+        } catch(ContinueException&) {
+            
+            continue;
+            
+        }
+        
+    }
 
     return true;
+    
 }
 
 // loop over iterables: array, string
@@ -333,7 +355,52 @@ R Interpreter::visitForOf(ForOfStatement* stmt) {
     //    std::unique_ptr<Statement> body;
 
     // for (let key of array) for (key of array)
+    // init can be VariableStatement or Identifier
     
+    string variable;
+    
+    if (VariableStatement* variable_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
+        
+        if (variable_stmt->declarations.size() == 1) {
+            variable = variable_stmt->declarations[0].id;
+        }
+        
+    } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
+        
+        variable = ident->name;
+        
+    }
+    
+    // TODO: visit array
+    
+    shared_ptr<JSArray> js_array = get<shared_ptr<JSArray>>(stmt->right->accept(*this));
+    
+    for (auto& element : *js_array->get_all_properties()) {
+        
+        if (element.first == "length") {
+            continue;
+        }
+        
+        try {
+            
+            auto shared_element = std::make_shared<Value>();
+            *shared_element = element.second;
+
+            env->setStackValue(variable, shared_element);
+            stmt->body->accept(*this);
+            
+        } catch(BreakException&) {
+            
+            break;
+            
+        } catch(ContinueException&) {
+            
+            continue;
+            
+        }
+        
+    }
+
     return true;
     
 }

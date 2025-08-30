@@ -211,13 +211,29 @@ int main(int argc, const char * argv[]) {
     var age = 90;
     getAge() {
     print(this.age);
+    this.displayName();
     }
+    
+    displayName() {
+    print(this.name);
+    }
+    
     }
     
     var user_obj = new User();
     
     print(user_obj.name);
     user_obj.getAge();
+    print("----------------");
+    for(let key in user_obj) {
+    print(key);
+    }
+    print("----------------");
+    
+    var arr = [9,8,7,6];
+    for(let key of arr) {
+    print(key);
+    }
     
     )";
 
