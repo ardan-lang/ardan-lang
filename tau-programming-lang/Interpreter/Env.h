@@ -19,6 +19,8 @@
 
 using namespace std;
 
+class JSObject;
+
 class Env {
 public:
     Env(Env* parent = nullptr) : parent(parent) {}
@@ -86,6 +88,8 @@ public:
     
     bool break_from_current_loop = false;
     bool continue_from_current_loop = false;
+    
+    shared_ptr<JSObject> this_binding;
 
 private:
     unordered_map<string, R> variables = {

@@ -24,8 +24,13 @@ Interpreter::~Interpreter() {
 }
 
 void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
+    AstPrinter printer;
+
     for (unique_ptr<Statement>& stmt : ast) {
+        // cout << "--------------" << endl;
         stmt->accept(*this);
+        // stmt->accept(printer);
+        // cout << "**************" << endl;
     }
 }
 
@@ -41,6 +46,9 @@ R Interpreter::visitBlock(BlockStatement* stmt) {
     
     Env* previous = env;           // save current scope
     env = new Env(previous);       // allocate child env on heap
+    
+    // inherit or set `this_binding`
+    env->this_binding = previous->this_binding;
     
     for (auto& item : previous->getStack()) {
         env->setValue(item.first, item.second);
@@ -81,11 +89,48 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
     
 }
 
-
 R Interpreter::visitCall(CallExpression* expr) {
+        
+    // TODO: check if callee is a MemberExpression
+    if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->callee.get())) {
+        
+        // it is a dot access
+        // get the object name and the JSObject.
+        R object = member->object->accept(*this);
+        shared_ptr<JSObject> js_object = get<shared_ptr<JSObject>>(object);
+        
+        string property_name = member->name.lexeme;
+        
+        // this property name is the name of method in the object to be called.
+        MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
+        
+        for (auto& arg : expr->arguments) {
+            
+            string key;
+            
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(arg.get())) {
+                key = ident->name;
+            }
+            
+            env->setStackValue(key, arg->accept(*this));
+            
+        }
+        
+        env->this_binding = js_object;
+        
+        // cout << "Name: " << env->this_binding->get("name").stringValue << endl;
+        // cout << "Age: "<< env->this_binding->get("age").stringValue << endl;
+
+        method->accept(*this);
+        
+        return monostate();
+
+    }
+    
+    // ------- end of member access --------
     
     vector<R> vectorArg;
-    
+
     auto callee = expr->callee->accept(*this);
     
     for (auto& arg : expr->arguments) {
@@ -117,12 +162,9 @@ R Interpreter::visitCall(CallExpression* expr) {
         if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(arg)) {
             key = ident->name;
         }
-        
         env->setStackValue(key, arg->accept(*this));
         
     }
-
-    // AstPrinter printer;
 
     if (body != nullptr) {
         
@@ -258,12 +300,42 @@ R Interpreter::visitFor(ForStatement* stmt) {
 
 // loop over objects keys
 R Interpreter::visitForIn(ForInStatement* stmt) {
+    
+    //    unique_ptr<Statement> init;
+    //    unique_ptr<Expression> object;
+    //    unique_ptr<Statement> body;
+    // for (let key in object) for (key of object)
+    
+    // init can be VariableStatement or Identifier
+    string variable;
+    
+    if (VariableStatement* variable_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
+        stmt->init->accept(*this);
+        variable = variable_stmt->kind;
+    } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
+        variable = ident->name;
+    }
+    
+    // get the object from env
+    R value = stmt->object->accept(*this);
+    shared_ptr<JSObject> js_object = get<shared_ptr<JSObject>>(value);
+    
+    
+
     return true;
 }
 
 // loop over iterables: array, string
 R Interpreter::visitForOf(ForOfStatement* stmt) {
+
+    //    std::unique_ptr<Statement> left; // variable declaration or expression
+    //    std::unique_ptr<Expression> right; // iterable expression
+    //    std::unique_ptr<Statement> body;
+
+    // for (let key of array) for (key of array)
+    
     return true;
+    
 }
 
 R Interpreter::visitReturn(ReturnStatement* stmt) {
@@ -299,13 +371,17 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
         
         // check tha field is a variable statement
         if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            if (variable->declarations.size() > 1) {
+                throw runtime_error("You cannot have multiple variable declarations here.");
+            }
      
-            js_class->fields[variable->kind] = std::move(field);
+            js_class->fields[variable->declarations[0].id] = std::move(field);
      
         }
         
     }
-    
+        
     // loop through methods
     for (auto& method : stmt->body) {
         js_class->methods[method->name] = std::move(method);
@@ -316,13 +392,19 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
     if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(stmt->superClass.get())) {
         js_class->superClass = ident->name;
     }
+    
+    env->setValue(stmt->id, js_class);
 
     return js_class;
     
 }
 
 R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {
-    return true;
+    
+    stmt->methodBody->accept(*this);
+    
+    return monostate();
+    
 }
 
 R Interpreter::visitDoWhile(DoWhileStatement* stmt) {
@@ -672,6 +754,8 @@ R Interpreter::visitConditional(ConditionalExpression* expr) {
         
 }
 
+// user["name"]; user.age; this.age; this["age"]; super.age;
+// TODO: we need to check if the property access is a method call.
 R Interpreter::visitMember(MemberExpression* expr) {
     
     //    unique_ptr<Expression> object;
@@ -680,43 +764,77 @@ R Interpreter::visitMember(MemberExpression* expr) {
     //    Token name;
     
     R object_value = expr->object->accept(*this);
-    
-    if (!holds_alternative<string>(object_value)) {
-        throw runtime_error("The object name must be an identifier.");
-    }
-    
     string property_name;
-    string object_name = get<string>(object_value);
+
+    shared_ptr<JSObject> js_object_instance;
+    Value return_value;
     
-    if (expr->computed) {
+    // this supports the "this"
+    if (holds_alternative<shared_ptr<JSObject>>(object_value)) {
         
-        // []
-        R property_value = expr->property->accept(*this);
+        if (expr->computed) {
+            
+            // []
+            R property_value = expr->property->accept(*this);
+            
+            if (!holds_alternative<string>(property_value)) {
+                throw runtime_error("The computed property is not supported. It must be a string.");
+            }
+            
+            property_name = get<string>(property_value);
+            
+        } else {
+            // .
+            
+            property_name = expr->name.lexeme;
+            
+        }
+
+        js_object_instance = get<shared_ptr<JSObject>>(object_value);
         
-        if (!holds_alternative<string>(property_value)) {
-            throw runtime_error("The computed property is not supported. It must be a string.");
+        return_value = js_object_instance->get(property_name);
+
+    } else {
+        
+        if (!holds_alternative<string>(object_value)) {
+            throw runtime_error("The object name must be an identifier.");
         }
         
-        property_name = get<string>(property_value);
+        // TODO: add support for "this" and "super" access.
         
-    } else {
-        // .
+        string object_name = get<string>(object_value);
         
-        property_name = expr->name.lexeme;
+        if (expr->computed) {
+            
+            // []
+            R property_value = expr->property->accept(*this);
+            
+            if (!holds_alternative<string>(property_value)) {
+                throw runtime_error("The computed property is not supported. It must be a string.");
+            }
+            
+            property_name = get<string>(property_value);
+            
+        } else {
+            // .
+            
+            property_name = expr->name.lexeme;
+            
+        }
         
+        R object_instance = env->get(object_name);
+        js_object_instance = get<shared_ptr<JSObject>>(object_instance);
+        
+        return_value = js_object_instance->get(property_name);
+
     }
-    
-    R object_instance = env->get(object_name);
-    shared_ptr<JSObject> js_object_instance = get<shared_ptr<JSObject>>(object_instance);
-    
-    Value return_value = js_object_instance->get(property_name);
     
     return std::make_shared<Value>(return_value);
     
 }
 
 R Interpreter::visitThis(ThisExpression* expr) {
-    return true;
+    return env->this_binding;
 }
 
 R Interpreter::visitNew(NewExpression* expr) {
@@ -767,13 +885,55 @@ R Interpreter::visitNew(NewExpression* expr) {
             }
 
         }
+                
+        // hold constructor
+        MethodDefinition* constructor = nullptr;
         
         // copy methods
         for (auto& method : new_class->methods) {
+            
+            if (method.first == "constructor") {
+                constructor = method.second.get();
+            }
+            
             object->set(method.first, Value("@@method@@"));
         }
         
-        // remember, the args passed the "new" call.
+        object->setClass(new_class);
+        
+        // remember, the args passed to the "new" call.
+        // get constructor so we get the values to be passed to the object.
+        int index = 0;
+        
+        if (constructor != nullptr) {
+            for (auto& constructor_arg : constructor->params) {
+                
+                string key;
+                R value;
+                
+                if (VariableStatement* variable = dynamic_cast<VariableStatement*>(constructor_arg.get())) {
+                    key = variable->kind;
+                } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(constructor_arg.get())) {
+                    key = ident->token.lexeme;
+                }
+                
+                value = expr->arguments[index]->accept(*this);
+                
+                object->set(key, toValue(value));
+                env->setStackValue(key, (value));
+                
+                index++;
+                
+            }
+        }
+                
+        // we need to call the constructor since we are constructing an object.
+        
+        if (constructor != nullptr) {
+            
+            constructor->methodBody->accept(*this);
+            
+        }
         
     }
     
@@ -809,7 +969,9 @@ R Interpreter::visitObject(ObjectLiteralExpression* expr) {
     
 }
 
-R Interpreter::visitSuper(SuperExpression* expr) { return true; }
+R Interpreter::visitSuper(SuperExpression* expr) {
+    return true;
+}
 
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }
 

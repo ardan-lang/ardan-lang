@@ -278,7 +278,7 @@ R AstPrinter::visitLiteral(LiteralExpression* expr) {
 }
 
 R AstPrinter::visitIdentifier(IdentifierExpression* expr) {
-    printIndent(); std::cout << "Identifier(" << expr->name << expr->token.lexeme << ")\n";
+    printIndent(); std::cout << "Identifier(" << /*expr->name <<*/ expr->token.lexeme << ")\n";
     
     return true;
     

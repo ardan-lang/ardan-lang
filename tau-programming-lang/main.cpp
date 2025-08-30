@@ -182,28 +182,42 @@ int main(int argc, const char * argv[]) {
         print(name, true);
     }
 
+         function displayName(name) {
+             print(name, true);
+         }
+                 var name = "Nnamdi Chidume";
+
+         displayName(name);
+         var i = 9;
+         print(i);
+         ++i;
+         print(i);
+         
+         switch(i) {
+         case 9: 
+             print("9er");
+         case 10:
+             print("10er");
+         default:
+             print("default");
+         }
+
     )";
     
     string lang = R"(
-    function displayName(name) {
-        print(name, true);
-    }
-            var name = "Nnamdi Chidume";
-
-    displayName(name);
-    var i = 9;
-    print(i);
-    ++i;
-    print(i);
     
-    switch(i) {
-    case 9: 
-        print("9er");
-    case 10:
-        print("10er");
-    default:
-        print("default");
+    class User {
+    var name = "NN";
+    var age = 90;
+    getAge() {
+    print(this.age);
     }
+    }
+    
+    var user_obj = new User();
+    
+    print(user_obj.name);
+    user_obj.getAge();
     
     )";
 

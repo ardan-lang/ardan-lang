@@ -16,8 +16,11 @@
 
 using namespace std;
 
+class JSClass;
+
 class JSObject {
     unordered_map<string, Value> properties;
+    shared_ptr<JSClass> js_class;
 public:
 
     bool operator==(const JSObject& other) const {
@@ -34,6 +37,14 @@ public:
     
     Value get(const string& key) {
         return properties.count(key) ? properties.at(key) : Value::undefined();
+    }
+    
+    void setClass(shared_ptr<JSClass> js_klass) {
+        js_class = js_klass;
+    }
+    
+    shared_ptr<JSClass> getKlass() {
+        return js_class;
     }
     
 };
