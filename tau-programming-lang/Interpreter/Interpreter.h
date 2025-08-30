@@ -92,6 +92,8 @@ public:
             std::cout << std::get<std::string>(value);
         } else if (std::holds_alternative<bool>(value)) {
             std::cout << (std::get<bool>(value) ? "true" : "false");
+        } else if (std::holds_alternative<shared_ptr<Value>>(value)) {
+            std::cout << (std::get<shared_ptr<Value>>(value))->toString();
         }
     }
     
