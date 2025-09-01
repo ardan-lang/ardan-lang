@@ -90,6 +90,7 @@ public:
     bool continue_from_current_loop = false;
     
     shared_ptr<JSObject> this_binding;
+    shared_ptr<JSObject> super_binding;
 
 private:
     unordered_map<string, R> variables = {

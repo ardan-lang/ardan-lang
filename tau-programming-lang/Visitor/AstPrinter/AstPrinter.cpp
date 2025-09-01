@@ -219,7 +219,10 @@ R AstPrinter::visitCatch(CatchClause* stmt) {
     } else {
         cout << "{}\n";
     }
-return true; }
+    
+    return true;
+    
+}
 
 R AstPrinter::visitTry(TryStatement* stmt) {
     printIndent(); std::cout << "Try\n";
@@ -243,7 +246,10 @@ R AstPrinter::visitTry(TryStatement* stmt) {
         printIndent();
         cout << "}\n";
     }
-return true; }
+    
+    return true;
+    
+}
 
 R AstPrinter::visitForIn(ForInStatement* stmt) {
     printIndent(); std::cout << "ForIn\n";

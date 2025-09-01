@@ -21,7 +21,12 @@ class JSClass;
 class JSObject {
     unordered_map<string, Value> properties;
     shared_ptr<JSClass> js_class;
+
+    shared_ptr<JSObject> parent_js_object;
+
 public:
+
+    shared_ptr<JSClass> parent_class;
 
     bool operator==(const JSObject& other) const {
         return this == &other;

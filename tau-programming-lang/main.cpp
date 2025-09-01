@@ -207,6 +207,10 @@ int main(int argc, const char * argv[]) {
     string lang = R"(
     
     class User {
+    constructor() {
+    super();
+    }
+    
     var name = "NN";
     var age = 90;
     getAge() {

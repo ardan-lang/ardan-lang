@@ -21,7 +21,7 @@ class JSClass {
 
 public:
     string name;
-    string superClass;
+    shared_ptr<JSClass> superClass;
     unordered_map<string, unique_ptr<PropertyDeclaration>> fields;
     unordered_map<string, unique_ptr<MethodDefinition>> methods;
     
