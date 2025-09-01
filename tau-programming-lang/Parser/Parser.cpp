@@ -258,7 +258,7 @@ unique_ptr<Statement> Parser::parseClassDeclaration() {
     }
 
     unique_ptr<Expression> superClass = nullptr;
-    if (match(TokenType::EXTENDS)) {
+    if (matchKeyword("EXTENDS")) {
         superClass = parseExpression();
     }
 

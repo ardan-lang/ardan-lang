@@ -28,8 +28,8 @@ void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
 
     for (unique_ptr<Statement>& stmt : ast) {
         // cout << "--------------" << endl;
-        // stmt->accept(*this);
-        stmt->accept(printer);
+        stmt->accept(*this);
+        // stmt->accept(printer);
         // cout << "**************" << endl;
     }
 }
@@ -80,13 +80,14 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
             if (declarator.init) {
                 
                 R value = declarator.init->accept(*this);
-                std::shared_ptr<JSObject> object = std::get<std::shared_ptr<JSObject>>(value);
 
                 if (NewExpression* new_expr = dynamic_cast<NewExpression*>(declarator.init.get())) {
-                    
+
+                    std::shared_ptr<JSObject> object = std::get<std::shared_ptr<JSObject>>(value);
+
                     // value is a JSObject.
                     // run the constructor
-                    R klass = env->get(declarator.id);
+                    R klass = env->get((dynamic_cast<IdentifierExpression*>(new_expr->callee.get())->name));
                     std::shared_ptr<JSClass> new_klass = std::get<std::shared_ptr<JSClass>>(klass);
                     
                     // get the constructor
@@ -124,6 +125,7 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
                 }
                 
                 env->setValue(declarator.id, value);
+                
             }
         }
         
@@ -173,7 +175,7 @@ R Interpreter::visitCall(CallExpression* expr) {
     // ------- super -------
     if (SuperExpression* super = dynamic_cast<SuperExpression*>(expr->callee.get())) {
         // copy all props and methods
-        return monostate();
+        return expr->callee->accept(*this);
     }
     
     vector<R> vectorArg;
@@ -930,8 +932,8 @@ R Interpreter::visitMember(MemberExpression* expr) {
             property_name = get<string>(property_value);
             
         } else {
-            // .
             
+            // .
             property_name = expr->name.lexeme;
             
         }
@@ -1013,45 +1015,11 @@ R Interpreter::visitNew(NewExpression* expr) {
             
             object->set(method.first, Value("@@method@@"));
         }
-                
-        // remember, the args passed to the "new" call.
-        // get constructor so we get the values to be passed to the object.
-//        int index = 0;
-//        
-//        if (constructor != nullptr) {
-//            
-//            for (auto& constructor_arg : constructor->params) {
-//                
-//                string key;
-//                R value;
-//                
-//                if (VariableStatement* variable = dynamic_cast<VariableStatement*>(constructor_arg.get())) {
-//                    key = variable->kind;
-//                } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(constructor_arg.get())) {
-//                    key = ident->token.lexeme;
-//                }
-//                
-//                value = expr->arguments[index]->accept(*this);
-//                
-//                object->set(key, toValue(value));
-//                env->setStackValue(key, (value));
-//                
-//                index++;
-//                
-//            }
-//            
-//        }
-                
-        // we need to call the constructor since we are constructing an object.
         
-//        if (constructor != nullptr) {
-//            
-//            constructor->methodBody->accept(*this);
-//            
-//        }
-        
+        object->parent_class = new_class->superClass;
+                    
     }
-    
+        
     return object;
     
 }
@@ -1122,8 +1090,11 @@ R Interpreter::visitSuper(SuperExpression* expr) {
         object->set(method.first, Value("@@method@@"));
         
     }
-
+    
+    env->this_binding->parent_object = object;
+    
     return object;
+    
 }
 
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }

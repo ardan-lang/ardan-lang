@@ -202,16 +202,33 @@ int main(int argc, const char * argv[]) {
              print("default");
          }
 
+        print("----------------");
+        for(let key in user_obj) {
+        print(key);
+        }
+        print("----------------");
+        
+        var arr = [9,8,7,6];
+        for(let key of arr) {
+        print(key);
+        }
+
     )";
     
     string lang = R"(
     
-    class User {
+    var outside_name = "outside";
+    
+    class Parent {
+        var p = 90;
+    }
+    
+    class User extends Parent {
     constructor() {
     super();
     }
     
-    var name = "NN";
+    var name = outside_name;
     var age = 90;
     getAge() {
     print(this.age);
@@ -226,18 +243,7 @@ int main(int argc, const char * argv[]) {
     
     var user_obj = new User();
     
-    print(user_obj.name);
-    user_obj.getAge();
-    print("----------------");
-    for(let key in user_obj) {
-    print(key);
-    }
-    print("----------------");
-    
-    var arr = [9,8,7,6];
-    for(let key of arr) {
-    print(key);
-    }
+    print(user_obj.p);
     
     )";
 

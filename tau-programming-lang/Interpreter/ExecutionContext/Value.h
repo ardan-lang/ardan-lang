@@ -69,6 +69,11 @@ public:
         }
         return "unknown";
     }
+    
+    bool isUndefined() {
+        return type == ValueType::UNDEFINED ? true : false;
+    }
+    
 };
 
 #endif /* Value_h */
