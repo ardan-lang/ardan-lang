@@ -191,9 +191,13 @@ R Interpreter::visitCall(CallExpression* expr) {
     if (holds_alternative<std::string>(callee) &&
         get<std::string>(callee) == "print")
     {
+        int index = 0;
         for (auto& v : vectorArg) {
             printValue(v);
-            std::cout << " ";
+            if (index < (vectorArg.size() - 1)) {
+                std::cout << ", ";
+            }            
+            index++;
         }
         cout << std::endl;
         return std::monostate{};

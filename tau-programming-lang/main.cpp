@@ -243,7 +243,7 @@ int main(int argc, const char * argv[]) {
     
     var user_obj = new User();
     
-    print(user_obj.p);
+    print(user_obj.p, 90, 80, 7);
     
     )";
 
