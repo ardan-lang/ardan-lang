@@ -523,7 +523,7 @@ g.greet(); // Hello, Tau!
 ### Extending Tau
 
 • New built-ins: Implement in C++ in Interpreter/ or builtin/.
-• Language features: Add to Parser.hpp􀰓 and Statements/, Expression/.
+• Language features: Add to Parser.hpp and Statements/, Expression/.
 • Standard library: Add modules in C++, expose via Env or as Tau objects.
 
 ⸻
@@ -531,15 +531,19 @@ g.greet(); // Hello, Tau!
 ### Frequently Asked Questions
 
 Q: How do I debug my Tau code?
+
 A: Use print() statements, and the AstPrinter for AST debugging in C++.
 
 Q: Can I use recursion and closures?
+
 A: Yes! Tau fully supports both.
 
 Q: Is there file or network IO?
+
 A: File IO is in progress via the File module. See File.hpp􀰓.
 
 Q: How do I add my own functions to the interpreter?
+
 A: Extend the interpreter in C++ and register new functions in Env.
 
 ⸻

@@ -84,13 +84,23 @@ unique_ptr<Statement> Parser::parseIfStatement() {
     consumeKeyword("IF");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'");
     auto test = parseExpression();
-    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+    consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after if condition");
     auto consequent = parseStatement();
+
     unique_ptr<Statement> alternate = nullptr;
     if (matchKeyword("ELSE")) {
-        alternate = parseStatement();
+        if (checkKeyword("IF")) {
+            alternate = parseIfStatement();
+        } else {
+            alternate = parseStatement();
+        }
     }
-    return make_unique<IfStatement>(std::move(test), std::move(consequent), std::move(alternate));
+
+    return make_unique<IfStatement>(
+        std::move(test),
+        std::move(consequent),
+        std::move(alternate)
+    );
 }
 
 // ---------------------

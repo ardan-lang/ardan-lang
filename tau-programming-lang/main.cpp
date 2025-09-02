@@ -245,6 +245,21 @@ int main(int argc, const char * argv[]) {
     
     print(user_obj.p, 90, 80, 7);
     
+    var a = false, b = false, c = false;
+    
+    if (a) {
+    print(a);
+    }
+    else if (b) {
+    print(b);
+    }
+    else if (c) {
+    print(c);    
+    }
+    else {
+        print("else");
+    }
+    
     )";
 
     Scanner scanner(lang);

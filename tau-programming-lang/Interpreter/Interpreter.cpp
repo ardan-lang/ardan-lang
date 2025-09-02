@@ -283,7 +283,9 @@ R Interpreter::visitIf(IfStatement* stmt) {
         
     } else {
         
-        stmt->alternate->accept(*this);
+        if (stmt->alternate != nullptr) {
+            stmt->alternate->accept(*this);
+        }
         
     }
     
