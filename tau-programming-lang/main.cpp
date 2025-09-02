@@ -265,6 +265,12 @@ int main(int argc, const char * argv[]) {
         print("else");
     }
     
+    function square(n) {
+        return n * n;
+    }
+
+    print(square(5));
+    
     )";
 
     Scanner scanner(lang);

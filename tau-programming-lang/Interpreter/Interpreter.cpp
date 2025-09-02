@@ -215,6 +215,8 @@ R Interpreter::visitCall(CallExpression* expr) {
     vector<Expression*> args = env->getFunctionParams(get<std::string>(callee));
     Statement* body = env->getFunctionBody(get<std::string>(callee));
     
+    int arg_index = 0;
+    
     for (Expression* arg : args) {
         
         string key;
@@ -222,7 +224,12 @@ R Interpreter::visitCall(CallExpression* expr) {
         if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(arg)) {
             key = ident->name;
         }
-        env->setStackValue(key, arg->accept(*this));
+        
+        // env->setStackValue(key, arg->accept(*this));
+        
+        env->setStackValue(key, expr->arguments[arg_index]->accept(*this));
+
+        arg_index++;
         
     }
 
