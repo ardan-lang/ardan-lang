@@ -74,7 +74,7 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
         
         for (auto& declarator : stmt->declarations) {
             
-            if (kind == "const" && declarator.init == nullptr) {
+            if (kind == "CONST" && declarator.init == nullptr) {
                 throw runtime_error("Missing initializer in const declaration: " + declarator.id);
             }
             
@@ -137,7 +137,7 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
                         throw runtime_error("Cannot assign value to a const variable.");
                     }
                     
-                    env->set_var(declarator.id, value);
+                    env->set_const(declarator.id, value);
                     
                 }
                 

@@ -247,6 +247,11 @@ int main(int argc, const char * argv[]) {
     
     var a = false, b = false, c = false;
     
+    const d = 900;
+    let e = 80;
+    
+    print(d, e);
+    
     if (a) {
     print(a);
     }

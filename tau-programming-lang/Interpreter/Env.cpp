@@ -94,7 +94,7 @@ void Env::assign(const string& key, R value) {
         if (!is_const_key_set(key)) {
             set_const(key, value);
         } else {
-            throw runtime_error("Canoot assign a vlaue to a const variable after it has been initially assigned a value.");
+            throw runtime_error("Cannot assign a value to a const variable after it has been initially assigned a value.");
         }
     }
     
