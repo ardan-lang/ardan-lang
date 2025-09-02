@@ -1,254 +1,545 @@
-# Tau programming languague
+# Tau Programming Language
 
-Tau programming languague is written in C++.
+Tau is an experimental, dynamically typed programming language inspired by JavaScript, featuring a hand-written lexer, parser, and interpreter implemented in C++. Tau supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as let/const/var, scoping, and operator overloading.
 
-## Basics
+## Features
+- **Dynamic Typing**: Variable types are determined at runtime.
+- **Lexical Scope**: Supports block, function, and global scoping with `var`, `let`, `const`.
+- **First-Class Functions**: Functions can be assigned to variables, passed as arguments, and returned.
+- **Classes & Inheritance**: JavaScript-like class syntax with fields, methods, and inheritance via `extends`.
+- **Arrays & Objects**: Flexible objects and arrays with dot and bracket notation.
+- **Comprehensive Operator Support**: Arithmetic, logical, bitwise, assignment, comparison, and more.
+- **Exception Handling**: Try/catch/finally for robust error handling.
 
-**Variable declarations**
+⸻
 
-```js
-var mod = 8 % 5;
-var bl = true;
+Tau Programming Language
 
+Tau is a modern, JavaScript-inspired programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Tau, including language syntax, semantics, and usage, with detailed examples for every concept.
 
-var square = 9 ** 9;
-var ref = ref1 == uiop;
-var d = "nnamdi chidume";
-var t = 90;
-var g = sqrt();
-var x = (1, 2, 3);
+⸻
 
-```
+## Table of Contents
 
-**Assignment**
+1. [Getting Started](#getting-started)
+2. [Language Overview](#language-overview)
+    - [Variables](#variables)
+    - [Data Types & Literals](#data-types--literals)
+    - [Expressions and Operators](#expressions-and-operators)
+    - [Functions](#functions)
+    - [Control Flow](#control-flow)
+    - [Classes & Inheritance](#classes--inheritance)
+    - [Error Handling](#error-handling)
+    - [Modules & Standard Library](#modules--standard-library)
+    - [Arrays & Objects](#arrays--objects)
+3. [Reference](#reference)
+    - [Keywords](#keywords)
+    - [Operators](#operators)
+    - [Statements](#statements)
+    - [Special Values](#special-values)
+4. [Complete Example](#complete-example)
+5. [Extending Tau](#extending-tau)
+6. [Frequently Asked Questions](#frequently-asked-questions)
 
-```js
-mod %= 9;
-```
+⸻
 
-**Printing to console**
+## Getting Started
 
-```js
-print(g, d, t, 34);
-```
+### Installation
 
-**Class usage**
-
-```js
-class Foo {
-  greet(name, age) {
-    print(name, age);
-  }
-}
-```
-
-**do while**
-
-```js
-do {
-  print("hello");
-  throw "Hello";
-} while (x < 10);
-```
-
-**Switch**
-
-```js
-switch (x) {
-  case 1:
-    print("one");
-    break;
-  case 2:
-    print("two");
-    break;
-  default:
-    print("other");
-}
-```
-
-# Running the code
-
-## Scanning
-
-```cpp
-    string lang = R"(
-    
-    var outside_name = "outside";
-    
-    class Parent {
-        var p = 90;
-    }
-    
-    class User extends Parent {
-    constructor() {
-    super();
-    }
-    
-    var name = outside_name;
-    var age = 90;
-    getAge() {
-    print(this.age);
-    this.displayName();
-    }
-    
-    displayName() {
-    print(this.name);
-    }
-    
-    }
-    
-    var user_obj = new User();
-    
-    print(user_obj.p);
-    
-    )";
-
-
-    Scanner scanner(lang);
-    for(Token token : scanner.getTokens()) {
-        cout << token.type << " : " << token.lexeme << endl;
-    }
-```
-
-## Parsing
-
-```cpp
-    Parser parser(scanner.getTokens());
-    auto ast = parser.parse();
-
-    AstPrinter printer;
-
-    for (auto& stmt : ast) {
-        stmt->accept(printer);
-    }
-
-```
-
-Output:
+Tau is a C++ project. Build it with CMake or your preferred C++ toolchain.
 
 ```sh
-VariableDeclaration VAR =
-mod
-  Binary(%)
-    Numeric 8
-    Numeric 5
-VariableDeclaration VAR =
-bl
-  True
-ExpressionStatement:
-  Binary(%=)
-    Identifier(mod)
-    Numeric 9
-VariableDeclaration VAR =
-square
-  Binary()
-    Numeric 9
-    Numeric 9
-VariableDeclaration VAR =
-ref
-  Binary(==)
-    Identifier(ref1)
-    Identifier(uiop)
-VariableDeclaration VAR =
-d
-  String nnamdi chidume
-VariableDeclaration VAR =
-t
-  Numeric 90
-VariableDeclaration VAR =
-g
-  Call
-    Identifier(sqrt)
-ExpressionStatement:
-  Call
-    Identifier(print)
-    Identifier(g)
-    Identifier(d)
-    Identifier(t)
-    Numeric 34
-ExpressionStatement:
-  Sequence:
-    Identifier(g)
-    Identifier(d)
-    Identifier(t)
-    Numeric 34
-VariableDeclaration VAR =
-x
-  Sequence:
-    Numeric 1
-    Numeric 2
-    Numeric 3
-Class oo {
-  Method greet(name, age)   Block:
-    ExpressionStatement:
-      Call
-        Identifier(print)
-        Identifier(name)
-        Identifier(age)
+git clone https://github.com/philipszdavido/tau-programming-lang
+cd tau-programming-lang
+mkdir build && cd build
+cmake ..
+make
+```
+
+Running a Tau File
+
+```
+./tau path/to/script.tau
+```
+
+Or start a REPL (if available):
+
+```
+./tau
+```
+
+⸻
+
+## Language Overview
+
+### Variables
+
+Tau supports three kinds of variable declarations, similar to JavaScript:
+
+```
+var x = 42;     // Function-scoped, mutable
+let y = "tau";  // Block-scoped, mutable
+const z = 3.14; // Block-scoped, immutable
+```
+
+Example: Variable Shadowing
+
+```
+let x = 1;
+{
+    let x = 2;
+    print(x); // 2
 }
-Continue
-DoWhileStatement {
-  body: Block:
-  ExpressionStatement:
-    Call
-      Identifier(print)
-      String hello
-  Throw
-    String Hello
+print(x); // 1
+```
 
-  condition: Binary()
-  Identifier(x)
-  Numeric 10
+const Requires Initialization
 
+```
+const fail; // Error: Missing initializer in const declaration
+```
+
+⸻
+
+## Data Types & Literals
+
+### Numbers
+
+```
+let a = 10;
+let b = -3.5;
+let c = 2e10;
+```
+
+### Strings
+
+```
+let msg = "Hello, world!";
+let templ = `Hello,
+multiline!`;
+```
+
+### Booleans
+
+```
+let flag = true;
+let off = false;
+```
+
+### Arrays
+
+```
+let arr = [1, 2, 3];
+print(arr[1]); // 2
+```
+
+### Objects
+
+```
+let user = { name: "Alice", age: 30 };
+print(user.name); // "Alice"
+```
+
+⸻
+
+### Expressions and Operators
+
+Tau supports a wide range of expressions and operators akin to JS.
+
+### Arithmetic
+
+```
+let sum = 1 + 2 * 3;   // 7
+let div = 10 / 2;      // 5
+let mod = 9 % 4;       // 1
+let pow = 2 ** 3;      // 8
+```
+
+### Assignment and Compound Assignment
+
+```
+let x = 10;
+x += 2;  // x = 12
+x *= 3;  // x = 36
+```
+
+### Comparison
+
+```
+5 == "5";   // true (value)
+5 === "5";  // false (strict type)
+5 !== 5;    // false
+7 < 10;     // true
+```
+
+### Logical
+
+```
+true && false; // false
+true || false; // true
+!false;        // true
+x = null ?? 42; // 42
+```
+
+### Bitwise
+
+```
+let mask = 0b1010 & 0b1100; // 0b1000 (8)
+```
+
+### Increment/Decrement
+
+```
+let i = 0;
+i++;
+++i;
+i--;
+```
+
+⸻
+
+### Functions
+
+Tau supports first-class functions, closures, and parameters.
+
+```
+function square(n) {
+    return n * n;
 }
-SwitchStatement {
-  discriminant: Identifier(x)
 
-  cases: [
-    SwitchCase {
-  test: Numeric 1
+print(square(5)); // 25
+```
 
-  consequent: [
-    ExpressionStatement:
-  Call
-    Identifier(print)
-    String one
+### Anonymous Functions and Closures
 
-    Break
+```
+let adder = function(x) {
+    return function(y) {
+        return x + y;
+    }
+};
+let add5 = adder(5);
+print(add5(3)); // 8
+```
 
-  ]
-}
-    SwitchCase {
-  test: Numeric 2
+Default and Rest Arguments
 
-  consequent: [
-    ExpressionStatement:
-  Call
-    Identifier(print)
-    String two
+(Not yet implemented, but planned in syntax.)
 
-    Break
+⸻
 
-  ]
-}
-    SwitchCase {
-  test: default
-  consequent: [
-    ExpressionStatement:
-  Call
-    Identifier(print)
-    String other
+### Control Flow
 
-  ]
-}
-  ]
+Tau supports all standard control flow constructs.
+
+If-Else
+
+```
+if (x > 10) {
+    print("big");
+} else if (x > 5) {
+    print("medium");
+} else {
+    print("small");
 }
 ```
 
-## Author
+### While Loops
 
-Chidume Nnamdi
+```
+let i = 0;
+while (i < 3) {
+    print(i);
+    i++;
+}
+```
 
-- 📫 [Email](mailto:kurtwanger40@gmail.com)
-- 💼 [LinkedIn](https://www.linkedin.com/in/chidume-nnamdi/)
-- 📺 [YouTube - Understanding Dev](https://www.youtube.com/channel/UCUCHv7YOQXWy2dsL-0IrlPw)
+### For Loops
+
+```
+for (let i = 0; i < 5; i++) {
+    print(i);
+}
+```
+
+### For-in (over object properties):
+
+```
+let obj = {a: 1, b: 2};
+for (let key in obj) {
+    print(key, obj[key]);
+}
+```
+
+### For-of (over array values):
+
+```
+let arr = [1, 2, 3];
+for (let value of arr) {
+    print(value);
+}
+```
+
+### Break & Continue
+
+```
+for (let i = 0; i < 10; i++) {
+    if (i == 5) break;
+    if (i % 2 == 0) continue;
+    print(i);
+}
+```
+
+### Switch Statement
+
+```
+switch (fruit) {
+    case "apple":
+        print("Apple!");
+        break;
+    case "banana":
+        print("Banana!");
+        break;
+    default:
+        print("Unknown fruit");
+}
+```
+
+### Do-While
+
+```
+let x = 0;
+do {
+    print(x);
+    x++;
+} while (x < 3);
+```
+
+⸻
+
+### Classes & Inheritance
+
+Tau enables object-oriented programming with ES6-like classes.
+
+Basic Class
+
+```
+class Point {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    move(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+    }
+}
+
+let pt = new Point(0, 0);
+pt.move(3, 4);
+print(pt.x, pt.y); // 3, 4
+```
+
+### Inheritance
+
+```
+class Animal {
+    constructor(name) {
+        this.name = name;
+    }
+    speak() {
+        print(this.name + " makes a noise.");
+    }
+}
+
+class Dog extends Animal {
+    speak() {
+        print(this.name + " barks.");
+    }
+}
+
+let d = new Dog("Rex");
+d.speak(); // Rex barks.
+```
+
+### Access Modifiers
+
+Tau supports public, private, protected, and static keywords (syntax).
+
+```
+class Counter {
+    public value = 0;
+    private secret = 42;
+
+    increment() {
+        this.value++;
+    }
+}
+```
+
+⸻
+
+### Error Handling
+
+Tau supports robust error handling.
+
+```
+try {
+    mightThrow();
+} catch (e) {
+    print("Caught error:", e);
+} finally {
+    print("This always runs.");
+}
+```
+
+### Throwing Errors
+
+```
+if (somethingWrong) {
+    throw "Something bad happened!";
+}
+```
+
+⸻
+
+### Modules & Standard Library
+
+### Print
+
+```
+print("Hello, world!");
+```
+
+### Math & File Modules
+
+Tau can be extended with modules like Math and File (see C++ source).
+
+```
+let pi = Math.PI;
+let result = Math.pow(2, 8); // 256
+```
+
+⸻
+
+### Arrays & Objects
+
+### Arrays
+
+```
+let arr = [10, 20, 30];
+print(arr[0]); // 10
+arr[1] = 99;
+print(arr.length); // 3
+```
+
+### Objects
+
+```
+let user = { name: "Bob", age: 25 };
+print(user.name); // Bob
+user.email = "bob@example.com";
+```
+
+⸻
+
+### Reference
+
+Keywords
+
+let, const, var, function, class, extends, constructor, if, else, while, for, in, of, break, continue, return, switch, case, default, try, catch, finally, throw, this, super, public, private, protected, static
+
+### Operators
+
+Arithmetic: +, -, *, /, %, **, ++, --
+Comparison: ==, !=, ===, !==, <, <=, >, >=
+Logical: &&, ||, !, ??
+Assignment: =, +=, -=, *=, /=, %= etc.
+Bitwise: &, |, ^, ~, <<, >>, >>>
+Member access: ., []
+
+### Statements
+
+• Expression Statement
+• Block Statement { ... }
+• If / Else
+• While / Do-While
+• For / For-In / For-Of
+• Break / Continue / Return / Throw
+• Switch
+• Try / Catch / Finally
+• Function Declaration
+• Class Declaration
+
+### Special Values
+
+• true, false
+• null (reserved)
+• undefined (reserved)
+
+⸻
+
+### Complete Example
+
+```
+// Factorial Example
+function factorial(n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
+
+print("5! =", factorial(5)); // 5! = 120
+
+// Array iteration
+let nums = [1, 2, 3, 4, 5];
+let sum = 0;
+for (let num of nums) {
+    sum += num;
+}
+print("Sum:", sum); // 15
+
+// Object usage
+let dog = { name: "Max", age: 4 };
+for (let key in dog) {
+    print(key, dog[key]);
+}
+
+// Class usage
+class Greeter {
+    constructor(name) {
+        this.name = name;
+    }
+    greet() {
+        print("Hello, " + this.name + "!");
+    }
+}
+let g = new Greeter("Tau");
+g.greet(); // Hello, Tau!
+```
+
+⸻
+
+### Extending Tau
+
+• New built-ins: Implement in C++ in Interpreter/ or builtin/.
+• Language features: Add to Parser.hpp􀰓 and Statements/, Expression/.
+• Standard library: Add modules in C++, expose via Env or as Tau objects.
+
+⸻
+
+### Frequently Asked Questions
+
+Q: How do I debug my Tau code?
+A: Use print() statements, and the AstPrinter for AST debugging in C++.
+
+Q: Can I use recursion and closures?
+A: Yes! Tau fully supports both.
+
+Q: Is there file or network IO?
+A: File IO is in progress via the File module. See File.hpp􀰓.
+
+Q: How do I add my own functions to the interpreter?
+A: Extend the interpreter in C++ and register new functions in Env.
+
+⸻
