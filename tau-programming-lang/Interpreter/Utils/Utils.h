@@ -168,4 +168,18 @@ inline Value toValue(const R& r) {
     return v;
 }
 
+inline void printValue(const R& value) {
+    if (std::holds_alternative<std::monostate>(value)) {
+        std::cout << "nil";
+    } else if (std::holds_alternative<double>(value)) {
+        std::cout << std::get<double>(value);
+    } else if (std::holds_alternative<std::string>(value)) {
+        std::cout << std::get<std::string>(value);
+    } else if (std::holds_alternative<bool>(value)) {
+        std::cout << (std::get<bool>(value) ? "true" : "false");
+    } else if (std::holds_alternative<shared_ptr<Value>>(value)) {
+        std::cout << (std::get<shared_ptr<Value>>(value))->toString();
+    }
+}
+
 #endif /* Utils_h */

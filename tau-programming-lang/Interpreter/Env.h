@@ -30,6 +30,19 @@ public:
         if (it != variables.end()) {
             return it->second;
         }
+
+        // search in let.
+        auto it_let = let_variables.find(key);
+        if (it_let != let_variables.end()) {
+            return it_let->second;
+        }
+        
+        // search in const.
+        auto it_const = const_variables.find(key);
+        if (it_const != const_variables.end()) {
+            return it_const->second;
+        }
+
         if (parent) return parent->getValue(key);
         throw runtime_error("Undefined variable: " + key);
     }
@@ -38,12 +51,31 @@ public:
         return getValue(key);
     }
 
-    void setValue(const string& key, R value) {
+    void set_var(const string& key, R value) {
         variables[key] = std::move(value);
     }
     
-    void assign(const string& key, R value) {
-        setValue(key, value);
+    void set_let(const string& key, R value) {
+        let_variables[key] = std::move(value);
+    }
+
+    void set_const(const string& key, R value) {
+        const_variables[key] = std::move(value);
+    }
+    
+    bool is_const_key_set(string& key) {
+        
+        if (const_variables.find(key) != const_variables.end()) {
+            // key exists
+            return true;
+        }
+        
+        // key does not exist
+        return false;
+    }
+
+    void assign_var(const string& key, R value) {
+        set_var(key, value);
     }
 
     void setStackValue(const string& key, R value) {
@@ -85,20 +117,18 @@ public:
     void clearStack() {
         stack = {};
     }
-    
-    bool break_from_current_loop = false;
-    bool continue_from_current_loop = false;
-    
+        
     shared_ptr<JSObject> this_binding;
-    shared_ptr<JSObject> super_binding;
+    shared_ptr<JSObject> global_object = make_shared<JSObject>();
 
 private:
     unordered_map<string, R> variables = {
         {"print", "print"}
     };
+    unordered_map<string, R> let_variables = {};
+    unordered_map<string, R> const_variables = {};
 
     unordered_map<string, R> stack = {};
-    unordered_map<string, R> heap = {};
 
     unordered_map<string, vector<unique_ptr<Expression>>> params;
     unordered_map<string, unique_ptr<Statement>> body;

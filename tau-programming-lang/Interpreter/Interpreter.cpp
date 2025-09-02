@@ -14,6 +14,7 @@
 #include "Utils/Utils.h"
 #include "ExecutionContext/JSArray.h"
 #include "ExecutionContext/Value.h"
+#include "../builtin/Print/Print.hpp"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -124,7 +125,21 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
 
                 }
                 
-                env->setValue(declarator.id, value);
+                if (kind == "VAR") {
+                    env->set_var(declarator.id, value);
+                } else if (kind == "LET") {
+                    env->set_let(declarator.id, value);
+                } else if (kind == "CONST") {
+                    
+                    // check if const already exists
+                    
+                    if (env->is_const_key_set(declarator.id)) {
+                        throw runtime_error("Cannot assign value to a const variable.");
+                    }
+                    
+                    env->set_var(declarator.id, value);
+                    
+                }
                 
             }
         }
@@ -191,15 +206,7 @@ R Interpreter::visitCall(CallExpression* expr) {
     if (holds_alternative<std::string>(callee) &&
         get<std::string>(callee) == "print")
     {
-        int index = 0;
-        for (auto& v : vectorArg) {
-            printValue(v);
-            if (index < (vectorArg.size() - 1)) {
-                std::cout << ", ";
-            }            
-            index++;
-        }
-        cout << std::endl;
+        Print::print(vectorArg);
         return std::monostate{};
     }
     
