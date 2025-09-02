@@ -9,9 +9,10 @@
 #define File_hpp
 
 #include <stdio.h>
-#include "../../Interpreter/ExecutionContext/JSObject.h"
 
-class File : JSObject {
+class JSObject;
+
+class File {
     
 };
 

@@ -16,8 +16,8 @@
 #include <any>
 #include <variant>
 #include <memory>
-#include "ExecutionContext/JSArray.h"
-#include "ExecutionContext/JSClass.h"
+#include "ExecutionContext/JSArray/JSArray.h"
+#include "ExecutionContext/JSClass/JSClass.h"
 
 using namespace std;
 

@@ -15,7 +15,7 @@
 #include <variant>
 #include <stdexcept>
 #include "../R.hpp"
-#include "../ExecutionContext/JSObject.h"
+#include "../ExecutionContext/JSObject/JSObject.h"
 
 using namespace std;
 

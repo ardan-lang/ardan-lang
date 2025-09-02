@@ -23,100 +23,41 @@ class JSObject;
 
 class Env {
 public:
-    Env(Env* parent = nullptr) : parent(parent) {}
+    Env(Env* parent = nullptr);
 
-    R getValue(const string& key) {
-        auto it = variables.find(key);
-        if (it != variables.end()) {
-            return it->second;
-        }
-
-        // search in let.
-        auto it_let = let_variables.find(key);
-        if (it_let != let_variables.end()) {
-            return it_let->second;
-        }
-        
-        // search in const.
-        auto it_const = const_variables.find(key);
-        if (it_const != const_variables.end()) {
-            return it_const->second;
-        }
-
-        if (parent) return parent->getValue(key);
-        throw runtime_error("Undefined variable: " + key);
-    }
+    R getValue(const string& key);
     
-    R get(const string& key) {
-        return getValue(key);
-    }
+    R get(const string& key);
 
-    void set_var(const string& key, R value) {
-        variables[key] = std::move(value);
-    }
+    void set_var(const string& key, R value);
     
-    void set_let(const string& key, R value) {
-        let_variables[key] = std::move(value);
-    }
+    void set_let(const string& key, R value);
 
-    void set_const(const string& key, R value) {
-        const_variables[key] = std::move(value);
-    }
+    void set_const(const string& key, R value) ;
     
-    bool is_const_key_set(string& key) {
-        
-        if (const_variables.find(key) != const_variables.end()) {
-            // key exists
-            return true;
-        }
-        
-        // key does not exist
-        return false;
-    }
+    bool is_const_key_set(const string& key);
+    
+    bool is_var_key_set(const string& key);
+    
+    bool is_let_key_set(const string& key);
 
-    void assign_var(const string& key, R value) {
-        set_var(key, value);
-    }
+    void assign(const string& key, R value);
 
-    void setStackValue(const string& key, R value) {
-        stack[key] = std::move(value);
-    }
+    void setStackValue(const string& key, R value);
 
     void setFunctionDeclarations(
         const string& name,
         vector<unique_ptr<Expression>> argList,
         unique_ptr<Statement> bodyList
-    ) {
-        body[name] = std::move(bodyList);
-        params[name] = std::move(argList);
-    }
+                                 );
 
-    Statement* getFunctionBody(const string& name) {
-        auto it = body.find(name);
-        if (it != body.end() && it->second) {
-            return it->second.get();
-        }
-        return nullptr;
-    }
+    Statement* getFunctionBody(const string& name);
 
-    vector<Expression*> getFunctionParams(const string& name) {
-        vector<Expression*> result;
-        auto it = params.find(name);
-        if (it != params.end()) {
-            for (auto& expr : it->second) {
-                result.push_back(expr.get());
-            }
-        }
-        return result;
-    }
+    vector<Expression*> getFunctionParams(const string& name);
     
-    unordered_map<string, R> getStack() {
-        return stack;
-    }
+    unordered_map<string, R> getStack();
     
-    void clearStack() {
-        stack = {};
-    }
+    void clearStack();
         
     shared_ptr<JSObject> this_binding;
     shared_ptr<JSObject> global_object = make_shared<JSObject>();

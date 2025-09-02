@@ -15,9 +15,11 @@
 #include <unordered_map>
 #include <variant>
 #include <stdexcept>
-#include "../../Interpreter/Utils/Utils.h"
+#include "../../Interpreter/R.hpp"
 
 using namespace std;
+
+void printValue(const R&);
 
 class Print {
 public:

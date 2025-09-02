@@ -12,8 +12,8 @@
 #include "../Expression/Expression.hpp"
 #include "../Visitor/AstPrinter/AstPrinter.h"
 #include "Utils/Utils.h"
-#include "ExecutionContext/JSArray.h"
-#include "ExecutionContext/Value.h"
+#include "ExecutionContext/JSArray/JSArray.h"
+#include "ExecutionContext/Value/Value.h"
 #include "../builtin/Print/Print.hpp"
 
 Interpreter::Interpreter() {
@@ -52,7 +52,7 @@ R Interpreter::visitBlock(BlockStatement* stmt) {
     env->this_binding = previous->this_binding;
     
     for (auto& item : previous->getStack()) {
-        env->setValue(item.first, item.second);
+        env->set_var(item.first, item.second);
     }
 
     for (auto& s : stmt->body) {
@@ -269,7 +269,7 @@ R Interpreter::visitFunction(FunctionDeclaration* stmt) {
     
     auto id = stmt->id;
         
-    env->setValue(id, id);
+    env->set_var(id, id);
     env->setFunctionDeclarations(id, std::move(stmt->params), std::move(stmt->body));
 
     return true;
@@ -520,7 +520,7 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
         js_class->superClass = get<shared_ptr<JSClass>>(env->get(ident->name));
     }
     
-    env->setValue(stmt->id, js_class);
+    env->set_var(stmt->id, js_class);
 
     return js_class;
     
@@ -603,7 +603,7 @@ R Interpreter::visitTry(TryStatement* stmt) {
             Env* previous = env;
             env = new Env(previous);
             // Bind the exception to the catch variable
-            env->setValue(stmt->handler->param, std::string(err.what()));
+            env->set_var(stmt->handler->param, std::string(err.what()));
             try {
                 stmt->handler->accept(*this); // invokes visitCatch
             } catch(...) {
@@ -622,7 +622,7 @@ R Interpreter::visitTry(TryStatement* stmt) {
         if (stmt->handler) {
             Env* previous = env;
             env = new Env(previous);
-            env->setValue(stmt->handler->param, "unknown error");
+            env->set_var(stmt->handler->param, "unknown error");
             try {
                 stmt->handler->accept(*this);
             } catch(...) {
