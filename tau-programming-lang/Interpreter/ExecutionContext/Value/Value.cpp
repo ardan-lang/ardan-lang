@@ -32,6 +32,7 @@ std::string Value::toString() const {
         case ValueType::OBJECT: return "[object Object]";
         case ValueType::UNDEFINED: return "undefined";
         case ValueType::NULLTYPE: return "null";
+        case ValueType::NATIVE_FUNCTION: return "[native Function]";
     }
     return "unknown";
 }

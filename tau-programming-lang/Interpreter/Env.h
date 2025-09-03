@@ -22,7 +22,9 @@ using namespace std;
 class JSObject;
 
 class Env {
+
 public:
+    
     Env(Env* parent = nullptr);
 
     R getValue(const string& key);
@@ -45,11 +47,7 @@ public:
 
     void setStackValue(const string& key, R value);
 
-    void setFunctionDeclarations(
-        const string& name,
-        vector<unique_ptr<Expression>> argList,
-        unique_ptr<Statement> bodyList
-                                 );
+    void setFunctionDeclarations(const string& name, vector<unique_ptr<Expression>> argList, unique_ptr<Statement> bodyList);
 
     Statement* getFunctionBody(const string& name);
 
@@ -75,6 +73,7 @@ private:
     unordered_map<string, unique_ptr<Statement>> body;
 
     Env* parent;
+    
 };
 
 #endif /* Environment_hpp */

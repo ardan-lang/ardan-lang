@@ -21,9 +21,29 @@ using namespace std;
 
 void printValue(const R&);
 
-class Print {
+class Print : public JSObject {
+    
 public:
-    static void print(vector<R> args) {
+    
+    Print() {
+        
+        set("log", Value::native([](const vector<Value>& args) {
+            
+            vector<R> r_args;
+            
+//            for (auto& arg : args) {
+//                r_args.push_back(arg);
+//            }
+//            
+//            Print::print(r_args);
+            
+            return Value();
+            
+        }));
+        
+    }
+    
+    static void print(const vector<R>& args) {
         
         int index = 0;
         
@@ -32,13 +52,13 @@ public:
             printValue(arg);
             
             if (index < (args.size() - 1)) {
-                std::cout << ", ";
+                cout << ", ";
             }
             
             index++;
         }
         
-        cout << std::endl;
+        cout << endl;
 
     }
 };

@@ -9,11 +9,22 @@
 #define File_hpp
 
 #include <stdio.h>
+#include "../../Interpreter/R.hpp"
 
-class JSObject;
+class File : public JSObject {
+//    const fs = require('fs');
 
-class File {
-    
+    // Reading a file asynchronously
+//    fs.readFile('example.txt', 'utf8', (err, data) => {
+//        if (err) throw err;
+//        console.log('File contents:', data);
+//    });
+
+    // Writing to a file asynchronously
+//    fs.writeFile('output.txt', 'Hello, Node.js!', (err) => {
+//        if (err) throw err;
+//        console.log('File written successfully.');
+//    });
 };
 
 #endif /* File_hpp */

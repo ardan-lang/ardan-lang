@@ -217,80 +217,80 @@ int main(int argc, const char * argv[]) {
     
     string lang = R"(
     
-    var outside_name = "outside";
-    
-    class Parent {
-        var p = 90;
-    }
-    
-    class User extends Parent {
-    constructor() {
-    super();
-    }
-    
-    var name = outside_name;
-    var age = 90;
-    getAge() {
-    print(this.age);
-    this.displayName();
-    }
-    
-    displayName() {
-    print(this.name);
-    }
-    
-    }
-    
-    var user_obj = new User();
-    
-    print(user_obj.p, 90, 80, 7);
-    
-    var a = false, b = false, c = false;
-    
-    const d = 900;
-    let e = 80;
-    
-    print(d, e);
-    
-    if (a) {
-    print(a);
-    }
-    else if (b) {
-    print(b);
-    }
-    else if (c) {
-    print(c);    
-    }
-    else {
-        print("else");
-    }
+//    var outside_name = "outside";
+//    
+//    class Parent {
+//        var p = 90;
+//    }
+//    
+//    class User extends Parent {
+//    constructor() {
+//    super();
+//    }
+//    
+//    var name = outside_name;
+//    var age = 90;
+//    getAge() {
+//    print(this.age);
+//    this.displayName();
+//    }
+//    
+//    displayName() {
+//    print(this.name);
+//    }
+//    
+//    }
+//    
+//    var user_obj = new User();
+//    
+//    print(user_obj.p, 90, 80, 7);
+//    
+//    var a = false, b = false, c = false;
+//    
+//    const d = 900;
+//    let e = 80;
+//    
+//    print(d, e);
+//    
+//    if (a) {
+//    print(a);
+//    }
+//    else if (b) {
+//    print(b);
+//    }
+//    else if (c) {
+//    print(c);    
+//    }
+//    else {
+//        print("else");
+//    }
     
     function square(n) {
         return n * n;
     }
 
-    print(square(5));
+    print(Math.pow(2,3), square(5));
     
     )";
 
     Scanner scanner(lang);
     for(Token token : scanner.getTokens()) {
-        cout << token.type << " : " << token.lexeme << endl;
+        cout << token.type << " : " << token.lexeme << " Line: " << token.line << endl;
     }
     
-    Parser parser(scanner.getTokens());
-    vector<unique_ptr<Statement>> ast = parser.parse();
-    
-    AstPrinter printer;
-    Interpreter interpreter;
-    
-    cout << endl;
-    cout << "---------------" << endl;
-    cout << "Interpreting..." << endl;
-    cout << "---------------" << endl;
-    cout << endl;
-
-    interpreter.execute(std::move(ast));
+//    Parser parser(scanner.getTokens());
+//    vector<unique_ptr<Statement>> ast = parser.parse();
+//    
+//    AstPrinter printer;
+//    Interpreter interpreter;
+//    
+//    cout << endl;
+//    cout << "---------------" << endl;
+//    cout << "Interpreting..." << endl;
+//    cout << "---------------" << endl;
+//    cout << endl;
+//
+//    interpreter.execute(std::move(ast));
     
     return EXIT_SUCCESS;
 }

@@ -19,6 +19,7 @@ class Token {
 public:
     TokenType type;
     string lexeme;
+    int line;
     
 };
 

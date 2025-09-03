@@ -141,11 +141,17 @@ inline Value toValue(const R& r) {
             v.type = ValueType::NUMBER;
             v.numberValue = arg;
         }
-        else if constexpr (std::is_same_v<T, size_t> ||
-                           std::is_same_v<T, int>   ||
-                           std::is_same_v<T, char>) {
+        else if constexpr (std::is_same_v<T, size_t>) {
             v.type = ValueType::NUMBER;
-            v.numberValue = static_cast<double>(arg);
+            v.numberValue = static_cast<size_t>(arg);
+        }
+        else if constexpr (std::is_same_v<T, int>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<int>(arg);
+        }
+        else if constexpr (std::is_same_v<T, char>) {
+            v.type = ValueType::STRING;
+            v.stringValue = arg;
         }
         else if constexpr (std::is_same_v<T, std::string>) {
             v.type = ValueType::STRING;
@@ -162,6 +168,10 @@ inline Value toValue(const R& r) {
         else if constexpr (std::is_same_v<T, std::shared_ptr<Value>>) {
             // unwrap nested Value
             v = *arg;
+        }
+        else if constexpr (std::is_same_v<T, Value>) {
+            // unwrap nested Value
+            v = arg;
         }
     }, r);
 

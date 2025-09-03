@@ -15,9 +15,16 @@
 #include "ExecutionContext/JSArray/JSArray.h"
 #include "ExecutionContext/Value/Value.h"
 #include "../builtin/Print/Print.hpp"
+#include "../builtin/builtin-includes.h"
 
 Interpreter::Interpreter() {
     env = new Env();
+    
+    // init all builtins
+    env->set_var("Math", make_shared<Math>());
+    env->set_var("console", make_shared<Math>());
+    // env->set_var("readFile", );
+    
 }
 
 Interpreter::~Interpreter() {
@@ -161,10 +168,23 @@ R Interpreter::visitCall(CallExpression* expr) {
         shared_ptr<JSObject> js_object = get<shared_ptr<JSObject>>(object);
         
         string property_name = member->name.lexeme;
+                
+        // check if its a native function
+        Value propVal = js_object->get(property_name);
+
+        if (propVal.type == ValueType::NATIVE_FUNCTION) {
+                        
+            vector<Value> argValues;
+            for (auto& arg : expr->arguments) {
+                argValues.push_back(toValue(arg->accept(*this)));
+            }
+            
+            return propVal.nativeFunction(argValues);
+            
+        }
         
-        // this property name is the name of method in the object to be called.
-        MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
-        
+        // here, we know it is not a built-in function.
+
         for (auto& arg : expr->arguments) {
             
             string key;
@@ -177,6 +197,9 @@ R Interpreter::visitCall(CallExpression* expr) {
             
         }
         
+        // this property name is the name of method in the object to be called.
+        MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
+
         env->this_binding = js_object;
         
         method->accept(*this);
@@ -224,9 +247,7 @@ R Interpreter::visitCall(CallExpression* expr) {
         if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(arg)) {
             key = ident->name;
         }
-        
-        // env->setStackValue(key, arg->accept(*this));
-        
+                
         env->setStackValue(key, expr->arguments[arg_index]->accept(*this));
 
         arg_index++;

@@ -7,6 +7,8 @@
 
 #include "JSClass.h"
 
+static Value native(NativeFn fn) { Value v; v.type = ValueType::NATIVE_FUNCTION; v.nativeFunction = fn; return v; }
+
 Value JSClass::get(const string& key) {
     // Look in fields
     auto fieldIt = fields.find(key);
