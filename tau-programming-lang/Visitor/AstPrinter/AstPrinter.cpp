@@ -471,7 +471,7 @@ R AstPrinter::visitTrueKeyword(TrueKeyword* expr) {
 R AstPrinter::visitNumericLiteral(NumericLiteral* expr) {
     printIndent(); std::cout << "Numeric ";
     indent++;
-    cout << expr->text << "\n";
+    cout << get<double>(expr->value) << "\n";
     indent--;
     
     return true;

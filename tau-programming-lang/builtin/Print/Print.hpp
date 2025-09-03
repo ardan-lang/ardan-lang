@@ -31,11 +31,11 @@ public:
             
             vector<R> r_args;
             
-//            for (auto& arg : args) {
-//                r_args.push_back(arg);
-//            }
-//            
-//            Print::print(r_args);
+            for (auto& arg : args) {
+                r_args.push_back(arg);
+            }
+            
+            Print::print(r_args);
             
             return Value();
             

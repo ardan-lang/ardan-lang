@@ -115,10 +115,14 @@ void Env::setFunctionDeclarations(
 }
 
 Statement* Env::getFunctionBody(const string& name) {
+    
     auto it = body.find(name);
     if (it != body.end() && it->second) {
         return it->second.get();
     }
+    
+    if (parent) return parent->getFunctionBody(name);
+
     return nullptr;
 }
 
@@ -130,6 +134,9 @@ vector<Expression*> Env::getFunctionParams(const string& name) {
             result.push_back(expr.get());
         }
     }
+    
+    if (parent) return parent->getFunctionParams(name);
+
     return result;
 }
 

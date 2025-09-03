@@ -83,7 +83,7 @@ let y = "tau";  // Block-scoped, mutable
 const z = 3.14; // Block-scoped, immutable
 ```
 
-Example: Variable Shadowing
+### Example: Variable Shadowing
 
 ```
 let x = 1;
@@ -94,7 +94,7 @@ let x = 1;
 print(x); // 1
 ```
 
-const Requires Initialization
+### const Requires Initialization
 
 ```
 const fail; // Error: Missing initializer in const declaration
@@ -223,7 +223,7 @@ let add5 = adder(5);
 print(add5(3)); // 8
 ```
 
-Default and Rest Arguments
+### Default and Rest Arguments
 
 (Not yet implemented, but planned in syntax.)
 
@@ -233,7 +233,7 @@ Default and Rest Arguments
 
 Tau supports all standard control flow constructs.
 
-If-Else
+### If-Else
 
 ```
 if (x > 10) {
@@ -322,7 +322,7 @@ do {
 
 Tau enables object-oriented programming with ES6-like classes.
 
-Basic Class
+### Basic Class
 
 ```
 class Point {
@@ -446,7 +446,7 @@ user.email = "bob@example.com";
 
 ### Reference
 
-Keywords
+### Keywords
 
 let, const, var, function, class, extends, constructor, if, else, while, for, in, of, break, continue, return, switch, case, default, try, catch, finally, throw, this, super, public, private, protected, static
 

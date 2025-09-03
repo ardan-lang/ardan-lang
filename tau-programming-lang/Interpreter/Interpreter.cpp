@@ -22,7 +22,7 @@ Interpreter::Interpreter() {
     
     // init all builtins
     env->set_var("Math", make_shared<Math>());
-    env->set_var("console", make_shared<Math>());
+    env->set_var("console", make_shared<Print>());
     // env->set_var("readFile", );
     
 }
@@ -176,10 +176,18 @@ R Interpreter::visitCall(CallExpression* expr) {
                         
             vector<Value> argValues;
             for (auto& arg : expr->arguments) {
-                argValues.push_back(toValue(arg->accept(*this)));
+                
+                R visited_value = arg->accept(*this);
+                
+                Value converted_visited_value = toValue(visited_value);
+                
+                argValues.push_back(converted_visited_value);
+                
             }
             
-            return propVal.nativeFunction(argValues);
+            R val = propVal.nativeFunction(argValues);
+            
+            return val;
             
         }
         
@@ -282,7 +290,7 @@ R Interpreter::visitTrueKeyword(TrueKeyword* expr) {
 }
 
 R Interpreter::visitNumericLiteral(NumericLiteral* expr) {
-    return expr->text;
+    return expr->value;
 }
 
 R Interpreter::visitStringLiteral(StringLiteral* expr) {

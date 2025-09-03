@@ -265,11 +265,15 @@ int main(int argc, const char * argv[]) {
 //        print("else");
 //    }
     
+    let test = 90;
+    
     function square(n) {
         return n * n;
     }
 
-    print(Math.pow(2,3), square(5));
+    //print(Math.pow(2,3), square(5), test);
+    console.log(Math.pow(2,3), square(5), test);
+    console.log(Math.pow(2,3), square(5), test);
     
     )";
 
@@ -278,19 +282,19 @@ int main(int argc, const char * argv[]) {
         cout << token.type << " : " << token.lexeme << " Line: " << token.line << endl;
     }
     
-//    Parser parser(scanner.getTokens());
-//    vector<unique_ptr<Statement>> ast = parser.parse();
-//    
-//    AstPrinter printer;
-//    Interpreter interpreter;
-//    
-//    cout << endl;
-//    cout << "---------------" << endl;
-//    cout << "Interpreting..." << endl;
-//    cout << "---------------" << endl;
-//    cout << endl;
-//
-//    interpreter.execute(std::move(ast));
+    Parser parser(scanner.getTokens());
+    vector<unique_ptr<Statement>> ast = parser.parse();
+    
+    AstPrinter printer;
+    Interpreter interpreter;
+    
+    cout << endl;
+    cout << "---------------" << endl;
+    cout << "Interpreting..." << endl;
+    cout << "---------------" << endl;
+    cout << endl;
+
+    interpreter.execute(std::move(ast));
     
     return EXIT_SUCCESS;
 }

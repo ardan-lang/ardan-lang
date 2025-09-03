@@ -183,12 +183,20 @@ inline void printValue(const R& value) {
         std::cout << "nil";
     } else if (std::holds_alternative<double>(value)) {
         std::cout << std::get<double>(value);
+    } else if (std::holds_alternative<unsigned long>(value)) {
+        std::cout << std::get<unsigned long>(value);
+    } else if (std::holds_alternative<int>(value)) {
+        std::cout << std::get<int>(value);
+    } else if (std::holds_alternative<size_t>(value)) {
+        std::cout << std::get<size_t>(value);
     } else if (std::holds_alternative<std::string>(value)) {
         std::cout << std::get<std::string>(value);
     } else if (std::holds_alternative<bool>(value)) {
         std::cout << (std::get<bool>(value) ? "true" : "false");
     } else if (std::holds_alternative<shared_ptr<Value>>(value)) {
         std::cout << (std::get<shared_ptr<Value>>(value))->toString();
+    } else if (std::holds_alternative<Value>(value)) {
+        std::cout << (std::get<Value>(value)).toString();
     }
 }
 

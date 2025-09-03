@@ -256,9 +256,20 @@ public:
 
 class NumericLiteral : public Expression {
 public:
-    const string text;
-    NumericLiteral(const string text) : text(text) {}
-    
+    const R value;
+
+        NumericLiteral(const std::string& text)
+            : value((parse(text))) {}
+
+    static R parse(const std::string& text) {
+        if (text.find('.') != std::string::npos) {
+            return std::stod(text);
+        } else {
+            long long v = std::stoll(text);
+            if (v >= 0) return static_cast<size_t>(v);
+            return static_cast<int>(v);
+        }
+    }
     
     R accept(ExpressionVisitor& visitor) {
         return visitor.visitNumericLiteral(this);
