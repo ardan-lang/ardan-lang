@@ -192,6 +192,25 @@ vector<Token>& Scanner::getTokens() {
 
             case '/':
                 
+                if (match('*')) {
+                    if (match('*')) {
+                        // we are in a multi-line comment
+                        
+                        consumeMultilineComment();
+                        break;
+                        
+                    }
+                }
+
+                if (match('/')) {
+    
+                    // we have a comment.
+                    // loop till we hit /n
+                    consumeComment();
+                    break;
+                    
+                }
+                
                 if (match('=')) {
                     addToken(TokenType::ASSIGN_DIV, "/=");
                     break;
@@ -412,7 +431,7 @@ vector<Token>& Scanner::getTokens() {
                 break;
                 
             case '\n':
-                advance();
+                line++;
                 break;
 
             case '"':
@@ -538,6 +557,32 @@ void Scanner::collectIdentifier() {
 
 }
 
+void Scanner::consumeMultilineComment() {
+    
+    while (true) {
+
+        if (match('*')) {
+            if (match('*')) {
+                if (match('/')) {
+                    break;
+                }
+            }
+        }
+
+        advance();
+        
+    }
+    
+}
+
+void Scanner::consumeComment() {
+    
+    while (peek() != '\n') {
+        advance();
+    }
+    
+}
+
 bool Scanner::match(char character) {
 
     if (character != peek()) {
@@ -561,6 +606,7 @@ void Scanner::addToken(TokenType type) {
     
     Token token;
     token.type = type;
+    token.line = line;
     
     tokens.push_back(token);
 
@@ -571,6 +617,7 @@ void Scanner::addToken(TokenType type, string lexeme) {
     Token token;
     token.type = type;
     token.lexeme = lexeme;
+    token.line = line;
     
     tokens.push_back(token);
 

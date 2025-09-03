@@ -38,9 +38,12 @@ public:
     bool match(char str);
     char& peek();
     void collectLiteralString();
-
+    void consumeComment();
+    void consumeMultilineComment();
+    
 private:
     int current = 0;
+    int line = 1;
     vector<Token> tokens;
     string& source;
     
