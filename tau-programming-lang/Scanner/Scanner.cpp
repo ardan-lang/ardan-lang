@@ -10,6 +10,8 @@
 #include <string>
 #include "Token/TokenType.h"
 
+using namespace std;
+
 char null = ' ';
 
 const char* operators[] = {
@@ -72,7 +74,7 @@ vector<Token>& Scanner::getTokens() {
     while(current < source.length()) {
         
         char& character = currentCharacter();
-        
+                
         switch (character) {
 
             case ',':
@@ -140,6 +142,11 @@ vector<Token>& Scanner::getTokens() {
                     addToken(TokenType::VALUE_EQUAL, "==");
                     break;
                     
+                }
+                
+                if (match('>')) {
+                    addToken(TokenType::ARROW, "=>");
+                    break;
                 }
                 
                 addToken(TokenType::ASSIGN, "=");
@@ -434,6 +441,12 @@ vector<Token>& Scanner::getTokens() {
                 line++;
                 break;
 
+            case '\'':
+                
+                collectSingleQuoteString();
+                
+                break;
+                
             case '"':
                 
                 collectString();
@@ -471,6 +484,22 @@ vector<Token>& Scanner::getTokens() {
     
     return tokens;
     
+}
+
+void Scanner::collectSingleQuoteString() {
+    
+    advance();
+    
+    string concat = "";
+        
+    while (currentCharacter() != '\'' && !eof()) {
+        concat += currentCharacter();
+        advance();
+    }
+    
+    addToken(TokenType::STRING, concat);
+    concat = "";
+
 }
 
 void Scanner::collectString() {

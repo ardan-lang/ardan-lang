@@ -40,7 +40,8 @@ public:
     void collectLiteralString();
     void consumeComment();
     void consumeMultilineComment();
-    
+    void collectSingleQuoteString();
+
 private:
     int current = 0;
     int line = 1;
