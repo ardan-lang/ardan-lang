@@ -1182,17 +1182,8 @@ R Interpreter::visitSequence(SequenceExpression* expr) {
 R Interpreter::visitPublicKeyword(PublicKeyword* expr) { return "public"; }
 R Interpreter::visitPrivateKeyword(PrivateKeyword* expr) { return "private"; }
 R Interpreter::visitProtectedKeyword(ProtectedKeyword* expr) { return "protected"; }
-R Interpreter::visitStaticKeyword(StaticKeyword* expr) { return "static"; }
 
-//auto fn = Value::function(
-//    [closure = std::shared_ptr<Environment>(closure),
-//     lexicalThis,
-//     expr = std::shared_ptr<FunctionExpr>(expr)]
-//    (std::vector<Value> args) mutable -> Value {
-//        // safe: closure & expr stay alive
-//        return Interpreter::execute(expr->body, closure);
-//    }
-//);
+R Interpreter::visitStaticKeyword(StaticKeyword* expr) { return "static"; }
 
 R Interpreter::visitArrowFunction(ArrowFunction* expr) {
     
