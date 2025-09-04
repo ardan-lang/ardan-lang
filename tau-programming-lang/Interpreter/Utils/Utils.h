@@ -42,6 +42,13 @@ double toNumber(const R& val) {
             return nan(""); // JS: Number("abc") → NaN
         }
     }
+    if (holds_alternative<shared_ptr<Value>>(val)) {
+        return (get<shared_ptr<Value>>(val))->numberValue;
+   }
+    if (std::holds_alternative<Value>(val)) {
+        return (get<Value>(val)).numberValue;
+   }
+
     return nan(""); // monostate = undefined → NaN
 }
 

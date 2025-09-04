@@ -287,9 +287,10 @@ int main(int argc, const char * argv[]) {
     
     let v = 90;
     
-    let func = (x) => { return x; };
+    let func = (x, y) => { return x * y; };
     
-    print(func(v));
+    print(func(v, 90));
+    print(((x, y) => { return x*y; })(2, 8));
     
     )";
 
