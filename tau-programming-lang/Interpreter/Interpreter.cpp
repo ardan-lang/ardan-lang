@@ -28,7 +28,11 @@ Interpreter::Interpreter() {
 }
 
 Interpreter::~Interpreter() {
-    delete env;
+    
+    if (env != nullptr) {
+        delete env;
+    }
+    
 }
 
 void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
@@ -159,7 +163,7 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
 
 R Interpreter::visitCall(CallExpression* expr) {
         
-    // TODO: check if callee is a MemberExpression
+    // TODO: check if callee is a MemberExpression e.g user.getAge();
     if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->callee.get())) {
         
         // it is a dot access
@@ -218,27 +222,39 @@ R Interpreter::visitCall(CallExpression* expr) {
     
     // ------- end of member access --------
     
-    // ------- super -------
+    // ------- super ------- super();
     if (SuperExpression* super = dynamic_cast<SuperExpression*>(expr->callee.get())) {
         // copy all props and methods
         return expr->callee->accept(*this);
     }
     
-    vector<R> vectorArg;
-
     auto callee = expr->callee->accept(*this);
-    
+
+    vector<R> vector_args;
+
     for (auto& arg : expr->arguments) {
-        auto _arg = arg->accept(*this);
-        vectorArg.push_back(_arg);
+        auto accept_arg = arg->accept(*this);
+        vector_args.push_back(accept_arg);
     }
 
+    // check for built-in function.
     // If the callee is "print"
-    if (holds_alternative<std::string>(callee) &&
-        get<std::string>(callee) == "print")
-    {
-        Print::print(vectorArg);
+    if (holds_alternative<string>(callee) && get<string>(callee) == "print") {
+
+        Print::print(vector_args);
         return std::monostate{};
+    }
+    
+    // we check for arrow function
+    if (holds_alternative<Value>(callee) && (get<Value>(callee).type == ValueType::FUNCTION)) {
+        vector<Value> vector_value_args;
+
+        for (auto& vector_arg : vector_args) {
+            vector_value_args.push_back(toValue(vector_arg));
+        }
+
+        return get<Value>(callee).functionValue(vector_value_args);
+        
     }
     
     // search call name in function declarations.
@@ -1103,12 +1119,12 @@ R Interpreter::visitObject(ObjectLiteralExpression* expr) {
 
 R Interpreter::visitSuper(SuperExpression* expr) {
     
-    shared_ptr<JSClass> new_class = env->this_binding->parent_class;
+    shared_ptr<JSClass> parent_class = env->this_binding->parent_class;
     
-    auto object = make_shared<JSObject>();
+    auto parent_object = make_shared<JSObject>();
 
     // add all props from this_binding to parent class.
-    for (auto& field : new_class->fields) {
+    for (auto& field : parent_class->fields) {
 
         // property is a Statement: VariableStatement
         if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
@@ -1124,7 +1140,7 @@ R Interpreter::visitSuper(SuperExpression* expr) {
                     R value = declarator.init->accept(*this);
 
                     // TODO: fix
-                    object->set(declarator.id, toValue(value));
+                    parent_object->set(declarator.id, toValue(value));
 
                 }
             }
@@ -1134,15 +1150,15 @@ R Interpreter::visitSuper(SuperExpression* expr) {
     }
                 
     // copy methods
-    for (auto& method : new_class->methods) {
+    for (auto& method : parent_class->methods) {
                 
-        object->set(method.first, Value("@@method@@"));
+        parent_object->set(method.first, Value("@@method@@"));
         
     }
     
-    env->this_binding->parent_object = object;
+    env->this_binding->parent_object = parent_object;
     
-    return object;
+    return parent_object;
     
 }
 
@@ -1168,3 +1184,101 @@ R Interpreter::visitPrivateKeyword(PrivateKeyword* expr) { return "private"; }
 R Interpreter::visitProtectedKeyword(ProtectedKeyword* expr) { return "protected"; }
 R Interpreter::visitStaticKeyword(StaticKeyword* expr) { return "static"; }
 
+//auto fn = Value::function(
+//    [closure = std::shared_ptr<Environment>(closure),
+//     lexicalThis,
+//     expr = std::shared_ptr<FunctionExpr>(expr)]
+//    (std::vector<Value> args) mutable -> Value {
+//        // safe: closure & expr stay alive
+//        return Interpreter::execute(expr->body, closure);
+//    }
+//);
+
+R Interpreter::visitArrowFunction(ArrowFunction* expr) {
+    
+    // Capture the current environment and lexical `this`
+    Env* closure = env;
+    auto lexicalThis = env->this_binding;
+    auto intr = this;
+
+    // Return a callable Value (assuming Value supports callable lambdas)
+    return Value::function([closure, lexicalThis, expr, intr](vector<Value> args) mutable -> Value {
+        
+        // Create a new local environment inheriting from the closure
+        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
+        localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
+        
+        // Bind parameters to arguments
+        if (expr->parameters != nullptr) {
+            
+            if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
+                
+                for (size_t i = 0; i < seq->expressions.size(); ++i) {
+
+                    Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
+
+                    Expression* param_expr = seq->expressions[i].get();
+                    string paramName;
+                    
+                    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
+                        paramName = ident->token.lexeme;
+                    } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
+                        // TODO: fix var decl
+                        paramName = variable->declarations[0].id;
+                        
+                        // use the init value if no value is passed for the argument.
+                        if (i >= args.size()) {
+                            paramValue = toValue(variable->declarations[0].init->accept(*intr));
+                        }
+                        
+                    }
+                    
+                    localEnv->set_var(paramName, paramValue);
+                    
+                }
+
+            }
+            
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+                localEnv->set_var(ident->token.lexeme, args.size() > 0 ? args[0] : Value::undefined());
+            }
+            
+        } else {
+            localEnv->set_var(expr->token.lexeme, args[0]);
+        }
+        
+        auto prevEnv = intr->env;
+        intr->env = localEnv.get();  // safe: shared_ptr keeps it alive
+
+        // Evaluate the body
+        try {
+
+            if (expr->exprBody) {
+                
+                R value = expr->exprBody->accept(*intr);
+                intr->env = prevEnv;  // restore
+                return toValue(value);
+                
+            } else if (expr->stmtBody) {
+                
+                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->stmtBody.get())->body) {
+                    
+                    stmt->accept(*intr);
+                    
+                }
+                
+            }
+
+            intr->env = prevEnv;  // restore before returning
+            return Value::undefined();
+
+        } catch (const ReturnException& r) {
+            
+            intr->env = prevEnv;  // restore before throwing
+            return toValue(r.value);
+            
+        }
+        
+    });
+    
+}

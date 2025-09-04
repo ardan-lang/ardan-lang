@@ -265,15 +265,31 @@ int main(int argc, const char * argv[]) {
 //        print("else");
 //    }
     
-    let test = 90;
-    
-    function square(n) {
-        return n * n;
-    }
+//    let test = 90;
+//    
+//    function square(n) {
+//        return n * n;
+//    }
 
     //print(Math.pow(2,3), square(5), test);
-    console.log(Math.pow(2,3), square(5), test);
-    console.log(Math.pow(2,3), square(5), test);
+//    console.log(Math.pow(2,3), square(5), test);
+//    console.log(Math.pow(2,3), square(5), test);
+    
+//    const fs = require('fs');
+//
+    //    fs.readFile('input.txt', 'utf8', (err, data) => {
+    //        if (err) {
+    //            console.error('Error reading file:', err);
+    //            return;
+    //        }
+    //        console.log('File content:', data);
+    //    });
+    
+    let v = 90;
+    
+    let func = (x) => { return x; };
+    
+    print(func(v));
     
     )";
 

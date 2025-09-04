@@ -73,6 +73,7 @@ enum class TokenType {
     BOOLEAN,
     CLASS,
     EXTENDS,
+    ARROW, // =>
     END_OF_FILE,
 };
 

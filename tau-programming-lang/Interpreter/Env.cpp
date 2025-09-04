@@ -8,6 +8,7 @@
 #include "Env.h"
 
 Env::Env(Env* parent) : parent(parent) {}
+Env::~Env() {}
 
 R Env::getValue(const string& key) {
     auto it = variables.find(key);

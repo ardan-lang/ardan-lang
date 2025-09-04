@@ -471,7 +471,31 @@ R AstPrinter::visitTrueKeyword(TrueKeyword* expr) {
 R AstPrinter::visitNumericLiteral(NumericLiteral* expr) {
     printIndent(); std::cout << "Numeric ";
     indent++;
-    cout << get<double>(expr->value) << "\n";
+    
+    auto value = expr->value;
+    
+    if (std::holds_alternative<std::monostate>(value)) {
+        std::cout << "nil";
+    } else if (std::holds_alternative<double>(value)) {
+        std::cout << std::get<double>(value);
+    } else if (std::holds_alternative<unsigned long>(value)) {
+        std::cout << std::get<unsigned long>(value);
+    } else if (std::holds_alternative<int>(value)) {
+        std::cout << std::get<int>(value);
+    } else if (std::holds_alternative<size_t>(value)) {
+        std::cout << std::get<size_t>(value);
+    } else if (std::holds_alternative<std::string>(value)) {
+        std::cout << std::get<std::string>(value);
+    } else if (std::holds_alternative<bool>(value)) {
+        std::cout << (std::get<bool>(value) ? "true" : "false");
+    } else if (std::holds_alternative<shared_ptr<Value>>(value)) {
+        std::cout << (std::get<shared_ptr<Value>>(value))->toString();
+    } else if (std::holds_alternative<Value>(value)) {
+        std::cout << (std::get<Value>(value)).toString();
+    }
+    
+    cout << "\n";
+    
     indent--;
     
     return true;
@@ -514,4 +538,30 @@ R AstPrinter::visitStaticKeyword(StaticKeyword* expr) {
     
     return true;
     
+}
+
+R AstPrinter::visitArrowFunction(ArrowFunction *expr) {
+    
+    printIndent(); std::cout << "(";
+    
+    indent++;
+    cout << expr->token.lexeme;
+    indent--;
+    
+    if (expr->parameters) {
+        expr->parameters->accept(*this);
+    }
+    
+    printIndent(); std::cout << ") => ";
+    
+    if (expr->exprBody != nullptr) {
+        expr->exprBody->accept(*this);
+    }
+    
+    if (expr->stmtBody != nullptr) {
+        expr->stmtBody->accept(*this);
+    }
+    
+    return true;
+
 }

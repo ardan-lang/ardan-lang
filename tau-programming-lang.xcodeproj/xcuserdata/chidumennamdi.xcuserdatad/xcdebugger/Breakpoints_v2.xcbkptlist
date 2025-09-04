@@ -7,16 +7,16 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "7DC752FE-75DF-4124-BEED-8484AD678037"
+            uuid = "91E81F39-5770-4944-AB10-7A7DA96A0F1B"
             shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
+            filePath = "tau-programming-lang/Parser/Parser.hpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "173"
-            endingLineNumber = "173"
-            landmarkName = "Interpreter::visitCall(expr)"
+            startingLineNumber = "257"
+            endingLineNumber = "257"
+            landmarkName = "parseExponentiation()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

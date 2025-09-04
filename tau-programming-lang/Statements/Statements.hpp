@@ -364,4 +364,48 @@ public:
 
 };
 
+// ArrowFunction :
+//     Identifier '=>' Expression
+//   | '(' ParameterList? ')' '=>' (Expression | Block)
+
+//struct ArrowFunctionParameter {
+//    std::string name;
+//    std::unique_ptr<Expression> defaultValue; // nullptr if none
+//    bool isRest = false;
+//};
+
+class ArrowFunction : public Expression {
+public:
+    unique_ptr<Expression> parameters;
+    Token token;
+    
+    unique_ptr<Expression> exprBody;   // expression body (x => x + 1)
+    unique_ptr<Statement> stmtBody; // block body (x => { return x + 1; })
+
+    // x => x + 1
+    ArrowFunction(Token token,
+                  unique_ptr<Expression> exprBody)
+    : token(token), exprBody(std::move(exprBody)) {}
+    
+    // x => { return (x + 1); }
+    ArrowFunction(Token token,
+                  unique_ptr<Statement> stmtBody)
+    : token(token), stmtBody(std::move(stmtBody)) {}
+
+    // (x, y) => x + 1
+    ArrowFunction(unique_ptr<Expression> params,
+                  unique_ptr<Expression> exprBody)
+        : parameters(std::move(params)), exprBody(std::move(exprBody)) {}
+
+    // (x, y) => { return (x + 1); }
+    ArrowFunction(unique_ptr<Expression> params,
+                  unique_ptr<Statement> stmtBody)
+        : parameters(std::move(params)), stmtBody(std::move(stmtBody)) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitArrowFunction(this);
+    }
+    
+};
+
 #endif /* Statements_hpp */

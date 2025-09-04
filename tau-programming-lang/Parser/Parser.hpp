@@ -93,7 +93,7 @@ private:
 
         return make_unique<SequenceExpression>(std::move(exprs));
     }
-
+        
     unique_ptr<Expression> parseAssignment() {
         auto expr = parseConditional();
 
@@ -348,7 +348,28 @@ private:
         }
         if (match(TokenType::NUMBER)) return make_unique<NumericLiteral>(previous().lexeme);
         if (match(TokenType::STRING)) return make_unique<StringLiteral>(previous().lexeme);
-        if (match(TokenType::IDENTIFIER)) return make_unique<IdentifierExpression>(previous());
+        if (match(TokenType::IDENTIFIER))  {
+            
+            Token token_previous = previous();
+            
+            // add support for sigle param arrow function
+            // x => x; x => {};
+            if (match(TokenType::ARROW)) {
+                
+                if (check(TokenType::LEFT_BRACKET)) {
+                    auto block = parseBlockStatement();
+                    return make_unique<ArrowFunction>(token_previous, std::move(block));
+                }
+
+                auto expr = parseExpression();
+                
+                return make_unique<ArrowFunction>(token_previous, std::move(expr));
+
+            }
+
+            return make_unique<IdentifierExpression>(token_previous);
+            
+        }
         if (match(TokenType::KEYWORD)) {
             auto kw = previous();
             if (kw.lexeme == "THIS") return make_unique<ThisExpression>();
@@ -361,7 +382,27 @@ private:
         if (match(TokenType::LEFT_PARENTHESIS)) {
             auto expr = parseExpression();
             consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+            
+            // add support for arrow function
+            if (match(TokenType::ARROW)) {
+                
+                if (check(TokenType::LEFT_BRACKET)) {
+
+                    // statement body
+                    auto block = parseBlockStatement();
+
+                    return make_unique<ArrowFunction>(std::move(expr), std::move(block));
+                    
+                }
+                
+                auto exprBody = parseExpression();
+                
+                return make_unique<ArrowFunction>(std::move(expr), std::move(exprBody));
+                
+            }
+            
             return expr;
+            
         }
         if (match(TokenType::LEFT_SQUARE_BRACKET)) {
             vector<unique_ptr<Expression>> elements;
@@ -386,10 +427,15 @@ private:
             consume(TokenType::RIGHT_BRACKET, "Expected '}'");
             return make_unique<ObjectLiteralExpression>(std::move(props));
         }
-        cout << peek().type << endl;
+
         throw error(peek(), "Unexpected token in primary expression");
+        
     }
     
+    void parseArrowFunction() {
+        
+    }
+
     [[noreturn]] runtime_error error(const Token& token, const string& message) {
         string where = token.type == TokenType::END_OF_FILE
         ? " at end"

@@ -26,6 +26,7 @@ class Env {
 public:
     
     Env(Env* parent = nullptr);
+    ~Env();
 
     R getValue(const string& key);
     

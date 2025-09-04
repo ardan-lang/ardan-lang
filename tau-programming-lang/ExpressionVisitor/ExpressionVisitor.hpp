@@ -37,6 +37,7 @@ class PublicKeyword;
 class PrivateKeyword;
 class ProtectedKeyword;
 class StaticKeyword;
+class ArrowFunction;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -68,7 +69,8 @@ public:
     virtual R visitPrivateKeyword(PrivateKeyword* expr) = 0;
     virtual R visitProtectedKeyword(ProtectedKeyword* expr) = 0;
     virtual R visitStaticKeyword(StaticKeyword* expr) = 0;
-
+    virtual R visitArrowFunction(ArrowFunction* expr) = 0;
+    
 };
 
 #endif /* ExpressionVisitor_hpp */

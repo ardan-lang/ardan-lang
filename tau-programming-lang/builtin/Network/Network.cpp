@@ -6,3 +6,5 @@
 //
 
 #include "Network.hpp"
+
+// Making HTTP requests to or from web servers, interacting with APIs, or communicating with databases (e.g., fetch(), http.request()).

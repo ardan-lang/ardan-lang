@@ -82,7 +82,8 @@ public:
     R visitPrivateKeyword(PrivateKeyword* expr) override;
     R visitProtectedKeyword(ProtectedKeyword* expr) override;
     R visitStaticKeyword(StaticKeyword* expr) override;
-            
+    R visitArrowFunction(ArrowFunction* expr) override;
+
 };
 
 #endif /* Interpreter_hpp */
