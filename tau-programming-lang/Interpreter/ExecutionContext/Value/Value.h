@@ -24,7 +24,8 @@ enum class ValueType {
     UNDEFINED,
     NULLTYPE,
     NATIVE_FUNCTION,
-    FUNCTION
+    FUNCTION,
+    METHOD
 };
 
 class Value;
@@ -58,6 +59,12 @@ public:
         Value v;
         v.type = ValueType::FUNCTION;
         v.functionValue = std::move(fn);
+        return v;
+    }
+    static Value method(shared_ptr<JSObject> obj) {
+        Value v;
+        v.type = ValueType::METHOD;
+        v.objectValue = obj;
         return v;
     }
     

@@ -26,6 +26,8 @@ public:
     unordered_map<string, unique_ptr<PropertyDeclaration>> fields;
     unordered_map<string, unique_ptr<MethodDefinition>> methods;
     
+    // need to add var, let, const fields
+    
     Value get(const string& key);
     
 };

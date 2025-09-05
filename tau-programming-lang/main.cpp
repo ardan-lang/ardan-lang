@@ -287,10 +287,33 @@ int main(int argc, const char * argv[]) {
     
     let v = 90;
     
-    let func = (x, y) => { return x * y; };
+    //let func = (x, y) => { return x * y; };
     
-    print(func(v, 90));
-    print(((x, y) => { return x*y; })(2, 8));
+    //print(func(v, 90));
+    //print(((x, y) => { return x*y; })(2, 8));
+    
+    class Parent {
+
+        var parentName = "PP";
+
+        testParent() {
+            print(this.name);
+        }
+    
+    }
+    
+    class User extends Parent {
+        var name = "NN";
+    
+    }
+    
+    const user_obj = new User();
+    print(user_obj.parentName);
+    user_obj.testParent();
+    
+    user_obj.name = "CC";
+    print(user_obj.name);
+    user_obj.testParent();
     
     )";
 

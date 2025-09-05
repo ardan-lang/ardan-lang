@@ -210,11 +210,18 @@ R Interpreter::visitCall(CallExpression* expr) {
         }
         
         // this property name is the name of method in the object to be called.
-        MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
+        // we need to be able to walkup the superclass chain to find methods
+        if (propVal.type == ValueType::METHOD) {
 
-        env->this_binding = js_object;
-        
-        method->accept(*this);
+            MethodDefinition* method = propVal.objectValue->getKlass()->methods[property_name].get();
+
+            // MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
+
+            env->this_binding = js_object;
+            
+            method->accept(*this);
+
+        }
         
         return monostate();
 
@@ -767,9 +774,24 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
         case TokenType::NULLISH_COALESCING_ASSIGN: {
             // Left must be identifier
             auto* ident = dynamic_cast<IdentifierExpression*>(expr->left.get());
-            if (!ident) throw runtime_error("Invalid left-hand side in assignment");
+            
+            auto* member_expr = dynamic_cast<MemberExpression*>(expr->left.get());
 
-            string name = ident->name;
+            if (!ident && !member_expr) throw runtime_error("Invalid left-hand side in assignment");
+            
+            // TODO: check if we need to support, e.g user.age()
+
+            string name;
+            
+            // add support for member expression
+            if (member_expr) {
+                // get the member object name.
+                auto* member_ident  = dynamic_cast<IdentifierExpression*>(member_expr->object.get());
+                name = member_ident->token.lexeme;
+            } else {
+                name = ident->name;
+            }
+            
             R current = env->get(name);
 
             R newVal;
@@ -793,6 +815,24 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                 default: throw runtime_error("Unsupported assignment op");
             }
 
+            if (member_expr) {
+            
+                string property_name;
+                
+                if (member_expr->computed) {
+                    // TODO: evaluate this.
+                    // property_name = member_expr->property->accept(*this);
+                } else {
+                    property_name = member_expr->name.lexeme;
+                }
+                
+                shared_ptr<JSObject> current_object = get<shared_ptr<JSObject>>(current);
+                current_object
+                    .get()->set(property_name, toValue(newVal));
+                return monostate();
+                
+            }
+            
             env->assign(name, newVal); // update variable
             return newVal;
         }
@@ -949,7 +989,7 @@ R Interpreter::visitMember(MemberExpression* expr) {
 
     shared_ptr<JSObject> js_object_instance;
     Value return_value;
-        
+    
     // this supports the "this"
     if (holds_alternative<shared_ptr<JSObject>>(object_value)) {
         
@@ -1033,7 +1073,7 @@ R Interpreter::visitNew(NewExpression* expr) {
         R value = env->get(class_name);
         
         if (!holds_alternative<std::shared_ptr<JSClass>>(value)) {
-            throw runtime_error("New keyword should always instantiate a class.");
+            throw runtime_error("New keyword should always instantiate a class. " + to_string(expr->token.line));
             return monostate();
         }
 
@@ -1078,10 +1118,14 @@ R Interpreter::visitNew(NewExpression* expr) {
                 constructor = method.second.get();
             }
             
-            object->set(method.first, Value("@@method@@"));
+            object->set(method.first, Value::method(object));
         }
         
-        object->parent_class = new_class->superClass;
+        // create a jsobject from supercalss and assigne to parent_object
+        if (new_class->superClass != nullptr) {
+            object->parent_object = createJSObject(new_class->superClass);
+            object->parent_class = new_class->superClass;
+        }
                     
     }
         
@@ -1152,7 +1196,7 @@ R Interpreter::visitSuper(SuperExpression* expr) {
     // copy methods
     for (auto& method : parent_class->methods) {
                 
-        parent_object->set(method.first, Value("@@method@@"));
+        parent_object->set(method.first, Value::method(parent_object));
         
     }
     
@@ -1273,3 +1317,54 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
     });
     
 }
+
+shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
+        
+    shared_ptr<JSObject> object = make_shared<JSObject>();
+    object->setClass(klass);
+
+    // add all props from this_binding to parent class.
+    for (auto& field : klass->fields) {
+
+        // property is a Statement: VariableStatement
+        if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
+
+            for (auto& declarator : variable->declarations) {
+                
+                if (declarator.init == nullptr) {
+                    throw runtime_error("Missing initializer in const declaration: " + declarator.id);
+                }
+                
+                if (declarator.init) {
+                    
+                    R value = declarator.init->accept(*this);
+
+                    // TODO: fix
+                    object->set(declarator.id, toValue(value));
+
+                }
+            }
+
+        }
+
+    }
+                
+    // copy methods
+    for (auto& method : klass->methods) {
+                
+        object->set(method.first, Value::method(object));
+        
+    }
+    
+    // create a jsobject from supercalss and assigne to parent_object
+    if (klass->superClass != nullptr) {
+        
+        object->parent_object = createJSObject(klass->superClass);
+        object->parent_class = klass->superClass;
+        
+    }
+
+    return object;
+    
+}
+

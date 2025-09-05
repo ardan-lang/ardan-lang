@@ -38,8 +38,8 @@ Value JSObject::get(const string& key) {
     }
 
     // Look in class (and superclass chain)
-    if (parent_class) {
-        Value val = parent_class->get(key);
+    if (parent_object) {
+        Value val = parent_object->get(key);
         if (!val.isUndefined()) {
             return val;
         }

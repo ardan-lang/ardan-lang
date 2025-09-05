@@ -33,6 +33,9 @@ public:
     ~Interpreter();
     void execute(vector<unique_ptr<Statement>> ast);
     void executeBlock(unique_ptr<Statement> block);
+    
+    shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
+
 
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
