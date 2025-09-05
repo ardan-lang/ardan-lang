@@ -86,6 +86,7 @@ public:
     R visitProtectedKeyword(ProtectedKeyword* expr) override;
     R visitStaticKeyword(StaticKeyword* expr) override;
     R visitArrowFunction(ArrowFunction* expr) override;
+    R visitTemplateLiteral(TemplateLiteral* expr) override;
 
 };
 

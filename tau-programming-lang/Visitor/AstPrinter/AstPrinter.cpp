@@ -565,3 +565,7 @@ R AstPrinter::visitArrowFunction(ArrowFunction *expr) {
     return true;
 
 }
+
+R AstPrinter::visitTemplateLiteral(TemplateLiteral* expr) {
+    return true;
+}

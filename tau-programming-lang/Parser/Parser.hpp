@@ -439,6 +439,33 @@ private:
                     "Expected '}' at line: " + to_string(peek().line));
             return make_unique<ObjectLiteralExpression>(token, std::move(props));
         }
+        if (match(TokenType::TEMPLATE_START)) {
+            
+            vector<unique_ptr<Expression>> parts;
+            
+            while (peek().type != TokenType::TEMPLATE_END) {
+                
+                if (peek().type == TokenType::TEMPLATE_CHUNK) {
+                    parts
+                        .push_back(make_unique<StringLiteral>((peek().lexeme)));
+                }
+                
+                if (peek().type == TokenType::INTERPOLATION_START) {
+                    do {
+                        
+                        
+                        advance();
+                        
+                        
+                    } while(peek().type != TokenType::INTERPOLATION_END);
+                }
+                
+                advance();
+            }
+            
+            return make_unique<TemplateLiteral>(std::move(parts));
+            
+        }
 
         throw error(peek(), "Unexpected token in primary expression");
         

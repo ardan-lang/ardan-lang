@@ -335,4 +335,16 @@ public:
 
 };
 
+class TemplateLiteral : public Expression {
+public:
+    vector<unique_ptr<Expression>> parts;
+    
+    TemplateLiteral(vector<unique_ptr<Expression>> parts) : parts(std::move(parts)) {}
+
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitTemplateLiteral(this);
+    }
+
+};
+
 #endif /* Expression_hpp */

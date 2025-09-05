@@ -79,6 +79,13 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::CLASS: return os << "CLASS";
         case TokenType::EXTENDS: return os << "EXTENDS";
         case TokenType::ARROW: return os << "ARROW";
+            
+        case TokenType::TEMPLATE_START: return os << "TEMPLATE_START";
+        case TokenType::TEMPLATE_CHUNK: return os << "TEMPLATE_CHUNK";
+        case TokenType::INTERPOLATION_START: return os << "INTERPOLATION_START";
+        case TokenType::INTERPOLATION_END: return os << "INTERPOLATION_END";
+        case TokenType::TEMPLATE_END: return os << "TEMPLATE_END";
+
         case TokenType::END_OF_FILE: return os << "END_OF_FILE";
         default: return os << "UNKNOWN";
     }

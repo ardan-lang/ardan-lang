@@ -524,12 +524,61 @@ void Scanner::collectLiteralString() {
     
     string concat = "";
     
+    bool isInterpolstioin = false;
+    string inerpolationString;
+    
+    addToken(TokenType::TEMPLATE_START);
+    
     while (currentCharacter() != '`' && !eof()) {
-        concat += currentCharacter();
+        char cc = currentCharacter();
+        
+        // check if cc is $
+        if (cc == '$' && isInterpolstioin == false) {
+            isInterpolstioin = true;
+            advance();
+            addToken(TokenType::TEMPLATE_CHUNK, concat);
+            addToken(TokenType::INTERPOLATION_START);
+            concat = "";
+            continue;
+        }
+        
+        if (cc == '{' && isInterpolstioin == true) {
+            advance();
+            continue;
+        }
+        
+        if (cc == '}' && isInterpolstioin == true) {
+            isInterpolstioin = false;
+            
+            Scanner scanner(inerpolationString);
+            vector<Token> local_tokens = scanner.getTokens();
+            
+            for(Token local_token : local_tokens) {
+                if (local_token.type == TokenType::END_OF_FILE) {
+                    continue;
+                }
+                tokens.push_back(local_token);
+            }
+            
+            addToken(TokenType::INTERPOLATION_END);
+            advance();
+            
+            inerpolationString = "";
+            continue;
+        }
+                
+        if (isInterpolstioin) {
+            inerpolationString += cc;
+        } else {
+            concat += cc;
+        }
+        
         advance();
     }
     
-    addToken(TokenType::STRING, concat);
+    addToken(TokenType::TEMPLATE_END);
+    
+    // addToken(TokenType::STRING, concat);
     concat = "";
 
 }

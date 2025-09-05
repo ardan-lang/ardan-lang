@@ -74,6 +74,13 @@ enum class TokenType {
     CLASS,
     EXTENDS,
     ARROW, // =>
+
+    TEMPLATE_START,
+    TEMPLATE_CHUNK,
+    INTERPOLATION_START,
+    INTERPOLATION_END,
+    TEMPLATE_END,
+    
     END_OF_FILE,
 };
 

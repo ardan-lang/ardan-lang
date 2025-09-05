@@ -1510,3 +1510,6 @@ shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member
     
 }
 
+R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
+    return true;
+}
