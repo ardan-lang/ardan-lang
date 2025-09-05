@@ -494,7 +494,7 @@ bool Parser::match(std::initializer_list<TokenType> types) {
 // Ensure the next token matches `type` or throw
 Token Parser::consume(TokenType type, const std::string& message) {
     if (check(type)) return advance();
-    throw std::runtime_error("Parse error: expected " + message);
+    throw std::runtime_error("Parse error: expected " + message + " " + to_string(peek().line));
 }
 
 // Check if current token is of given type without consuming
@@ -539,11 +539,11 @@ bool Parser::matchKeyword(const string& keyword) {
 
 Token Parser::consumeKeyword(const string& keyword) {
     if (checkKeyword(keyword)) return advance();
-    throw std::runtime_error("Parse error: expected keyword '" + keyword + "'");
+    throw std::runtime_error("Parse error: expected keyword '" + keyword + "'" + " " + to_string(peek().line));
 }
 
 Token Parser::consumeKeyword(const string& keyword, const string& message) {
     if (checkKeyword(keyword)) return advance();
-    throw std::runtime_error(message);
+    throw std::runtime_error(message + " " + to_string(peek().line));
 }
 

@@ -318,6 +318,7 @@ private:
 
     unique_ptr<Expression> parseNewMember() {
         if (matchKeyword("NEW")) {
+            Token token = previous();
             auto ctor = parseNewMember();
             vector<unique_ptr<Expression>> args;
             if (match(TokenType::LEFT_PARENTHESIS)) {
@@ -326,9 +327,10 @@ private:
                         args.push_back(parseExpression());
                     } while (match(TokenType::COMMA));
                 }
-                consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after constructor args");
+                consume(TokenType::RIGHT_PARENTHESIS,
+                        "Expected ')' after constructor args at line: " + to_string(peek().line));
             }
-            return make_unique<NewExpression>(std::move(ctor), std::move(args));
+            return make_unique<NewExpression>(token, std::move(ctor), std::move(args));
         }
         return parsePrimary();
     }
@@ -352,17 +354,18 @@ private:
             
             Token token_previous = previous();
             
-            // add support for sigle param arrow function
+            // add support for single param arrow function
             // x => x; x => {};
             if (match(TokenType::ARROW)) {
                 
                 if (check(TokenType::LEFT_BRACKET)) {
                     auto block = parseBlockStatement();
+                    // x => {}
                     return make_unique<ArrowFunction>(token_previous, std::move(block));
                 }
 
                 auto expr = parseExpression();
-                
+                // x => x
                 return make_unique<ArrowFunction>(token_previous, std::move(expr));
 
             }
@@ -381,11 +384,13 @@ private:
         }
         if (match(TokenType::LEFT_PARENTHESIS)) {
             auto expr = parseExpression();
-            consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+            consume(TokenType::RIGHT_PARENTHESIS,
+                    "Expected ')' at line: " + to_string(peek().line));
             
             // add support for arrow function
             if (match(TokenType::ARROW)) {
                 
+                // (x) => {}
                 if (check(TokenType::LEFT_BRACKET)) {
 
                     // statement body
@@ -397,6 +402,7 @@ private:
                 
                 auto exprBody = parseExpression();
                 
+                // (x) => x
                 return make_unique<ArrowFunction>(std::move(expr), std::move(exprBody));
                 
             }
@@ -405,37 +411,39 @@ private:
             
         }
         if (match(TokenType::LEFT_SQUARE_BRACKET)) {
+            Token token = previous();
             vector<unique_ptr<Expression>> elements;
             if (!check(TokenType::RIGHT_SQUARE_BRACKET)) {
                 do {
                     elements.push_back(parseAssignment());
                 } while (match(TokenType::COMMA));
             }
-            consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']'");
-            return make_unique<ArrayLiteralExpression>(std::move(elements));
+            consume(TokenType::RIGHT_SQUARE_BRACKET,
+                    "Expected ']' at line: " + to_string(peek().line));
+            return make_unique<ArrayLiteralExpression>(token, std::move(elements));
         }
         if (match(TokenType::LEFT_BRACKET)) { // { object literal }
+            Token token = previous();
             vector<pair<Token, unique_ptr<Expression>>> props;
             if (!check(TokenType::RIGHT_BRACKET)) {
                 do {
-                    Token key = consume(TokenType::IDENTIFIER, "Expected property key");
-                    consume(TokenType::COLON, "Expected ':' after property key");
+                    Token key = consume(TokenType::IDENTIFIER,
+                                        "Expected property key at line: " + to_string(peek().line));
+                    consume(TokenType::COLON,
+                            "Expected ':' after property key at line: " + to_string(peek().line));
                     auto value = parseAssignment();
                     props.push_back({ key, std::move(value) });
                 } while (match(TokenType::COMMA));
             }
-            consume(TokenType::RIGHT_BRACKET, "Expected '}'");
-            return make_unique<ObjectLiteralExpression>(std::move(props));
+            consume(TokenType::RIGHT_BRACKET,
+                    "Expected '}' at line: " + to_string(peek().line));
+            return make_unique<ObjectLiteralExpression>(token, std::move(props));
         }
 
         throw error(peek(), "Unexpected token in primary expression");
         
     }
     
-    void parseArrowFunction() {
-        
-    }
-
     [[noreturn]] runtime_error error(const Token& token, const string& message) {
         string where = token.type == TokenType::END_OF_FILE
         ? " at end"

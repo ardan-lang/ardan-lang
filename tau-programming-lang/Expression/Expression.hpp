@@ -165,10 +165,11 @@ public:
 // new expr()
 class NewExpression : public Expression {
 public:
+    Token token;
     unique_ptr<Expression> callee;
     vector<unique_ptr<Expression>> arguments;
-    NewExpression(unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
-        : callee(std::move(callee)), arguments(std::move(arguments)) {}
+    NewExpression(Token token, unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
+        : callee(std::move(callee)), arguments(std::move(arguments)), token(token) {}
     
     
     R accept(ExpressionVisitor& visitor) { return visitor.visitNew(this); }
@@ -177,9 +178,10 @@ public:
 // [a,b,...]
 class ArrayLiteralExpression : public Expression {
 public:
+    Token token;
     vector<unique_ptr<Expression>> elements;
-    explicit ArrayLiteralExpression(vector<unique_ptr<Expression>> elements)
-        : elements(std::move(elements)) {}
+    explicit ArrayLiteralExpression(Token token, vector<unique_ptr<Expression>> elements)
+        : elements(std::move(elements)), token(token) {}
     
     
     R accept(ExpressionVisitor& visitor) { return visitor.visitArray(this); }
@@ -188,10 +190,10 @@ public:
 // { key: value, ... }
 class ObjectLiteralExpression : public Expression {
 public:
+    Token token;
     vector<pair<Token, unique_ptr<Expression>>> props;
-    explicit ObjectLiteralExpression(vector<pair<Token, unique_ptr<Expression>>> props)
-        : props(std::move(props)) {}
-    
+    explicit ObjectLiteralExpression(Token token, vector<pair<Token, unique_ptr<Expression>>> props)
+        : props(std::move(props)), token(token) {}
     
     R accept(ExpressionVisitor& visitor) { return visitor.visitObject(this); }
 };
