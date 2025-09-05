@@ -304,7 +304,12 @@ int main(int argc, const char * argv[]) {
     
     class User extends Parent {
         var name = "NN";
+        var age = 8;
     
+        change(){
+        this["name"] = "chan";
+        this["age"]++;
+    }
     }
     
     const user_obj = new User();
@@ -314,6 +319,11 @@ int main(int argc, const char * argv[]) {
     user_obj.name = "CC";
     print(user_obj.name);
     user_obj.testParent();
+    user_obj.change();
+    print(user_obj.name);
+    print(v++);
+    print(v);
+    print(user_obj["age"]);
     
     )";
 

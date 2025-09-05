@@ -782,18 +782,26 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
             // TODO: check if we need to support, e.g user.age()
 
             string name;
+            R current;
             
             // add support for member expression
             if (member_expr) {
                 // get the member object name.
                 auto* member_ident  = dynamic_cast<IdentifierExpression*>(member_expr->object.get());
-                name = member_ident->token.lexeme;
+                if (member_ident) {
+                    name = member_ident->token.lexeme;
+                    current = env->get(name);
+                }
+                                
+                // TODO: add support for super.age
+                
             } else {
-                name = ident->name;
+                if (ident) {
+                    name = ident->name;
+                    current = env->get(name);
+                }
             }
             
-            R current = env->get(name);
-
             R newVal;
             switch (expr->op.type) {
                 case TokenType::ASSIGN: newVal = rvalue; break;
@@ -818,10 +826,25 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
             if (member_expr) {
             
                 string property_name;
+
+                auto* this_epxr = dynamic_cast<ThisExpression*>(member_expr->object.get());
                 
+                // this.name
+                if (this_epxr) {
+                    current = env->this_binding;
+                }
+
                 if (member_expr->computed) {
                     // TODO: evaluate this.
-                    // property_name = member_expr->property->accept(*this);
+                    auto* property_name_ident = dynamic_cast<IdentifierExpression*>(member_expr->property.get());
+                    
+                    if (property_name_ident) {
+                        property_name = property_name_ident->token.lexeme;
+                    } else {
+                        R value = member_expr->property->accept(*this);
+                        property_name = get<string>(value);
+                    }
+                    
                 } else {
                     property_name = member_expr->name.lexeme;
                 }
@@ -835,6 +858,7 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
             
             env->assign(name, newVal); // update variable
             return newVal;
+            
         }
 
         default:
@@ -884,9 +908,33 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                 
                 return value;
                 
+            } else {
+                // this is member expression.
+                if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->right.get())) {
+                    
+                    shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                    
+                    // Compute property key
+                    std::string key;
+                    if (member->computed) {
+                        R comp = member->property->accept(*this);
+                        key = get<std::string>(comp);
+                    } else {
+                        key = member->name.lexeme;
+                    }
+                    
+                    // Get and update property
+                    Value oldVal = targetObj->get(key);
+                    Value newVal = toNumber(oldVal) + 1;
+                    targetObj->set(key, newVal);
+                    
+                    return oldVal;
+                    
+                }
+
             }
             
-            throw runtime_error("Invalid operand, the opearnd must be a variable.");
+            throw runtime_error("Invalid operand, the operand must be a variable.");
             
         }
             
@@ -901,16 +949,36 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                 
                 return value;
                 
+            } else {
+                // this is member expression.
+                if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->right.get())) {
+                    
+                    shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                    
+                    // Compute property key
+                    std::string key;
+                    if (member->computed) {
+                        R comp = member->property->accept(*this);
+                        key = get<std::string>(comp);
+                    } else {
+                        key = member->name.lexeme;
+                    }
+                    
+                    // Get and update property
+                    Value oldVal = targetObj->get(key);
+                    Value newVal = toNumber(oldVal) - 1;
+                    
+                    targetObj->set(key, newVal);
+                    
+                    return oldVal;
+                    
+                }
             }
             
             throw runtime_error("Invalid operand, the opearnd must be a variable.");
 
         }
-            
-        // case TokenType::ADD: {}
-            
-        // case TokenType::MINUS: {}
-            
+                        
         default:
             throw runtime_error("Unknown op found.");
             break;
@@ -929,9 +997,35 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
             if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
                 R sum = toNumber(value) + 1;
                 env->assign(ident->name, sum);
+                return sum;
+            }
+            
+            // this is member expression.
+            if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+                
+                shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                
+                // Compute property key
+                std::string key;
+                if (member->computed) {
+                    R comp = member->property->accept(*this);
+                    key = get<std::string>(comp);
+                } else {
+                    key = member->name.lexeme;
+                }
+
+                // Get and update property
+                Value oldVal = targetObj->get(key);
+                Value newVal = toNumber(oldVal) + 1;
+                
+                targetObj->set(key, newVal);
+                
+                return newVal;
+
             }
             
             return monostate();
+            
         }
             
         case TokenType::DECREMENT: {
@@ -939,6 +1033,31 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
             if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
                 R sum = toNumber(value) - 1;
                 env->assign(ident->name, sum);
+                return sum;
+            }
+
+            // this is member expression.
+            if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+                
+                shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                
+                // Compute property key
+                std::string key;
+                if (member->computed) {
+                    R comp = member->property->accept(*this);
+                    key = get<std::string>(comp);
+                } else {
+                    key = member->name.lexeme;
+                }
+
+                // Get and update property
+                Value oldVal = targetObj->get(key);
+                Value newVal = toNumber(oldVal) - 1;
+                
+                targetObj->set(key, newVal);
+                
+                return newVal;
+
             }
 
             return monostate();
@@ -1365,6 +1484,29 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
     }
 
     return object;
+    
+}
+
+shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member) {
+    
+    // Evaluate object (user, this, super)
+    R objectValue = member->object->accept(*this);
+    shared_ptr<JSObject> targetObj;
+    
+    // Handle "this"
+    if (auto* thisExpr = dynamic_cast<ThisExpression*>(member->object.get())) {
+        targetObj = env->this_binding;
+    }
+    // Handle "super"
+    else if (auto* superExpr = dynamic_cast<SuperExpression*>(member->object.get())) {
+        targetObj = env->this_binding->parent_object;
+    }
+    // Generic object
+    else {
+        targetObj = get<shared_ptr<JSObject>>(objectValue);
+    }
+        
+    return targetObj;
     
 }
 
