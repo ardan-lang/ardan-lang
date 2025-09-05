@@ -1511,5 +1511,19 @@ shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member
 }
 
 R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
-    return true;
+    
+    string concat;
+    
+    for (auto& part : expr->parts) {
+        
+        ExpressionStatement* expr_stmt = dynamic_cast<ExpressionStatement*>(part.get());
+        
+        if (expr_stmt) {
+            concat += get<string>(expr_stmt->expression->accept(*this));
+        }
+        
+    }
+    
+    return concat;
+    
 }

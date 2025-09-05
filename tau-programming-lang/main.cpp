@@ -324,9 +324,9 @@ int main(int argc, const char * argv[]) {
     print(v++);
     print(v);
     print(user_obj["age"]);
-    
+    let name = "NChi";
     let n = `Hello ${name}, you are ${1 + 2}${1 + 2} years old`;
-    
+    print(n);
     )";
 
     Scanner scanner(lang);
@@ -334,11 +334,11 @@ int main(int argc, const char * argv[]) {
         cout << token.type << " : " << token.lexeme << " Line: " << token.line << endl;
     }
     
-//    Parser parser(scanner.getTokens());
-//    vector<unique_ptr<Statement>> ast = parser.parse();
-//    
-//    AstPrinter printer;
-//    Interpreter interpreter;
+    Parser parser(scanner.getTokens());
+    vector<unique_ptr<Statement>> ast = parser.parse();
+    
+    AstPrinter printer;
+    Interpreter interpreter;
     
     cout << endl;
     cout << "---------------" << endl;
@@ -346,7 +346,7 @@ int main(int argc, const char * argv[]) {
     cout << "---------------" << endl;
     cout << endl;
 
-    // interpreter.execute(std::move(ast));
+     interpreter.execute(std::move(ast));
     
     return EXIT_SUCCESS;
 }

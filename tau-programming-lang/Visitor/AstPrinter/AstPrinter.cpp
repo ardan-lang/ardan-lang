@@ -567,5 +567,11 @@ R AstPrinter::visitArrowFunction(ArrowFunction *expr) {
 }
 
 R AstPrinter::visitTemplateLiteral(TemplateLiteral* expr) {
+    printIndent(); std::cout << "TemplateString: ";
+
+    for (auto& part : expr->parts) {
+        part->accept(*this);
+    }
+    
     return true;
 }

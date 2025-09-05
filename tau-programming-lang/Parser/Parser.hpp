@@ -441,27 +441,51 @@ private:
         }
         if (match(TokenType::TEMPLATE_START)) {
             
-            vector<unique_ptr<Expression>> parts;
+            vector<unique_ptr<Statement>> parts;
             
             while (peek().type != TokenType::TEMPLATE_END) {
                 
                 if (peek().type == TokenType::TEMPLATE_CHUNK) {
+                    auto string_lit = make_unique<StringLiteral>((peek().lexeme));
                     parts
-                        .push_back(make_unique<StringLiteral>((peek().lexeme)));
+                        .push_back(make_unique<ExpressionStatement>(std::move(string_lit)));
                 }
                 
                 if (peek().type == TokenType::INTERPOLATION_START) {
-                    do {
-                        
-                        
+                    
+                    advance();
+                    
+                    vector<Token> local_tokens;
+                    
+                    while(peek().type != TokenType::INTERPOLATION_END) {
+                        local_tokens.push_back(peek());
                         advance();
-                        
-                        
-                    } while(peek().type != TokenType::INTERPOLATION_END);
+                    }
+                    
+                    Token eof_token;
+                    eof_token.type = TokenType::END_OF_FILE;
+
+                    Token semi_colon_token;
+                    semi_colon_token.lexeme = ";";
+                    semi_colon_token.type = TokenType::SEMI_COLON;
+
+                    local_tokens.push_back(semi_colon_token);
+                    local_tokens.push_back(eof_token);
+                    
+                    Parser local_parser(local_tokens);
+                    vector<unique_ptr<Statement>> local_ast = local_parser.parse();
+                    
+                    for (auto& current_l_ast : local_ast) {
+                        parts.push_back(std::move(current_l_ast));
+                    }
+                    
                 }
                 
                 advance();
+                
             }
+            
+            consume(TokenType::TEMPLATE_END, "Wrong template literal format.");
             
             return make_unique<TemplateLiteral>(std::move(parts));
             

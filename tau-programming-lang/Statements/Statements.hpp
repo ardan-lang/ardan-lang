@@ -364,16 +364,6 @@ public:
 
 };
 
-// ArrowFunction :
-//     Identifier '=>' Expression
-//   | '(' ParameterList? ')' '=>' (Expression | Block)
-
-//struct ArrowFunctionParameter {
-//    std::string name;
-//    std::unique_ptr<Expression> defaultValue; // nullptr if none
-//    bool isRest = false;
-//};
-
 class ArrowFunction : public Expression {
 public:
     unique_ptr<Expression> parameters;
@@ -406,6 +396,18 @@ public:
         return visitor.visitArrowFunction(this);
     }
     
+};
+
+class TemplateLiteral : public Expression {
+public:
+    vector<unique_ptr<Statement>> parts;
+    
+    TemplateLiteral(vector<unique_ptr<Statement>> parts) : parts(std::move(parts)) {}
+
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitTemplateLiteral(this);
+    }
+
 };
 
 #endif /* Statements_hpp */
