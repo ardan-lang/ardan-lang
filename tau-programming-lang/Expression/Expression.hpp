@@ -11,6 +11,10 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <variant>
+#include <limits>
+#include <typeinfo>
+
 #include "../Scanner/Token/Token.hpp"
 #include "../Scanner/Token/TokenType.h"
 #include "../ExpressionVisitor/ExpressionVisitor.hpp"
@@ -261,15 +265,50 @@ public:
     const R value;
 
         NumericLiteral(const std::string& text)
-            : value((parse(text))) {}
+            : value((parseNumber(text))) {}
 
-    static R parse(const std::string& text) {
-        if (text.find('.') != std::string::npos) {
-            return std::stod(text);
-        } else {
+    static R parseNumber(const std::string& text) {
+        // Check for floating-point
+        if (text.find('.') != std::string::npos || text.find('e') != std::string::npos || text.find('E') != std::string::npos) {
+            long double v = std::stold(text);
+            
+            // Try narrowest type
+            if (v >= std::numeric_limits<float>::lowest() && v <= std::numeric_limits<float>::max()) {
+                return static_cast<float>(v);
+            }
+            if (v >= std::numeric_limits<double>::lowest() && v <= std::numeric_limits<double>::max()) {
+                return static_cast<double>(v);
+            }
+            return v; // long double
+        }
+        
+        // Otherwise parse as integer
+        bool isNegative = !text.empty() && text[0] == '-';
+        
+        if (isNegative) {
             long long v = std::stoll(text);
-            if (v >= 0) return static_cast<size_t>(v);
-            return static_cast<int>(v);
+            
+            if (v >= std::numeric_limits<short>::min() && v <= std::numeric_limits<short>::max())
+                return static_cast<short>(v);
+            if (v >= std::numeric_limits<int>::min() && v <= std::numeric_limits<int>::max())
+                return static_cast<int>(v);
+            if (v >= std::numeric_limits<long>::min() && v <= std::numeric_limits<long>::max())
+                return static_cast<long>(v);
+            return v; // long long
+        } else {
+            unsigned long long v = std::stoull(text);
+            
+            if (v <= std::numeric_limits<unsigned short>::max())
+                return static_cast<unsigned short>(v);
+            if (v <= std::numeric_limits<unsigned int>::max())
+                return static_cast<unsigned int>(v);
+            if (v <= std::numeric_limits<unsigned long>::max())
+                return static_cast<unsigned long>(v);
+            if (v <= std::numeric_limits<long>::max())
+                return static_cast<long>(v); // fits signed long
+            if (v <= std::numeric_limits<long long>::max())
+                return static_cast<long long>(v); // fits signed long long
+            return v; // unsigned long long
         }
     }
     

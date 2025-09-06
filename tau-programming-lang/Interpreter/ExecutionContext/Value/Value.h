@@ -46,7 +46,7 @@ public:
     NativeFn nativeFunction;
     std::function<Value(std::vector<Value>)> functionValue;
     
-    Value();
+    Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
 
     static Value number(double n) { Value v; v.type = ValueType::NUMBER; v.numberValue = n; return v; }
     static Value str(const string& s) { Value v; v.type = ValueType::STRING; v.stringValue = s; return v; }
@@ -75,7 +75,8 @@ public:
     Value(const string& str);
 
     std::string toString() const;
-    
+    bool isTruthy() const;
+        
     bool isUndefined();
     
 };

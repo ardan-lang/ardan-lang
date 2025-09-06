@@ -24,16 +24,24 @@ string toString(const R& val) {
     if (holds_alternative<double>(val)) return to_string(get<double>(val));
     if (holds_alternative<int>(val)) return to_string(get<int>(val));
     if (holds_alternative<size_t>(val)) return to_string(get<size_t>(val));
+    if (holds_alternative<unsigned long>(val)) return to_string(get<unsigned long>(val));
     if (holds_alternative<char>(val)) return string(1, get<char>(val));
     if (holds_alternative<bool>(val)) return get<bool>(val) ? "true" : "false";
+    if (holds_alternative<shared_ptr<Value>>(val)) {
+        return (get<shared_ptr<Value>>(val))->stringValue;
+   }
+    if (std::holds_alternative<Value>(val)) {
+        return (get<Value>(val)).stringValue;
+   }
     return "undefined"; // monostate
 }
 
 double toNumber(const R& val) {
     if (holds_alternative<double>(val)) return get<double>(val);
-    if (holds_alternative<int>(val)) return static_cast<double>(get<int>(val));
-    if (holds_alternative<size_t>(val)) return static_cast<double>(get<size_t>(val));
-    if (holds_alternative<char>(val)) return static_cast<double>(get<char>(val));
+    if (holds_alternative<int>(val)) return static_cast<int>(get<int>(val));
+    if (holds_alternative<size_t>(val)) return static_cast<size_t>(get<size_t>(val));
+    if (holds_alternative<unsigned long>(val)) return static_cast<unsigned long>(get<unsigned long>(val));
+    if (holds_alternative<char>(val)) return static_cast<int>(get<char>(val));
     if (holds_alternative<bool>(val)) return get<bool>(val) ? 1.0 : 0.0;
     if (holds_alternative<string>(val)) {
         try {
@@ -60,28 +68,41 @@ bool isNullish(const R& value) {
 }
 
 bool truthy(const R& value) {
-    if (holds_alternative<bool>(value)) {
-        return get<bool>(value);
-    }
-    else if (holds_alternative<double>(value)) {
-        return get<double>(value) != 0.0;
-    }
-    else if (holds_alternative<int>(value)) {
-        return get<int>(value) != 0;
-    }
-    else if (holds_alternative<size_t>(value)) {
-        return get<size_t>(value) != 0;
-    }
-    else if (holds_alternative<char>(value)) {
-        return get<char>(value) != '\0';
-    }
-    else if (holds_alternative<string>(value)) {
-        return !get<string>(value).empty();
-    }
-    else if (holds_alternative<monostate>(value)) {
-        return false; // undefined/null
-    }
-    return true; // fallback
+    return std::visit([](auto&& v) -> bool {
+        using T = std::decay_t<decltype(v)>;
+
+        if constexpr (std::is_same_v<T, std::monostate>) {
+            return false;  // like "undefined"
+        }
+        else if constexpr (std::is_same_v<T, std::nullptr_t>) {
+            return false;  // null is falsy
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+            return v;  // just return the bool
+        }
+        else if constexpr (std::is_arithmetic_v<T>) {
+            return v != 0;  // all ints, floats, doubles handled here
+        }
+        else if constexpr (std::is_same_v<T, std::string>) {
+            return !v.empty();  // non-empty string = truthy
+        }
+        else if constexpr (std::is_pointer_v<T>) {
+            return v != nullptr;  // raw pointers
+        }
+        else if constexpr (std::is_same_v<T, std::shared_ptr<JSObject>> ||
+                           std::is_same_v<T, std::shared_ptr<Value>>   ||
+                           std::is_same_v<T, std::shared_ptr<JSClass>> ||
+                           std::is_same_v<T, std::shared_ptr<JSArray>>) {
+            return static_cast<bool>(v);  // check non-null
+        }
+        else if constexpr (std::is_same_v<T, Value>) {
+            // recursive unwrap if needed
+            return truthy(v);
+        }
+        else {
+            return true; // default truthy (objects, etc.)
+        }
+    }, value);
 }
 
 bool equals(const R& a, const R& b) {
@@ -155,6 +176,10 @@ inline Value toValue(const R& r) {
         else if constexpr (std::is_same_v<T, int>) {
             v.type = ValueType::NUMBER;
             v.numberValue = static_cast<int>(arg);
+        }
+        else if constexpr (std::is_same_v<T, unsigned long>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<unsigned long>(arg);
         }
         else if constexpr (std::is_same_v<T, char>) {
             v.type = ValueType::STRING;

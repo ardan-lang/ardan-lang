@@ -718,7 +718,7 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
             if (holds_alternative<string>(lvalue) || holds_alternative<string>(rvalue)) {
                 return toString(lvalue) + toString(rvalue);
             }
-            return toNumber(lvalue) + toNumber(rvalue);
+            return toValue(lvalue).numberValue + toValue(rvalue).numberValue;
         }
         case TokenType::MINUS:
             return toNumber(lvalue) - toNumber(rvalue);
@@ -1519,7 +1519,8 @@ R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
         ExpressionStatement* expr_stmt = dynamic_cast<ExpressionStatement*>(part.get());
         
         if (expr_stmt) {
-            concat += get<string>(expr_stmt->expression->accept(*this));
+            Value expr_string = toValue(expr_stmt->expression->accept(*this));
+            concat += expr_string.stringValue;
         }
         
     }
