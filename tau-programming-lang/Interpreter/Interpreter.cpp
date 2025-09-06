@@ -984,7 +984,30 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                 }
             }
             
-            throw runtime_error("Invalid operand, the opearnd must be a variable.");
+            throw runtime_error("Invalid operand, the operand must be a variable.");
+
+        }
+            
+            // +90
+        case TokenType::ADD: {
+            if (holds_alternative<int>(rvalue)) return 0 + (get<int>(rvalue));
+            if (holds_alternative<size_t>(rvalue)) return 0 + (get<size_t>(rvalue));
+            if (holds_alternative<char>(rvalue)) return 0 + (get<char>(rvalue));
+            if (holds_alternative<bool>(rvalue)) return 0 + (get<bool>(rvalue) ? 1 : 0);
+            if (holds_alternative<Value>(rvalue)) return 0 + (get<Value>(rvalue).numberValue);
+
+            throw runtime_error("Invalid operand to perform +.");
+
+        }
+            // -89
+        case TokenType::MINUS: {
+            if (holds_alternative<int>(rvalue)) return 0 - (get<int>(rvalue));
+            if (holds_alternative<size_t>(rvalue)) return 0 - (get<size_t>(rvalue));
+            if (holds_alternative<char>(rvalue)) return 0 - (get<char>(rvalue));
+            if (holds_alternative<bool>(rvalue)) return 0 - (get<bool>(rvalue) ? 1 : 0);
+            if (holds_alternative<Value>(rvalue)) return 0 - (get<Value>(rvalue).numberValue);
+
+            throw runtime_error("Invalid operand to perform -.");
 
         }
                         
