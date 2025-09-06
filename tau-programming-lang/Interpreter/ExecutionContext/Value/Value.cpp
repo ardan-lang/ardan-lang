@@ -22,6 +22,51 @@ Value::Value(const string& str) {
     type = ValueType::STRING;
 }
 
+Value::Value(long n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(long long n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(short n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(unsigned short n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(unsigned int n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(unsigned long n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(unsigned long long n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(float n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
+Value::Value(long double n) {
+    type = ValueType::NUMBER;
+    numberValue = n;
+}
+
 string Value::toString() const {
     switch (type) {
         case ValueType::NUMBER: {
@@ -56,29 +101,6 @@ bool Value::isTruthy() const {
         case ValueType::METHOD: return true;
     }
     return false;
-}
-
-Value operator+(const Value& lhs, const Value& rhs) {
-    // If either is string → do string concatenation
-    if (lhs.type == ValueType::STRING || rhs.type == ValueType::STRING) {
-        return Value::str(lhs.toString() + rhs.toString());
-    }
-
-    // Else treat both as numbers
-    return Value::number(lhs.numberValue + rhs.numberValue);
-}
-
-bool operator==(const Value& lhs, const Value& rhs) {
-    if (lhs.type != rhs.type) return false;
-    switch (lhs.type) {
-        case ValueType::NUMBER: return lhs.numberValue == rhs.numberValue;
-        case ValueType::STRING: return lhs.stringValue == rhs.stringValue;
-        case ValueType::BOOLEAN: return lhs.boolValue == rhs.boolValue;
-        case ValueType::NULLTYPE: return true;
-        case ValueType::UNDEFINED: return true;
-        case ValueType::OBJECT: return lhs.objectValue == rhs.objectValue; // pointer equality
-        default: return false;
-    }
 }
 
 bool Value::isUndefined() {

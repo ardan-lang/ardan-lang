@@ -71,14 +71,23 @@ public:
     Value(int n);
 
     Value(double n);
-    
+    Value(long n);
+    Value(long long n);
+    Value(short n);
+    Value(unsigned short n);
+    Value(unsigned int n);
+    Value(unsigned long n);
+    Value(unsigned long long n);
+    Value(float n);
+    Value(long double n);
+
     Value(const string& str);
 
     std::string toString() const;
     bool isTruthy() const;
         
     bool isUndefined();
-    
-};
+    bool operator==(const Value& rhs);
 
+};
 #endif /* Value_h */

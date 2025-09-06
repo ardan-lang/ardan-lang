@@ -36,30 +36,6 @@ string toString(const R& val) {
     return "undefined"; // monostate
 }
 
-double toNumber(const R& val) {
-    if (holds_alternative<double>(val)) return get<double>(val);
-    if (holds_alternative<int>(val)) return static_cast<int>(get<int>(val));
-    if (holds_alternative<size_t>(val)) return static_cast<size_t>(get<size_t>(val));
-    if (holds_alternative<unsigned long>(val)) return static_cast<unsigned long>(get<unsigned long>(val));
-    if (holds_alternative<char>(val)) return static_cast<int>(get<char>(val));
-    if (holds_alternative<bool>(val)) return get<bool>(val) ? 1.0 : 0.0;
-    if (holds_alternative<string>(val)) {
-        try {
-            return stod(get<string>(val));
-        } catch (...) {
-            return nan(""); // JS: Number("abc") → NaN
-        }
-    }
-    if (holds_alternative<shared_ptr<Value>>(val)) {
-        return (get<shared_ptr<Value>>(val))->numberValue;
-   }
-    if (std::holds_alternative<Value>(val)) {
-        return (get<Value>(val)).numberValue;
-   }
-
-    return nan(""); // monostate = undefined → NaN
-}
-
 bool isNullish(const R& value) {
     // nullish = null or undefined in JS
     if (holds_alternative<std::nullptr_t>(value)) return true;
@@ -177,10 +153,48 @@ inline Value toValue(const R& r) {
             v.type = ValueType::NUMBER;
             v.numberValue = static_cast<int>(arg);
         }
+        else if constexpr (std::is_same_v<T, unsigned short>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<unsigned short>(arg);
+        }
         else if constexpr (std::is_same_v<T, unsigned long>) {
             v.type = ValueType::NUMBER;
             v.numberValue = static_cast<unsigned long>(arg);
         }
+        
+        // ******
+        
+        else if constexpr (std::is_same_v<T, long>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<long>(arg);
+        }
+        else if constexpr (std::is_same_v<T, long long>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<long long>(arg);
+        }
+        else if constexpr (std::is_same_v<T,short>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<short>(arg);
+        }
+        else if constexpr (std::is_same_v<T, unsigned int>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<unsigned int>(arg);
+        }
+        else if constexpr (std::is_same_v<T, unsigned long long>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<unsigned long long>(arg);
+        }
+        else if constexpr (std::is_same_v<T, float>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<float>(arg);
+        }
+        else if constexpr (std::is_same_v<T, long double>) {
+            v.type = ValueType::NUMBER;
+            v.numberValue = static_cast<long double>(arg);
+        }
+        
+        // ******
+        
         else if constexpr (std::is_same_v<T, char>) {
             v.type = ValueType::STRING;
             v.stringValue = arg;

@@ -25,11 +25,15 @@ using R = std::variant<
     std::monostate,
     std::nullptr_t,
     double,
-    long, long long,
+    unsigned long,
+    unsigned short,
+
+    long,
+    long long,
     short,
-    unsigned short, unsigned int, unsigned long, unsigned long long,
+    unsigned int, unsigned long long,
     float, long double,
-    // size_t,
+
     int,
     char,
     std::string,

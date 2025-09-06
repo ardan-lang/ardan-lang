@@ -721,26 +721,28 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
             return toValue(lvalue).numberValue + toValue(rvalue).numberValue;
         }
         case TokenType::MINUS:
-            return toNumber(lvalue) - toNumber(rvalue);
+            return toValue(lvalue).numberValue - toValue(rvalue).numberValue;
         case TokenType::MUL:
-            return toNumber(lvalue) * toNumber(rvalue);
+            return toValue(lvalue).numberValue * toValue(rvalue).numberValue;
         case TokenType::DIV:
-            return toNumber(lvalue) / toNumber(rvalue);
+            return toValue(lvalue).numberValue / toValue(rvalue).numberValue;
         case TokenType::MODULI:
-            return fmod(toNumber(lvalue), toNumber(rvalue));
+            return fmod(toValue(lvalue).numberValue,
+                        toValue(rvalue).numberValue);
         case TokenType::POWER:
-            return pow(toNumber(lvalue), toNumber(rvalue));
+            return pow(toValue(lvalue).numberValue,
+                       toValue(rvalue).numberValue);
 
         // --- Comparisons ---
-        case TokenType::VALUE_EQUAL:       return toNumber(lvalue) == toNumber(rvalue);
+        case TokenType::VALUE_EQUAL:       return toValue(lvalue).numberValue == toValue(rvalue).numberValue;
         case TokenType::REFERENCE_EQUAL:   return equals(lvalue, rvalue);
-        case TokenType::INEQUALITY:        return toNumber(lvalue) != toNumber(rvalue);
+        case TokenType::INEQUALITY:        return toValue(lvalue).numberValue != toValue(rvalue).numberValue;
         case TokenType::STRICT_INEQUALITY: return !equals(lvalue, rvalue);
 
-        case TokenType::LESS_THAN:         return toNumber(lvalue) < toNumber(rvalue);
-        case TokenType::LESS_THAN_EQUAL:   return toNumber(lvalue) <= toNumber(rvalue);
-        case TokenType::GREATER_THAN:      return toNumber(lvalue) > toNumber(rvalue);
-        case TokenType::GREATER_THAN_EQUAL:return toNumber(lvalue) >= toNumber(rvalue);
+        case TokenType::LESS_THAN:         return toValue(lvalue).numberValue < toValue(rvalue).numberValue;
+        case TokenType::LESS_THAN_EQUAL:   return toValue(lvalue).numberValue <= toValue(rvalue).numberValue;
+        case TokenType::GREATER_THAN:      return toValue(lvalue).numberValue > toValue(rvalue).numberValue;
+        case TokenType::GREATER_THAN_EQUAL:return toValue(lvalue).numberValue >= toValue(rvalue).numberValue;
 
         // --- Logical ---
         case TokenType::LOGICAL_AND:       return truthy(lvalue) && truthy(rvalue);
@@ -748,12 +750,17 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
         case TokenType::NULLISH_COALESCING:return (isNullish(lvalue) ? rvalue : lvalue);
 
         // --- Bitwise ---
-        case TokenType::BITWISE_AND:       return (int)toNumber(lvalue) & (int)toNumber(rvalue);
-        case TokenType::BITWISE_OR:        return (int)toNumber(lvalue) | (int)toNumber(rvalue);
-        case TokenType::BITWISE_XOR:       return (int)toNumber(lvalue) ^ (int)toNumber(rvalue);
-        case TokenType::BITWISE_LEFT_SHIFT:return (int)toNumber(lvalue) << (int)toNumber(rvalue);
-        case TokenType::BITWISE_RIGHT_SHIFT:return (int)toNumber(lvalue) >> (int)toNumber(rvalue);
-        case TokenType::UNSIGNED_RIGHT_SHIFT:return ((unsigned int)toNumber(lvalue)) >> (int)toNumber(rvalue);
+        case TokenType::BITWISE_AND:       return (int)toValue(lvalue)
+                .numberValue & (int)toValue(rvalue).numberValue;
+        case TokenType::BITWISE_OR:        return (int)toValue(lvalue)
+                .numberValue | (int)toValue(rvalue).numberValue;
+        case TokenType::BITWISE_XOR:       return (int)toValue(lvalue)
+                .numberValue ^ (int)toValue(rvalue).numberValue;
+        case TokenType::BITWISE_LEFT_SHIFT:return (int)toValue(lvalue)
+                .numberValue << (int)toValue(rvalue).numberValue;
+        case TokenType::BITWISE_RIGHT_SHIFT:return (int)toValue(lvalue)
+                .numberValue >> (int)toValue(rvalue).numberValue;
+        case TokenType::UNSIGNED_RIGHT_SHIFT:return ((unsigned int)toValue(lvalue).numberValue) >> (int)toValue(rvalue).numberValue;
 
         // --- Assignment & Compound Assignment ---
         case TokenType::ASSIGN:
@@ -809,14 +816,16 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                 case TokenType::ASSIGN_MINUS: newVal = visitBinary(new BinaryExpression(Token(TokenType::MINUS), std::move(expr->left), std::move(expr->right))); break;
                 case TokenType::ASSIGN_MUL: newVal = visitBinary(new BinaryExpression(Token(TokenType::MUL), std::move(expr->left), std::move(expr->right))); break;
                 case TokenType::ASSIGN_DIV: newVal = visitBinary(new BinaryExpression(Token(TokenType::DIV), std::move(expr->left), std::move(expr->right))); break;
-                case TokenType::MODULI_ASSIGN: newVal = fmod(toNumber(current), toNumber(rvalue)); break;
-                case TokenType::POWER_ASSIGN: newVal = pow(toNumber(current), toNumber(rvalue)); break;
-                case TokenType::BITWISE_AND_ASSIGN: newVal = (int)toNumber(current) & (int)toNumber(rvalue); break;
-                case TokenType::BITWISE_OR_ASSIGN: newVal = (int)toNumber(current) | (int)toNumber(rvalue); break;
-                case TokenType::BITWISE_XOR_ASSIGN: newVal = (int)toNumber(current) ^ (int)toNumber(rvalue); break;
-                case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: newVal = (int)toNumber(current) << (int)toNumber(rvalue); break;
-                case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: newVal = (int)toNumber(current) >> (int)toNumber(rvalue); break;
-                case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: newVal = ((unsigned int)toNumber(current)) >> (int)toNumber(rvalue); break;
+                case TokenType::MODULI_ASSIGN: newVal = fmod(toValue(current).numberValue,
+                                                             toValue(rvalue).numberValue); break;
+                case TokenType::POWER_ASSIGN: newVal = pow(toValue(current).numberValue,
+                                                           toValue(rvalue).numberValue); break;
+                case TokenType::BITWISE_AND_ASSIGN: newVal = (int)toValue(current).numberValue & (int)toValue(rvalue).numberValue; break;
+                case TokenType::BITWISE_OR_ASSIGN: newVal = (int)toValue(current).numberValue | (int)toValue(rvalue).numberValue; break;
+                case TokenType::BITWISE_XOR_ASSIGN: newVal = (int)toValue(current).numberValue ^ (int)toValue(rvalue).numberValue; break;
+                case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: newVal = (int)toValue(current).numberValue << (int)toValue(rvalue).numberValue; break;
+                case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: newVal = (int)toValue(current).numberValue >> (int)toValue(rvalue).numberValue; break;
+                case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: newVal = ((unsigned int)toValue(current).numberValue) >> (int)toValue(rvalue).numberValue; break;
                 case TokenType::LOGICAL_AND_ASSIGN: newVal = truthy(current) ? rvalue : current; break;
                 case TokenType::LOGICAL_OR_ASSIGN: newVal = truthy(current) ? current : rvalue; break;
                 case TokenType::NULLISH_COALESCING_ASSIGN: newVal = isNullish(current) ? rvalue : current; break;
@@ -904,7 +913,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                 
                 R value = env->get(ident->name);
                 
-                env->assign(ident->name, (toNumber(rvalue) + 1));
+                env->assign(ident->name, (toValue(rvalue).numberValue + 1));
                 
                 return value;
                 
@@ -925,7 +934,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                     
                     // Get and update property
                     Value oldVal = targetObj->get(key);
-                    Value newVal = toNumber(oldVal) + 1;
+                    Value newVal = toValue(oldVal).numberValue + 1;
                     targetObj->set(key, newVal);
                     
                     return oldVal;
@@ -945,7 +954,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                 
                 R value = env->get(ident->name);
                 
-                env->assign(ident->name, (toNumber(rvalue) - 1));
+                env->assign(ident->name, (toValue(rvalue).numberValue - 1));
                 
                 return value;
                 
@@ -966,7 +975,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                     
                     // Get and update property
                     Value oldVal = targetObj->get(key);
-                    Value newVal = toNumber(oldVal) - 1;
+                    Value newVal = toValue(oldVal).numberValue - 1;
                     
                     targetObj->set(key, newVal);
                     
@@ -995,7 +1004,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
         case TokenType::INCREMENT: {
             
             if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
-                R sum = toNumber(value) + 1;
+                R sum = toValue(value).numberValue + 1;
                 env->assign(ident->name, sum);
                 return sum;
             }
@@ -1016,7 +1025,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
 
                 // Get and update property
                 Value oldVal = targetObj->get(key);
-                Value newVal = toNumber(oldVal) + 1;
+                Value newVal = toValue(oldVal).numberValue + 1;
                 
                 targetObj->set(key, newVal);
                 
@@ -1031,7 +1040,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
         case TokenType::DECREMENT: {
             
             if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
-                R sum = toNumber(value) - 1;
+                R sum = toValue(value).numberValue - 1;
                 env->assign(ident->name, sum);
                 return sum;
             }
@@ -1052,7 +1061,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
 
                 // Get and update property
                 Value oldVal = targetObj->get(key);
-                Value newVal = toNumber(oldVal) - 1;
+                Value newVal = toValue(oldVal).numberValue - 1;
                 
                 targetObj->set(key, newVal);
                 
@@ -1520,7 +1529,7 @@ R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
         
         if (expr_stmt) {
             Value expr_string = toValue(expr_stmt->expression->accept(*this));
-            concat += expr_string.stringValue;
+            concat += expr_string.toString();
         }
         
     }
