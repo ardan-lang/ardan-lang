@@ -578,27 +578,79 @@ void Scanner::collectLiteralString() {
     
     addToken(TokenType::TEMPLATE_END);
     
-    // addToken(TokenType::STRING, concat);
     concat = "";
 
 }
 
 void Scanner::collectNumber() {
-    
     string num;
-    
-    while (isDigit()) {
+    char c = currentCharacter();
 
-        num += currentCharacter();
-
-        advance();
-        
+    // --- Hexadecimal ---
+    if (c == '0' && (peek() == 'x' || peek() == 'X')) {
+        num += c; advance();
+        num += currentCharacter(); advance();
+        while (isxdigit(currentCharacter())) {
+            num += currentCharacter();
+            advance();
+        }
+        addToken(TokenType::NUMBER, num);
+        return;
     }
-    
+
+    // --- Binary ---
+    if (c == '0' && (peek() == 'b' || peek() == 'B')) {
+        num += c; advance();
+        num += currentCharacter(); advance();
+        while (currentCharacter() == '0' || currentCharacter() == '1') {
+            num += currentCharacter();
+            advance();
+        }
+        addToken(TokenType::NUMBER, num);
+        return;
+    }
+
+    // --- Octal ---
+    if (c == '0' && (peek() == 'o' || peek() == 'O')) {
+        num += c; advance();
+        num += currentCharacter(); advance();
+        while (currentCharacter() >= '0' && currentCharacter() <= '7') {
+            num += currentCharacter();
+            advance();
+        }
+        addToken(TokenType::NUMBER, num);
+        return;
+    }
+
+    // --- Decimal or Float ---
+    bool hasDot = false;
+    while (isDigit() || currentCharacter() == '.') {
+        if (currentCharacter() == '.') {
+            if (hasDot) break; // second dot → stop
+            hasDot = true;
+        }
+        num += currentCharacter();
+        advance();
+    }
+
+    // --- Scientific notation ---
+    if (currentCharacter() == 'e' || currentCharacter() == 'E') {
+        num += currentCharacter();
+        advance();
+        if (currentCharacter() == '+' || currentCharacter() == '-') {
+            num += currentCharacter();
+            advance();
+        }
+        while (isDigit()) {
+            num += currentCharacter();
+            advance();
+        }
+    }
+
     addToken(TokenType::NUMBER, num);
     
     reverse();
-
+    
 }
 
 void Scanner::collectIdentifier() {

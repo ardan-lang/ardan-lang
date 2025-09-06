@@ -174,9 +174,9 @@ R Interpreter::visitCall(CallExpression* expr) {
         string property_name = member->name.lexeme;
                 
         // check if its a native function
-        Value propVal = js_object->get(property_name);
+        Value prop_val = js_object->get(property_name);
 
-        if (propVal.type == ValueType::NATIVE_FUNCTION) {
+        if (prop_val.type == ValueType::NATIVE_FUNCTION) {
                         
             vector<Value> argValues;
             for (auto& arg : expr->arguments) {
@@ -189,7 +189,7 @@ R Interpreter::visitCall(CallExpression* expr) {
                 
             }
             
-            R val = propVal.nativeFunction(argValues);
+            R val = prop_val.nativeFunction(argValues);
             
             return val;
             
@@ -211,9 +211,9 @@ R Interpreter::visitCall(CallExpression* expr) {
         
         // this property name is the name of method in the object to be called.
         // we need to be able to walkup the superclass chain to find methods
-        if (propVal.type == ValueType::METHOD) {
+        if (prop_val.type == ValueType::METHOD) {
 
-            MethodDefinition* method = propVal.objectValue->getKlass()->methods[property_name].get();
+            MethodDefinition* method = prop_val.objectValue->getKlass()->methods[property_name].get();
 
             // MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
 
@@ -1174,6 +1174,7 @@ R Interpreter::visitMember(MemberExpression* expr) {
         R object_instance = env->get(object_name);
         js_object_instance = get<shared_ptr<JSObject>>(object_instance);
         
+        // check if property_name is public
         return_value = js_object_instance->get(property_name);
 
     }

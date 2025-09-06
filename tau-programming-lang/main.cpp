@@ -304,7 +304,7 @@ int main(int argc, const char * argv[]) {
     
     class User extends Parent {
         var name = "NN";
-        var age = 8;
+        var age = 8.9;
     
         change(){
         this["name"] = "chan";
