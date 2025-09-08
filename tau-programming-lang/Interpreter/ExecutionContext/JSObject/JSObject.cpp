@@ -22,12 +22,12 @@ void JSObject::set(const string& key, const Value& val) {
     // Look in own properties
     auto it = var_properties.find(key);
     if (it != var_properties.end()) {
-        var_properties[key] = val;
+        var_properties[key].value = val;
     }
     
     auto let_it = let_properties.find(key);
     if (let_it != let_properties.end()) {
-        let_properties[key] = val;
+        let_properties[key].value = val;
     }
     
     auto const_it = const_properties.find(key);
@@ -37,13 +37,13 @@ void JSObject::set(const string& key, const Value& val) {
 
 }
 
-void JSObject::set(const string& key, const Value& val, string type) {
+void JSObject::set(const string& key, const Value& val, string type, vector<string> modifiers) {
     if (type == "LET") {
-        let_properties[key] = val;
+        let_properties[key] = { key, modifiers, val };
     } else if(type == "CONST") {
-        const_properties[key] = val;
+        const_properties[key] = { key, modifiers, val };
     } else {
-        var_properties[key] = val;
+        var_properties[key] = { key, modifiers, val };
     }
 }
 
@@ -52,17 +52,17 @@ Value JSObject::get(const string& key) {
     // Look in own properties
     auto it = var_properties.find(key);
     if (it != var_properties.end()) {
-        return it->second;
+        return it->second.value;
     }
     
     auto let_it = let_properties.find(key);
     if (let_it != let_properties.end()) {
-        return let_it->second;
+        return let_it->second.value;
     }
     
     auto const_it = const_properties.find(key);
     if (const_it != const_properties.end()) {
-        return const_it->second;
+        return const_it->second.value;
     }
 
     // Walk prototype chain (parent object)
@@ -90,15 +90,15 @@ const unordered_map<string, Value> JSObject::get_all_properties() {
     unordered_map<string, Value> all_properties = {};
     
     for (auto& prop : var_properties) {
-        all_properties[prop.first] = prop.second;
+        all_properties[prop.first] = prop.second.value;
     }
     
     for (auto& let_prop : let_properties) {
-        all_properties[let_prop.first] = let_prop.second;
+        all_properties[let_prop.first] = let_prop.second.value;
     }
     
     for (auto& const_prop : const_properties) {
-        all_properties[const_prop.first] = const_prop.second;
+        all_properties[const_prop.first] = const_prop.second.value;
     }
 
     return all_properties;

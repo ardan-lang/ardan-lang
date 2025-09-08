@@ -19,12 +19,6 @@ class MethodDefinition;
 
 using namespace std;
 
-struct ValueField {
-    string key;
-    vector<string> modifiers;
-    Value value;
-};
-
 class JSClass {
 public:
     string name;

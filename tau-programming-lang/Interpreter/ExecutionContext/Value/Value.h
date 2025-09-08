@@ -35,7 +35,7 @@ class JSClass;
 using NativeFn = function<Value(const vector<Value>&)>;
 
 class Value {
-    
+
 public:
     
     ValueType type;
@@ -98,4 +98,11 @@ public:
     bool operator==(const Value& rhs);
 
 };
+
+struct ValueField {
+    string key;
+    vector<string> modifiers;
+    Value value;
+};
+
 #endif /* Value_h */

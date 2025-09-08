@@ -20,9 +20,9 @@ using namespace std;
 // class JSClass;
 
 class JSObject {
-    unordered_map<string, Value> var_properties;
-    unordered_map<string, Value> let_properties;
-    unordered_map<string, Value> const_properties;
+    unordered_map<string, ValueField> var_properties;
+    unordered_map<string, ValueField> let_properties;
+    unordered_map<string, ValueField> const_properties;
 
     // class of this object
     shared_ptr<JSClass> js_class;
@@ -36,7 +36,7 @@ public:
     bool operator!=(const JSObject& other) const;
     
     void set(const string& key, const Value& val);
-    void set(const string& key, const Value& val, string type);
+    void set(const string& key, const Value& val, string type, vector<string> modifiers);
 
     Value get(const string& key);
 

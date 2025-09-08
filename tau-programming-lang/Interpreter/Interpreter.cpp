@@ -1481,6 +1481,15 @@ R Interpreter::visitNew(NewExpression* expr) {
         
         for (auto& field : new_class->fields) {
 
+            vector<string> field_modifiers;
+            
+            for (auto& modifier : field.second->modifiers) {
+
+                string current_modifier = get<string>(modifier->accept(*this));
+                field_modifiers.push_back(current_modifier);
+                
+            }
+
             // property is a Statement: VariableStatement
             if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
 
@@ -1497,7 +1506,10 @@ R Interpreter::visitNew(NewExpression* expr) {
                         R value = declarator.init->accept(*this);
 
                         // TODO: fix
-                        object->set(declarator.id, toValue(value), kind);
+                        object->set(declarator.id,
+                                    toValue(value),
+                                    kind,
+                                    field_modifiers);
 
                     }
                 }
@@ -1512,6 +1524,15 @@ R Interpreter::visitNew(NewExpression* expr) {
         // copy methods
         for (auto& method : new_class->methods) {
             
+            vector<string> field_modifiers;
+            
+            for (auto& modifier : method.second->modifiers) {
+
+                string current_modifier = get<string>(modifier->accept(*this));
+                field_modifiers.push_back(current_modifier);
+                
+            }
+
             if (method.first == "constructor") {
                 constructor = method.second.get();
             }
@@ -1531,7 +1552,10 @@ R Interpreter::visitNew(NewExpression* expr) {
                 
             }
             
-            object->set(method.first, Value::method(object), kind);
+            object->set(method.first,
+                        Value::method(object),
+                        kind,
+                        field_modifiers);
             
         }
         
@@ -1747,6 +1771,15 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
 
             for (auto& declarator : variable->declarations) {
                 
+                vector<string> field_modifiers;
+                
+                for (auto& modifier : field.second->modifiers) {
+
+                    string current_modifier = get<string>(modifier->accept(*this));
+                    field_modifiers.push_back(current_modifier);
+                    
+                }
+
                 if (declarator.init == nullptr) {
                     throw runtime_error("Missing initializer in const declaration: " + declarator.id);
                 }
@@ -1758,7 +1791,10 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
                     R value = declarator.init->accept(*this);
 
                     // TODO: fix
-                    object->set(declarator.id, toValue(value), kind);
+                    object->set(declarator.id,
+                                toValue(value),
+                                kind,
+                                field_modifiers);
 
                 }
             }
@@ -1769,7 +1805,9 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
                 
     // copy methods
     for (auto& method : klass->methods) {
-
+        
+        vector<string> field_modifiers;
+        
         string kind = "VAR";
         
         for (auto& modifier : method.second->modifiers) {
@@ -1783,9 +1821,12 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
                 kind = "CONST";
             }
             
+            string current_modifier = get<string>(modifier->accept(*this));
+            field_modifiers.push_back(current_modifier);
+            
         }
 
-        object->set(method.first, Value::method(object), kind);
+        object->set(method.first, Value::method(object), kind, field_modifiers);
         
     }
     
@@ -1874,7 +1915,9 @@ bool Interpreter::check_obj_prop_access(MemberExpression* member,
     
     // if env->this_binding is null then
     
-    for (auto& field : js_object->getKlass()->fields) {
+    shared_ptr<JSClass> klass = js_object->getKlass();
+    
+    for (auto& field : klass->fields) {
         if (field.first == key) {
             // get the modifiers
             for (auto& modifier : field.second->modifiers) {
@@ -1888,7 +1931,7 @@ bool Interpreter::check_obj_prop_access(MemberExpression* member,
         }
     }
     
-    for (auto& method : js_object->getKlass()->methods) {
+    for (auto& method : klass->methods) {
         if (method.first == key) {
             // get the modifiers
             for (auto& modifier : method.second->modifiers) {
