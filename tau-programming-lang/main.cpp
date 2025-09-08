@@ -334,6 +334,23 @@ int main(int argc, const char * argv[]) {
 //    let name = "NChi";
 //    let n = `Hello ${name}, you are ${1 + 2}${1 + 2} years old`;
 //    print(n);
+    
+    class Point {
+        var x = 0;
+        var y = 0;
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+        }
+        move(dx, dy) {
+            this.x += dx;
+            this.y += dy;
+        }
+    }
+
+    let pt = new Point(0, 0);
+    pt.move(3, 4);
+    print(pt.x, pt.y); // 3, 4
     )";
 
     Scanner scanner(lang);

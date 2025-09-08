@@ -324,7 +324,9 @@ private:
             if (match(TokenType::LEFT_PARENTHESIS)) {
                 if (!check(TokenType::RIGHT_PARENTHESIS)) {
                     do {
-                        args.push_back(parseExpression());
+                                                
+                        args.push_back(parseAssignment());
+                        
                     } while (match(TokenType::COMMA));
                 }
                 consume(TokenType::RIGHT_PARENTHESIS,

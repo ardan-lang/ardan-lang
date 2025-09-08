@@ -238,6 +238,19 @@ R Interpreter::visitCall(CallExpression* expr) {
                 env->this_binding = js_object;
             }
             
+            int index = 0;
+            for (auto& arg : expr->arguments) {
+                
+                string key;
+                
+                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(method->params[index].get())) {
+                    key = ident->name;
+                }
+                
+                env->setStackValue(key, arg->accept(*this));
+                index++;
+            }
+
             method->accept(*this);
 
         }
