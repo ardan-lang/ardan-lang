@@ -71,6 +71,7 @@ R Interpreter::visitBlock(BlockStatement* stmt) {
     }
     
     previous->clearStack();
+    previous->this_binding = nullptr;
     delete env;                    // cleanup after block
     env = previous;                // restore old scope
     
@@ -576,6 +577,8 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
     // loop through fields
     for (auto& field : stmt->fields) {
         
+        vector<string> field_modifiers;
+        
         // check tha field is a variable statement
         if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field->property.get())) {
             
@@ -583,20 +586,20 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
                 throw runtime_error("You cannot have multiple variable declarations here.");
             }
             
-            bool isStatic = false;
+            bool is_static = false;
             
             for (auto& modifier : field->modifiers) {
 
                 string current_modifier = get<string>(modifier->accept(*this));
+                field_modifiers.push_back(current_modifier);
 
                 if (current_modifier == "static") {
-                    isStatic = true;
-                    break;
+                    is_static = true;
                 }
                 
             }
             
-            if (isStatic) {
+            if (is_static) {
 
                 if (VariableStatement* variable_stmt = dynamic_cast<VariableStatement*>(field->property.get())) {
                     
@@ -612,14 +615,14 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
                     string var_kind = variable_stmt->kind;
                     string id = variable->declarations[0].id;
                     Value value = toValue(variable_stmt->declarations[0].init->accept(*this));
-                    
+
                     if (var_kind == "LET") {
-                        js_class->let_static_fields[id] = value;
+                        js_class->set_let(id, value, field_modifiers);
                     } else if (var_kind == "CONST") {
-                        js_class->const_static_fields[id] = value;
+                        js_class->set_const(id, value, field_modifiers);
                     }
                     
-                    js_class->var_static_fields[id] = value;
+                    js_class->set_var(id, value, field_modifiers);
                     
                 } else {
                     
@@ -638,21 +641,24 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
     // loop through methods
     for (auto& method : stmt->body) {
         
-        bool isStatic = false;
+        vector<string> field_modifiers;
+        bool is_static = false;
         
         for (auto& modifier : method->modifiers) {
 
             string current_modifier = get<string>(modifier->accept(*this));
+            field_modifiers.push_back(current_modifier);
 
             if (current_modifier == "static") {
-                isStatic = true;
-                break;
+                is_static = true;
             }
             
         }
 
-        if (isStatic) {
-            js_class->var_static_fields[method->name] = Value::method(js_class);
+        if (is_static) {
+            js_class->set_var(method->name,
+                              Value::method(js_class),
+                              field_modifiers);
         } else {
             js_class->methods[method->name] = std::move(method);
         }
@@ -1573,40 +1579,42 @@ R Interpreter::visitSuper(SuperExpression* expr) {
     
     shared_ptr<JSClass> parent_class = env->this_binding->parent_class;
     
-    auto parent_object = make_shared<JSObject>();
+    shared_ptr<JSObject> parent_object = get<shared_ptr<JSObject>>(env->get(parent_class->name));
+    
+//    auto parent_object = make_shared<JSObject>();
 
     // add all props from this_binding to parent class.
-    for (auto& field : parent_class->fields) {
-
-        // property is a Statement: VariableStatement
-        if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
-
-            for (auto& declarator : variable->declarations) {
-                
-                if (declarator.init == nullptr) {
-                    throw runtime_error("Missing initializer in const declaration: " + declarator.id);
-                }
-                
-                if (declarator.init) {
-                    
-                    R value = declarator.init->accept(*this);
-
-                    // TODO: fix
-                    parent_object->set(declarator.id, toValue(value));
-
-                }
-            }
-
-        }
-
-    }
+//    for (auto& field : parent_class->fields) {
+//
+//        // property is a Statement: VariableStatement
+//        if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
+//
+//            for (auto& declarator : variable->declarations) {
+//                
+//                if (declarator.init == nullptr) {
+//                    throw runtime_error("Missing initializer in const declaration: " + declarator.id);
+//                }
+//                
+//                if (declarator.init) {
+//                    
+//                    R value = declarator.init->accept(*this);
+//
+//                    // TODO: fix
+//                    parent_object->set(declarator.id, toValue(value));
+//
+//                }
+//            }
+//
+//        }
+//
+//    }
                 
     // copy methods
-    for (auto& method : parent_class->methods) {
-                
-        parent_object->set(method.first, Value::method(parent_object));
-        
-    }
+//    for (auto& method : parent_class->methods) {
+//                
+//        parent_object->set(method.first, Value::method(parent_object));
+//        
+//    }
     
     env->this_binding->parent_object = parent_object;
     

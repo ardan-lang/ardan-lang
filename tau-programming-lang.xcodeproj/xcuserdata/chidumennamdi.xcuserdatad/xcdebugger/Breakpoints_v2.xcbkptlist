@@ -30,8 +30,8 @@
             filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1217"
-            endingLineNumber = "1217"
+            startingLineNumber = "1223"
+            endingLineNumber = "1223"
             landmarkName = "Interpreter::visitUpdate(expr)"
             landmarkType = "7">
          </BreakpointContent>
@@ -78,25 +78,9 @@
             filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1181"
-            endingLineNumber = "1181"
+            startingLineNumber = "1187"
+            endingLineNumber = "1187"
             landmarkName = "Interpreter::visitUpdate(expr)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "D2DEEE4A-6786-4FBA-A0A0-185B31210735"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "629"
-            endingLineNumber = "629"
-            landmarkName = "Interpreter::visitClass(stmt)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -110,8 +94,8 @@
             filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1339"
-            endingLineNumber = "1339"
+            startingLineNumber = "1345"
+            endingLineNumber = "1345"
             landmarkName = "Interpreter::visitMember(expr)"
             landmarkType = "7">
          </BreakpointContent>

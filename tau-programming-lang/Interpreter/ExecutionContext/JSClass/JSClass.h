@@ -19,6 +19,12 @@ class MethodDefinition;
 
 using namespace std;
 
+struct ValueField {
+    string key;
+    vector<string> modifiers;
+    Value value;
+};
+
 class JSClass {
 public:
     string name;
@@ -26,15 +32,23 @@ public:
     unordered_map<string, unique_ptr<PropertyDeclaration>> fields;
     unordered_map<string, unique_ptr<MethodDefinition>> methods;
 
-    unordered_map<string, Value> var_static_fields;
-    unordered_map<string, Value> let_static_fields;
-    unordered_map<string, Value> const_static_fields;
+    unordered_map<string, ValueField> var_static_fields;
+    unordered_map<string, ValueField> let_static_fields;
+    unordered_map<string, ValueField> const_static_fields;
 
     // need to add var, let, const fields
     
     Value get(const string& key, bool perform_privacy_check);
+    // calling this, we don't need the modifiers because it has been set by visitClassDeclarartions
     void set(const string& key, Value value, bool perform_privacy_check);
-    
+    void check_privacy(const string& key);
+    bool hasModifier(const vector<string>& mods, const string& name);
+
+    // only called in visitClassDeclarartions
+    void set_var(const string& key, Value value, const vector<string> modifiers);
+    void set_let(const string& key, Value value, const vector<string> modifiers);
+    void set_const(const string& key, Value value, const vector<string> modifiers);
+
 };
 
 #endif /* JSClass_h */
