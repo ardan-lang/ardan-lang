@@ -26,7 +26,9 @@ public:
     unordered_map<string, unique_ptr<PropertyDeclaration>> fields;
     unordered_map<string, unique_ptr<MethodDefinition>> methods;
 
-    unordered_map<string, Value> static_fields;
+    unordered_map<string, Value> var_static_fields;
+    unordered_map<string, Value> let_static_fields;
+    unordered_map<string, Value> const_static_fields;
 
     // need to add var, let, const fields
     

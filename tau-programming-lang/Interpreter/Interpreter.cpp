@@ -463,7 +463,7 @@ R Interpreter::visitForIn(ForInStatement* stmt) {
     shared_ptr<JSObject> js_object = get<shared_ptr<JSObject>>(value);
     
     // loop through the object fields
-    for (auto& field : *js_object->get_all_properties()) {
+    for (auto field : js_object->get_all_properties()) {
         
         try {
             
@@ -514,7 +514,7 @@ R Interpreter::visitForOf(ForOfStatement* stmt) {
     
     shared_ptr<JSArray> js_array = get<shared_ptr<JSArray>>(stmt->right->accept(*this));
     
-    for (auto& element : *js_array->get_all_properties()) {
+    for (auto& element : js_array->get_all_properties()) {
         
         if (element.first == "length") {
             continue;
@@ -591,20 +591,50 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
 
                 if (current_modifier == "static") {
                     isStatic = true;
+                    break;
                 }
                 
             }
             
             if (isStatic) {
-                js_class->static_fields[variable->declarations[0].id] = toValue(field->property->accept(*this));
-            } else {
+
+                if (VariableStatement* variable_stmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+                    
+                    if (variable_stmt->declarations.size() == 0) {
+                        throw runtime_error("static field must be initialized.");
+                    }
+                    
+                    if (variable_stmt->declarations.size() > 1) {
+                        throw runtime_error("Multiple declarations is not allowed.");
+                    }
+                    
+                    // var, let or const
+                    string var_kind = variable_stmt->kind;
+                    string id = variable->declarations[0].id;
+                    Value value = toValue(variable_stmt->declarations[0].init->accept(*this));
+                    
+                    if (var_kind == "LET") {
+                        js_class->let_static_fields[id] = value;
+                    } else if (var_kind == "CONST") {
+                        js_class->const_static_fields[id] = value;
+                    }
+                    
+                    js_class->var_static_fields[id] = value;
+                    
+                } else {
+                    
+                    throw runtime_error("static field should be a variable statement.");
+                }
+                
+            }
+            else {
                 js_class->fields[variable->declarations[0].id] = std::move(field);
             }
      
         }
         
     }
-        
+
     // loop through methods
     for (auto& method : stmt->body) {
         
@@ -622,7 +652,7 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
         }
 
         if (isStatic) {
-            js_class->static_fields[method->name] = Value::method(js_class);
+            js_class->var_static_fields[method->name] = Value::method(js_class);
         } else {
             js_class->methods[method->name] = std::move(method);
         }
@@ -1185,7 +1215,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 // Get and update property
                 if (targetObj) {
                     Value oldVal = targetObj->get(key);
-                    Value newVal = toValue(oldVal).numberValue + 1;
+                    newVal = toValue(oldVal).numberValue + 1;
                     
                     check_obj_prop_access(member,
                                           targetObj.get(),
@@ -1197,7 +1227,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 if (targetKlass) {
                     
                     Value oldVal = targetKlass->get(key, env->this_binding ? false : true);
-                    Value newVal = toValue(oldVal).numberValue + 1;
+                    newVal = toValue(oldVal).numberValue + 1;
                                         
                     targetKlass->set(key, newVal, env->this_binding ? false : true);
 
@@ -1249,7 +1279,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 // Get and update property
                 if (targetObj) {
                     Value oldVal = targetObj->get(key);
-                    Value newVal = toValue(oldVal).numberValue - 1;
+                    newVal = toValue(oldVal).numberValue - 1;
                     
                     check_obj_prop_access(member, targetObj.get(), key);
                     
@@ -1259,7 +1289,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 if (targetKlass) {
                     
                     Value oldVal = targetKlass->get(key, env->this_binding ? false : true);
-                    Value newVal = toValue(oldVal).numberValue - 1;
+                    newVal = toValue(oldVal).numberValue - 1;
                                         
                     targetKlass->set(key, newVal, env->this_binding ? false : true);
 
@@ -1454,12 +1484,14 @@ R Interpreter::visitNew(NewExpression* expr) {
                         throw runtime_error("Missing initializer in const declaration: " + declarator.id);
                     }
                     
+                    string kind = declarator.id;
+                    
                     if (declarator.init) {
                         
                         R value = declarator.init->accept(*this);
 
                         // TODO: fix
-                        object->set(declarator.id, toValue(value));
+                        object->set(declarator.id, toValue(value), kind);
 
                     }
                 }
@@ -1478,7 +1510,23 @@ R Interpreter::visitNew(NewExpression* expr) {
                 constructor = method.second.get();
             }
             
-            object->set(method.first, Value::method(object));
+            string kind = "VAR";
+            
+            for (auto& modifier : method.second->modifiers) {
+                
+                Value val = toValue(modifier->accept(*this));
+                
+                if (val.stringValue == "LET") {
+                    kind = "LET";
+                }
+                if (val.stringValue == "CONST") {
+                    kind = "CONST";
+                }
+                
+            }
+            
+            object->set(method.first, Value::method(object), kind);
+            
         }
         
         // create a jsobject from supercalss and assigne to parent_object
@@ -1694,13 +1742,15 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
                 if (declarator.init == nullptr) {
                     throw runtime_error("Missing initializer in const declaration: " + declarator.id);
                 }
-                
+
+                string kind = declarator.id;
+
                 if (declarator.init) {
                     
                     R value = declarator.init->accept(*this);
 
                     // TODO: fix
-                    object->set(declarator.id, toValue(value));
+                    object->set(declarator.id, toValue(value), kind);
 
                 }
             }
@@ -1711,8 +1761,23 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
                 
     // copy methods
     for (auto& method : klass->methods) {
-                
-        object->set(method.first, Value::method(object));
+
+        string kind = "VAR";
+        
+        for (auto& modifier : method.second->modifiers) {
+            
+            Value val = toValue(modifier->accept(*this));
+            
+            if (val.stringValue == "LET") {
+                kind = "LET";
+            }
+            if (val.stringValue == "CONST") {
+                kind = "CONST";
+            }
+            
+        }
+
+        object->set(method.first, Value::method(object), kind);
         
     }
     

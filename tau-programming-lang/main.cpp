@@ -303,32 +303,34 @@ int main(int argc, const char * argv[]) {
     }
     
     class User extends Parent {
-        var name = "NN";
+        public var name = "NN";
         static var age = -8.9;
     
         change(){
-        print("--------------");
-        this["name"] = "changed to nameee";
-        //this["age"]++;
-        print("----------end----------");
-    }
+    
+            print("--------------");
+            this["name"] = "changed to nameee";
+            //this["age"]++;
+            print("----------end----------");
+    
+        }
     }
     
     const user_obj = new User();
     print(user_obj.parentName);
-    user_obj.testParent();
-    
-    user_obj.name = "CC";
-    print(user_obj.name);
-    user_obj.testParent();
-    user_obj.change();
-    print(user_obj.name);
-    print(User.age++);
-    print(--User.age);
-    print(User.age);
-    let name = "NChi";
-    let n = `Hello ${name}, you are ${1 + 2}${1 + 2} years old`;
-    print(n);
+//    user_obj.testParent();
+//    
+//    user_obj.name = "CC";
+//    print(user_obj.name);
+      user_obj.testParent();
+      user_obj.change();
+      print(user_obj.name);
+      print(User.age++);
+      print(--User.age);
+      print(User.age);
+//    let name = "NChi";
+//    let n = `Hello ${name}, you are ${1 + 2}${1 + 2} years old`;
+//    print(n);
     )";
 
     Scanner scanner(lang);
