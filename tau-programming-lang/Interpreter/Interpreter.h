@@ -36,6 +36,11 @@ public:
     
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     shared_ptr<JSObject> getMemberExprJSObject(MemberExpression* member);
+    shared_ptr<JSClass> getMemberExprJSClass(MemberExpression* member);
+    
+    bool check_obj_prop_access(MemberExpression* member,
+                               JSObject* js_object,
+                               const string& key);
 
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;

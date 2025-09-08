@@ -25,10 +25,13 @@ public:
     shared_ptr<JSClass> superClass;
     unordered_map<string, unique_ptr<PropertyDeclaration>> fields;
     unordered_map<string, unique_ptr<MethodDefinition>> methods;
-    
+
+    unordered_map<string, Value> static_fields;
+
     // need to add var, let, const fields
     
-    Value get(const string& key);
+    Value get(const string& key, bool perform_privacy_check);
+    void set(const string& key, Value value, bool perform_privacy_check);
     
 };
 

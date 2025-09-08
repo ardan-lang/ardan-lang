@@ -169,12 +169,25 @@ R Interpreter::visitCall(CallExpression* expr) {
         // it is a dot access
         // get the object name and the JSObject.
         R object = member->object->accept(*this);
-        shared_ptr<JSObject> js_object = get<shared_ptr<JSObject>>(object);
-        
         string property_name = member->name.lexeme;
-                
-        // check if its a native function
-        Value prop_val = js_object->get(property_name);
+        Value prop_val;
+        
+        shared_ptr<JSObject> js_object = nullptr;
+        shared_ptr<JSClass> js_class = nullptr;
+
+        // TODO: adding support for static calls. e.g User.getAge();
+        if (std::get_if<std::shared_ptr<JSClass>>(&object)) {
+            
+            js_class = get<std::shared_ptr<JSClass>>(object);
+            prop_val = js_class->get(property_name, env->this_binding ? false : true);
+            
+        } else if (std::get_if<std::shared_ptr<JSObject>>(&object)) {
+            
+            js_object = get<std::shared_ptr<JSObject>>(object);
+            check_obj_prop_access(member, js_object.get(), property_name);
+            prop_val = js_object->get(property_name);
+            
+        }
 
         if (prop_val.type == ValueType::NATIVE_FUNCTION) {
                         
@@ -213,11 +226,16 @@ R Interpreter::visitCall(CallExpression* expr) {
         // we need to be able to walkup the superclass chain to find methods
         if (prop_val.type == ValueType::METHOD) {
 
-            MethodDefinition* method = prop_val.objectValue->getKlass()->methods[property_name].get();
+            MethodDefinition* method = nullptr;
 
-            // MethodDefinition* method = js_object->getKlass()->methods[property_name].get();
-
-            env->this_binding = js_object;
+            if (js_class != nullptr) {
+                method = prop_val.classValue->methods[property_name].get();
+            }
+            
+            if (js_object != nullptr) {
+                method = prop_val.objectValue->getKlass()->methods[property_name].get();
+                env->this_binding = js_object;
+            }
             
             method->accept(*this);
 
@@ -550,6 +568,7 @@ R Interpreter::visitEmpty(EmptyStatement* stmt) {
     return true;
 }
 
+// TODO: evaluate static fields
 R Interpreter::visitClass(ClassDeclaration* stmt) {
     
     auto js_class = make_shared<JSClass>();
@@ -563,8 +582,24 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
             if (variable->declarations.size() > 1) {
                 throw runtime_error("You cannot have multiple variable declarations here.");
             }
-     
-            js_class->fields[variable->declarations[0].id] = std::move(field);
+            
+            bool isStatic = false;
+            
+            for (auto& modifier : field->modifiers) {
+
+                string current_modifier = get<string>(modifier->accept(*this));
+
+                if (current_modifier == "static") {
+                    isStatic = true;
+                }
+                
+            }
+            
+            if (isStatic) {
+                js_class->static_fields[variable->declarations[0].id] = toValue(field->property->accept(*this));
+            } else {
+                js_class->fields[variable->declarations[0].id] = std::move(field);
+            }
      
         }
         
@@ -572,7 +607,26 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
         
     // loop through methods
     for (auto& method : stmt->body) {
-        js_class->methods[method->name] = std::move(method);
+        
+        bool isStatic = false;
+        
+        for (auto& modifier : method->modifiers) {
+
+            string current_modifier = get<string>(modifier->accept(*this));
+
+            if (current_modifier == "static") {
+                isStatic = true;
+                break;
+            }
+            
+        }
+
+        if (isStatic) {
+            js_class->static_fields[method->name] = Value::method(js_class);
+        } else {
+            js_class->methods[method->name] = std::move(method);
+        }
+        
     }
     
     js_class->name = stmt->id;
@@ -837,6 +891,11 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                 string property_name;
 
                 auto* this_epxr = dynamic_cast<ThisExpression*>(member_expr->object.get());
+                auto* super_epxr = dynamic_cast<ThisExpression*>(member_expr->object.get());
+
+                if (super_epxr) {
+                    current = env->this_binding->parent_object;
+                }
                 
                 // this.name
                 if (this_epxr) {
@@ -858,9 +917,29 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                     property_name = member_expr->name.lexeme;
                 }
                 
-                shared_ptr<JSObject> current_object = get<shared_ptr<JSObject>>(current);
-                current_object
-                    .get()->set(property_name, toValue(newVal));
+                if (holds_alternative<shared_ptr<JSObject>>(current)) {
+                    
+                    shared_ptr<JSObject> current_object = get<shared_ptr<JSObject>>(current);
+
+                    check_obj_prop_access(member_expr,
+                                          current_object.get(),
+                                          property_name);
+                    
+                    current_object
+                        .get()->set(property_name, toValue(newVal));
+
+                }
+                
+                if (holds_alternative<shared_ptr<JSClass>>(current)) {
+                    
+                    shared_ptr<JSClass> current_klass = get<shared_ptr<JSClass>>(current);
+                    current_klass
+                        .get()->set(property_name,
+                                    toValue(newVal),
+                                    env->this_binding ? false : true);
+
+                }
+
                 return monostate();
                 
             }
@@ -920,9 +999,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
             } else {
                 // this is member expression.
                 if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->right.get())) {
-                    
-                    shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
-                    
+                                        
                     // Compute property key
                     std::string key;
                     if (member->computed) {
@@ -932,9 +1009,30 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                         key = member->name.lexeme;
                     }
                     
+                    shared_ptr<JSClass> js_class = getMemberExprJSClass(member);
+                    
+                    if (js_class) {
+                        
+                        Value oldVal = js_class->get(key, env->this_binding ? false : true);
+                        Value newVal = toValue(oldVal).numberValue + 1;
+
+                        js_class->set(key, newVal, env->this_binding ? false : true);
+                        
+                        return oldVal;
+
+                    }
+                    
+                    shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+
                     // Get and update property
+                    check_obj_prop_access(member, targetObj.get(), key);
                     Value oldVal = targetObj->get(key);
                     Value newVal = toValue(oldVal).numberValue + 1;
+
+                    check_obj_prop_access(member,
+                                          targetObj.get(),
+                                          key);
+
                     targetObj->set(key, newVal);
                     
                     return oldVal;
@@ -962,8 +1060,22 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                 // this is member expression.
                 if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->right.get())) {
                     
-                    shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                    // check of its static access
                     
+                    R objectValue = member->object->accept(*this);
+
+                    shared_ptr<JSObject> target_obj = nullptr;
+                    shared_ptr<JSClass> js_class = nullptr;
+                    Value oldVal;
+
+                    if (std::get_if<shared_ptr<JSClass>>(&objectValue)) {
+                        js_class = getMemberExprJSClass(member);
+                    }
+
+                    if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
+                        target_obj = getMemberExprJSObject(member);
+                    }
+
                     // Compute property key
                     std::string key;
                     if (member->computed) {
@@ -973,15 +1085,33 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                         key = member->name.lexeme;
                     }
                     
-                    // Get and update property
-                    Value oldVal = targetObj->get(key);
-                    Value newVal = toValue(oldVal).numberValue - 1;
                     
-                    targetObj->set(key, newVal);
+                    if (js_class) {
+                        
+                        oldVal = js_class->get(key, env->this_binding ? false : true);
+                        Value newVal = toValue(oldVal).numberValue + 1;
+
+                        js_class->set(key, newVal, env->this_binding ? false : true);
+                        
+                    }
+
+                    // Get and update property
+                    // check if key is public
+                    if (target_obj) {
+                        
+                        oldVal = target_obj->get(key);
+                        Value newVal = toValue(oldVal).numberValue - 1;
+                        
+                        check_obj_prop_access(member, target_obj.get(), key);
+                        
+                        target_obj->set(key, newVal);
+                        
+                    }
                     
                     return oldVal;
                     
                 }
+                
             }
             
             throw runtime_error("Invalid operand, the operand must be a variable.");
@@ -990,24 +1120,17 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
             
             // +90
         case TokenType::ADD: {
-            if (holds_alternative<int>(rvalue)) return 0 + (get<int>(rvalue));
-            if (holds_alternative<size_t>(rvalue)) return 0 + (get<size_t>(rvalue));
-            if (holds_alternative<char>(rvalue)) return 0 + (get<char>(rvalue));
-            if (holds_alternative<bool>(rvalue)) return 0 + (get<bool>(rvalue) ? 1 : 0);
-            if (holds_alternative<Value>(rvalue)) return 0 + (get<Value>(rvalue).numberValue);
+            return (0 + toValue(rvalue).numberValue);
 
-            throw runtime_error("Invalid operand to perform +.");
+            // throw runtime_error("Invalid operand to perform +.");
 
         }
             // -89
         case TokenType::MINUS: {
-            if (holds_alternative<int>(rvalue)) return 0 - (get<int>(rvalue));
-            if (holds_alternative<size_t>(rvalue)) return 0 - (get<size_t>(rvalue));
-            if (holds_alternative<char>(rvalue)) return 0 - (get<char>(rvalue));
-            if (holds_alternative<bool>(rvalue)) return 0 - (get<bool>(rvalue) ? 1 : 0);
-            if (holds_alternative<Value>(rvalue)) return 0 - (get<Value>(rvalue).numberValue);
+            
+            return (0 - toValue(rvalue).numberValue);
 
-            throw runtime_error("Invalid operand to perform -.");
+            // throw runtime_error("Invalid operand to perform -.");
 
         }
                         
@@ -1034,9 +1157,22 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
             
             // this is member expression.
             if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+
+                R objectValue = member->object->accept(*this);
                 
-                shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                shared_ptr<JSObject> targetObj;
+                shared_ptr<JSClass> targetKlass;
                 
+                Value newVal;
+
+                if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
+                    targetObj = getMemberExprJSObject(member);
+                }
+
+                if (std::get_if<shared_ptr<JSClass>>(&objectValue)) {
+                    targetKlass = getMemberExprJSClass(member);
+                }
+
                 // Compute property key
                 std::string key;
                 if (member->computed) {
@@ -1047,10 +1183,25 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 }
 
                 // Get and update property
-                Value oldVal = targetObj->get(key);
-                Value newVal = toValue(oldVal).numberValue + 1;
+                if (targetObj) {
+                    Value oldVal = targetObj->get(key);
+                    Value newVal = toValue(oldVal).numberValue + 1;
+                    
+                    check_obj_prop_access(member,
+                                          targetObj.get(),
+                                          key);
+                    
+                    targetObj->set(key, newVal);
+                }
                 
-                targetObj->set(key, newVal);
+                if (targetKlass) {
+                    
+                    Value oldVal = targetKlass->get(key, env->this_binding ? false : true);
+                    Value newVal = toValue(oldVal).numberValue + 1;
+                                        
+                    targetKlass->set(key, newVal, env->this_binding ? false : true);
+
+                }
                 
                 return newVal;
 
@@ -1070,9 +1221,22 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
 
             // this is member expression.
             if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+
+                R objectValue = member->object->accept(*this);
                 
-                shared_ptr<JSObject> targetObj = getMemberExprJSObject(member);
+                shared_ptr<JSObject> targetObj;
+                shared_ptr<JSClass> targetKlass;
                 
+                Value newVal;
+
+                if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
+                    targetObj = getMemberExprJSObject(member);
+                }
+
+                if (std::get_if<shared_ptr<JSClass>>(&objectValue)) {
+                    targetKlass = getMemberExprJSClass(member);
+                }
+
                 // Compute property key
                 std::string key;
                 if (member->computed) {
@@ -1083,10 +1247,23 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 }
 
                 // Get and update property
-                Value oldVal = targetObj->get(key);
-                Value newVal = toValue(oldVal).numberValue - 1;
+                if (targetObj) {
+                    Value oldVal = targetObj->get(key);
+                    Value newVal = toValue(oldVal).numberValue - 1;
+                    
+                    check_obj_prop_access(member, targetObj.get(), key);
+                    
+                    targetObj->set(key, newVal);
+                }
                 
-                targetObj->set(key, newVal);
+                if (targetKlass) {
+                    
+                    Value oldVal = targetKlass->get(key, env->this_binding ? false : true);
+                    Value newVal = toValue(oldVal).numberValue - 1;
+                                        
+                    targetKlass->set(key, newVal, env->this_binding ? false : true);
+
+                }
                 
                 return newVal;
 
@@ -1163,8 +1340,37 @@ R Interpreter::visitMember(MemberExpression* expr) {
         }
 
         js_object_instance = get<shared_ptr<JSObject>>(object_value);
-        
+
+        check_obj_prop_access(expr, js_object_instance.get(), property_name);
         return_value = js_object_instance->get(property_name);
+
+    }
+    else if (holds_alternative<shared_ptr<JSClass>>(object_value)) {
+        // we have a static access
+        // User.age or Math.PI
+        if (expr->computed) {
+            
+            // []
+            R property_value = expr->property->accept(*this);
+            
+            if (!holds_alternative<string>(property_value)) {
+                throw runtime_error("The computed property is not supported. It must be a string.");
+            }
+            
+            property_name = get<string>(property_value);
+            
+        } else {
+            
+            // .
+            property_name = expr->name.lexeme;
+            
+        }
+        
+        // get the property from the JSClass
+        shared_ptr<JSClass> js_class = get<shared_ptr<JSClass>>(object_value);
+        return_value = js_class->get(property_name, env->this_binding ? false : true);
+        
+        return return_value;
 
     } else {
         
@@ -1198,8 +1404,10 @@ R Interpreter::visitMember(MemberExpression* expr) {
         js_object_instance = get<shared_ptr<JSObject>>(object_instance);
         
         // check if property_name is public
+        check_obj_prop_access(expr, js_object_instance.get(), property_name);
+        
         return_value = js_object_instance->get(property_name);
-
+        
     }
     
     return std::make_shared<Value>(return_value);
@@ -1520,6 +1728,19 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
     
 }
 
+shared_ptr<JSClass> Interpreter::getMemberExprJSClass(MemberExpression* member) {
+
+    R object_value = member->object->accept(*this);
+    shared_ptr<JSClass> klass = get<shared_ptr<JSClass>>(object_value);
+    
+    if (klass) {
+        return klass;
+    }
+    
+    return nullptr;
+
+}
+
 shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member) {
     
     // Evaluate object (user, this, super)
@@ -1559,5 +1780,61 @@ R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
     }
     
     return concat;
+    
+}
+
+bool Interpreter::check_obj_prop_access(MemberExpression* member,
+                                        JSObject* js_object,
+                                        const string& key) {
+    
+    // if member expression is a this, then we don't check for access.
+    if (member != nullptr) {
+        
+        ThisExpression* is_object_this = dynamic_cast<ThisExpression*>(member->object.get());
+        SuperExpression* is_object_super = dynamic_cast<SuperExpression*>(member->object.get());
+        
+        if (is_object_this || is_object_super) {
+            return true;
+        }
+        
+    }
+    
+    // if env->this_binding is null then
+    
+    for (auto& field : js_object->getKlass()->fields) {
+        if (field.first == key) {
+            // get the modifiers
+            for (auto& modifier : field.second->modifiers) {
+                string modifier_string = get<string>(modifier->accept(*this));
+                
+                if (modifier_string == "private") {
+                    throw runtime_error("Attempting to access a private property from outside of its class. " + field.first);
+                    return false;
+                }
+            }
+        }
+    }
+    
+    for (auto& method : js_object->getKlass()->methods) {
+        if (method.first == key) {
+            // get the modifiers
+            for (auto& modifier : method.second->modifiers) {
+                string modifier_string = get<string>(modifier->accept(*this));
+                
+                if (modifier_string == "private") {
+                    throw runtime_error("Attempting to access a private property from outside of its class. " + method.first);
+                    return false;
+                }
+            }
+        }
+    }
+    
+    // check in methods
+    
+    if (js_object->parent_object) {
+        return check_obj_prop_access(nullptr, js_object->parent_object.get(), key);
+    }
+    
+    return true;
     
 }

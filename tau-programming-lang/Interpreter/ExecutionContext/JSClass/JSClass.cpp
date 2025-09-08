@@ -9,27 +9,29 @@
 
 static Value native(NativeFn fn) { Value v; v.type = ValueType::NATIVE_FUNCTION; v.nativeFunction = fn; return v; }
 
-Value JSClass::get(const string& key) {
+// this fetches data from static_fields
+Value JSClass::get(const string& key, bool perform_privacy_check) {
+    
+    //TODO: we need to check if the key is truly a static field
+    
     // Look in fields
-    auto fieldIt = fields.find(key);
-    if (fieldIt != fields.end()) {
-        // Wrap property declaration as a Value (object or something appropriate)
-        // For now: return name of field
-        return Value::str("field:" + key);
+    auto value = static_fields.find(key);
+    if (value != static_fields.end()) {
+        
+        // when found, check if it
+        
+        return value->second;
     }
-    
-    // Look in methods
-    auto methodIt = methods.find(key);
-    if (methodIt != methods.end()) {
-        // Wrap method definition into a callable Value
-        // For now: return name of method
-        return Value::str("method:" + key);
-    }
-    
+        
     // Walk superclass chain
     if (superClass) {
-        return superClass->get(key);
+        return superClass->get(key, perform_privacy_check);
     }
     
-    return Value::undefined();
+    throw runtime_error( key + " does not exist as static in this class.");
+        
+}
+
+void JSClass::set(const string& key, Value value, bool perform_privacy_check) {
+    static_fields[key] = value;
 }

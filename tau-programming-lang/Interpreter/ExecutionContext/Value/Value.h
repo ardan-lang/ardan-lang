@@ -30,6 +30,7 @@ enum class ValueType {
 
 class Value;
 class JSObject; // forward declare
+class JSClass;
 
 using NativeFn = function<Value(const vector<Value>&)>;
 
@@ -43,6 +44,7 @@ public:
     string stringValue;
     bool boolValue;
     shared_ptr<JSObject> objectValue;
+    shared_ptr<JSClass> classValue;
     NativeFn nativeFunction;
     std::function<Value(std::vector<Value>)> functionValue;
     
@@ -67,7 +69,13 @@ public:
         v.objectValue = obj;
         return v;
     }
-    
+    static Value method(shared_ptr<JSClass> klass) {
+        Value v;
+        v.type = ValueType::METHOD;
+        v.classValue = klass;
+        return v;
+    }
+
     Value(int n);
 
     Value(double n);
