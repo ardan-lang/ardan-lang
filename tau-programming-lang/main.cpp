@@ -402,11 +402,6 @@ void run_interpreter(string& source) {
     
     auto tokens = scanner.getTokens();
 
-    for (auto& token : tokens) {
-        cout << token.type << " : " << token.lexeme
-             << " Line: " << token.line << endl;
-    }
-
     Parser parser(tokens);
     auto ast = parser.parse();
 
