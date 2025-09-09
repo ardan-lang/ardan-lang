@@ -19,13 +19,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		4F613CF62E4D114300CEABAF /* tau-programming-lang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "tau-programming-lang"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F613CF62E4D114300CEABAF /* ardan-lang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "ardan-lang"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		4F613CF82E4D114300CEABAF /* tau-programming-lang */ = {
+		4F613CF82E4D114300CEABAF /* ardan-lang */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "tau-programming-lang";
+			path = "ardan-lang";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -44,7 +44,7 @@
 		4F613CED2E4D114300CEABAF = {
 			isa = PBXGroup;
 			children = (
-				4F613CF82E4D114300CEABAF /* tau-programming-lang */,
+				4F613CF82E4D114300CEABAF /* ardan-lang */,
 				4F613CF72E4D114300CEABAF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -52,7 +52,7 @@
 		4F613CF72E4D114300CEABAF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				4F613CF62E4D114300CEABAF /* tau-programming-lang */,
+				4F613CF62E4D114300CEABAF /* ardan-lang */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,9 +60,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		4F613CF52E4D114300CEABAF /* tau-programming-lang */ = {
+		4F613CF52E4D114300CEABAF /* ardan-lang */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4F613CFD2E4D114300CEABAF /* Build configuration list for PBXNativeTarget "tau-programming-lang" */;
+			buildConfigurationList = 4F613CFD2E4D114300CEABAF /* Build configuration list for PBXNativeTarget "ardan-lang" */;
 			buildPhases = (
 				4F613CF22E4D114300CEABAF /* Sources */,
 				4F613CF32E4D114300CEABAF /* Frameworks */,
@@ -73,13 +73,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				4F613CF82E4D114300CEABAF /* tau-programming-lang */,
+				4F613CF82E4D114300CEABAF /* ardan-lang */,
 			);
-			name = "tau-programming-lang";
+			name = "ardan-lang";
 			packageProductDependencies = (
 			);
 			productName = "tau-programming-lang";
-			productReference = 4F613CF62E4D114300CEABAF /* tau-programming-lang */;
+			productReference = 4F613CF62E4D114300CEABAF /* ardan-lang */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -96,7 +96,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 4F613CF12E4D114300CEABAF /* Build configuration list for PBXProject "tau-programming-lang" */;
+			buildConfigurationList = 4F613CF12E4D114300CEABAF /* Build configuration list for PBXProject "ardan-lang" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -110,7 +110,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4F613CF52E4D114300CEABAF /* tau-programming-lang */,
+				4F613CF52E4D114300CEABAF /* ardan-lang */,
 			);
 		};
 /* End PBXProject section */
@@ -266,7 +266,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4F613CF12E4D114300CEABAF /* Build configuration list for PBXProject "tau-programming-lang" */ = {
+		4F613CF12E4D114300CEABAF /* Build configuration list for PBXProject "ardan-lang" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4F613CFB2E4D114300CEABAF /* Debug */,
@@ -275,7 +275,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4F613CFD2E4D114300CEABAF /* Build configuration list for PBXNativeTarget "tau-programming-lang" */ = {
+		4F613CFD2E4D114300CEABAF /* Build configuration list for PBXNativeTarget "ardan-lang" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4F613CFE2E4D114300CEABAF /* Debug */,
