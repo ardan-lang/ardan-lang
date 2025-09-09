@@ -54,19 +54,19 @@ git clone https://github.com/philipszdavido/tau-programming-lang
 cd tau-programming-lang
 mkdir build && cd build
 cmake ..
-make
+cmake --build .
 ```
 
 Running a Tau File
 
 ```
-./tau path/to/script.tau
+./tau_interpreter path/to/script.tau --interpret
 ```
 
-Or start a REPL (if available):
+Or start a REPL (not available):
 
 ```
-./tau
+./tau_interpreter
 ```
 
 ⸻
