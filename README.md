@@ -1,6 +1,6 @@
-# Tau Programming Language
+# Ardan Programming Language
 
-Tau is an experimental, dynamically typed programming language inspired by JavaScript, featuring a hand-written lexer, parser, and interpreter implemented in C++. Tau supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as let/const/var, scoping, and operator overloading.
+Ardan is an experimental, dynamically typed programming language inspired by JavaScript, featuring a hand-written lexer, parser, and interpreter implemented in C++. Ardan supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as let/const/var, scoping, and operator overloading.
 
 ## Features
 - **Dynamic Typing**: Variable types are determined at runtime.
@@ -13,9 +13,9 @@ Tau is an experimental, dynamically typed programming language inspired by JavaS
 
 ⸻
 
-Tau Programming Language
+Ardan Programming Language
 
-Tau is a modern, JavaScript-inspired programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Tau, including language syntax, semantics, and usage, with detailed examples for every concept.
+Ardan is a modern, JavaScript-inspired programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
 
 ⸻
 
@@ -38,7 +38,7 @@ Tau is a modern, JavaScript-inspired programming language, implemented in C++. I
     - [Statements](#statements)
     - [Special Values](#special-values)
 4. [Complete Example](#complete-example)
-5. [Extending Tau](#extending-tau)
+5. [Extending Ardan](#extending-ardan)
 6. [Frequently Asked Questions](#frequently-asked-questions)
 
 ⸻
@@ -47,26 +47,27 @@ Tau is a modern, JavaScript-inspired programming language, implemented in C++. I
 
 ### Installation
 
-Tau is a C++ project. Build it with CMake or your preferred C++ toolchain.
+Ardan is a C++ project. Build it with CMake or your preferred C++ toolchain.
 
 ```sh
-git clone https://github.com/philipszdavido/tau-programming-lang
-cd tau-programming-lang
+git clone https://github.com/philipszdavido/ardan-lang
+cd ardan-lang
 mkdir build && cd build
 cmake ..
 cmake --build .
 ```
 
-Running a Tau File
+Running a Ardan File
 
 ```
-./tau_interpreter path/to/script.tau --interpret
+./ardan_interpreter path/to/script.ardan --interpret
+./ardan_interpreter path/to/code_file.ardan --i
 ```
 
-Or start a REPL (not available):
+Or start a REPL (not yet available):
 
 ```
-./tau_interpreter
+./ardan_interpreter
 ```
 
 ⸻
@@ -75,11 +76,11 @@ Or start a REPL (not available):
 
 ### Variables
 
-Tau supports three kinds of variable declarations, similar to JavaScript:
+Ardan supports three kinds of variable declarations, similar to JavaScript:
 
 ```
 var x = 42;     // Function-scoped, mutable
-let y = "tau";  // Block-scoped, mutable
+let y = "ardan";  // Block-scoped, mutable
 const z = 3.14; // Block-scoped, immutable
 ```
 
@@ -145,7 +146,7 @@ print(user.name); // "Alice"
 
 ### Expressions and Operators
 
-Tau supports a wide range of expressions and operators akin to JS.
+Ardan supports a wide range of expressions and operators akin to JS.
 
 ### Arithmetic
 
@@ -201,7 +202,7 @@ i--;
 
 ### Functions
 
-Tau supports first-class functions, closures, and parameters.
+Ardan supports first-class functions, closures, and parameters.
 
 ```
 function square(n) {
@@ -231,7 +232,7 @@ print(add5(3)); // 8
 
 ### Control Flow
 
-Tau supports all standard control flow constructs.
+Ardan supports all standard control flow constructs.
 
 ### If-Else
 
@@ -320,7 +321,7 @@ do {
 
 ### Classes & Inheritance
 
-Tau enables object-oriented programming with ES6-like classes.
+Ardan enables object-oriented programming with ES6-like classes.
 
 ### Basic Class
 
@@ -365,7 +366,7 @@ d.speak(); // Rex barks.
 
 ### Access Modifiers
 
-Tau supports public, private, protected, and static keywords (syntax).
+Ardan supports public, private, protected, and static keywords (syntax).
 
 ```
 class Counter {
@@ -382,7 +383,7 @@ class Counter {
 
 ### Error Handling
 
-Tau supports robust error handling.
+Ardan supports robust error handling.
 
 ```
 try {
@@ -414,7 +415,7 @@ print("Hello, world!");
 
 ### Math & File Modules
 
-Tau can be extended with modules like Math and File (see C++ source).
+Ardan can be extended with modules like Math and File (see C++ source).
 
 ```
 let pi = Math.PI;
@@ -514,29 +515,29 @@ class Greeter {
         print("Hello, " + this.name + "!");
     }
 }
-let g = new Greeter("Tau");
-g.greet(); // Hello, Tau!
+let g = new Greeter("Ardan");
+g.greet(); // Hello, Ardan!
 ```
 
 ⸻
 
-### Extending Tau
+### Extending Ardan
 
 • New built-ins: Implement in C++ in Interpreter/ or builtin/.
 • Language features: Add to Parser.hpp and Statements/, Expression/.
-• Standard library: Add modules in C++, expose via Env or as Tau objects.
+• Standard library: Add modules in C++, expose via Env or as Ardan objects.
 
 ⸻
 
 ### Frequently Asked Questions
 
-Q: How do I debug my Tau code?
+Q: How do I debug my Ardan code?
 
 A: Use print() statements, and the AstPrinter for AST debugging in C++.
 
 Q: Can I use recursion and closures?
 
-A: Yes! Tau fully supports both.
+A: Yes! Ardan fully supports both.
 
 Q: Is there file or network IO?
 
