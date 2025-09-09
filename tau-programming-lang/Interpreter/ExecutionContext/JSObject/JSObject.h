@@ -12,9 +12,6 @@
 #include <iostream>
 #include <string>
 #include <any>
-//#include "Value.h"
-//#include "JSClass.h"
-
 #include "../Value/Value.h"
 #include "../JSClass/JSClass.h"
 
