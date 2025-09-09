@@ -7,6 +7,8 @@
 
 #include <iostream>
 #include <cstring>
+#include <fstream>
+
 #include "Scanner/Scanner.hpp"
 #include "overloads/operators.h"
 #include "Parser/Parser.hpp"
@@ -16,7 +18,7 @@
 
 using namespace std;
 
-int main(int argc, const char * argv[]) {
+void run_interpreter_inline_test() {
     
     string _lang = R"(
                       
@@ -369,8 +371,79 @@ int main(int argc, const char * argv[]) {
     cout << "Interpreting..." << endl;
     cout << "---------------" << endl;
     cout << endl;
+    
+    interpreter.execute(std::move(ast));
 
-     interpreter.execute(std::move(ast));
+}
+
+void run_interpreter(const string& filename) {
+    
+    std::ifstream file(filename);
+        if (!file.is_open()) {
+            std::cerr << "Error: Could not open file " << filename << "\n";
+            exit(1);
+        }
+
+        std::string source((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+    
+    Scanner scanner(source);
+//    for(Token token : scanner.getTokens()) {
+//        cout << token.type << " : " << token.lexeme << " Line: " << token.line << endl;
+//    }
+    
+    Parser parser(scanner.getTokens());
+    vector<unique_ptr<Statement>> ast = parser.parse();
+    
+    AstPrinter printer;
+    Interpreter interpreter;
+    
+    cout << endl;
+    cout << "---------------" << endl;
+    cout << "Interpreting..." << endl;
+    cout << "---------------" << endl;
+    cout << endl;
+    
+    interpreter.execute(std::move(ast));
+    
+}
+
+int main(int argc, const char * argv[]) {
+        
+    bool interpret = false;
+    bool compile = false;
+    
+    string filename;
+    
+    for (int i = 0; i < argc; i++) {
+        
+        cout << argv[i] << endl;
+
+        string param = argv[i];
+        
+        if (i == 0) {
+            filename = param;
+            continue;
+        }
+        
+        if (param == "--i" || "--interpret") {
+            interpret = true;
+        }
+        
+        if (param == "--c" || param == "--compile") {
+            compile = true;
+        }
+        
+    }
+    
+    if (interpret) {
+        run_interpreter(filename);
+    } else if (compile) {
+        
+    } else {
+        run_interpreter_inline_test();
+    }
     
     return EXIT_SUCCESS;
+    
 }
