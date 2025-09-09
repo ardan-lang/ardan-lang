@@ -70,11 +70,11 @@ std::unordered_map<std::string, std::string> keywords = {
 };
 
 vector<Token>& Scanner::getTokens() {
-
+    
     while(current < source.length()) {
-        
+
         char& character = currentCharacter();
-                
+        
         switch (character) {
 
             case ',':
@@ -590,7 +590,7 @@ void Scanner::collectNumber() {
     if (c == '0' && (peek() == 'x' || peek() == 'X')) {
         num += c; advance();
         num += currentCharacter(); advance();
-        while (isxdigit(currentCharacter())) {
+        while (isxdigit(currentCharacter()) && !eof()) {
             num += currentCharacter();
             advance();
         }
@@ -602,7 +602,7 @@ void Scanner::collectNumber() {
     if (c == '0' && (peek() == 'b' || peek() == 'B')) {
         num += c; advance();
         num += currentCharacter(); advance();
-        while (currentCharacter() == '0' || currentCharacter() == '1') {
+        while ((currentCharacter() == '0' || currentCharacter() == '1')  && !eof()) {
             num += currentCharacter();
             advance();
         }
@@ -614,7 +614,7 @@ void Scanner::collectNumber() {
     if (c == '0' && (peek() == 'o' || peek() == 'O')) {
         num += c; advance();
         num += currentCharacter(); advance();
-        while (currentCharacter() >= '0' && currentCharacter() <= '7') {
+        while (currentCharacter() >= '0' && currentCharacter() <= '7'  && !eof()) {
             num += currentCharacter();
             advance();
         }
@@ -624,7 +624,7 @@ void Scanner::collectNumber() {
 
     // --- Decimal or Float ---
     bool hasDot = false;
-    while (isDigit() || currentCharacter() == '.') {
+    while ((isDigit() || currentCharacter() == '.')  && !eof()) {
         if (currentCharacter() == '.') {
             if (hasDot) break; // second dot → stop
             hasDot = true;
@@ -641,7 +641,7 @@ void Scanner::collectNumber() {
             num += currentCharacter();
             advance();
         }
-        while (isDigit()) {
+        while (isDigit() && !eof()) {
             num += currentCharacter();
             advance();
         }
@@ -689,7 +689,7 @@ void Scanner::collectIdentifier() {
 
 void Scanner::consumeMultilineComment() {
     
-    while (true) {
+    while (true && !eof()) {
 
         if (match('*')) {
             if (match('*')) {
@@ -707,7 +707,7 @@ void Scanner::consumeMultilineComment() {
 
 void Scanner::consumeComment() {
     
-    while (peek() != '\n') {
+    while (peek() != '\n' && !eof()) {
         advance();
     }
     
