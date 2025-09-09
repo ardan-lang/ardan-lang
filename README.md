@@ -523,28 +523,24 @@ g.greet(); // Hello, Ardan!
 
 ### Extending Ardan
 
-• New built-ins: Implement in C++ in Interpreter/ or builtin/.
-• Language features: Add to Parser.hpp and Statements/, Expression/.
-• Standard library: Add modules in C++, expose via Env or as Ardan objects.
+- **New built-ins**: Implement in C++ in Interpreter/ or builtin/.
+- **Language features**: Add to Parser.hpp and Statements/, Expression/.
+- **Standard library**: Add modules in C++, expose via Env or as Ardan objects.
 
 ⸻
 
 ### Frequently Asked Questions
 
-Q: How do I debug my Ardan code?
+- Q: How do I debug my Ardan code?
+- A: Use print() statements, and the AstPrinter for AST debugging in C++.
 
-A: Use print() statements, and the AstPrinter for AST debugging in C++.
+- Q: Can I use recursion and closures?
+- A: Yes! Ardan fully supports both.
 
-Q: Can I use recursion and closures?
+- Q: Is there file or network IO?
+- A: File IO is in progress via the File module. See File.hpp􀰓.
 
-A: Yes! Ardan fully supports both.
-
-Q: Is there file or network IO?
-
-A: File IO is in progress via the File module. See File.hpp􀰓.
-
-Q: How do I add my own functions to the interpreter?
-
-A: Extend the interpreter in C++ and register new functions in Env.
+- Q: How do I add my own functions to the interpreter?
+- A: Extend the interpreter in C++ and register new functions in Env.
 
 ⸻
