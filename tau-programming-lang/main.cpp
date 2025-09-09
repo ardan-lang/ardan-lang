@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 #include <fstream>
+#include <sstream>
 
 #include "Scanner/Scanner.hpp"
 #include "overloads/operators.h"
@@ -376,36 +377,42 @@ void run_interpreter_inline_test() {
 
 }
 
-void run_interpreter(const string& filename) {
+string read_file(const string& filename) {
     
-    std::ifstream file(filename);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open file " << filename << "\n";
-            exit(1);
-        }
+    ifstream file(filename);
+    
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << "\n";
+        exit(1);
+    }
+    
+    ostringstream buffer;
+    buffer << file.rdbuf();
+    string source = buffer.str();
+        
+    file.close();
+    
+    return source;
+    
+}
 
-        std::string source((std::istreambuf_iterator<char>(file)),
-                            std::istreambuf_iterator<char>());
+void run_interpreter(string& source) {
     
     Scanner scanner(source);
-//    for(Token token : scanner.getTokens()) {
-//        cout << token.type << " : " << token.lexeme << " Line: " << token.line << endl;
-//    }
     
-    Parser parser(scanner.getTokens());
-    vector<unique_ptr<Statement>> ast = parser.parse();
-    
-    AstPrinter printer;
+    auto tokens = scanner.getTokens();
+
+    for (auto& token : tokens) {
+        cout << token.type << " : " << token.lexeme
+             << " Line: " << token.line << endl;
+    }
+
+    Parser parser(tokens);
+    auto ast = parser.parse();
+
     Interpreter interpreter;
-    
-    cout << endl;
-    cout << "---------------" << endl;
-    cout << "Interpreting..." << endl;
-    cout << "---------------" << endl;
-    cout << endl;
-    
     interpreter.execute(std::move(ast));
-    
+
 }
 
 int main(int argc, const char * argv[]) {
@@ -415,29 +422,25 @@ int main(int argc, const char * argv[]) {
     
     string filename;
     
-    for (int i = 0; i < argc; i++) {
-        
-        cout << argv[i] << endl;
+    for (int i = 1; i < argc; i++) {
 
         string param = argv[i];
         
-        if (i == 0) {
-            filename = param;
-            continue;
-        }
-        
-        if (param == "--i" || "--interpret") {
+        if (param == "--i" || param == "--interpret") {
             interpret = true;
-        }
-        
-        if (param == "--c" || param == "--compile") {
+        } else if (param == "--c" || param == "--compile") {
             compile = true;
+        } else {
+            filename = param;
         }
         
     }
-    
+            
     if (interpret) {
-        run_interpreter(filename);
+        
+        string source = read_file(filename);
+        run_interpreter(source);
+        
     } else if (compile) {
         
     } else {
