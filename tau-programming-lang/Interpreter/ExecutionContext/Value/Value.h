@@ -35,11 +35,11 @@ class JSClass;
 using NativeFn = function<Value(const vector<Value>&)>;
 
 class Value {
-
+    
 public:
     
     ValueType type;
-
+    
     double numberValue;
     string stringValue;
     bool boolValue;
@@ -49,7 +49,7 @@ public:
     std::function<Value(std::vector<Value>)> functionValue;
     
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
-
+    
     static Value number(double n) { Value v; v.type = ValueType::NUMBER; v.numberValue = n; return v; }
     static Value str(const string& s) { Value v; v.type = ValueType::STRING; v.stringValue = s; return v; }
     static Value boolean(bool b) { Value v; v.type = ValueType::BOOLEAN; v.boolValue = b; return v; }
@@ -75,9 +75,9 @@ public:
         v.classValue = klass;
         return v;
     }
-
+    
     Value(int n);
-
+    
     Value(double n);
     Value(long n);
     Value(long long n);
@@ -88,12 +88,12 @@ public:
     Value(unsigned long long n);
     Value(float n);
     Value(long double n);
-
+    
     Value(const string& str);
-
+    
     std::string toString() const;
     bool isTruthy() const;
-        
+    
     bool isUndefined();
     bool operator==(const Value& rhs);
 

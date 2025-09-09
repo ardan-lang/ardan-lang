@@ -89,10 +89,10 @@ bool equals(const R& a, const R& b) {
         // --- Nullish (undefined / null) ---
         if constexpr ((std::is_same_v<L, std::monostate> || std::is_same_v<L, std::nullptr_t>) ||
                       (std::is_same_v<Rhs, std::monostate> || std::is_same_v<Rhs, std::nullptr_t>)) {
-            return std::is_same_v<L, Rhs>; // only equal if *both* are null-like
+            return std::is_same_v<L, Rhs>;
         }
 
-        // --- Numbers (int, double, size_t, char) ---
+        // --- Numbers (int, double, float, etc.) ---
         else if constexpr (std::is_arithmetic_v<L> && std::is_arithmetic_v<Rhs>) {
             return static_cast<long double>(lhs) == static_cast<long double>(rhs);
         }
@@ -134,7 +134,7 @@ inline Value toValue(const R& r) {
     Value v;
     std::visit([&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
-
+        
         if constexpr (std::is_same_v<T, std::monostate>) {
             v.type = ValueType::UNDEFINED;
         }
@@ -220,8 +220,9 @@ inline Value toValue(const R& r) {
             v = arg;
         }
     }, r);
-
+    
     return v;
+    
 }
 
 inline void printValue(const R& value) {
