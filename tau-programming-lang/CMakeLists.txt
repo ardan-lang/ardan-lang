@@ -8,12 +8,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Collect all sources (simplify if you prefer explicit lists)
 file(GLOB_RECURSE SRC_FILES
-    "src/*.cpp"
+    "overloads/*.cpp"
     "Statements/*.cpp"
     "Expression/*.cpp"
     "Visitor/*.cpp"
     "ExecutionContext/*.cpp"
     "builtin/*.cpp"
+    "Interpreter/*.cpp"
+    "ExpressionVisitor/*.cpp"
+    "Parser/*.cpp"
+    "Scanner/*.cpp"
+    "Visitor/*.cpp"
     "*.cpp"
 )
 
