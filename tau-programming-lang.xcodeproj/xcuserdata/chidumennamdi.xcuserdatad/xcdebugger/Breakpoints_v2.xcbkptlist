@@ -30,8 +30,8 @@
             filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1236"
-            endingLineNumber = "1236"
+            startingLineNumber = "1224"
+            endingLineNumber = "1224"
             landmarkName = "Interpreter::visitUpdate(expr)"
             landmarkType = "7">
          </BreakpointContent>
@@ -46,25 +46,9 @@
             filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1200"
-            endingLineNumber = "1200"
+            startingLineNumber = "1188"
+            endingLineNumber = "1188"
             landmarkName = "Interpreter::visitUpdate(expr)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "1B442973-6CBF-44B5-82E3-9CD1DFBC72FC"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "tau-programming-lang/Interpreter/Interpreter.cpp"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1358"
-            endingLineNumber = "1358"
-            landmarkName = "Interpreter::visitMember(expr)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

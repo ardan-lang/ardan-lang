@@ -336,8 +336,8 @@ int main(int argc, const char * argv[]) {
 //    print(n);
     
     class Point {
-        var x = 0;
-        var y = 0;
+        var x;
+        var y;
         constructor(x, y) {
             this.x = x;
             this.y = y;

@@ -210,18 +210,6 @@ R Interpreter::visitCall(CallExpression* expr) {
         }
         
         // here, we know it is not a built-in function.
-
-        for (auto& arg : expr->arguments) {
-            
-            string key;
-            
-            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(arg.get())) {
-                key = ident->name;
-            }
-            
-            env->setStackValue(key, arg->accept(*this));
-            
-        }
         
         // this property name is the name of method in the object to be called.
         // we need to be able to walkup the superclass chain to find methods
@@ -1506,23 +1494,25 @@ R Interpreter::visitNew(NewExpression* expr) {
             // property is a Statement: VariableStatement
             if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
 
+                string kind = variable->kind;
+
                 for (auto& declarator : variable->declarations) {
                     
+                    // I think we need to set NULL if the init is nullptr.
                     if (declarator.init == nullptr) {
-                        throw runtime_error("Missing initializer in const declaration: " + declarator.id);
+                        // throw runtime_error("Missing initializer in const declaration: " + declarator.id);
+                        object->set(declarator.id,
+                                    Value::nullVal(),
+                                    kind,
+                                    field_modifiers);
                     }
-                    
-                    string kind = declarator.id;
-                    
+                                        
                     if (declarator.init) {
                         
                         R value = declarator.init->accept(*this);
 
                         // TODO: fix
-                        object->set(declarator.id,
-                                    toValue(value),
-                                    kind,
-                                    field_modifiers);
+                        object->set(declarator.id, toValue(value), kind, field_modifiers);
 
                     }
                 }
@@ -1782,6 +1772,8 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
         // property is a Statement: VariableStatement
         if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
 
+            string kind = variable->kind;
+
             for (auto& declarator : variable->declarations) {
                 
                 vector<string> field_modifiers;
@@ -1794,20 +1786,18 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
                 }
 
                 if (declarator.init == nullptr) {
-                    throw runtime_error("Missing initializer in const declaration: " + declarator.id);
-                }
+                    
+                    // throw runtime_error("Missing initializer in const declaration: " + declarator.id);
+                    object->set(declarator.id, Value::nullVal(), kind, field_modifiers);
 
-                string kind = declarator.id;
+                }
 
                 if (declarator.init) {
                     
                     R value = declarator.init->accept(*this);
 
                     // TODO: fix
-                    object->set(declarator.id,
-                                toValue(value),
-                                kind,
-                                field_modifiers);
+                    object->set(declarator.id, toValue(value), kind, field_modifiers);
 
                 }
             }
@@ -1815,7 +1805,7 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
         }
 
     }
-                
+    
     // copy methods
     for (auto& method : klass->methods) {
         
