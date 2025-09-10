@@ -389,13 +389,15 @@ void run_interpreter_inline_test() {
 
 }
 
-void run_interpreter(string& source) {
+void run_interpreter(string& filename, string& source) {
     
     Scanner scanner(source);
     
     auto tokens = scanner.getTokens();
 
     Parser parser(tokens);
+    parser.sourceFile = filename;
+    
     auto ast = parser.parse();
 
     Interpreter interpreter;
@@ -415,11 +417,11 @@ int main(int argc, const char * argv[]) {
     bool repl_it = false;
     
     string filename;
-    
+
     for (int i = 1; i < argc; i++) {
 
         string param = argv[i];
-        
+                
         if (param == "--i" || param == "--interpret") {
             interpret = true;
         } else if (param == "--c" || param == "--compile") {
@@ -435,7 +437,7 @@ int main(int argc, const char * argv[]) {
     if (interpret) {
         
         string source = read_file(filename);
-        run_interpreter(source);
+        run_interpreter(filename, source);
         
     } else if (compile) {
         

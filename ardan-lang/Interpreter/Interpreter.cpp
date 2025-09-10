@@ -2014,25 +2014,28 @@ R Interpreter::visitRestParameter(RestParameter *expr) {
 }
 
 R Interpreter::visitImportDeclaration(ImportDeclaration* stmt) {
-    // Pseudocode:
-    // 1. Open/read the file specified by stmt->path.lexeme
-    // 2. Scan, parse, and execute its code in the current or a new environment
-    // 3. Optionally, handle module/namespace logic
-    
-    // 1. Read file
-    std::string source = read_file(stmt->path.lexeme);
-    
-    // 2. Scan
+    namespace fs = std::filesystem;
+
+    // dir of the file that contained the import
+    fs::path baseDir = fs::path(stmt->sourceFile).parent_path();
+
+    std::string raw = stmt->path.lexeme;
+    if (!raw.empty() && raw.front() == '"' && raw.back() == '"') {
+        raw = raw.substr(1, raw.size() - 2);
+    }
+
+    fs::path resolved = fs::weakly_canonical(baseDir / raw);
+
+    std::string source = read_file(resolved.string());
+
     Scanner scanner(source);
     auto tokens = scanner.getTokens();
-    
-    // 3. Parse
+
+    // ✅ pass the resolved file path into the parser
     Parser parser(tokens);
+    parser.sourceFile = resolved.string();
     auto ast = parser.parse();
-    
-    // 4. Execute in current environment (or make a new one) do we need to make a new env?
+
     this->execute(std::move(ast));
-    
     return true;
-    
 }

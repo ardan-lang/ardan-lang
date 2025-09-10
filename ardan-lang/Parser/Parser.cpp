@@ -488,7 +488,7 @@ unique_ptr<Statement> Parser::parseImportDeclaration() {
     Token path = peek();
     consume(TokenType::STRING, "Expect path after 'import'.");
     consume(TokenType::SEMI_COLON, "Expect ';' after the import statement.");
-    return make_unique<ImportDeclaration>(path);
+    return make_unique<ImportDeclaration>(path, this->sourceFile);
 }
 
 // ───────────── Helpers ─────────────

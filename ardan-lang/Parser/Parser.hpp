@@ -23,6 +23,7 @@ public:
     Parser(vector<Token> tokens) : tokens(tokens) {};
     vector<unique_ptr<Statement>> parse();
     vector<unique_ptr<Statement>> statements;
+    string sourceFile;
 
 private:
     

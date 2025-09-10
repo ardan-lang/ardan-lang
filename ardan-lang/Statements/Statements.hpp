@@ -414,7 +414,8 @@ class ImportDeclaration : public Statement {
 public:
     
     Token path;
-    ImportDeclaration(Token path): path(path) {}
+    string sourceFile;
+    ImportDeclaration(Token path, string sourceFile): path(path), sourceFile(sourceFile) {}
     
     R accept(StatementVisitor& visitor) {
         return visitor.visitImportDeclaration(this);
