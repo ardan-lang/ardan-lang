@@ -60,14 +60,14 @@ cmake --build .
 Running a Ardan File
 
 ```
-./ardan_interpreter path/to/script.ardan --interpret
-./ardan_interpreter path/to/code_file.ardan --i
+./ardan path/to/script.ardan --interpret
+./ardan path/to/code_file.ardan --i
 ```
 
 Or start a REPL (not yet available):
 
 ```
-./ardan_interpreter
+./ardan
 ```
 
 ⸻
