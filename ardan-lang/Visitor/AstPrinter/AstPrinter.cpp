@@ -577,5 +577,13 @@ R AstPrinter::visitTemplateLiteral(TemplateLiteral* expr) {
 }
 
 R AstPrinter::visitRestParameter(RestParameter *expr) {
+    printIndent();
+    std::cout << "Rest \"" << expr->token.lexeme << "\"\n";
     return monostate();
+}
+
+R AstPrinter::visitImportDeclaration(ImportDeclaration* stmt) {
+    printIndent();
+    std::cout << "Import \"" << stmt->path.lexeme << "\"\n";
+    return true;
 }

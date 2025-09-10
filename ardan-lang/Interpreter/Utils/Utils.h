@@ -14,6 +14,11 @@
 #include <unordered_map>
 #include <variant>
 #include <stdexcept>
+
+#include <cstring>
+#include <fstream>
+#include <sstream>
+
 #include "../R.hpp"
 #include "../ExecutionContext/JSObject/JSObject.h"
 
@@ -272,6 +277,25 @@ inline void printValue(const R& value) {
         shared_ptr<JSArray> array = get<shared_ptr<JSArray>>(value);
         cout << array->toString();
     }
+}
+
+string read_file(const string& filename) {
+    
+    ifstream file(filename);
+    
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << "\n";
+        exit(1);
+    }
+    
+    ostringstream buffer;
+    buffer << file.rdbuf();
+    string source = buffer.str();
+        
+    file.close();
+    
+    return source;
+    
 }
 
 #endif /* Utils_h */

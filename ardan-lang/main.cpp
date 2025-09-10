@@ -19,6 +19,8 @@
 
 #include "REPL/REPL.hpp"
 
+string read_file(const string& filename);
+
 using namespace std;
 
 void run_interpreter_inline_test() {
@@ -385,25 +387,6 @@ void run_interpreter_inline_test() {
     
     interpreter.execute(std::move(ast));
 
-}
-
-string read_file(const string& filename) {
-    
-    ifstream file(filename);
-    
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << filename << "\n";
-        exit(1);
-    }
-    
-    ostringstream buffer;
-    buffer << file.rdbuf();
-    string source = buffer.str();
-        
-    file.close();
-    
-    return source;
-    
 }
 
 void run_interpreter(string& source) {

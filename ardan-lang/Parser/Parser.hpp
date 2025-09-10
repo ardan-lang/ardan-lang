@@ -50,6 +50,8 @@ private:
     unique_ptr<Statement> parseVariableStatement();
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
+    unique_ptr<Statement> parseImportDeclaration();
+
     vector<unique_ptr<Expression>> parseClassModifiers();
     void parseClassMember(vector<unique_ptr<MethodDefinition>>& methods, vector<unique_ptr<PropertyDeclaration>>& fields);
 

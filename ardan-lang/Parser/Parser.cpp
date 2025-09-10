@@ -44,6 +44,7 @@ unique_ptr<Statement> Parser::parseStatement() {
                 peek().lexeme == ("LET") ||
                 peek().lexeme == ("CONST"))    return parseVariableStatement();
             if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
+            if (peek().lexeme == ("IMPORT")) return parseImportDeclaration();
             else return parseExpressionStatement();
         }
         case TokenType::CLASS:
@@ -480,6 +481,14 @@ unique_ptr<Statement> Parser::parseTryStatement() {
     }
 
     return make_unique<TryStatement>(std::move(block), std::move(handler), std::move(finalizer));
+}
+
+unique_ptr<Statement> Parser::parseImportDeclaration() {
+    consumeKeyword("IMPORT");
+    Token path = peek();
+    consume(TokenType::STRING, "Expect path after 'import'.");
+    consume(TokenType::SEMI_COLON, "Expect ';' after the import statement.");
+    return make_unique<ImportDeclaration>(path);
 }
 
 // ───────────── Helpers ─────────────

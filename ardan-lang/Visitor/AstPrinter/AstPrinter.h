@@ -75,6 +75,7 @@ public:
     R visitArrowFunction(ArrowFunction *expr) override;
     R visitTemplateLiteral(TemplateLiteral* expr) override;
     R visitRestParameter(RestParameter *expr) override;
+    R visitImportDeclaration(ImportDeclaration* stmt) override;
 
 };
 

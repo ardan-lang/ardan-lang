@@ -32,6 +32,7 @@ class TryStatement;
 class CatchClause;
 class ForInStatement;
 class ForOfStatement;
+class ImportDeclaration;
 
 class StatementVisitor {
 public:
@@ -59,6 +60,7 @@ public:
     virtual R visitCatch(CatchClause* stmt) = 0;
     virtual R visitForIn(ForInStatement* stmt) = 0;
     virtual R visitForOf(ForOfStatement* stmt) = 0;
+    virtual R visitImportDeclaration(ImportDeclaration* stmt) = 0;
 
 };
 

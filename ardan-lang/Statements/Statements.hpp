@@ -410,4 +410,15 @@ public:
 
 };
 
+class ImportDeclaration : public Statement {
+public:
+    
+    Token path;
+    ImportDeclaration(Token path): path(path) {}
+    
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitImportDeclaration(this);
+    }
+};
+
 #endif /* Statements_hpp */

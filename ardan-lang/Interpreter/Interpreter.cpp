@@ -16,6 +16,8 @@
 #include "ExecutionContext/Value/Value.h"
 #include "../builtin/Print/Print.hpp"
 #include "../builtin/builtin-includes.h"
+#include "../Scanner/Scanner.hpp"
+#include "../Parser/Parser.hpp"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -2009,4 +2011,28 @@ bool Interpreter::check_obj_prop_access(MemberExpression* member,
 
 R Interpreter::visitRestParameter(RestParameter *expr) {
     return expr->token.lexeme;
+}
+
+R Interpreter::visitImportDeclaration(ImportDeclaration* stmt) {
+    // Pseudocode:
+    // 1. Open/read the file specified by stmt->path.lexeme
+    // 2. Scan, parse, and execute its code in the current or a new environment
+    // 3. Optionally, handle module/namespace logic
+    
+    // 1. Read file
+    std::string source = read_file(stmt->path.lexeme);
+    
+    // 2. Scan
+    Scanner scanner(source);
+    auto tokens = scanner.getTokens();
+    
+    // 3. Parse
+    Parser parser(tokens);
+    auto ast = parser.parse();
+    
+    // 4. Execute in current environment (or make a new one) do we need to make a new env?
+    this->execute(std::move(ast));
+    
+    return true;
+    
 }
