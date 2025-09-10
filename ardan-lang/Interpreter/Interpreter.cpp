@@ -298,7 +298,22 @@ R Interpreter::visitCall(CallExpression* expr) {
         if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(arg)) {
             key = ident->name;
         }
-                
+        
+        if (RestParameter* rest_parameter = dynamic_cast<RestParameter*>(arg)) {
+            
+            auto array = make_shared<JSArray>();
+            int arr_index = 0;
+            
+            for (size_t i = arg_index; i < expr->arguments.size(); i++) {
+                array->setIndex(arr_index, toValue(expr->arguments[i]->accept(*this)));
+                arr_index++;
+            }
+            
+            env->setStackValue(get<string>(rest_parameter->accept(*this)), array);
+
+            break;
+        }
+
         env->setStackValue(key, expr->arguments[arg_index]->accept(*this));
 
         arg_index++;
@@ -1920,32 +1935,36 @@ bool Interpreter::check_obj_prop_access(MemberExpression* member,
     
     shared_ptr<JSClass> klass = js_object->getKlass();
     
-    for (auto& field : klass->fields) {
-        if (field.first == key) {
-            // get the modifiers
-            for (auto& modifier : field.second->modifiers) {
-                string modifier_string = get<string>(modifier->accept(*this));
-                
-                if (modifier_string == "private") {
-                    throw runtime_error("Attempting to access a private property from outside of its class. " + field.first);
-                    return false;
+    if (klass) {
+        
+        for (auto& field : klass->fields) {
+            if (field.first == key) {
+                // get the modifiers
+                for (auto& modifier : field.second->modifiers) {
+                    string modifier_string = get<string>(modifier->accept(*this));
+                    
+                    if (modifier_string == "private") {
+                        throw runtime_error("Attempting to access a private property from outside of its class. " + field.first);
+                        return false;
+                    }
                 }
             }
         }
-    }
-    
-    for (auto& method : klass->methods) {
-        if (method.first == key) {
-            // get the modifiers
-            for (auto& modifier : method.second->modifiers) {
-                string modifier_string = get<string>(modifier->accept(*this));
-                
-                if (modifier_string == "private") {
-                    throw runtime_error("Attempting to access a private property from outside of its class. " + method.first);
-                    return false;
+        
+        for (auto& method : klass->methods) {
+            if (method.first == key) {
+                // get the modifiers
+                for (auto& modifier : method.second->modifiers) {
+                    string modifier_string = get<string>(modifier->accept(*this));
+                    
+                    if (modifier_string == "private") {
+                        throw runtime_error("Attempting to access a private property from outside of its class. " + method.first);
+                        return false;
+                    }
                 }
             }
         }
+        
     }
     
     // check in methods
@@ -1956,4 +1975,8 @@ bool Interpreter::check_obj_prop_access(MemberExpression* member,
     
     return true;
     
+}
+
+R Interpreter::visitRestParameter(RestParameter *expr) {
+    return expr->token.lexeme;
 }

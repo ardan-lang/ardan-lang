@@ -39,6 +39,7 @@ class ProtectedKeyword;
 class StaticKeyword;
 class ArrowFunction;
 class TemplateLiteral;
+class RestParameter;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -72,6 +73,7 @@ public:
     virtual R visitStaticKeyword(StaticKeyword* expr) = 0;
     virtual R visitArrowFunction(ArrowFunction* expr) = 0;
     virtual R visitTemplateLiteral(TemplateLiteral* expr) = 0;
+    virtual R visitRestParameter(RestParameter* expr) = 0;
     
 };
 

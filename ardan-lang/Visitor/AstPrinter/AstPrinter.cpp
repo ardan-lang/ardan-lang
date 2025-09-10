@@ -575,3 +575,7 @@ R AstPrinter::visitTemplateLiteral(TemplateLiteral* expr) {
     
     return true;
 }
+
+R AstPrinter::visitRestParameter(RestParameter *expr) {
+    return monostate();
+}

@@ -366,10 +366,20 @@ public:
 class StaticKeyword : public Expression {
 public:
     StaticKeyword() {}
-    
-    
+        
     R accept(ExpressionVisitor& visitor) {
         return visitor.visitStaticKeyword(this);
+    }
+
+};
+
+class RestParameter : public Expression {
+public:
+    Token token;
+    RestParameter(Token token) : token(token) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitRestParameter(this);
     }
 
 };

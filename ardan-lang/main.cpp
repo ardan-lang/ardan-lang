@@ -295,42 +295,42 @@ void run_interpreter_inline_test() {
     //print(func(v, 90));
     //print(((x, y) => { return x*y; })(2, 8));
     
-    class Parent {
-
-        var parentName = "PP";
-
-        testParent() {
-            print(this.name);
-        }
-    
-    }
-    
-    class User extends Parent {
-        public var name = "NN";
-        private static var age = -8.9;
-    
-        change(){
-    
-            print("--------------");
-            this["name"] = "changed to nameee";
-            this["age"]++;
-            print(this["age"]);
-            User.age = 4 + User.age;
-            print(User.age);
-            print("----------end----------");
-    
-        }
-    }
-    
-    const user_obj = new User();
-    print(user_obj.parentName);
-    user_obj.testParent();
+//    class Parent {
+//
+//        var parentName = "PP";
+//
+//        testParent() {
+//            print(this.name);
+//        }
 //    
-    user_obj.name = "CC";
+//    }
+//    
+//    class User extends Parent {
+//        public var name = "NN";
+//        private static var age = -8.9;
+//    
+//        change(){
+//    
+//            print("--------------");
+//            this["name"] = "changed to nameee";
+//            this["age"]++;
+//            print(this["age"]);
+//            User.age = 4 + User.age;
+//            print(User.age);
+//            print("----------end----------");
+//    
+//        }
+//    }
+//    
+//    const user_obj = new User();
+//    print(user_obj.parentName);
+//    user_obj.testParent();
+//    
+//    user_obj.name = "CC";
 //    print(user_obj.name);
-      user_obj.testParent();
-      user_obj.change();
-      print(user_obj.name);
+//      user_obj.testParent();
+//      user_obj.change();
+//      print(user_obj.name);
 //      print(User.age++);
 //      print(--User.age);
       //print(User.age);
@@ -338,22 +338,30 @@ void run_interpreter_inline_test() {
 //    let n = `Hello ${name}, you are ${1 + 2}${1 + 2} years old`;
 //    print(n);
     
-    class Point {
-        var x;
-        var y;
-        constructor(x, y) {
-            this.x = x;
-            this.y = y;
-        }
-        move(dx, dy) {
-            this.x += dx;
-            this.y += dy;
-        }
+//    class Point {
+//        var x;
+//        var y;
+//        constructor(x, y) {
+//            this.x = x;
+//            this.y = y;
+//        }
+//        move(dx, dy) {
+//            this.x += dx;
+//            this.y += dy;
+//        }
+//    }
+
+//    let pt = new Point(0, 0);
+//    pt.move(3, 4);
+//    print(pt.x, pt.y); // 3, 4
+    
+    function greet(firstName, lastName, ...otherInfo) {
+      console.log(`Hello, ${firstName} ${lastName}!`);
+      console.log("Additional info:", otherInfo);
     }
 
-    let pt = new Point(0, 0);
-    pt.move(3, 4);
-    print(pt.x, pt.y); // 3, 4
+    greet("John", "Doe", "Developer", "New York", "Single");
+    
     )";
 
     Scanner scanner(lang);

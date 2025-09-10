@@ -21,6 +21,7 @@ enum class ValueType {
     STRING,
     BOOLEAN,
     OBJECT,
+    ARRAY,
     UNDEFINED,
     NULLTYPE,
     NATIVE_FUNCTION,
@@ -31,6 +32,7 @@ enum class ValueType {
 class Value;
 class JSObject; // forward declare
 class JSClass;
+class JSArray;
 
 using NativeFn = function<Value(const vector<Value>&)>;
 
@@ -44,6 +46,7 @@ public:
     string stringValue;
     bool boolValue;
     shared_ptr<JSObject> objectValue;
+    shared_ptr<JSArray> arrayValue;
     shared_ptr<JSClass> classValue;
     NativeFn nativeFunction;
     std::function<Value(std::vector<Value>)> functionValue;
@@ -54,6 +57,9 @@ public:
     static Value str(const string& s) { Value v; v.type = ValueType::STRING; v.stringValue = s; return v; }
     static Value boolean(bool b) { Value v; v.type = ValueType::BOOLEAN; v.boolValue = b; return v; }
     static Value object(shared_ptr<JSObject> obj) { Value v; v.type = ValueType::OBJECT; v.objectValue = obj; return v; }
+    static Value array(shared_ptr<JSArray> array) {
+        Value v; v.type = ValueType::ARRAY; v.arrayValue = array; return v;
+    }
     static Value undefined() { return Value(); }
     static Value nullVal() { Value v; v.type = ValueType::NULLTYPE; return v; }
     static Value native(NativeFn fn) { Value v; v.type = ValueType::NATIVE_FUNCTION; v.nativeFunction = fn; return v; }

@@ -92,6 +92,7 @@ public:
     R visitStaticKeyword(StaticKeyword* expr) override;
     R visitArrowFunction(ArrowFunction* expr) override;
     R visitTemplateLiteral(TemplateLiteral* expr) override;
+    R visitRestParameter(RestParameter *expr) override;
 
 };
 

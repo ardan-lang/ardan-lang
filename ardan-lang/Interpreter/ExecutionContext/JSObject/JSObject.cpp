@@ -107,3 +107,27 @@ const unordered_map<string, Value> JSObject::get_all_properties() {
 shared_ptr<JSClass> JSObject::getKlass() {
     return js_class;
 }
+
+string JSObject::toString() {
+    
+    string concat = "{";
+    int index = 0;
+    
+    for (auto prop : get_all_properties()) {
+                
+        if (prop.second.type == ValueType::ARRAY) {
+            concat += prop.second.toString();
+        }
+
+        concat += prop.first + ": ";
+        concat += prop.second.stringValue + ( index >= (get_all_properties().size() - 1) ? "" : ", ");
+        
+        index++;
+        
+    }
+    
+    concat += "}";
+    
+    return concat;
+    
+}

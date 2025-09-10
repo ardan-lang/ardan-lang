@@ -84,6 +84,7 @@ string Value::toString() const {
         case ValueType::NATIVE_FUNCTION: return "[native function]";
         case ValueType::FUNCTION: return "[function]";
         case ValueType::METHOD: return "[method]";
+        case ValueType::ARRAY: return "[array Array]";
     }
     return "undefined";
 }
@@ -99,6 +100,7 @@ bool Value::isTruthy() const {
         case ValueType::FUNCTION: return true;
         case ValueType::NATIVE_FUNCTION: return true;
         case ValueType::METHOD: return true;
+        case ValueType::ARRAY: return true;
     }
     return false;
 }

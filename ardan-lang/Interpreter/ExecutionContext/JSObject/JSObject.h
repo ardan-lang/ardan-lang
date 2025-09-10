@@ -45,6 +45,7 @@ public:
     const unordered_map<string, Value> get_all_properties();
     
     shared_ptr<JSClass> getKlass();
+    string toString();
     
 };
 

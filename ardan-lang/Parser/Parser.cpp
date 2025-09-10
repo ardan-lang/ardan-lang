@@ -244,11 +244,24 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
 unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     consumeKeyword("FUNCTION");
     auto id = consume(TokenType::IDENTIFIER, "Expected function name");
+    
+    bool seenRest = false;
+    
     consume(TokenType::LEFT_PARENTHESIS, "Expected '('");
     vector<unique_ptr<Expression>> params;
     if (!check(TokenType::RIGHT_PARENTHESIS)) {
         do {
-            params.push_back(parseAssignment());
+            if (match(TokenType::SPREAD)) {
+                // Only allow one rest parameter, and it must be last
+                if (seenRest) error(peek(), "Only one rest parameter allowed");
+                seenRest = true;
+                auto restArg = consume(TokenType::IDENTIFIER, "Expected rest parameter name");
+                // Store as a special "rest" parameter
+                params.push_back(make_unique<RestParameter>(restArg));
+                break; // Rest parameter must be last in the list
+            } else {
+                params.push_back(parseAssignment());
+            }
         } while (match(TokenType::COMMA));
     }
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");

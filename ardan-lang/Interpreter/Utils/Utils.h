@@ -211,6 +211,10 @@ inline Value toValue(const R& r) {
             v.type = ValueType::OBJECT;
             v.objectValue = arg;
         }
+        else if constexpr (std::is_same_v<T, std::shared_ptr<JSArray>>) {
+            v.type = ValueType::ARRAY;
+            v.arrayValue = arg;
+        }
         else if constexpr (std::is_same_v<T, std::shared_ptr<Value>>) {
             // unwrap nested Value
             v = *arg;
@@ -241,9 +245,25 @@ inline void printValue(const R& value) {
     } else if (std::holds_alternative<bool>(value)) {
         std::cout << (std::get<bool>(value) ? "true" : "false");
     } else if (std::holds_alternative<shared_ptr<Value>>(value)) {
+
+        if (get<shared_ptr<Value>>(value)->type == ValueType::ARRAY) {
+            cout << get<shared_ptr<Value>>(value)->arrayValue->toString();
+            return;
+        }
+
         std::cout << (std::get<shared_ptr<Value>>(value))->toString();
     } else if (std::holds_alternative<Value>(value)) {
+        
+        if (get<Value>(value).type == ValueType::ARRAY) {
+            cout << get<Value>(value).arrayValue->toString();
+            return;
+        }
+        
         std::cout << (std::get<Value>(value)).toString();
+        
+    } else if (std::holds_alternative<shared_ptr<JSArray>>(value)) {
+        shared_ptr<JSArray> array = get<shared_ptr<JSArray>>(value);
+        cout << array->toString();
     }
 }
 

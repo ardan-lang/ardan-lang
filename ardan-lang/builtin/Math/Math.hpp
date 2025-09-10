@@ -26,7 +26,7 @@ public:
 
             return Value::number(std::abs(n));
             
-        }));
+        }), "VAR", {});
         
         set("pow", Value::native([](const std::vector<Value>& args) {
 
@@ -35,9 +35,9 @@ public:
 
             return Value::number(Math::pow(num, exp));
             
-        }));
+        }), "VAR", {});
         
-        set("PI", Value::number(Math::PI));
+        set("PI", Value::number(Math::PI), "VAR", {});
         
     }
     

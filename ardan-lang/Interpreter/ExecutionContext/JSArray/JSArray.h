@@ -13,6 +13,7 @@
 #include <string>
 #include <any>
 #include "../JSObject/JSObject.h"
+#include "../Value/Value.h"
 
 using namespace std;
 
@@ -26,7 +27,7 @@ public:
     Value getIndex(size_t i);
 
     void updateLength(size_t len);
-        
+    string toString();
 };
 
 #endif /* JSArray_h */
