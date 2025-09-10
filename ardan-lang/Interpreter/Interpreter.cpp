@@ -1724,6 +1724,20 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                             paramValue = toValue(variable->declarations[0].init->accept(*intr));
                         }
                         
+                    } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
+                        paramName = toValue(param_expr->accept(*intr)).stringValue;
+                        
+                        auto array = make_shared<JSArray>();
+                        int arr_index = 0;
+                        
+                        for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
+                            array->setIndex(arr_index, args[rest_i]);
+                            arr_index++;
+                        }
+                        
+                        localEnv->set_var(paramName, array);
+                        break; // we break because rest should be the last param.
+
                     }
                     
                     localEnv->set_var(paramName, paramValue);
@@ -1742,6 +1756,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
         
         auto prevEnv = intr->env;
         intr->env = localEnv.get();  // safe: shared_ptr keeps it alive
+        // TODO: check whether we need to copy this_binding
 
         // Evaluate the body
         try {

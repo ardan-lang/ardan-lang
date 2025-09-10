@@ -492,6 +492,11 @@ private:
             return make_unique<TemplateLiteral>(std::move(parts));
             
         }
+        if (match(TokenType::SPREAD)) {
+            Token name = peek();
+            advance();
+            return make_unique<RestParameter>(name);
+        }
 
         throw error(peek(), "Unexpected token in primary expression");
         

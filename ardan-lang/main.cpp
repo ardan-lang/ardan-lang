@@ -355,10 +355,10 @@ void run_interpreter_inline_test() {
 //    pt.move(3, 4);
 //    print(pt.x, pt.y); // 3, 4
     
-    function greet(firstName, lastName, ...otherInfo) {
+    let greet = (firstName, lastName, ...otherInfo) => {
       console.log(`Hello, ${firstName} ${lastName}!`);
       console.log("Additional info:", otherInfo);
-    }
+    };
 
     greet("John", "Doe", "Developer", "New York", "Single");
     
