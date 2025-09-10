@@ -30,10 +30,11 @@ private:
 
 public:
     Interpreter();
+    Interpreter(Env* local_env);
     ~Interpreter();
     void execute(vector<unique_ptr<Statement>> ast);
     void executeBlock(unique_ptr<Statement> block);
-    
+
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     shared_ptr<JSObject> getMemberExprJSObject(MemberExpression* member);
     shared_ptr<JSClass> getMemberExprJSClass(MemberExpression* member);

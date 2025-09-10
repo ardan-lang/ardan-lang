@@ -236,6 +236,8 @@ inline void printValue(const R& value) {
         std::cout << std::get<double>(value);
     } else if (std::holds_alternative<unsigned long>(value)) {
         std::cout << std::get<unsigned long>(value);
+    } else if (std::holds_alternative<unsigned short>(value)) {
+        std::cout << std::get<unsigned short>(value);
     } else if (std::holds_alternative<int>(value)) {
         std::cout << std::get<int>(value);
     } else if (std::holds_alternative<size_t>(value)) {
@@ -258,6 +260,11 @@ inline void printValue(const R& value) {
             cout << get<Value>(value).arrayValue->toString();
             return;
         }
+        
+//        NATIVE_FUNCTION,
+//        FUNCTION,
+//        METHOD
+
         
         std::cout << (std::get<Value>(value)).toString();
         

@@ -17,6 +17,8 @@
 #include "Visitor/AstPrinter/AstPrinter.h"
 #include "Interpreter/Interpreter.h"
 
+#include "REPL/REPL.hpp"
+
 using namespace std;
 
 void run_interpreter_inline_test() {
@@ -420,8 +422,14 @@ void run_interpreter(string& source) {
 
 int main(int argc, const char * argv[]) {
         
+//    REPL repl;
+//    repl.start_repl();
+    
+//    return 0;
+    
     bool interpret = false;
     bool compile = false;
+    bool repl_it = false;
     
     string filename;
     
@@ -433,6 +441,8 @@ int main(int argc, const char * argv[]) {
             interpret = true;
         } else if (param == "--c" || param == "--compile") {
             compile = true;
+        } else if (param == "--r" || param == "--repl") {
+            repl_it = true;
         } else {
             filename = param;
         }
@@ -446,8 +456,17 @@ int main(int argc, const char * argv[]) {
         
     } else if (compile) {
         
+    } else if (repl_it) {
+
+        REPL repl;
+        repl.start_repl();
+
     } else {
-        run_interpreter_inline_test();
+        
+        REPL repl;
+        repl.start_repl();
+
+        // run_interpreter_inline_test();
     }
     
     return EXIT_SUCCESS;

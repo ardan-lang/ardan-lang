@@ -28,14 +28,8 @@ public:
     Print() {
         
         set("log", Value::native([](const vector<Value>& args) {
-            
-            vector<R> r_args;
-            
-            for (auto& arg : args) {
-                r_args.push_back(arg);
-            }
-            
-            Print::print(r_args);
+                        
+            Print::print(args);
             
             return Value();
             
@@ -43,7 +37,7 @@ public:
         
     }
     
-    static void print(const vector<R>& args) {
+    static void print(const vector<Value>& args) {
         
         int index = 0;
         

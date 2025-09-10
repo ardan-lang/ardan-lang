@@ -6,8 +6,11 @@
 //
 
 #include "Env.h"
+#include <sstream>
+#include <typeinfo>
 
 Env::Env(Env* parent) : parent(parent) {}
+
 Env::~Env() {}
 
 R Env::getValue(const string& key) {
@@ -147,4 +150,60 @@ unordered_map<string, R> Env::getStack() {
 
 void Env::clearStack() {
     stack = {};
+}
+
+
+void Env::debugPrint() const {
+    cout << "\n=== Environment Debug ===\n";
+
+    cout << "Vars:\n";
+    for (const auto& [k, v] : variables) {
+        cout << "  " << k << " = ";
+        printValue(v);
+        cout << "\n";
+    }
+
+    cout << "Lets:\n";
+    for (const auto& [k, v] : let_variables) {
+        cout << "  " << k << " = ";
+        printValue(v);
+        cout << "\n";
+    }
+
+    cout << "Consts:\n";
+    for (const auto& [k, v] : const_variables) {
+        cout << "  " << k << " = ";
+        printValue(v);
+        cout << "\n";
+    }
+
+    cout << "Stack:\n";
+    for (const auto& [k, v] : stack) {
+        cout << "  " << k << " = ";
+        printValue(v);
+        cout << "\n";
+    }
+
+    cout << "Functions:\n";
+    for (const auto& [name, paramList] : params) {
+        cout << "  " << name << "(";
+        for (size_t i = 0; i < paramList.size(); i++) {
+            Expression* expr = paramList[i].get();
+            // if expr is IdentifierExpression, print its name; otherwise print "param"
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr)) {
+                cout << idExpr->name;
+            } else {
+                cout << "param";
+            }
+            if (i + 1 < paramList.size()) cout << ", ";
+        }
+        cout << ") { ... }\n";
+    }
+
+    if (parent) {
+        cout << "\n-- Parent Env --\n";
+        parent->debugPrint();
+    }
+
+    cout << "========================\n";
 }

@@ -27,6 +27,21 @@ Interpreter::Interpreter() {
     
 }
 
+Interpreter::Interpreter(Env* local_env) {
+    
+    // init all builtins
+    local_env->set_var("Math", make_shared<Math>());
+    local_env->set_var("console", make_shared<Print>());
+    // env->set_var("readFile", );
+
+    env = local_env;
+
+    env->set_var("Math", make_shared<Math>());
+    env->set_var("console", make_shared<Print>());
+
+    
+}
+
 Interpreter::~Interpreter() {
     
     if (env != nullptr) {
@@ -257,11 +272,11 @@ R Interpreter::visitCall(CallExpression* expr) {
     
     auto callee = expr->callee->accept(*this);
 
-    vector<R> vector_args;
+    vector<Value> vector_args;
 
     for (auto& arg : expr->arguments) {
         auto accept_arg = arg->accept(*this);
-        vector_args.push_back(accept_arg);
+        vector_args.push_back(toValue(accept_arg));
     }
 
     // check for built-in function.

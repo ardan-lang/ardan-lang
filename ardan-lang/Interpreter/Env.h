@@ -20,6 +20,7 @@
 using namespace std;
 
 class JSObject;
+inline void printValue(const R& value);
 
 class Env {
 
@@ -60,6 +61,7 @@ public:
         
     shared_ptr<JSObject> this_binding;
     shared_ptr<JSObject> global_object = make_shared<JSObject>();
+    void debugPrint() const;
 
 private:
     unordered_map<string, R> variables = {
