@@ -1042,6 +1042,7 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
     }
 }
 
+// !true, ~9, ++user, --user.bar.baz
 R Interpreter::visitUnary(UnaryExpression* expr) {
     
     Token token = expr->op;
@@ -1092,7 +1093,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                     std::string key;
                     if (member->computed) {
                         R comp = member->property->accept(*this);
-                        key = get<std::string>(comp);
+                        key = toValue(comp).toString();
                     } else {
                         key = member->name.lexeme;
                     }
@@ -1163,12 +1164,28 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                     if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
                         target_obj = getMemberExprJSObject(member);
                     }
+                    
+                    if (holds_alternative<shared_ptr<Value>>(objectValue)) {
+                        
+                        shared_ptr<Value> current_value = get<shared_ptr<Value>>(objectValue);
+                        
+                        if (current_value->type == ValueType::OBJECT) {
+                            
+                            target_obj = current_value->objectValue;
+
+                        }
+
+                        if (current_value->type == ValueType::ARRAY) {
+                            target_obj = current_value->arrayValue;
+                        }
+
+                    }
 
                     // Compute property key
                     std::string key;
                     if (member->computed) {
                         R comp = member->property->accept(*this);
-                        key = get<std::string>(comp);
+                        key = toValue(comp).toString();
                     } else {
                         key = member->name.lexeme;
                     }
@@ -1229,6 +1246,7 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
     
 }
 
+// user--, user.bar.baz++
 R Interpreter::visitUpdate(UpdateExpression* expr) {
         
     R value = expr->argument->accept(*this);
@@ -1265,9 +1283,25 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 std::string key;
                 if (member->computed) {
                     R comp = member->property->accept(*this);
-                    key = get<std::string>(comp);
+                    key = toValue(comp).toString();
                 } else {
                     key = member->name.lexeme;
+                }
+                
+                if (holds_alternative<shared_ptr<Value>>(objectValue)) {
+                    
+                    shared_ptr<Value> current_value = get<shared_ptr<Value>>(objectValue);
+                    
+                    if (current_value->type == ValueType::OBJECT) {
+                        
+                        targetObj = current_value->objectValue;
+
+                    }
+
+                    if (current_value->type == ValueType::ARRAY) {
+                        targetObj = current_value->arrayValue;
+                    }
+
                 }
 
                 // Get and update property
@@ -1329,9 +1363,25 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 std::string key;
                 if (member->computed) {
                     R comp = member->property->accept(*this);
-                    key = get<std::string>(comp);
+                    key = toValue(comp).toString();
                 } else {
                     key = member->name.lexeme;
+                }
+                
+                if (holds_alternative<shared_ptr<Value>>(objectValue)) {
+                    
+                    shared_ptr<Value> current_value = get<shared_ptr<Value>>(objectValue);
+                    
+                    if (current_value->type == ValueType::OBJECT) {
+                        
+                        targetObj = current_value->objectValue;
+
+                    }
+
+                    if (current_value->type == ValueType::ARRAY) {
+                        targetObj = current_value->arrayValue;
+                    }
+
                 }
 
                 // Get and update property
@@ -2017,6 +2067,23 @@ shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member
     else {
         targetObj = get<shared_ptr<JSObject>>(objectValue);
     }
+    
+    if (holds_alternative<shared_ptr<Value>>(objectValue)) {
+        
+        shared_ptr<Value> current_value = get<shared_ptr<Value>>(objectValue);
+        
+        if (current_value->type == ValueType::OBJECT) {
+            
+            targetObj = current_value->objectValue;
+
+        }
+
+        if (current_value->type == ValueType::ARRAY) {
+            targetObj = current_value->arrayValue;
+        }
+
+    }
+
         
     return targetObj;
     
