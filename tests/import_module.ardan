@@ -1,0 +1,17 @@
+// Create stub_module.ardan in tests/ as the import target:
+// function exported() { print("from stub module"); }
+// var stubval = 42;
+// print("stub loaded");
+
+print("=== Import Module ===");
+import "./stub_module.ardan";
+exported();
+print(stubval);
+
+// Import error:
+try { import "./notfound.ardan"; } catch(e) { print("import error", e); }
+
+// Optionally, cyclic import scenario if supported
+// import "./cyclic_a.ardan";
+
+print("=== End Import Module ===");

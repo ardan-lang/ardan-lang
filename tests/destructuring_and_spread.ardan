@@ -1,0 +1,25 @@
+print("=== Destructuring & Spread ===");
+
+// Array destructure
+let arr = [1,2,3,4];
+let [x, y, ...z] = arr;
+print(x, y, z);
+
+// Object destructure
+let obj = {foo: 9, bar: 8, baz: 7};
+let {foo, ...rest} = obj;
+print(foo, rest);
+
+// Spread arrays
+let arr2 = [0, ...arr, 5];
+print(arr2);
+
+// Spread objects
+let obj2 = {key:1, ...obj};
+print(obj2);
+
+// Function params
+function f([a,b], {foo}) { print("f",a,b,foo); }
+f([1,2], {foo:99});
+
+print("=== Done Destructuring/Spread ===");
