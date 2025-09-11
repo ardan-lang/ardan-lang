@@ -27,7 +27,10 @@ string JSArray::toString() {
     
     string concat = "[";
     int index = 0;
-    for (auto prop : get_all_properties()) {
+    
+    auto all_properties = get_all_properties();
+    
+    for (auto prop : all_properties) {
         
         if (prop.first == "length") {
             index++;
@@ -38,7 +41,11 @@ string JSArray::toString() {
             concat += prop.second.toString();
         }
         
-        concat += prop.second.stringValue + ( index >= (get_all_properties().size() - 1) ? "" : ", ");
+        if (prop.second.type == ValueType::OBJECT) {
+            concat += prop.second.toString();
+        }
+        
+        concat += prop.second.toString() + ( index >= (all_properties.size() - 1) ? "" : ", ");
         
         index++;
         

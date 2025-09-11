@@ -363,13 +363,22 @@ void run_interpreter_inline_test() {
 //    pt.move(3, 4);
 //    print(pt.x, pt.y); // 3, 4
     
-    let greet = (firstName, lastName, ...otherInfo) => {
-      console.log(`Hello, ${firstName} ${lastName}!`);
-      console.log("Additional info:", otherInfo);
-    };
-
-    greet("John", "Doe", "Developer", "New York", "Single");
+//    let greet = (firstName, lastName, ...otherInfo) => {
+//      console.log(`Hello, ${firstName} ${lastName}!`);
+//      console.log("Additional info:", otherInfo);
+//    };
+//
+//    greet("John", "Doe", "Developer", "New York", "Single");
     
+    let a = [1,2,3];
+    let b = [a, [4,5], 6];
+    print(b[0][1], b[1][0]);
+
+    let o = {foo:123, bar:{baz:42}};
+    print(o.bar.baz);
+    o.bar.qux = [7,8];
+    print(o.bar.qux);
+
     )";
 
     Scanner scanner(lang);
@@ -470,11 +479,13 @@ fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
 }
 
 int main(int argc, const char * argv[]) {
-        
+    
+    run_interpreter_inline_test();
+    
 //    REPL repl;
 //    repl.start_repl();
     
-//    return 0;
+    return 0;
     
     bool interpret = false;
     bool compile = false;

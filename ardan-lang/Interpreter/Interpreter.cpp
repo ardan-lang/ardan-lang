@@ -970,6 +970,10 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                 if (this_epxr) {
                     current = env->this_binding;
                 }
+                
+                if (auto obj = dynamic_cast<MemberExpression*>(member_expr->object.get())) {
+                    current = member_expr->object->accept(*this);
+                }
 
                 if (member_expr->computed) {
                     // TODO: evaluate this.
@@ -1006,6 +1010,21 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                         .get()->set(property_name,
                                     toValue(newVal),
                                     env->this_binding ? false : true);
+
+                }
+                
+                if (holds_alternative<shared_ptr<Value>>(current)) {
+                    
+                    shared_ptr<Value> current_value = get<shared_ptr<Value>>(current);
+                    
+                    if (current_value->type == ValueType::OBJECT) {
+                        // TODO: we need to check the "VAR" we sent
+                        current_value->objectValue->set(property_name, toValue(newVal), "VAR", {});
+                    }
+
+                    if (current_value->type == ValueType::ARRAY) {
+                        current_value->arrayValue->set(property_name, toValue(newVal), "VAR", {});
+                    }
 
                 }
 
@@ -1441,7 +1460,81 @@ R Interpreter::visitMember(MemberExpression* expr) {
         
         return return_value;
 
-    } else {
+    }
+    else if (holds_alternative<shared_ptr<JSArray>>(object_value)) {
+        
+        if (expr->computed) {
+            
+            // []
+            R property_value = expr->property->accept(*this);
+                        
+            property_name = toValue(property_value).toString();
+            
+        } else {
+            
+            // .
+            property_name = expr->name.lexeme;
+            
+        }
+        
+        js_object_instance = get<shared_ptr<JSArray>>(object_value);
+
+        check_obj_prop_access(expr, js_object_instance.get(), property_name);
+        return_value = js_object_instance->get(property_name);
+
+    }
+    else if (holds_alternative<shared_ptr<Value>>(object_value)) {
+        
+        shared_ptr<Value> value = get<shared_ptr<Value>>(object_value);
+        
+        if (value->type == ValueType::ARRAY) {
+            
+            if (expr->computed) {
+                
+                // []
+                R property_value = expr->property->accept(*this);
+                            
+                property_name = toValue(property_value).toString();
+                
+            } else {
+                
+                // .
+                property_name = expr->name.lexeme;
+                
+            }
+            
+            js_object_instance = value->arrayValue;
+
+            check_obj_prop_access(expr, js_object_instance.get(), property_name);
+            return_value = js_object_instance->get(property_name);
+
+        }
+        
+        if (value->type == ValueType::OBJECT) {
+            
+            if (expr->computed) {
+                
+                // []
+                R property_value = expr->property->accept(*this);
+                            
+                property_name = toValue(property_value).toString();
+                
+            } else {
+                
+                // .
+                property_name = expr->name.lexeme;
+                
+            }
+            
+            js_object_instance = value->objectValue;
+
+            check_obj_prop_access(expr, js_object_instance.get(), property_name);
+            return_value = js_object_instance->get(property_name);
+
+        }
+
+    }
+    else {
         
         if (!holds_alternative<string>(object_value)) {
             throw runtime_error("The object name must be an identifier.");
@@ -1628,7 +1721,7 @@ R Interpreter::visitObject(ObjectLiteralExpression* expr) {
     auto object = make_shared<JSObject>();
     
     for (auto& prop : expr->props) {
-        object->set(prop.first.lexeme, toValue(prop.second->accept(*this)));
+        object->set(prop.first.lexeme, toValue(prop.second->accept(*this)), "VAR", {});
     }
 
     return object;
@@ -2040,3 +2133,4 @@ R Interpreter::visitImportDeclaration(ImportDeclaration* stmt) {
     this->execute(std::move(ast));
     return true;
 }
+
