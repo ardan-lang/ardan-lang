@@ -20,6 +20,7 @@
 #include "Interpreter/Interpreter.h"
 
 #include "REPL/REPL.hpp"
+#include "JSON/JSON.hpp"
 
 string read_file(const string& filename);
 
@@ -426,8 +427,8 @@ void create_ardan_project() {
             return;
         }
         
-        // Create index.ardan file inside it
-        fs::path filePath = dirPath / "index.ardan";
+        // Create main.ardan file inside it
+        fs::path filePath = dirPath / "main.ardan";
         std::ofstream ardanFile(filePath);
         if (ardanFile.is_open()) {
             ardanFile << "function main() {\n";
@@ -437,12 +438,35 @@ void create_ardan_project() {
             ardanFile.close();
             std::cout << "Created file: " << filePath << "\n";
         } else {
-            std::cerr << "Failed to create index.ardan\n";
+            std::cerr << "Failed to create main.ardan\n";
         }
+        
+        // Create ardan.json file inside it
+        fs::path ardanJsonFilePath = dirPath / "ardan.json";
+        std::ofstream ardanJsonFile(ardanJsonFilePath);
+        if (ardanJsonFile.is_open()) {
+            ardanJsonFile << "{\n";
+            ardanJsonFile << "    \"main\": \"main.ardan\"\n";
+            ardanJsonFile << "}\n";
+            ardanJsonFile.close();
+            std::cout << "Created file: " << ardanJsonFilePath << "\n";
+        } else {
+            std::cerr << "Failed to create ardan.json\n";
+        }
+
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";
     }
+}
+
+fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
+    for (auto& p : fs::recursive_directory_iterator(root)) {
+        if (p.is_regular_file() && p.path().filename() == fileName) {
+            return p.path();
+        }
+    }
+    return {};
 }
 
 int main(int argc, const char * argv[]) {
@@ -495,8 +519,56 @@ int main(int argc, const char * argv[]) {
 
     } else {
         
-        REPL repl;
-        repl.start_repl();
+        // if dir is a ardan project
+        if (fs::exists(fs::current_path() / "ardan.json")) {
+            
+            fs::path projectRoot = fs::current_path();
+                        
+            // read ardan.json
+            ifstream file(fs::current_path() / "ardan.json");
+            JSON json;
+            
+            auto data = json.readJson("ardan.json");
+            
+            if (data.empty()) {
+                std::cerr << "No data found in ardan.json\n";
+                return 1;
+            }
+            
+            string entryFileName;
+            
+            for (const auto& [key, value] : data) {
+                if (key == "main") {
+                    entryFileName = value;
+                }
+            }
+            
+            if (entryFileName.empty()) {
+                cerr << "No main start script found.\n";
+                return 1;
+            }
+            
+            // launch main
+            // read the value from fs
+            
+            // Search for entry file anywhere in the project dir
+                fs::path entryPath = findFileRecursive(projectRoot, entryFileName);
+                if (!entryPath.empty()) {
+                    std::cout << "Resolved entry path: " << entryPath << "\n";
+                    
+                    string source = read_file(entryPath);
+                    run_interpreter(entryFileName, source);
+
+                } else {
+                    std::cerr << "Could not find " << entryFileName << " in project.\n";
+                }
+            
+            
+        } else {
+            
+            REPL repl;
+            repl.start_repl();
+        }
 
         // run_interpreter_inline_test();
     }

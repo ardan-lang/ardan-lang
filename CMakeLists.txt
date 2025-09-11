@@ -20,6 +20,7 @@ file(GLOB_RECURSE SRC_FILES
     "ardan-lang/Scanner/*.cpp"
     "ardan-lang/Visitor/*.cpp"
     "ardan-lang/REPL/*.cpp"
+    "ardan-lang/JSON/*.cpp"
     "ardan-lang/*.cpp"
 )
 
