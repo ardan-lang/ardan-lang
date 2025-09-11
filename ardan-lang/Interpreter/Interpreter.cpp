@@ -1572,17 +1572,18 @@ R Interpreter::visitNew(NewExpression* expr) {
                 constructor = method.second.get();
             }
             
-            string kind = "VAR";
+            string kind = VAR;
             
             for (auto& modifier : method.second->modifiers) {
                 
                 Value val = toValue(modifier->accept(*this));
                 
-                if (val.stringValue == "LET") {
-                    kind = "LET";
+                if (val.stringValue == LET) {
+                    kind = LET;
                 }
-                if (val.stringValue == "CONST") {
-                    kind = "CONST";
+                
+                if (val.stringValue == CONST) {
+                    kind = CONST;
                 }
                 
             }
@@ -1858,17 +1859,17 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
         
         vector<string> field_modifiers;
         
-        string kind = "VAR";
+        string kind = VAR;
         
         for (auto& modifier : method.second->modifiers) {
             
             Value val = toValue(modifier->accept(*this));
             
-            if (val.stringValue == "LET") {
-                kind = "LET";
+            if (val.stringValue == LET) {
+                kind = LET;
             }
-            if (val.stringValue == "CONST") {
-                kind = "CONST";
+            if (val.stringValue == CONST) {
+                kind = CONST;
             }
             
             string current_modifier = get<string>(modifier->accept(*this));

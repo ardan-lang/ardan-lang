@@ -27,6 +27,10 @@ private:
     struct ReturnException {
         R value;
     };
+    
+    string CONST = "CONST";
+    string LET = "LET";
+    string VAR = "VAR";
 
 public:
     Interpreter();
