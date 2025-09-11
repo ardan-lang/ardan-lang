@@ -1,0 +1,61 @@
+print("=== Exceptions & Error Handling ===");
+
+do {
+    try { throw "fail1"; } catch(e) { print("catch1", e); }
+} catch {
+    // No outer error expected
+}
+
+do {
+    try {
+        throw 123
+    } catch(e) {
+        print("catch2", e)
+    } finally {
+        print("finally2")
+    }
+} catch {
+    // No outer error expected
+}
+
+do {
+    try {
+        print("before throw")
+        throw ["msg":"fail object"]
+        print("should not reach")
+    } catch(e) {
+        if let dict = e as? [String:String], let msg = dict["msg"] {
+            print("catch object", msg)
+        } else {
+            print("catch object", e)
+        }
+        throw "rethrow!"
+    } catch {
+        print("2nd catch", error)
+    } finally {
+        print("finally3")
+    }
+} catch {
+    print("rethrow caught", error)
+}
+
+do {
+    try {
+        throw "outer"
+    } catch(e) {
+        do {
+            throw "inner"
+        } catch(let x) {
+            print("nested", x)
+        }
+        print("after nested")
+    }
+} catch {
+    // No outer error expected
+}
+
+// Uncaught exception test (should not print after)
+// throw "fatal"
+// print("should not reach")
+
+print("=== Done Exceptions ===");

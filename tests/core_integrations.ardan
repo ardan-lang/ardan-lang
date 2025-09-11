@@ -1,0 +1,70 @@
+print("=== Variable Declarations and Assignment ===");
+var a = 1; let b = 2; const c = 3;
+print(a, b, c);
+a = a + 9; b += 5; // c = c + 1; // should fail if uncommented
+print(a, b, c);
+
+print("=== Arithmetic/Logical/Bitwise Ops ===");
+print(1+2, 5-3, 2*4, 8/2, 7%3, 2**3);
+print(5==5, 5===5, 5!=4, 5!==4, 5<8, 5<=5, 7>2, 7>=7);
+print(true&&false, true||false, !false);
+print(5&3, 5|2, 5^1, ~2, 2<<2, 8>>2, 8>>>2);
+
+print("=== Strings and Template Literals ===");
+let name = "Tau"; let age = 25;
+let msg = `Hello ${name}, you are ${age+5} years old.`;
+print(msg);
+
+print("=== Arrays and Objects ===");
+let arr = [1,2,3]; let obj = {x:9, y:8};
+print(arr[0], obj.x, obj["y"]);
+arr[1]=42; obj.z="test";
+print(arr, obj);
+
+print("=== Control Flow ===");
+if (a > 5) print("if passed"); else print("if failed");
+let res = "";
+for (let i=0;i<3;i++) { res += i; }
+print(res);
+let k=0; while(k<2) { print("while",k); k++; }
+let m=2; do { print("do",m); m--; } while(m>0);
+
+print("=== for-in / for-of ===");
+let obj2 = {a:1, b:2};
+for (let key in obj2) { print("in",key,obj2[key]); }
+let list = ["A","B"];
+for (let v of list) { print("of",v); }
+
+print("=== Functions and Closures ===");
+function add(x, y) { return x+y; }
+print(add(2,3));
+let mul = (x, y=2) => x*y; print(mul(3));
+function outer() { let v = 10; return function inner(x) { return x+v; }; }
+let fn = outer(); print(fn(5));
+
+print("=== Classes/Inherit/Fields/Methods/Statics ===");
+class Animal { var legs=4; speak() { print("animal noise"); }}
+class Dog extends Animal { var breed = "Lab"; speak() { super.speak(); print("woof"); } }
+let d = new Dog(); d.speak(); print(d.legs, d.breed);
+class Counter { static var count = 0; constructor() { Counter.count++; } }
+let c1=new Counter(), c2=new Counter(); print(Counter.count);
+
+print("=== Private/Public/Static/Field Visibility ===");
+class Secret { private var x = 77; public var y = 88; getX() { return this.x; } }
+let sec = new Secret(); print(sec.getX(), sec.y);
+// print(sec.x); // Should error
+
+print("=== Exception Handling and Throw ===");
+try { throw "fail!"; } catch(e) { print("caught",e); } finally { print("finally block"); }
+
+print("=== Switch ===");
+let sx = 2;
+switch(sx) {
+  case 1: print("one"); break;
+  case 2: print("two"); break;
+  default: print("other");
+}
+
+// Optional: Import statement (if supported)
+// import "./stub_module.ardan";
+print("=== All Tests Completed ===");
