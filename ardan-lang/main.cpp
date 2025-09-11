@@ -10,6 +10,8 @@
 #include <fstream>
 #include <sstream>
 
+#include <filesystem>
+
 #include "Scanner/Scanner.hpp"
 #include "overloads/operators.h"
 #include "Parser/Parser.hpp"
@@ -22,6 +24,7 @@
 string read_file(const string& filename);
 
 using namespace std;
+namespace fs = std::filesystem;
 
 void run_interpreter_inline_test() {
     
@@ -405,6 +408,43 @@ void run_interpreter(string& filename, string& source) {
 
 }
 
+void create_ardan_project() {
+    
+    std::string projectName;
+    std::cout << "Enter new Ardan project name: ";
+    std::cin >> projectName;
+    
+    fs::path dirPath = fs::current_path() / projectName;
+    
+    try {
+        // Create the directory
+        if (!fs::exists(dirPath)) {
+            fs::create_directory(dirPath);
+            std::cout << "Created directory: " << dirPath << "\n";
+        } else {
+            std::cerr << "Directory already exists!\n";
+            return;
+        }
+        
+        // Create index.ardan file inside it
+        fs::path filePath = dirPath / "index.ardan";
+        std::ofstream ardanFile(filePath);
+        if (ardanFile.is_open()) {
+            ardanFile << "function main() {\n";
+            ardanFile << "    print(\"Hello World\");\n";
+            ardanFile << "}\n";
+            ardanFile << "main();\n";
+            ardanFile.close();
+            std::cout << "Created file: " << filePath << "\n";
+        } else {
+            std::cerr << "Failed to create index.ardan\n";
+        }
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
+}
+
 int main(int argc, const char * argv[]) {
         
 //    REPL repl;
@@ -415,6 +455,7 @@ int main(int argc, const char * argv[]) {
     bool interpret = false;
     bool compile = false;
     bool repl_it = false;
+    bool new_project = false;
     
     string filename;
 
@@ -428,6 +469,8 @@ int main(int argc, const char * argv[]) {
             compile = true;
         } else if (param == "--r" || param == "--repl") {
             repl_it = true;
+        } else if (param == "--new" || param == "--n") {
+            new_project = true;
         } else {
             filename = param;
         }
@@ -440,6 +483,10 @@ int main(int argc, const char * argv[]) {
         run_interpreter(filename, source);
         
     } else if (compile) {
+        
+    } else if (new_project) {
+        
+        create_ardan_project();
         
     } else if (repl_it) {
 
