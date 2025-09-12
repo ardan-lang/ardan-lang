@@ -373,11 +373,16 @@ void run_interpreter_inline_test() {
     let a = [1,2,3];
     let b = [a, [4,5], 6];
     print(b[0][1], b[1][0]);
-
+//
     let o = {foo:123, bar:{baz:42}};
     print(o.bar.baz);
     o.bar.qux = [7,8];
     print(o.bar.qux);
+    print(o.bar.qux[1]++);
+
+    let s = [];
+    s[2] = 9;
+    print(s[0], s[2], s.length);
 
     )";
 

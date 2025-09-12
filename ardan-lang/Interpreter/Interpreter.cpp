@@ -983,7 +983,7 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                         property_name = property_name_ident->token.lexeme;
                     } else {
                         R value = member_expr->property->accept(*this);
-                        property_name = get<string>(value);
+                        property_name = toValue(value).toString();
                     }
                     
                 } else {
@@ -1003,6 +1003,19 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
 
                 }
                 
+                if (holds_alternative<shared_ptr<JSArray>>(current)) {
+                    
+                    shared_ptr<JSArray> current_object = get<shared_ptr<JSArray>>(current);
+
+                    check_obj_prop_access(member_expr,
+                                          current_object.get(),
+                                          property_name);
+                    
+                    current_object
+                        .get()->set(property_name, toValue(newVal));
+
+                }
+
                 if (holds_alternative<shared_ptr<JSClass>>(current)) {
                     
                     shared_ptr<JSClass> current_klass = get<shared_ptr<JSClass>>(current);
@@ -1023,7 +1036,7 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                     }
 
                     if (current_value->type == ValueType::ARRAY) {
-                        current_value->arrayValue->set(property_name, toValue(newVal), "VAR", {});
+                        current_value->arrayValue->set(property_name, toValue(newVal));
                     }
 
                 }

@@ -20,6 +20,8 @@ using namespace std;
 // class JSClass;
 
 class JSObject {
+
+protected:
     unordered_map<string, ValueField> var_properties;
     unordered_map<string, ValueField> let_properties;
     unordered_map<string, ValueField> const_properties;
