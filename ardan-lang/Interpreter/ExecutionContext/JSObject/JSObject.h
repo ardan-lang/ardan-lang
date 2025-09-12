@@ -11,17 +11,16 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-#include <any>
 #include "../Value/Value.h"
 #include "../JSClass/JSClass.h"
 
 using namespace std;
 
-// class JSClass;
-
 class JSObject {
 
 protected:
+    bool frozen = false;
+    bool is_object_literal = false;
     unordered_map<string, ValueField> var_properties;
     unordered_map<string, ValueField> let_properties;
     unordered_map<string, ValueField> const_properties;
@@ -47,7 +46,10 @@ public:
     const unordered_map<string, Value> get_all_properties();
     
     shared_ptr<JSClass> getKlass();
+    
     string toString();
+    
+    void set_as_object_literal();
     
 };
 

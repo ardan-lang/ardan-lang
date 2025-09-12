@@ -7,8 +7,7 @@
 
 #include "JSArray.h"
 
-void JSArray::set(const string& key,
-                    const Value& val) {
+void JSArray::set(const string& key, const Value& val) {
     if (isNumeric(key)) {
         size_t idx = std::stoull(key);
         if (idx >= elements_size) {
@@ -82,6 +81,20 @@ string JSArray::toString() {
 bool JSArray::isNumeric(const std::string& s) {
     return !s.empty() &&
            std::all_of(s.begin(), s.end(), ::isdigit);
+}
+
+void JSArray::push(const vector<Value> &args) {
+    setIndex((elements_size), args[0]);
+}
+
+void JSArray::pop() {
+    if (elements_size == 0)
+        return;
+    // Get the last index as a string
+    size_t lastIndex = elements_size - 1;
+    var_properties.erase(to_string(lastIndex));
+    elements_size--;
+    set("length", Value(elements_size));
 }
 
 //bool is_native_name = std::any_of(

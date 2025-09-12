@@ -20,21 +20,24 @@ using namespace std;
 class JSArray : public JSObject {
 
     int elements_size;
-    const vector<string> native_names = { "pop", "push", "length" };
 
 public:
     JSArray() {
         
         // pop removes the first item in the properties
-        set("pop", Value::native([](const std::vector<Value>& args) {
+        set("pop", Value::native([this](const std::vector<Value>& args) {
 
+            pop();
+            
             return Value::nullVal();
 
         }));
         
         // pushes a vlaue to the properties
-        set("push", Value::native([](const std::vector<Value>& args) {
+        set("push", Value::native([this](const vector<Value>& args) {
 
+            push(args);
+            
             return Value::nullVal();
             
         }));
@@ -54,6 +57,9 @@ public:
     void updateLength(size_t len);
     
     bool isNumeric(const std::string& s);
+    
+    void push(const vector<Value>& args);
+    void pop();
     
     string toString();
     

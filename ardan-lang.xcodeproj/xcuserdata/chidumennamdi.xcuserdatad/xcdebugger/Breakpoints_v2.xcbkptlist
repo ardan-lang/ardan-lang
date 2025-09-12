@@ -87,15 +87,15 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "29B486C6-644D-4385-A23A-BCCBB1B85923"
+            uuid = "B55353A1-BFEA-46ED-89E0-398ADE3475E9"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ardan-lang/Interpreter/Interpreter.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "992"
-            endingLineNumber = "992"
+            startingLineNumber = "859"
+            endingLineNumber = "859"
             landmarkName = "Interpreter::visitBinary(expr)"
             landmarkType = "7">
          </BreakpointContent>

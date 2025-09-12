@@ -370,19 +370,28 @@ void run_interpreter_inline_test() {
 //
 //    greet("John", "Doe", "Developer", "New York", "Single");
     
-    let a = [1,2,3];
-    let b = [a, [4,5], 6];
-    print(b[0][1], b[1][0]);
+//    let a = [1,2,3];
+//    let b = [a, [4,5], 6];
+//    print(b[0][1], b[1][0]);
 //
-    let o = {foo:123, bar:{baz:42}};
-    print(o.bar.baz);
-    o.bar.qux = [7,8];
-    print(o.bar.qux);
-    print(o.bar.qux[1]++);
+//    let o = {foo:123, bar:{baz:42}};
+//    print(o.bar.baz);
+//    o.bar.qux = [7,8];
+//    print(o.bar.qux);
+//    print(o.bar.qux[1]++);
+//
+//    let s = [];
+//    s[2] = 9;
+//    print(s[0], s[2], s.length);
+//    
+//    a.push(44); print(a);
+//    a.pop(); print(a);
+    
+    let obj = {};
+    obj["1"] = "one";
+    obj[42] = "forty-two";
+    print(obj[1], obj["42"]);
 
-    let s = [];
-    s[2] = 9;
-    print(s[0], s[2], s.length);
 
     )";
 
@@ -570,7 +579,6 @@ int main(int argc, const char * argv[]) {
             // Search for entry file anywhere in the project dir
                 fs::path entryPath = findFileRecursive(projectRoot, entryFileName);
                 if (!entryPath.empty()) {
-                    std::cout << "Resolved entry path: " << entryPath << "\n";
                     
                     string source = read_file(entryPath);
                     run_interpreter(entryFileName, source);

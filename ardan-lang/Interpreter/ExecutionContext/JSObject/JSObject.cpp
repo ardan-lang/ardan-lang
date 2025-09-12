@@ -19,20 +19,30 @@ bool JSObject::operator!=(const JSObject& other) const {
 // TODO: fix to set let and const too.
 void JSObject::set(const string& key, const Value& val) {
     
-    // Look in own properties
-    auto it = var_properties.find(key);
-    if (it != var_properties.end()) {
-        var_properties[key].value = val;
-    }
-    
-    auto let_it = let_properties.find(key);
-    if (let_it != let_properties.end()) {
-        let_properties[key].value = val;
-    }
-    
-    auto const_it = const_properties.find(key);
-    if (const_it != const_properties.end()) {
-        throw runtime_error("Cannot set value to an already assigned value to const.");
+    if (is_object_literal) {
+        
+        // do not check to see if the key exists before setting the value
+        // always set the value
+        var_properties[key] = { key, {}, val };
+        
+    } else {
+        
+        // Look in own properties
+        auto it = var_properties.find(key);
+        if (it != var_properties.end()) {
+            var_properties[key].value = val;
+        }
+        
+        auto let_it = let_properties.find(key);
+        if (let_it != let_properties.end()) {
+            let_properties[key].value = val;
+        }
+        
+        auto const_it = const_properties.find(key);
+        if (const_it != const_properties.end()) {
+            throw runtime_error("Cannot set value to an already assigned value to const.");
+        }
+        
     }
 
 }
@@ -130,4 +140,8 @@ string JSObject::toString() {
     
     return concat;
     
+}
+
+void JSObject::set_as_object_literal() {
+    is_object_literal = true;
 }

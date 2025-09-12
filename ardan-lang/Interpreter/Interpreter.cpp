@@ -199,9 +199,33 @@ R Interpreter::visitCall(CallExpression* expr) {
             js_class = get<std::shared_ptr<JSClass>>(object);
             prop_val = js_class->get(property_name, env->this_binding ? false : true);
             
-        } else if (std::get_if<std::shared_ptr<JSObject>>(&object)) {
+        }
+        else if (std::get_if<std::shared_ptr<JSArray>>(&object)) {
+            
+            js_object = get<std::shared_ptr<JSArray>>(object);
+            check_obj_prop_access(member, js_object.get(), property_name);
+            prop_val = js_object->get(property_name);
+            
+        }
+        else if (std::get_if<std::shared_ptr<JSObject>>(&object)) {
             
             js_object = get<std::shared_ptr<JSObject>>(object);
+            check_obj_prop_access(member, js_object.get(), property_name);
+            prop_val = js_object->get(property_name);
+            
+        }
+        else if (std::get_if<std::shared_ptr<Value>>(&object)) {
+            
+            shared_ptr<Value> value = get<std::shared_ptr<Value>>(object);
+            
+            if (value->type == ValueType::ARRAY) {
+                js_object = value->arrayValue;
+            }
+            
+            if (value->type == ValueType::OBJECT) {
+                js_object = value->objectValue;
+            }
+            
             check_obj_prop_access(member, js_object.get(), property_name);
             prop_val = js_object->get(property_name);
             
@@ -1478,10 +1502,13 @@ R Interpreter::visitMember(MemberExpression* expr) {
             R property_value = expr->property->accept(*this);
             
             if (!holds_alternative<string>(property_value)) {
-                throw runtime_error("The computed property is not supported. It must be a string.");
+                property_name = toValue(property_value).toString();
+                // throw runtime_error("The computed property is not supported. It must be a string.");
+            } else {
+                
+                property_name = get<string>(property_value);
+                
             }
-            
-            property_name = get<string>(property_value);
             
         } else {
             
@@ -1505,10 +1532,11 @@ R Interpreter::visitMember(MemberExpression* expr) {
             R property_value = expr->property->accept(*this);
             
             if (!holds_alternative<string>(property_value)) {
-                throw runtime_error("The computed property is not supported. It must be a string.");
+                property_name = toValue(property_value).toString();
+                // throw runtime_error("The computed property is not supported. It must be a string.");
+            } else {
+                property_name = get<string>(property_value);
             }
-            
-            property_name = get<string>(property_value);
             
         } else {
             
@@ -1613,10 +1641,12 @@ R Interpreter::visitMember(MemberExpression* expr) {
             R property_value = expr->property->accept(*this);
             
             if (!holds_alternative<string>(property_value)) {
-                throw runtime_error("The computed property is not supported. It must be a string.");
+                property_name = toValue(property_value).toString();
+                // throw runtime_error("The computed property is not supported. It must be a string.");
+            } else {
+                
+                property_name = get<string>(property_value);
             }
-            
-            property_name = get<string>(property_value);
             
         } else {
             
@@ -1648,6 +1678,7 @@ R Interpreter::visitNew(NewExpression* expr) {
 //    unique_ptr<Expression> callee;
 //    vector<unique_ptr<Expression>> arguments;
 
+    // here, the object is created from user-defined class
     auto object = make_shared<JSObject>();
     
     if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
@@ -1781,7 +1812,9 @@ R Interpreter::visitArray(ArrayLiteralExpression* expr) {
 
 R Interpreter::visitObject(ObjectLiteralExpression* expr) {
     
+    // here, it is literal object
     auto object = make_shared<JSObject>();
+    object->set_as_object_literal();
     
     for (auto& prop : expr->props) {
         object->set(prop.first.lexeme, toValue(prop.second->accept(*this)), "VAR", {});
@@ -2037,7 +2070,7 @@ shared_ptr<JSObject> Interpreter::createJSObject(shared_ptr<JSClass> klass) {
         
     }
     
-    // create a jsobject from supercalss and assigne to parent_object
+    // create a jsobject from superclass and assign to parent_object
     if (klass->superClass != nullptr) {
         
         object->parent_object = createJSObject(klass->superClass);
