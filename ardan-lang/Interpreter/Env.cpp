@@ -35,6 +35,39 @@ R Env::getValue(const string& key) {
     throw runtime_error("Undefined variable: " + key);
 }
 
+R Env::get_var_value(const string& key) {
+
+    auto it = variables.find(key);
+    if (it != variables.end()) {
+        return it->second;
+    }
+    
+    if (parent) return parent->get_var_value(key);
+    throw runtime_error("Undefined variable: " + key);
+}
+
+R Env::get_let_value(const string& key) {
+    
+    auto it_let = let_variables.find(key);
+    if (it_let != let_variables.end()) {
+        return it_let->second;
+    }
+    
+    if (parent) return parent->get_let_value(key);
+    throw runtime_error("Undefined variable: " + key);
+}
+
+R Env::get_const_value(const string& key) {
+    
+    auto it_const = const_variables.find(key);
+    if (it_const != const_variables.end()) {
+        return it_const->second;
+    }
+    
+    if (parent) return parent->get_const_value(key);
+    throw runtime_error("Undefined variable: " + key);
+}
+
 R Env::get(const string& key) {
     return getValue(key);
 }
@@ -58,6 +91,10 @@ bool Env::is_const_key_set(const string& key) {
         return true;
     }
     
+    if (parent) {
+        return parent->is_const_key_set(key);
+    }
+    
     // key does not exist
     return false;
 }
@@ -67,6 +104,10 @@ bool Env::is_var_key_set(const string& key) {
     if (variables.find(key) != variables.end()) {
         // key exists
         return true;
+    }
+    
+    if (parent) {
+        return parent->is_var_key_set(key);
     }
     
     // key does not exist
@@ -80,29 +121,43 @@ bool Env::is_let_key_set(const string& key) {
         return true;
     }
     
+    if (parent) {
+        return parent->is_let_key_set(key);
+    }
+
     // key does not exist
     return false;
 }
 
 void Env::assign(const string& key, R value) {
-    
-    // check where the key is located
-    
-    // is var?
-    
-    if (is_var_key_set(key)) {
-        set_var(key, value);
-    } else if (is_let_key_set(key)) {
-        set_let(key, value);
-    } else {
-        if (!is_const_key_set(key)) {
-            set_const(key, value);
-        } else {
-            throw runtime_error("Cannot assign a value to a const variable after it has been initially assigned a value.");
-        }
+    // 1. Look in this scope's var
+    auto it_var = variables.find(key);
+    if (it_var != variables.end()) {
+        variables[key] = std::move(value);
+        return;
     }
-    
-    
+
+    // 2. Look in this scope's let
+    auto it_let = let_variables.find(key);
+    if (it_let != let_variables.end()) {
+        let_variables[key] = std::move(value);
+        return;
+    }
+
+    // 3. Look in this scope's const
+    auto it_const = const_variables.find(key);
+    if (it_const != const_variables.end()) {
+        throw runtime_error("Cannot reassign to const variable: " + key);
+    }
+
+    // 4. If not found in current scope, walk up the parent chain
+    if (parent) {
+        parent->assign(key, std::move(value));
+        return;
+    }
+
+    // 5. Not found anywhere → define as var in current scope (default behavior)
+    variables[key] = std::move(value);
 }
 
 void Env::setStackValue(const string& key, R value) {

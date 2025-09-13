@@ -46,6 +46,7 @@ public:
     bool check_obj_prop_access(MemberExpression* member,
                                JSObject* js_object,
                                const string& key);
+    R create_js_class(vector<unique_ptr<PropertyDeclaration>> fields, vector<unique_ptr<MethodDefinition>> body, Expression* superClass);
 
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
@@ -98,7 +99,9 @@ public:
     R visitArrowFunction(ArrowFunction* expr) override;
     R visitTemplateLiteral(TemplateLiteral* expr) override;
     R visitRestParameter(RestParameter *expr) override;
-    R visitImportDeclaration(ImportDeclaration* stmt);
+    R visitImportDeclaration(ImportDeclaration* stmt) override;
+    R visitFunctionExpression(FunctionExpression* expr) override;
+    R visitClassExpression(ClassExpression* expr) override;
 
 };
 

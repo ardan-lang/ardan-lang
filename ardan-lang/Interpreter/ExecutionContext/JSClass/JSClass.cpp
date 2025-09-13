@@ -118,7 +118,7 @@ void JSClass::check_privacy(const std::string& key) {
         }
     }
 
-    throw std::runtime_error("Property not found: " + key);
+    // throw std::runtime_error("Property not found: " + key);
 }
 
 bool JSClass::hasModifier(const std::vector<std::string>& mods, const std::string& name) {

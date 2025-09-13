@@ -1,0 +1,30 @@
+print("=== Array & Object Edge Cases ===");
+
+let a = [1,2,3];
+let b = [a, [4,5], 6];
+print(b[0][1], b[1][0]);
+
+let o = {foo:123, bar:{baz:42}};
+print(o.bar.baz);
+o.bar.qux = [7,8];
+print(o.bar.qux[1]);
+
+a.push(44); print(a);
+a.pop(); print(a);
+
+// Destructuring and spread (if supported)
+// let [x, ...rest] = a; print(x, rest);
+// let {foo, ...other} = o; print(foo, other);
+
+// Sparse array
+let s = [];
+s[2] = 9;
+print(s[0], s[2], s.length);
+
+// Object with odd keys
+let obj = {};
+obj["1"] = "one";
+obj[42] = "forty-two";
+print(obj[1], obj["42"]);
+
+print("=== Done Arrays/Objects ===");

@@ -280,8 +280,16 @@ R Interpreter::visitCall(CallExpression* expr) {
                 index++;
             }
 
-            method->accept(*this);
-
+            try {
+                
+                method->accept(*this);
+                
+            } catch (ReturnException& r) {
+                
+                return r.value;
+                
+            }
+            
         }
         
         return monostate();
@@ -572,12 +580,8 @@ R Interpreter::visitForOf(ForOfStatement* stmt) {
     
     shared_ptr<JSArray> js_array = get<shared_ptr<JSArray>>(stmt->right->accept(*this));
     
-    for (auto& element : js_array->get_all_properties()) {
-        
-        if (element.first == "length") {
-            continue;
-        }
-        
+    for (auto& element : js_array->get_indexed_properties()) {
+                
         try {
             
             auto shared_element = std::make_shared<Value>();
@@ -629,10 +633,24 @@ R Interpreter::visitEmpty(EmptyStatement* stmt) {
 // TODO: evaluate static fields
 R Interpreter::visitClass(ClassDeclaration* stmt) {
     
+    shared_ptr<JSClass> js_class = get<shared_ptr<JSClass>>(create_js_class(std::move(stmt->fields),
+                                    std::move(stmt->body),
+                                    stmt->superClass.get()));
+
+    js_class->name = stmt->id;
+
+    env->set_var(stmt->id, js_class);
+
+    return js_class;
+    
+}
+
+R Interpreter::create_js_class(vector<unique_ptr<PropertyDeclaration>> fields, vector<unique_ptr<MethodDefinition>> body, Expression* superClass) {
+        
     auto js_class = make_shared<JSClass>();
     
     // loop through fields
-    for (auto& field : stmt->fields) {
+    for (auto& field : fields) {
         
         vector<string> field_modifiers;
         
@@ -673,13 +691,13 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
                     string id = variable->declarations[0].id;
                     Value value = toValue(variable_stmt->declarations[0].init->accept(*this));
 
-                    if (var_kind == "LET") {
+                    if (var_kind == LET) {
                         js_class->set_let(id, value, field_modifiers);
-                    } else if (var_kind == "CONST") {
+                    } else if (var_kind == CONST) {
                         js_class->set_const(id, value, field_modifiers);
+                    } else {
+                        js_class->set_var(id, value, field_modifiers);
                     }
-                    
-                    js_class->set_var(id, value, field_modifiers);
                     
                 } else {
                     
@@ -696,7 +714,7 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
     }
 
     // loop through methods
-    for (auto& method : stmt->body) {
+    for (auto& method : body) {
         
         vector<string> field_modifiers;
         bool is_static = false;
@@ -713,25 +731,25 @@ R Interpreter::visitClass(ClassDeclaration* stmt) {
         }
 
         if (is_static) {
+            // we are storing static methods in var
             js_class->set_var(method->name,
                               Value::method(js_class),
                               field_modifiers);
+            
+            js_class->methods[method->name] = std::move(method);
+
         } else {
             js_class->methods[method->name] = std::move(method);
         }
         
     }
-    
-    js_class->name = stmt->id;
-    
-    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(stmt->superClass.get())) {
+        
+    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(superClass)) {
         js_class->superClass = get<shared_ptr<JSClass>>(env->get(ident->name));
     }
     
-    env->set_var(stmt->id, js_class);
-
     return js_class;
-    
+
 }
 
 R Interpreter::visitMethodDefinition(MethodDefinition* stmt) {
@@ -762,10 +780,25 @@ R Interpreter::visitDoWhile(DoWhileStatement* stmt) {
 R Interpreter::visitSwitchCase(SwitchCase* stmt) {
     
     for (auto& current_stmt : stmt->consequent) {
-        current_stmt->accept(*this);
+        
+        try {
+            
+            current_stmt->accept(*this);
+            
+        } catch(BreakException&) {
+            
+            break;
+            
+        } catch(ContinueException&) {
+            
+            continue;
+            
+        }
+        
     }
     
     return true;
+    
 }
 
 R Interpreter::visitSwitch(SwitchStatement* stmt) {
@@ -858,21 +891,35 @@ R Interpreter::visitLiteral(LiteralExpression* expr) {
 R Interpreter::visitBinary(BinaryExpression* expr) {
     R lvalue = expr->left->accept(*this);
     R rvalue = expr->right->accept(*this);
-
+    
+    auto add = [](R lvalue, R rvalue) -> R {
+        if (holds_alternative<string>(lvalue) || holds_alternative<string>(rvalue)) {
+            return toValue(lvalue).toString() + toValue(rvalue).toString();
+        }
+        return toValue(lvalue).numberValue + toValue(rvalue).numberValue;
+    };
+    
+    auto minus = [] (R lvalue, R rvalue) -> R {
+        return toValue(lvalue).numberValue - toValue(rvalue).numberValue;
+    };
+    
+    auto mul = [] (R lvalue, R rvalue) -> R {
+        return toValue(lvalue).numberValue * toValue(rvalue).numberValue;
+    };
+    
+    auto div = [] (R lvalue, R rvalue) -> R {
+        return toValue(lvalue).numberValue / toValue(rvalue).numberValue;
+    };
+    
     switch (expr->op.type) {
         // --- Arithmetic ---
-        case TokenType::ADD: {
-            if (holds_alternative<string>(lvalue) || holds_alternative<string>(rvalue)) {
-                return toString(lvalue) + toString(rvalue);
-            }
-            return toValue(lvalue).numberValue + toValue(rvalue).numberValue;
-        }
+        case TokenType::ADD: return add(lvalue, rvalue);
         case TokenType::MINUS:
-            return toValue(lvalue).numberValue - toValue(rvalue).numberValue;
+            return minus(lvalue, rvalue);
         case TokenType::MUL:
-            return toValue(lvalue).numberValue * toValue(rvalue).numberValue;
+            return mul(lvalue, rvalue);
         case TokenType::DIV:
-            return toValue(lvalue).numberValue / toValue(rvalue).numberValue;
+            return div(lvalue, rvalue);
         case TokenType::MODULI:
             return fmod(toValue(lvalue).numberValue,
                         toValue(rvalue).numberValue);
@@ -959,10 +1006,10 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
             R newVal;
             switch (expr->op.type) {
                 case TokenType::ASSIGN: newVal = rvalue; break;
-                case TokenType::ASSIGN_ADD: newVal = visitBinary(new BinaryExpression(Token(TokenType::ADD), std::move(expr->left), std::move(expr->right))); break;
-                case TokenType::ASSIGN_MINUS: newVal = visitBinary(new BinaryExpression(Token(TokenType::MINUS), std::move(expr->left), std::move(expr->right))); break;
-                case TokenType::ASSIGN_MUL: newVal = visitBinary(new BinaryExpression(Token(TokenType::MUL), std::move(expr->left), std::move(expr->right))); break;
-                case TokenType::ASSIGN_DIV: newVal = visitBinary(new BinaryExpression(Token(TokenType::DIV), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::ASSIGN_ADD: newVal = add(lvalue, rvalue); /*visitBinary(new BinaryExpression(Token(TokenType::ADD), std::move(expr->left), std::move(expr->right)));*/ break;
+                case TokenType::ASSIGN_MINUS: newVal = minus(lvalue, rvalue); break; // visitBinary(new BinaryExpression(Token(TokenType::MINUS), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::ASSIGN_MUL: newVal = mul(lvalue, rvalue); break; // visitBinary(new BinaryExpression(Token(TokenType::MUL), std::move(expr->left), std::move(expr->right))); break;
+                case TokenType::ASSIGN_DIV: newVal = div(lvalue, rvalue); break; // visitBinary(new BinaryExpression(Token(TokenType::DIV), std::move(expr->left), std::move(expr->right))); break;
                 case TokenType::MODULI_ASSIGN: newVal = fmod(toValue(current).numberValue,
                                                              toValue(rvalue).numberValue); break;
                 case TokenType::POWER_ASSIGN: newVal = pow(toValue(current).numberValue,
@@ -1095,8 +1142,9 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
             if (holds_alternative<bool>(rvalue)) {
                 return !get<bool>(rvalue);
             }
+            return !toValue(rvalue).boolean();
             
-            throw runtime_error("Logical NOT lvalue must be a bool.");
+            // throw runtime_error("Logical NOT lvalue must be a bool.");
 
         }
           
@@ -1107,8 +1155,9 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
             if (holds_alternative<size_t>(rvalue)) return ~(get<size_t>(rvalue));
             if (holds_alternative<char>(rvalue)) return ~(get<char>(rvalue));
             if (holds_alternative<bool>(rvalue)) return ~(get<bool>(rvalue) ? 1 : 0);
+            return ~toValue(rvalue).integer();
 
-            throw runtime_error("Invalid operand to perform ~.");
+            // throw runtime_error("Invalid operand to perform ~.");
             
         }
             // ++age
@@ -1826,9 +1875,10 @@ R Interpreter::visitObject(ObjectLiteralExpression* expr) {
 
 R Interpreter::visitSuper(SuperExpression* expr) {
     
-    shared_ptr<JSClass> parent_class = env->this_binding->parent_class;
-    
-    shared_ptr<JSObject> parent_object = get<shared_ptr<JSObject>>(env->get(parent_class->name));
+//    shared_ptr<JSClass> parent_class = env->this_binding->parent_class;
+//    auto klass = env->get(parent_class->name);
+//    
+//    shared_ptr<JSObject> parent_object = get<shared_ptr<JSObject>>(klass);
     
 //    auto parent_object = make_shared<JSObject>();
 
@@ -1865,9 +1915,11 @@ R Interpreter::visitSuper(SuperExpression* expr) {
 //        
 //    }
     
-    env->this_binding->parent_object = parent_object;
+//    env->this_binding->parent_object = parent_object;
+//    
+//    return parent_object;
     
-    return parent_object;
+    return env->this_binding->parent_object;
     
 }
 
@@ -1945,6 +1997,8 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                         localEnv->set_var(paramName, array);
                         break; // we break because rest should be the last param.
 
+                    } else {
+                        param_expr->accept(*intr);
                     }
                     
                     localEnv->set_var(paramName, paramValue);
@@ -2247,3 +2301,111 @@ R Interpreter::visitImportDeclaration(ImportDeclaration* stmt) {
     return true;
 }
 
+R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
+    
+    // Capture the current environment and lexical `this`
+    Env* closure = env;
+    auto lexicalThis = env->this_binding;
+    auto intr = this;
+
+    // Return a callable Value (assuming Value supports callable lambdas)
+    return Value::function([closure, lexicalThis, expr, intr](vector<Value> args) mutable -> Value {
+        
+        // Create a new local environment inheriting from the closure
+        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
+        localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
+        
+        // Bind parameters to arguments
+        //if (expr->params != nullptr) {
+            
+                
+            for (size_t i = 0; i < expr->params.size(); ++i) {
+
+                    Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
+
+                    Expression* param_expr = expr->params[i].get();
+                    string paramName;
+                    
+                    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
+                        paramName = ident->token.lexeme;
+                    } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
+                        // TODO: fix var decl
+                        paramName = variable->declarations[0].id;
+                        
+                        // use the init value if no value is passed for the argument.
+                        if (i >= args.size()) {
+                            paramValue = toValue(variable->declarations[0].init->accept(*intr));
+                        }
+                        
+                    } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
+                        paramName = toValue(param_expr->accept(*intr)).stringValue;
+                        
+                        auto array = make_shared<JSArray>();
+                        int arr_index = 0;
+                        
+                        for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
+                            array->setIndex(arr_index, args[rest_i]);
+                            arr_index++;
+                        }
+                        
+                        localEnv->set_var(paramName, array);
+                        break; // we break because rest should be the last param.
+
+                    } else {
+                        param_expr->accept(*intr);
+                    }
+                    
+                    localEnv->set_var(paramName, paramValue);
+                    
+                }
+
+            
+//            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->params.get())) {
+//                localEnv->set_var(ident->token.lexeme, args.size() > 0 ? args[0] : Value::undefined());
+//            }
+            
+        //}
+//        else {
+//            localEnv->set_var(expr->token.lexeme, args[0]);
+//        }
+        
+        auto prevEnv = intr->env;
+        intr->env = localEnv.get();  // safe: shared_ptr keeps it alive
+        // TODO: check whether we need to copy this_binding
+
+        // Evaluate the body
+        try {
+
+            if (expr->body) {
+                
+                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->body.get())->body) {
+                    
+                    stmt->accept(*intr);
+                    
+                }
+                
+            }
+
+            intr->env = prevEnv;  // restore before returning
+            return Value::undefined();
+
+        } catch (const ReturnException& r) {
+            
+            intr->env = prevEnv;  // restore before throwing
+            return toValue(r.value);
+            
+        }
+        
+    });
+
+}
+
+R Interpreter::visitClassExpression(ClassExpression* expr) {
+    
+    auto js_class = create_js_class(std::move(expr->fields),
+                                    std::move(expr->body),
+                                    expr->superClass.get());
+
+    return js_class;
+
+}

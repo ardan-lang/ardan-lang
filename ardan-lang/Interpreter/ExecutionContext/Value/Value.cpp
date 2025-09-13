@@ -108,3 +108,35 @@ bool Value::isTruthy() const {
 bool Value::isUndefined() {
     return type == ValueType::UNDEFINED ? true : false;
 }
+
+int Value::integer() {
+    switch (type) {
+        case ValueType::BOOLEAN: return boolValue ? 1 : 0;
+        case ValueType::NUMBER: return numberValue != 0 && !std::isnan(numberValue) ? 1 : 0;
+        case ValueType::STRING: return !stringValue.empty() ? 1 : 0;
+        case ValueType::NULLTYPE: return 0;
+        case ValueType::UNDEFINED: return 0;
+        case ValueType::OBJECT: return 1;
+        case ValueType::FUNCTION: return 1;
+        case ValueType::NATIVE_FUNCTION: return 1;
+        case ValueType::METHOD: return 1;
+        case ValueType::ARRAY: return 1;
+    }
+    return 0;
+}
+
+bool Value::boolean() {
+    switch (type) {
+        case ValueType::BOOLEAN: return boolValue;
+        case ValueType::NUMBER: return numberValue != 0 && !std::isnan(numberValue);
+        case ValueType::STRING: return !stringValue.empty();
+        case ValueType::NULLTYPE: return false;
+        case ValueType::UNDEFINED: return false;
+        case ValueType::OBJECT: return true;
+        case ValueType::FUNCTION: return true;
+        case ValueType::NATIVE_FUNCTION: return true;
+        case ValueType::METHOD: return true;
+        case ValueType::ARRAY: return true;
+    }
+    return false;
+}

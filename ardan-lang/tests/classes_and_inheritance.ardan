@@ -1,0 +1,39 @@
+print("=== Classes & Inheritance ===");
+
+class Base {
+  var baseVal = 10;
+  speak() { print("Base"); }
+}
+
+class Mid extends Base {
+  var midVal = 20;
+  speak() { super.speak(); print("Mid"); }
+}
+
+class Leaf extends Mid {
+  var leafVal = 30;
+  speak() { super.speak(); print("Leaf"); }
+}
+
+let l = new Leaf();
+l.speak(); // Base, Mid, Leaf
+print(l.baseVal, l.midVal, l.leafVal);
+
+class Stat {
+  static var counter = 0;
+  constructor() { Stat.counter++; }
+  static getCount() { return Stat.counter; }
+}
+let s1=new Stat(), s2=new Stat(); print(Stat.getCount());
+
+class Vis {
+  public var pub = 1;
+  private var sec = 9;
+  getSec() { return this.sec; }
+}
+let v = new Vis(); print(v.pub, v.getSec()); // print(v.sec); // should fail
+
+// Uncomment below to test access errors if your runtime will catch and print
+// try { print(v.sec); } catch(e) { print("priv error", e); }
+
+print("=== End Classes ===");

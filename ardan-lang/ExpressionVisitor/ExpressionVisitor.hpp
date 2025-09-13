@@ -40,6 +40,8 @@ class StaticKeyword;
 class ArrowFunction;
 class TemplateLiteral;
 class RestParameter;
+class FunctionExpression;
+class ClassExpression;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -74,7 +76,9 @@ public:
     virtual R visitArrowFunction(ArrowFunction* expr) = 0;
     virtual R visitTemplateLiteral(TemplateLiteral* expr) = 0;
     virtual R visitRestParameter(RestParameter* expr) = 0;
-    
+    virtual R visitFunctionExpression(FunctionExpression* visitor) = 0;
+    virtual R visitClassExpression(ClassExpression* visitor) = 0;
+
 };
 
 #endif /* ExpressionVisitor_hpp */

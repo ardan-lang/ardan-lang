@@ -49,7 +49,7 @@ public:
     shared_ptr<JSArray> arrayValue;
     shared_ptr<JSClass> classValue;
     NativeFn nativeFunction;
-    std::function<Value(std::vector<Value>)> functionValue;
+    function<Value(std::vector<Value>)> functionValue;
     
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
     
@@ -94,13 +94,16 @@ public:
     Value(unsigned long long n);
     Value(float n);
     Value(long double n);
-    
+
     Value(const string& str);
     
     std::string toString() const;
     bool isTruthy() const;
     
     bool isUndefined();
+    int integer();
+    bool boolean();
+    
     bool operator==(const Value& rhs);
 
 };
@@ -112,3 +115,4 @@ struct ValueField {
 };
 
 #endif /* Value_h */
+

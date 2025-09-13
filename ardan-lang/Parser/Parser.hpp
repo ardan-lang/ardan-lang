@@ -292,7 +292,7 @@ private:
     // ───────────── LHS: calls, member access, new, super ─────────────
 
     unique_ptr<Expression> parseLeftHandSide() {
-        auto expr = parseNewMember();
+        auto expr = parseFunctionExpression();
 
         while (true) {
             if (match(TokenType::LEFT_PARENTHESIS)) {
@@ -318,6 +318,82 @@ private:
 
         return expr;
     }
+    
+    unique_ptr<Expression> parseFunctionExpression() {
+        
+        if (matchKeyword("FUNCTION")) {
+            
+            bool is_func_stmt = false;
+            
+            Token token = previous();
+            Token current_token = peek();
+            
+            if (current_token.type == TokenType::IDENTIFIER) {
+                is_func_stmt = true;
+                consume(TokenType::IDENTIFIER, "Expected identifier after function.");
+            }
+            
+            bool seenRest = false;
+            
+            consume(TokenType::LEFT_PARENTHESIS, "Expected '('");
+            vector<unique_ptr<Expression>> params;
+            if (!check(TokenType::RIGHT_PARENTHESIS)) {
+                do {
+                    if (match(TokenType::SPREAD)) {
+                        // Only allow one rest parameter, and it must be last
+                        if (seenRest) error(peek(), "Only one rest parameter allowed");
+                        seenRest = true;
+                        auto restArg = consume(TokenType::IDENTIFIER, "Expected rest parameter name");
+                        // Store as a special "rest" parameter
+                        params.push_back(make_unique<RestParameter>(restArg));
+                        break; // Rest parameter must be last in the list
+                    } else {
+                        params.push_back(parseAssignment());
+                    }
+                } while (match(TokenType::COMMA));
+            }
+            consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
+            unique_ptr<Statement> body = parseBlockStatement();
+            
+            return make_unique<FunctionExpression>(is_func_stmt ? current_token : token,
+                                                   std::move(params),
+                                                   std::move(body));
+        }
+        
+        return parseClassExpression();
+    }
+    
+    unique_ptr<Expression> parseClassExpression() {
+        
+        if (matchKeyword("CLASS")) {
+            Token token = previous();
+
+            unique_ptr<Expression> superClass = nullptr;
+            if (matchKeyword("EXTENDS")) {
+                superClass = parseExpression();
+            }
+
+            consume(TokenType::LEFT_BRACKET, "Expect '{' before class body.");
+            vector<unique_ptr<MethodDefinition>> methods;
+            vector<unique_ptr<PropertyDeclaration>> fields;
+
+            while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+                parseClassMember(methods, fields);
+            }
+
+            consume(TokenType::RIGHT_BRACKET, "Expect '}' after class body.");
+
+            return make_unique<ClassExpression>(
+                                                 token,
+                std::move(superClass),
+                std::move(methods),
+                std::move(fields)
+            );
+        }
+        
+        return parseNewMember();
+        
+    }
 
     unique_ptr<Expression> parseNewMember() {
         if (matchKeyword("NEW")) {
@@ -339,7 +415,7 @@ private:
         }
         return parsePrimary();
     }
-
+    
     // ───────────── Primary expressions ─────────────
 
     unique_ptr<Expression> parsePrimary() {
@@ -375,7 +451,7 @@ private:
 
             }
 
-            return make_unique<IdentifierExpression>(token_previous);
+            return make_unique<IdentifierExpression>(std::move(token_previous));
             
         }
         if (match(TokenType::KEYWORD)) {

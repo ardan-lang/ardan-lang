@@ -1,0 +1,28 @@
+print("=== Template Literals & Strings ===");
+
+let a = 10;
+let b = 'world';
+let c = `hello ${b}, the value is ${a+5}`;
+print(c);
+
+// Nested template
+let nested = `Result: ${`val=${a}`}`;
+print(nested);
+
+// Escaped/backticks
+let esc = `backtick: \` and newline\n`;
+print(esc);
+
+// Multiline
+let multi = `line1
+line2 ${a}`;
+print(multi);
+
+let concat = 'foo' + `bar${2}` + "baz";
+print(concat);
+
+// Empty and only interpolation
+let only = `${a*a}`;
+print(only);
+
+print("=== Done Template Literals ===");

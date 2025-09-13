@@ -36,12 +36,12 @@ using R = std::variant<
 
     int,
     char,
-    std::string,
+    string,
     bool,
-    std::shared_ptr<JSObject>,
-    std::shared_ptr<Value>,
-    std::shared_ptr<JSClass>,
-    std::shared_ptr<JSArray>,
+    shared_ptr<JSObject>,
+    shared_ptr<Value>,
+    shared_ptr<JSClass>,
+    shared_ptr<JSArray>,
     Value
 >;
 

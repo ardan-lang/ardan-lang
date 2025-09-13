@@ -494,7 +494,13 @@ fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
 
 int main(int argc, const char * argv[]) {
     
-    run_interpreter_inline_test();
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/core_integrations.ardan";
+        
+    string source = read_file(entryFileName);
+    run_interpreter(entryFileName, source);
+
+
+    //run_interpreter_inline_test();
     
 //    REPL repl;
 //    repl.start_repl();

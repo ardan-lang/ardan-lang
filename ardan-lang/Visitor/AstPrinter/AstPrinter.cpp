@@ -587,3 +587,11 @@ R AstPrinter::visitImportDeclaration(ImportDeclaration* stmt) {
     std::cout << "Import \"" << stmt->path.lexeme << "\"\n";
     return true;
 }
+
+R AstPrinter::visitFunctionExpression(FunctionExpression* visitor) {
+    return true;
+}
+
+R AstPrinter::visitClassExpression(ClassExpression* visitor) {
+    return true;
+}

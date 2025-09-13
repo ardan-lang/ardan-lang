@@ -422,4 +422,43 @@ public:
     }
 };
 
+class FunctionExpression : public Expression {
+
+public:
+    Token token;
+    vector<unique_ptr<Expression>> params;
+    unique_ptr<Statement> body;
+
+    FunctionExpression(Token token, vector<unique_ptr<Expression>> params,
+                        unique_ptr<Statement> body)
+        : params(std::move(params)),
+          body(std::move(body)), token(token) {}
+
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitFunctionExpression(this);
+    }
+
+};
+
+class ClassExpression : public Expression {
+public:
+    Token token;
+    unique_ptr<Expression> superClass;
+    vector<unique_ptr<MethodDefinition>> body;
+    vector<unique_ptr<PropertyDeclaration>> fields;
+
+    ClassExpression(Token token, unique_ptr<Expression> superClass,
+                     vector<unique_ptr<MethodDefinition>> body,
+                     vector<unique_ptr<PropertyDeclaration>> fields)
+        : superClass(std::move(superClass)),
+          body(std::move(body)),
+          fields(std::move(fields)),
+          token(token) {}
+
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitClassExpression(this);
+    }
+
+};
+
 #endif /* Statements_hpp */

@@ -1,0 +1,5 @@
+// This is a stub module for import tests. It should be placed in the tests/ directory and will be imported by import_module.ardan.
+
+function exported() { print("from stub module"); }
+var stubval = 42;
+print("stub loaded");

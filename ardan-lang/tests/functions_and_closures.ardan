@@ -1,0 +1,47 @@
+print("=== Functions & Closures ===");
+
+func fact(_ n: Int) -> Int {
+    if n <= 1 { return 1 }
+    else { return n * fact(n - 1) }
+}
+print("fact 5 =", fact(5))
+
+let sum: (Int, Int) -> Int = { (a, b = 10) in a + b }
+print("sum 4 =", sum(4, 10)) // Swift doesn't support default parameters in closures, so passing b explicitly
+
+let join: ([String]) -> String = { args in args.joined(separator: "-") }
+print(join(["a", "b", "c"]))
+
+func outer(_ x: Int) -> (Int) -> Int {
+    let v = x * 2
+    func inner(_ y: Int) -> Int {
+        return v + y
+    }
+    return inner
+}
+let f = outer(5)
+print("closure=", f(6)) // Should print 16
+
+func callTwice(_ fn: (Int) -> Void, _ val: Int) {
+    fn(val)
+    fn(val)
+}
+callTwice({ x in print("Twice: ", x) }, 7)
+
+var globalVar = 100
+func shadow(_ globalVar: Int) {
+    print("shadowed:", globalVar)
+}
+shadow(200)
+print("original:", globalVar)
+
+func indirectA(_ x: Int) -> Int {
+    if x <= 1 { return 1 }
+    else { return x * indirectB(x - 1) }
+}
+func indirectB(_ y: Int) -> Int {
+    return indirectA(y)
+}
+print("indirect recur:", indirectA(5))
+
+print("=== Done Functions/Closures ===");

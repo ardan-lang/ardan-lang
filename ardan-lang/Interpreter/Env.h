@@ -39,6 +39,12 @@ public:
 
     void set_const(const string& key, R value) ;
     
+    R get_var_value(const string& key);
+
+    R get_let_value(const string& key);
+
+    R get_const_value(const string& key);
+
     bool is_const_key_set(const string& key);
     
     bool is_var_key_set(const string& key);
