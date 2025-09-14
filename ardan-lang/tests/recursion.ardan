@@ -1,22 +1,23 @@
-print("=== Recursion ===");
+// print("=== Recursion ===");
 
-function fact(n) { if (n < 2) return 1; else return n * fact(n-1); }
-print("fact(6)=", fact(6));
+// function fact(n) { if (n < 2) {return 1;} else {return n * fact(n-1); } }
+// print("fact(6)=", fact(6));
 
-function fib(n) { if (n <= 1) return n; else return fib(n-1)+fib(n-2); }
-print("fib(6)=", fib(6));
+function fib(n) { if (n <= 1) { return n; } return 70; }//else { return fib(n-1)+fib(n-2); } }
+//print("fib(6)=", fib(6));
 
 // Deep recursion
-function deep(n) { if (n == 0) return "done"; else return deep(n-1); }
-print(deep(100));
+// function deep(n) { if (n == 0) { return "done"; } else { return deep(n-1); } }
+// print(deep(100));
 
 // Tail recursion (if supported)
-function tailFact(n, acc) { if (n < 2) return acc; else return tailFact(n-1, acc*n); }
-print("tailFact(6)=", tailFact(6,1));
+// function tailFact(n, acc) { if (n < 2) { return acc; } else { return tailFact(n-1, acc*n); } }
+// print("tailFact(6)=", tailFact(6,1));
 
 // Mutual recursion
-function isEven(x) { if (x==0) return true; else return isOdd(x-1); }
-function isOdd(x) { if (x==0) return false; else return isEven(x-1); }
-print(isEven(10), isOdd(9));
+function isEven(x) { var test = 90; if (x==0) { return true; } }//else { return isOdd(x-1); }}
+//function isOdd(x) { if (x==0) { return false; } else { return isEven(x-1); }}
+print(isEven(10)); 
+// print(isOdd(9));
 
-print("=== Done Recursion ===");
+// print("=== Done Recursion ===");

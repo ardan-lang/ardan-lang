@@ -41,7 +41,11 @@ public:
     void consumeComment();
     void consumeMultilineComment();
     void collectSingleQuoteString();
-
+    void collectInterpolation();
+    bool isHexDigit(char c);
+    int hexToInt(char c);
+    string encodeUTF8(int codepoint);
+        
 private:
     int current = 0;
     int line = 1;

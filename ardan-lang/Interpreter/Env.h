@@ -81,7 +81,8 @@ private:
     unordered_map<string, vector<unique_ptr<Expression>>> params;
     unordered_map<string, unique_ptr<Statement>> body;
 
-    Env* parent;
+    // Env* parent;
+    shared_ptr<Env> parent;
     
 };
 

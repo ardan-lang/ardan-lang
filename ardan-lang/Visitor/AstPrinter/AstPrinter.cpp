@@ -568,12 +568,31 @@ R AstPrinter::visitArrowFunction(ArrowFunction *expr) {
 
 R AstPrinter::visitTemplateLiteral(TemplateLiteral* expr) {
     printIndent(); std::cout << "TemplateString: ";
+//    vector<unique_ptr<StringLiteral>> quasis;
+//    vector<unique_ptr<Expression>> expressions;
 
-    for (auto& part : expr->parts) {
-        part->accept(*this);
+//    for (auto& part : expr->parts) {
+//        part->accept(*this);
+//    }
+    
+    std::string result;
+
+    size_t qsize = expr->quasis.size();
+    size_t esize = expr->expressions.size();
+
+    // Append quasis and interleave expressions
+    for (size_t i = 0; i < qsize; i++) {
+        // add the quasi
+        expr->quasis[i]->accept(*this);
+
+        // if there’s a matching expression, evaluate it
+        if (i < esize) {
+            expr->expressions[i]->accept(*this);
+        }
     }
     
     return true;
+    
 }
 
 R AstPrinter::visitRestParameter(RestParameter *expr) {

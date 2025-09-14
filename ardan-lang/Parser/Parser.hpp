@@ -464,9 +464,17 @@ private:
             if (kw.lexeme == "STATIC") return make_unique<StaticKeyword>();
         }
         if (match(TokenType::LEFT_PARENTHESIS)) {
-            auto expr = parseExpression();
-            consume(TokenType::RIGHT_PARENTHESIS,
-                    "Expected ')' at line: " + to_string(peek().line));
+            
+            unique_ptr<Expression> expr = nullptr;
+            
+            if (peek().type == TokenType::RIGHT_PARENTHESIS) {
+                consume(TokenType::RIGHT_PARENTHESIS,
+                        "Expected ')' at line: " + to_string(peek().line));
+            } else {
+                expr = parseExpression();
+                consume(TokenType::RIGHT_PARENTHESIS,
+                        "Expected ')' at line: " + to_string(peek().line));
+            }
             
             // add support for arrow function
             if (match(TokenType::ARROW)) {
@@ -520,57 +528,99 @@ private:
                     "Expected '}' at line: " + to_string(peek().line));
             return make_unique<ObjectLiteralExpression>(token, std::move(props));
         }
+        
+//        if (match(TokenType::TEMPLATE_START)) {
+//            
+//            vector<unique_ptr<Statement>> parts;
+//            
+//            while (peek().type != TokenType::TEMPLATE_END) {
+//                
+//                if (peek().type == TokenType::TEMPLATE_CHUNK) {
+//                    auto string_lit = make_unique<StringLiteral>((peek().lexeme));
+//                    parts
+//                        .push_back(make_unique<ExpressionStatement>(std::move(string_lit)));
+//                }
+//                
+//                if (peek().type == TokenType::INTERPOLATION_START) {
+//                    
+//                    advance();
+//                    
+//                    vector<Token> local_tokens;
+//                    
+//                    while(peek().type != TokenType::INTERPOLATION_END) {
+//                        local_tokens.push_back(peek());
+//                        advance();
+//                    }
+//                    
+//                    Token eof_token;
+//                    eof_token.type = TokenType::END_OF_FILE;
+//
+//                    Token semi_colon_token;
+//                    semi_colon_token.lexeme = ";";
+//                    semi_colon_token.type = TokenType::SEMI_COLON;
+//
+//                    local_tokens.push_back(semi_colon_token);
+//                    local_tokens.push_back(eof_token);
+//                    
+//                    Parser local_parser(local_tokens);
+//                    vector<unique_ptr<Statement>> local_ast = local_parser.parse();
+//                    
+//                    for (auto& current_l_ast : local_ast) {
+//                        parts.push_back(std::move(current_l_ast));
+//                    }
+//                    
+//                }
+//                
+//                advance();
+//                
+//            }
+//            
+//            consume(TokenType::TEMPLATE_END, "Wrong template literal format.");
+//            
+//            return make_unique<TemplateLiteral>(std::move(parts));
+//            
+//        }
+        
+//        if (match(TokenType::TEMPLATE_START)) {
+//            vector<unique_ptr<StringLiteral>> quasis;
+//            vector<unique_ptr<Expression>> expressions;
+//
+//            // First chunk (before any ${...})
+//            if (peek().type == TokenType::TEMPLATE_CHUNK) {
+//                quasis.push_back(make_unique<StringLiteral>(peek().lexeme));
+//                advance();
+//            } else {
+//                quasis.push_back(make_unique<StringLiteral>(""));
+//            }
+//
+//            // Loop until TEMPLATE_END
+//            while (!check(TokenType::TEMPLATE_END) && !isAtEnd()) {
+//                if (match(TokenType::INTERPOLATION_START)) {
+//                    // Parse the inner expression directly
+//                    auto expr = parseExpression();
+//                    expressions.push_back(std::move(expr));
+//                    consume(TokenType::INTERPOLATION_END, "Expected } to close interpolation");
+//
+//                    // Add following chunk
+//                    if (peek().type == TokenType::TEMPLATE_CHUNK) {
+//                        quasis.push_back(make_unique<StringLiteral>(peek().lexeme));
+//                        advance();
+//                    } else {
+//                        quasis.push_back(make_unique<StringLiteral>(""));
+//                    }
+//                } else {
+//                    throw error(peek(), "Unexpected token in template literal");
+//                }
+//            }
+//
+//            consume(TokenType::TEMPLATE_END, "Expected end of template literal");
+//            return make_unique<TemplateLiteral>(std::move(quasis), std::move(expressions));
+//        }
+
         if (match(TokenType::TEMPLATE_START)) {
-            
-            vector<unique_ptr<Statement>> parts;
-            
-            while (peek().type != TokenType::TEMPLATE_END) {
-                
-                if (peek().type == TokenType::TEMPLATE_CHUNK) {
-                    auto string_lit = make_unique<StringLiteral>((peek().lexeme));
-                    parts
-                        .push_back(make_unique<ExpressionStatement>(std::move(string_lit)));
-                }
-                
-                if (peek().type == TokenType::INTERPOLATION_START) {
-                    
-                    advance();
-                    
-                    vector<Token> local_tokens;
-                    
-                    while(peek().type != TokenType::INTERPOLATION_END) {
-                        local_tokens.push_back(peek());
-                        advance();
-                    }
-                    
-                    Token eof_token;
-                    eof_token.type = TokenType::END_OF_FILE;
-
-                    Token semi_colon_token;
-                    semi_colon_token.lexeme = ";";
-                    semi_colon_token.type = TokenType::SEMI_COLON;
-
-                    local_tokens.push_back(semi_colon_token);
-                    local_tokens.push_back(eof_token);
-                    
-                    Parser local_parser(local_tokens);
-                    vector<unique_ptr<Statement>> local_ast = local_parser.parse();
-                    
-                    for (auto& current_l_ast : local_ast) {
-                        parts.push_back(std::move(current_l_ast));
-                    }
-                    
-                }
-                
-                advance();
-                
-            }
-            
-            consume(TokenType::TEMPLATE_END, "Wrong template literal format.");
-            
-            return make_unique<TemplateLiteral>(std::move(parts));
-            
+            return parseTemplateLiteral();
         }
+        
         if (match(TokenType::SPREAD)) {
             Token name = peek();
             advance();
@@ -580,6 +630,94 @@ private:
         throw error(peek(), "Unexpected token in primary expression");
         
     }
+    
+    unique_ptr<TemplateLiteral> parseTemplateLiteral() {
+        // consume(TokenType::TEMPLATE_START, "Expected template start");
+
+        vector<unique_ptr<StringLiteral>> quasis;
+        vector<unique_ptr<Expression>> expressions;
+
+        // Always expect at least one quasi
+        string currentChunk = "";
+
+        while (!check(TokenType::TEMPLATE_END) && !isAtEnd()) {
+            if (match(TokenType::TEMPLATE_CHUNK)) {
+                currentChunk += previous().lexeme;
+            }
+            else if (match(TokenType::INTERPOLATION_START)) {
+                // Push current quasi
+                quasis.push_back(make_unique<StringLiteral>(currentChunk));
+                currentChunk = "";
+
+                // Parse inside ${ ... }
+                auto expr = parseExpression();
+                expressions.push_back(std::move(expr));
+
+                consume(TokenType::INTERPOLATION_END, "Unterminated interpolation");
+
+                // Ensure even if empty, a new quasi exists after interpolation
+                quasis.push_back(make_unique<StringLiteral>(""));
+            }
+            else {
+                advance(); // recover
+            }
+        }
+
+        consume(TokenType::TEMPLATE_END, "Unterminated template literal");
+
+        // If no quasis were pushed, still push the final chunk
+        if (quasis.empty()) {
+            quasis.push_back(make_unique<StringLiteral>(currentChunk));
+        } else {
+            // Last quasi may already be pushed (back-to-back interpolations)
+            if (!currentChunk.empty()) {
+                // replace the last "" if it's empty
+                if (quasis.back()->text == "") {
+                    quasis.back() = make_unique<StringLiteral>(currentChunk);
+                } else {
+                    quasis.push_back(make_unique<StringLiteral>(currentChunk));
+                }
+            }
+        }
+
+        return make_unique<TemplateLiteral>(std::move(quasis), std::move(expressions));
+    }
+
+//    unique_ptr<Expression> parseTemplateLiteral() {
+//        // assume TEMPLATE_START already consumed
+//        vector<unique_ptr<StringLiteral>> quasis;
+//        vector<unique_ptr<Expression>> expressions;
+//
+//        // always start with a chunk (even if empty)
+//        while (!check(TokenType::TEMPLATE_END) && !isAtEnd()) {
+//            if (match(TokenType::TEMPLATE_CHUNK)) {
+//                quasis.push_back(make_unique<StringLiteral>(previous().lexeme));
+//            }
+//
+//            if (match(TokenType::INTERPOLATION_START)) {
+//                // parse an expression inside ${ ... }
+//                auto expr = parseExpression();
+//                expressions.push_back(std::move(expr));
+//
+//                consume(TokenType::INTERPOLATION_END, "Expect '}' after interpolation.");
+//
+//                // After interpolation, maybe another chunk
+//                if (match(TokenType::TEMPLATE_CHUNK)) {
+//                    quasis.push_back(make_unique<StringLiteral>(previous().lexeme));
+//                }
+//            }
+//        }
+//
+//        consume(TokenType::TEMPLATE_END, "Unterminated template literal.");
+//
+//        return make_unique<TemplateLiteral>(std::move(quasis), std::move(expressions));
+//    }
+    
+//    if (match(TOKEN_IDENTIFIER) && check(TEMPLATE_START)) {
+//            auto tag = new Identifier(previous().lexeme);
+//            auto literal = parseTemplateLiteral();
+//            return new TaggedTemplateExpression(tag, literal);
+//        }
     
     [[noreturn]] runtime_error error(const Token& token, const string& message) {
         string where = token.type == TokenType::END_OF_FILE
@@ -592,3 +730,11 @@ private:
 };
 
 #endif /* Parser_hpp */
+
+//TaggedTemplateExpression {
+//    tag: Identifier("tag"),
+//    quasi: TemplateLiteral {
+//        quasis: ["hello ", ""],
+//        expressions: [ Identifier("world") ]
+//    }
+//}

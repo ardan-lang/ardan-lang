@@ -398,17 +398,47 @@ public:
     
 };
 
+//class TemplateLiteral : public Expression {
+//public:
+//    vector<unique_ptr<Statement>> parts;
+//    
+//    TemplateLiteral(vector<unique_ptr<Statement>> parts) : parts(std::move(parts)) {}
+//
+//    R accept(ExpressionVisitor& visitor) {
+//        return visitor.visitTemplateLiteral(this);
+//    }
+//
+//};
+
 class TemplateLiteral : public Expression {
 public:
-    vector<unique_ptr<Statement>> parts;
-    
-    TemplateLiteral(vector<unique_ptr<Statement>> parts) : parts(std::move(parts)) {}
+    vector<unique_ptr<StringLiteral>> quasis;
+    vector<unique_ptr<Expression>> expressions;
 
+    TemplateLiteral(vector<unique_ptr<StringLiteral>> quasis,
+                    vector<unique_ptr<Expression>> expressions)
+        : quasis(std::move(quasis)), expressions(std::move(expressions)) {}
+    
     R accept(ExpressionVisitor& visitor) {
         return visitor.visitTemplateLiteral(this);
     }
 
+
 };
+
+//class TaggedTemplateExpression : public Expression {
+//public:
+//    unique_ptr<Expression> tag;                // the function
+//    unique_ptr<TemplateLiteral> quasi;         // the template
+//
+//    TaggedTemplateExpression(unique_ptr<Expression> tag,
+//                             unique_ptr<TemplateLiteral> quasi)
+//        : tag(std::move(tag)), quasi(std::move(quasi)) {}
+//
+//    R accept(ExpressionVisitor& visitor) override {
+//        return visitor.visitTaggedTemplate(this);
+//    }
+//};
 
 class ImportDeclaration : public Statement {
 public:

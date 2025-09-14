@@ -422,6 +422,10 @@ void run_interpreter(string& filename, string& source) {
     
     auto tokens = scanner.getTokens();
 
+    for(Token token : tokens) {
+        cout << token.type << " : " << token.lexeme << " [Line: " << token.line << "]" << endl;
+    }
+
     Parser parser(tokens);
     parser.sourceFile = filename;
     
@@ -494,7 +498,7 @@ fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
 
 int main(int argc, const char * argv[]) {
     
-    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/core_integrations.ardan";
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/recursion.ardan";
         
     string source = read_file(entryFileName);
     run_interpreter(entryFileName, source);

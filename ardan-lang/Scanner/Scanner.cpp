@@ -518,68 +518,249 @@ void Scanner::collectString() {
 
 }
 
+//void Scanner::collectLiteralString() {
+//    
+//    advance();
+//    
+//    string concat = "";
+//    
+//    bool isInterpolstioin = false;
+//    string inerpolationString;
+//    
+//    addToken(TokenType::TEMPLATE_START);
+//    
+//    while (currentCharacter() != '`' && !eof()) {
+//        char cc = currentCharacter();
+//        
+//        // check if cc is $
+//        if (cc == '$' && isInterpolstioin == false) {
+//            isInterpolstioin = true;
+//            advance();
+//            addToken(TokenType::TEMPLATE_CHUNK, concat);
+//            addToken(TokenType::INTERPOLATION_START);
+//            concat = "";
+//            continue;
+//        }
+//        
+//        if (cc == '{' && isInterpolstioin == true) {
+//            advance();
+//            continue;
+//        }
+//        
+//        if (cc == '}' && isInterpolstioin == true) {
+//            isInterpolstioin = false;
+//            
+//            Scanner scanner(inerpolationString);
+//            vector<Token> local_tokens = scanner.getTokens();
+//            
+//            for(Token local_token : local_tokens) {
+//                if (local_token.type == TokenType::END_OF_FILE) {
+//                    continue;
+//                }
+//                tokens.push_back(local_token);
+//            }
+//            
+//            addToken(TokenType::INTERPOLATION_END);
+//            advance();
+//            
+//            inerpolationString = "";
+//            continue;
+//        }
+//                
+//        if (isInterpolstioin) {
+//            inerpolationString += cc;
+//        } else {
+//            concat += cc;
+//        }
+//        
+//        advance();
+//    }
+//    
+//    addToken(TokenType::TEMPLATE_END);
+//    
+//    concat = "";
+//
+//}
+
 void Scanner::collectLiteralString() {
-    
-    advance();
-    
-    string concat = "";
-    
-    bool isInterpolstioin = false;
-    string inerpolationString;
-    
+    advance(); // Skip the opening `
+    std::string chunk = "";
     addToken(TokenType::TEMPLATE_START);
     
-    while (currentCharacter() != '`' && !eof()) {
-        char cc = currentCharacter();
+    while (!eof()) {
+        char c = currentCharacter();
         
-        // check if cc is $
-        if (cc == '$' && isInterpolstioin == false) {
-            isInterpolstioin = true;
-            advance();
-            addToken(TokenType::TEMPLATE_CHUNK, concat);
-            addToken(TokenType::INTERPOLATION_START);
-            concat = "";
-            continue;
-        }
-        
-        if (cc == '{' && isInterpolstioin == true) {
-            advance();
-            continue;
-        }
-        
-        if (cc == '}' && isInterpolstioin == true) {
-            isInterpolstioin = false;
-            
-            Scanner scanner(inerpolationString);
-            vector<Token> local_tokens = scanner.getTokens();
-            
-            for(Token local_token : local_tokens) {
-                if (local_token.type == TokenType::END_OF_FILE) {
-                    continue;
+        if (c == '\\') {
+            advance(); // consume '\'
+            if (eof()) break;
+
+            char esc = currentCharacter();
+
+            switch (esc) {
+                // ----- Single-character escapes -----
+                case 'b': chunk += '\b'; advance(); break;
+                case 'f': chunk += '\f'; advance(); break;
+                case 'n': chunk += '\n'; advance(); break;
+                case 'r': chunk += '\r'; advance(); break;
+                case 't': chunk += '\t'; advance(); break;
+                case 'v': chunk += '\v'; advance(); break;
+                case '0':
+                    // Only \0 if not followed by digit
+                    if (isdigit(peek())) {
+                        // Invalid escape in template → preserve literally
+                        chunk += "\\0";
+                        advance();
+                    } else {
+                        chunk += '\0';
+                        advance();
+                    }
+                    break;
+                case '\\': chunk += '\\'; advance(); break;
+                case '\'': chunk += '\''; advance(); break;
+                case '\"': chunk += '\"'; advance(); break;
+                case '`':  chunk += '`';  advance(); break;
+
+                // ----- Hexadecimal escape -----
+                case 'x': {
+                    advance();
+                    if (isHexDigit(currentCharacter()) && isHexDigit(peek())) {
+                        char h1 = currentCharacter(); advance();
+                        char h2 = currentCharacter(); advance();
+                        int value = hexToInt(h1) * 16 + hexToInt(h2);
+                        chunk += static_cast<char>(value);
+                    } else {
+                        // Invalid → preserve literally
+                        chunk += "\\x";
+                    }
+                    break;
                 }
-                tokens.push_back(local_token);
+
+                // ----- Unicode escape -----
+                case 'u': {
+                    advance();
+                    if (currentCharacter() == '{') {
+                        // \u{X...X}
+                        advance();
+                        std::string hexDigits = "";
+                        while (!eof() && currentCharacter() != '}') {
+                            if (!isHexDigit(currentCharacter())) break;
+                            hexDigits += currentCharacter();
+                            advance();
+                        }
+                        if (currentCharacter() == '}') advance(); // consume '}'
+
+                        if (!hexDigits.empty()) {
+                            int codepoint = std::stoi(hexDigits, nullptr, 16);
+                            // Encode to UTF-8
+                            chunk += encodeUTF8(codepoint);
+                        } else {
+                            chunk += "\\u{}"; // invalid
+                        }
+                    } else {
+                        // \uXXXX form
+                        std::string hexDigits = "";
+                        for (int i = 0; i < 4 && isHexDigit(currentCharacter()); i++) {
+                            hexDigits += currentCharacter();
+                            advance();
+                        }
+                        if (hexDigits.size() == 4) {
+                            int codepoint = std::stoi(hexDigits, nullptr, 16);
+                            chunk += encodeUTF8(codepoint);
+                        } else {
+                            chunk += "\\u" + hexDigits; // invalid
+                        }
+                    }
+                    break;
+                }
+
+                // ----- Line continuation -----
+                case '\n': case '\r': {
+                    // Skip both backslash and line terminator → no char added
+                    if (esc == '\r' && peek() == '\n') advance(); // CRLF
+                    advance();
+                    break;
+                }
+
+                // ----- Invalid escapes -----
+                default:
+                    // In template literals, invalid escapes must be preserved
+                    chunk += '\\';
+                    chunk += esc;
+                    advance();
+                    break;
             }
-            
-            addToken(TokenType::INTERPOLATION_END);
-            advance();
-            
-            inerpolationString = "";
             continue;
         }
-                
-        if (isInterpolstioin) {
-            inerpolationString += cc;
-        } else {
-            concat += cc;
+
+        if (c == '`') {
+            if (!chunk.empty()) {
+                addToken(TokenType::TEMPLATE_CHUNK, chunk);
+                chunk = "";
+            }
+            addToken(TokenType::TEMPLATE_END);
+            // we are at the end of the template literal.
+            if (peek() != ';') {
+                advance(); // Skip closing `
+            }
+            return;
         }
         
+        if (c == '$' && peek() == '{') {
+            if (!chunk.empty()) {
+                addToken(TokenType::TEMPLATE_CHUNK, chunk);
+                chunk = "";
+            }
+            addToken(TokenType::INTERPOLATION_START);
+            advance(); // skip $
+            advance(); // skip {
+
+            int braceDepth = 1;
+            std::string expr = "";
+            while (!eof() && braceDepth > 0) {
+                char cc = currentCharacter();
+                if (cc == '{') {
+                    braceDepth++;
+                    expr += cc;
+                    advance();
+                } else if (cc == '}') {
+                    braceDepth--;
+                    if (braceDepth == 0) {
+                        advance(); // skip closing }
+                        break;
+                    } else {
+                        expr += cc;
+                        advance();
+                    }
+                } else if (cc == '`') {
+                    // Nested template literal! Recursively scan
+                    collectLiteralString();
+                } else {
+                    expr += cc;
+                    advance();
+                }
+            }
+            // Scan the interpolation contents as its own token stream
+            if (!expr.empty()) {
+                Scanner interpScanner(expr);
+                std::vector<Token> interpTokens = interpScanner.getTokens();
+                for (const Token& t : interpTokens) {
+                    if (t.type != TokenType::END_OF_FILE) {
+                        tokens.push_back(t);
+                    }
+                }
+            }
+            addToken(TokenType::INTERPOLATION_END);
+            continue;
+        }
+        
+        chunk += c;
         advance();
     }
-    
+    // Unterminated template literal: emit what we have
+    if (!chunk.empty()) {
+        addToken(TokenType::TEMPLATE_CHUNK, chunk);
+    }
     addToken(TokenType::TEMPLATE_END);
-    
-    concat = "";
-
 }
 
 void Scanner::collectNumber() {
@@ -809,4 +990,37 @@ char& Scanner::peek() {
     
     return source[current + 1];
     
+}
+
+bool Scanner::isHexDigit(char c) {
+    return (c >= '0' && c <= '9') ||
+           (c >= 'a' && c <= 'f') ||
+           (c >= 'A' && c <= 'F');
+}
+
+int Scanner::hexToInt(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return 0;
+}
+
+std::string Scanner::encodeUTF8(int codepoint) {
+    std::string out;
+    if (codepoint <= 0x7F) {
+        out.push_back(static_cast<char>(codepoint));
+    } else if (codepoint <= 0x7FF) {
+        out.push_back(static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F)));
+        out.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    } else if (codepoint <= 0xFFFF) {
+        out.push_back(static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F)));
+        out.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    } else {
+        out.push_back(static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07)));
+        out.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    }
+    return out;
 }

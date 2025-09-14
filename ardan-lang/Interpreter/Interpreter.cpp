@@ -2012,7 +2012,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
             }
             
         } else {
-            localEnv->set_var(expr->token.lexeme, args[0]);
+            // localEnv->set_var(expr->token.lexeme, args[0]);
         }
         
         auto prevEnv = intr->env;
@@ -2189,22 +2189,45 @@ shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member
     
 }
 
+//R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
+//    
+//    string concat;
+    
+//    for (auto& part : expr->parts) {
+//        
+//        ExpressionStatement* expr_stmt = dynamic_cast<ExpressionStatement*>(part.get());
+//        
+//        if (expr_stmt) {
+//            Value expr_string = toValue(expr_stmt->expression->accept(*this));
+//            concat += expr_string.toString();
+//        }
+//        
+//    }
+    
+//    return concat;
+//    
+//}
+
 R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
     
-    string concat;
-    
-    for (auto& part : expr->parts) {
-        
-        ExpressionStatement* expr_stmt = dynamic_cast<ExpressionStatement*>(part.get());
-        
-        if (expr_stmt) {
-            Value expr_string = toValue(expr_stmt->expression->accept(*this));
-            concat += expr_string.toString();
+    string result;
+
+    size_t qsize = expr->quasis.size();
+    size_t esize = expr->expressions.size();
+
+    // Append quasis and interleave expressions
+    for (size_t i = 0; i < qsize; i++) {
+        // add the quasi
+        result += toValue(expr->quasis[i]->accept(*this)).toString();
+
+        // if there’s a matching expression, evaluate it
+        if (i < esize) {
+            Value val = toValue(expr->expressions[i]->accept(*this));
+            result += val.toString();
         }
-        
     }
-    
-    return concat;
+
+    return result;
     
 }
 
@@ -2409,3 +2432,39 @@ R Interpreter::visitClassExpression(ClassExpression* expr) {
     return js_class;
 
 }
+
+//R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {
+//    // 1. Evaluate the tag function
+//    Value callee = evaluate(expr->tag.get());
+//    if (!callee.isCallable()) {
+//        throw RuntimeError("Tag is not a function");
+//    }
+//
+//    // 2. Build cooked & raw strings
+//    vector<Value> cooked;
+//    vector<Value> raw;
+//
+//    for (auto& quasi : expr->quasi->quasis) {
+//        cooked.push_back(Value(quasi->value)); // cooked string
+//        raw.push_back(Value(quasi->rawValue)); // if you stored raw text separately
+//    }
+//
+//    // 3. Create the template object
+//    //    In JS it's an array with a `raw` property
+//    Object* templateObj = new Object();
+//    for (size_t i = 0; i < cooked.size(); i++) {
+//        templateObj->set(i, cooked[i]);
+//    }
+//    templateObj->set("raw", Value(raw));
+//
+//    // 4. Build call arguments
+//    vector<Value> args;
+//    args.push_back(Value(templateObj));
+//
+//    for (auto& e : expr->quasi->expressions) {
+//        args.push_back(evaluate(e.get()));
+//    }
+//
+//    // 5. Call the function
+//    return callee.call(args);
+//}

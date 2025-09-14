@@ -204,7 +204,8 @@ unordered_map<string, R> Env::getStack() {
 }
 
 void Env::clearStack() {
-    stack = {};
+    stack.clear();
+    unordered_map<string, R>().swap(stack);
 }
 
 
