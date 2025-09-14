@@ -45,7 +45,7 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::MODULI: return os << "MODULI";
         case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: return os << "BITWISE_LEFT_SHIFT_ASSIGN";
         case TokenType::BITWISE_LEFT_SHIFT: return os << "BITWISE_LEFT_SHIFT";
-        case TokenType::LESS_THAN_EQUAL: return os << "LESS_THAN_ASSIGN";
+        case TokenType::LESS_THAN_EQUAL: return os << "LESS_THAN_EQUAL";
         case TokenType::LESS_THAN: return os << "LESS_THAN";
         case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: return os << "UNSIGNED_RIGHT_SHIFT_ASSIGN";
         case TokenType::UNSIGNED_RIGHT_SHIFT: return os << "UNSIGNED_RIGHT_SHIFT";

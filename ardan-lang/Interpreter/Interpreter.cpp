@@ -47,7 +47,7 @@ Interpreter::Interpreter(Env* local_env) {
 Interpreter::~Interpreter() {
     
     if (env != nullptr) {
-        delete env;
+        //delete env;
     }
     
 }

@@ -185,18 +185,38 @@ Statement* Env::getFunctionBody(const string& name) {
     return nullptr;
 }
 
+//vector<Expression*> Env::getFunctionParams(const string& name) {
+//    vector<Expression*> result;
+//    auto it = params.find(name);
+//    if (it != params.end()) {
+//        for (auto& expr : it->second) {
+//            result.push_back(expr.get());
+//        }
+//    }
+//    
+//    if (parent) return parent->getFunctionParams(name);
+//
+//    return result;
+//}
+
 vector<Expression*> Env::getFunctionParams(const string& name) {
-    vector<Expression*> result;
+    // Look in current env first
     auto it = params.find(name);
     if (it != params.end()) {
+        vector<Expression*> result;
         for (auto& expr : it->second) {
             result.push_back(expr.get());
         }
+        return result; // <-- stop here if found
     }
-    
-    if (parent) return parent->getFunctionParams(name);
 
-    return result;
+    // Otherwise, check parent
+    if (parent) {
+        return parent->getFunctionParams(name);
+    }
+
+    // Not found at all
+    return {};
 }
 
 unordered_map<string, R> Env::getStack() {
