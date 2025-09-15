@@ -18,19 +18,14 @@
 #include "../builtin/builtin-includes.h"
 #include "../Scanner/Scanner.hpp"
 #include "../Parser/Parser.hpp"
+#include "../GUI/gui.h"
 
 Interpreter::Interpreter() {
     env = new Env();
     
     // init all builtins
-    env->set_var("Math", make_shared<Math>());
-    env->set_var("console", make_shared<Print>());
-    env->set_var("fs", make_shared<File>());
-    env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
-        Print::print(args);
-        return Value::nullVal();
-    }));
-    
+    init_builtins();
+
 }
 
 Interpreter::Interpreter(Env* local_env) {
@@ -38,13 +33,7 @@ Interpreter::Interpreter(Env* local_env) {
     env = local_env;
     
     // init all builtins
-    env->set_var("Math", make_shared<Math>());
-    env->set_var("console", make_shared<Print>());
-    env->set_var("fs", make_shared<File>());
-    env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
-        Print::print(args);
-        return Value::nullVal();
-    }));
+    init_builtins();
 
 }
 
@@ -54,6 +43,21 @@ Interpreter::~Interpreter() {
         delete env;
     }
     
+}
+
+void Interpreter::init_builtins() {
+    env->set_var("Math", make_shared<Math>());
+    env->set_var("console", make_shared<Print>());
+    env->set_var("fs", make_shared<File>());
+    env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
+        Print::print(args);
+        return Value::nullVal();
+    }));
+    env->set_var("showWindow", Value::function([this](vector<Value> args) mutable -> Value {
+        showWindow();
+        return Value::nullVal();
+    }));
+
 }
 
 void Interpreter::execute(vector<unique_ptr<Statement>> ast) {

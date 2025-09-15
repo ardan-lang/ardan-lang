@@ -5,12 +5,24 @@
 //  Created by Chidume Nnamdi on 15/09/2025.
 //
 
-#ifndef gui_h
-#define gui_h
+//#ifndef gui_h
+//#define gui_h
+//
+//#include <stdio.h>
+//#import <Cocoa/Cocoa.h>
+//
+//void showWindow();
+//
+//#endif /* gui_h */
 
-#include <stdio.h>
-#import <Cocoa/Cocoa.h>
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void showWindow();
 
-#endif /* gui_h */
+#ifdef __cplusplus
+}
+#endif
