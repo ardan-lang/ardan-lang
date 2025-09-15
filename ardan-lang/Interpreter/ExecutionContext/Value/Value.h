@@ -103,6 +103,7 @@ public:
     bool isUndefined();
     int integer();
     bool boolean();
+    bool isNull();
     
     bool operator==(const Value& rhs);
 

@@ -143,6 +143,10 @@ string toString(const R& val) {
 bool isNullish(const R& value) {
     // nullish = null or undefined in JS
     if (holds_alternative<std::nullptr_t>(value)) return true;
+    
+    bool bool_value = toValue(value).isNull();
+    return bool_value;
+    
     // if you modeled "undefined" as a string or custom type, check that too
     return false;
 }

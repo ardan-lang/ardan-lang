@@ -140,3 +140,21 @@ bool Value::boolean() {
     }
     return false;
 }
+
+bool Value::isNull() {
+    
+    switch (type) {
+        case ValueType::BOOLEAN: return boolValue;
+        case ValueType::NUMBER: return numberValue != 0 && !std::isnan(numberValue);
+        case ValueType::STRING: return !stringValue.empty();
+        case ValueType::NULLTYPE: return false;
+        case ValueType::UNDEFINED: return false;
+        case ValueType::OBJECT: return true;
+        case ValueType::FUNCTION: return true;
+        case ValueType::NATIVE_FUNCTION: return true;
+        case ValueType::METHOD: return true;
+        case ValueType::ARRAY: return true;
+    }
+    return false;
+
+}
