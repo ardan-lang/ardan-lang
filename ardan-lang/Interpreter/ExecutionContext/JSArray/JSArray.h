@@ -42,6 +42,23 @@ public:
             
         }));
         
+        set("join", Value::native([this](const vector<Value>& args) {
+
+            string concat;
+            string delimiter = args[0].toString();
+            
+            int index = 0;
+            auto indexed_properties = get_indexed_properties();
+            
+            for(auto indexed_property : indexed_properties) {
+                concat += indexed_property.second.toString() + ((index == (indexed_properties.size() - 1)) ? "" : delimiter);
+                index++;
+            }
+
+            return Value(concat);
+            
+        }));
+
         set("length", elements_size);
 
     }

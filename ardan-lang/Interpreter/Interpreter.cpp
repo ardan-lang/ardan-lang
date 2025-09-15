@@ -32,8 +32,8 @@ Interpreter::Interpreter() {
 Interpreter::Interpreter(Env* local_env) {
     
     // init all builtins
-    local_env->set_var("Math", make_shared<Math>());
-    local_env->set_var("console", make_shared<Print>());
+    // local_env->set_var("Math", make_shared<Math>());
+    // local_env->set_var("console", make_shared<Print>());
     // env->set_var("readFile", );
 
     env = local_env;
@@ -45,7 +45,7 @@ Interpreter::Interpreter(Env* local_env) {
 }
 
 Interpreter::~Interpreter() {
-    cout << "Deleted env" << endl;
+
     if (env != nullptr) {
         delete env;
     }
@@ -255,6 +255,22 @@ R Interpreter::visitCall(CallExpression* expr) {
             prop_val = js_object->get(property_name);
             
         }
+        else if (std::get_if<Value>(&object)) {
+            
+            Value value = get<Value>(object);
+            
+            if (value.type == ValueType::ARRAY) {
+                js_object = value.arrayValue;
+            }
+            
+            if (value.type == ValueType::OBJECT) {
+                js_object = value.objectValue;
+            }
+            
+            check_obj_prop_access(member, js_object.get(), property_name);
+            prop_val = js_object->get(property_name);
+            
+        }
 
         if (prop_val.type == ValueType::NATIVE_FUNCTION) {
                         
@@ -346,7 +362,7 @@ R Interpreter::visitCall(CallExpression* expr) {
         return std::monostate{};
     }
     
-    // we check for arrow function
+    // we check for arrow function or user-defined function closure
     if (holds_alternative<Value>(callee) && (get<Value>(callee).type == ValueType::FUNCTION)) {
         vector<Value> vector_value_args;
 
@@ -430,6 +446,8 @@ R Interpreter::visitStringLiteral(StringLiteral* expr) {
 }
 
 R Interpreter::visitIdentifier(IdentifierExpression* expr) {
+    // check if name is function or class
+    // construct and return function
     return env->getValue(expr->name);
 }
 
@@ -437,10 +455,73 @@ R Interpreter::visitFunction(FunctionDeclaration* stmt) {
     
     auto id = stmt->id;
         
-    env->set_var(id, id);
-    env->setFunctionDeclarations(id, std::move(stmt->params), std::move(stmt->body));
+    env->set_var(id, create_func_expr(stmt));
+    // env->setFunctionDeclarations(id, std::move(stmt->params), std::move(stmt->body));
 
     return true;
+}
+
+R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
+    
+    auto id = stmt->id;
+    Env* closureEnv = env; // capture the current environment
+    auto lexicalThis = env->this_binding;
+    auto intr = this;
+
+    // Build a closure Value that can be called
+    Value closureValue = Value::function([stmt, closureEnv, lexicalThis, intr](std::vector<Value> args) mutable -> Value {
+        Env* localEnv = new Env(closureEnv);
+        localEnv->this_binding = lexicalThis;
+
+        // Bind parameters to arguments
+        for (size_t i = 0; i < stmt->params.size(); ++i) {
+            Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
+            Expression* param_expr = stmt->params[i].get();
+            std::string paramName;
+            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
+                paramName = ident->token.lexeme;
+            } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
+                paramName = variable->declarations[0].id;
+                if (i >= args.size()) {
+                    paramValue = toValue(variable->declarations[0].init->accept(*intr));
+                }
+            } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
+                paramName = toValue(param_expr->accept(*intr)).stringValue;
+                auto array = make_shared<JSArray>();
+                int arr_index = 0;
+                for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
+                    array->setIndex(arr_index, args[rest_i]);
+                    arr_index++;
+                }
+                localEnv->set_var(paramName, array);
+                break;
+            } else {
+                if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
+                    auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                    if (left) {
+                        paramName = left->token.lexeme;
+                        paramValue = toValue(bin_expr->right->accept(*intr));
+                    }
+                }
+            }
+            localEnv->set_var(paramName, paramValue);
+        }
+        auto prevEnv = intr->env;
+        intr->env = localEnv;
+        try {
+            if (stmt->body) {
+                stmt->body->accept(*intr);
+            }
+            intr->env = prevEnv;
+            return Value::undefined();
+        } catch (const ReturnException& r) {
+            intr->env = prevEnv;
+            return toValue(r.value);
+        }
+    });
+    
+    return closureValue;
+
 }
 
 R Interpreter::visitIf(IfStatement* stmt) {
@@ -632,6 +713,7 @@ R Interpreter::visitForOf(ForOfStatement* stmt) {
 }
 
 R Interpreter::visitReturn(ReturnStatement* stmt) {
+    
     R value = stmt->argument ? stmt->argument->accept(*this) : monostate{};
     throw ReturnException{ value };
 }
@@ -1128,7 +1210,7 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                     
                     if (current_value->type == ValueType::OBJECT) {
                         // TODO: we need to check the "VAR" we sent
-                        current_value->objectValue->set(property_name, toValue(newVal), "VAR", {});
+                        current_value->objectValue->set(property_name, toValue(newVal), VAR, {});
                     }
 
                     if (current_value->type == ValueType::ARRAY) {
@@ -1136,6 +1218,22 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
                     }
 
                 }
+                
+                if (holds_alternative<Value>(current)) {
+                    
+                    Value current_value = get<Value>(current);
+                    
+                    if (current_value.type == ValueType::OBJECT) {
+                        // TODO: we need to check the "VAR" we sent
+                        current_value.objectValue->set(property_name, toValue(newVal), VAR, {});
+                    }
+
+                    if (current_value.type == ValueType::ARRAY) {
+                        current_value.arrayValue->set(property_name, toValue(newVal));
+                    }
+
+                }
+                
 
                 return monostate();
                 
@@ -1268,11 +1366,11 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
                     shared_ptr<JSClass> js_class = nullptr;
                     Value oldVal;
 
-                    if (std::get_if<shared_ptr<JSClass>>(&objectValue)) {
+                    if (std::get_if<std::shared_ptr<JSClass>>(&objectValue)) {
                         js_class = getMemberExprJSClass(member);
                     }
 
-                    if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
+                    if (std::get_if<std::shared_ptr<JSObject>>(&objectValue)) {
                         target_obj = getMemberExprJSObject(member);
                     }
                     
@@ -1288,6 +1386,22 @@ R Interpreter::visitUnary(UnaryExpression* expr) {
 
                         if (current_value->type == ValueType::ARRAY) {
                             target_obj = current_value->arrayValue;
+                        }
+
+                    }
+                    
+                    if (holds_alternative<Value>(objectValue)) {
+                        
+                        Value current_value = get<Value>(objectValue);
+                        
+                        if (current_value.type == ValueType::OBJECT) {
+                            
+                            target_obj = current_value.objectValue;
+
+                        }
+
+                        if (current_value.type == ValueType::ARRAY) {
+                            target_obj = current_value.arrayValue;
                         }
 
                     }
@@ -1382,11 +1496,11 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 
                 Value newVal;
 
-                if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
+                if (std::get_if<std::shared_ptr<JSObject>>(&objectValue)) {
                     targetObj = getMemberExprJSObject(member);
                 }
 
-                if (std::get_if<shared_ptr<JSClass>>(&objectValue)) {
+                if (std::get_if<std::shared_ptr<JSClass>>(&objectValue)) {
                     targetKlass = getMemberExprJSClass(member);
                 }
 
@@ -1411,6 +1525,22 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
 
                     if (current_value->type == ValueType::ARRAY) {
                         targetObj = current_value->arrayValue;
+                    }
+
+                }
+                
+                if (holds_alternative<Value>(objectValue)) {
+                    
+                    Value current_value = get<Value>(objectValue);
+                    
+                    if (current_value.type == ValueType::OBJECT) {
+                        
+                        targetObj = current_value.objectValue;
+
+                    }
+
+                    if (current_value.type == ValueType::ARRAY) {
+                        targetObj = current_value.arrayValue;
                     }
 
                 }
@@ -1462,11 +1592,11 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                 
                 Value newVal;
 
-                if (std::get_if<shared_ptr<JSObject>>(&objectValue)) {
+                if (std::get_if<std::shared_ptr<JSObject>>(&objectValue)) {
                     targetObj = getMemberExprJSObject(member);
                 }
 
-                if (std::get_if<shared_ptr<JSClass>>(&objectValue)) {
+                if (std::get_if<std::shared_ptr<JSClass>>(&objectValue)) {
                     targetKlass = getMemberExprJSClass(member);
                 }
 
@@ -1495,6 +1625,22 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
 
                 }
 
+                if (holds_alternative<Value>(objectValue)) {
+                    
+                    Value current_value = get<Value>(objectValue);
+                    
+                    if (current_value.type == ValueType::OBJECT) {
+                        
+                        targetObj = current_value.objectValue;
+
+                    }
+
+                    if (current_value.type == ValueType::ARRAY) {
+                        targetObj = current_value.arrayValue;
+                    }
+
+                }
+                
                 // Get and update property
                 if (targetObj) {
                     Value oldVal = targetObj->get(key);
@@ -1503,6 +1649,7 @@ R Interpreter::visitUpdate(UpdateExpression* expr) {
                     check_obj_prop_access(member, targetObj.get(), key);
                     
                     targetObj->set(key, newVal);
+                    
                 }
                 
                 if (targetKlass) {
@@ -1692,6 +1839,57 @@ R Interpreter::visitMember(MemberExpression* expr) {
             }
             
             js_object_instance = value->objectValue;
+
+            check_obj_prop_access(expr, js_object_instance.get(), property_name);
+            return_value = js_object_instance->get(property_name);
+
+        }
+
+    }
+    else if (holds_alternative<Value>(object_value)) {
+        
+        Value value = get<Value>(object_value);
+        
+        if (value.type == ValueType::ARRAY) {
+            
+            if (expr->computed) {
+                
+                // []
+                R property_value = expr->property->accept(*this);
+                            
+                property_name = toValue(property_value).toString();
+                
+            } else {
+                
+                // .
+                property_name = expr->name.lexeme;
+                
+            }
+            
+            js_object_instance = value.arrayValue;
+
+            check_obj_prop_access(expr, js_object_instance.get(), property_name);
+            return_value = js_object_instance->get(property_name);
+
+        }
+        
+        if (value.type == ValueType::OBJECT) {
+            
+            if (expr->computed) {
+                
+                // []
+                R property_value = expr->property->accept(*this);
+                            
+                property_name = toValue(property_value).toString();
+                
+            } else {
+                
+                // .
+                property_name = expr->name.lexeme;
+                
+            }
+            
+            js_object_instance = value.objectValue;
 
             check_obj_prop_access(expr, js_object_instance.get(), property_name);
             return_value = js_object_instance->get(property_name);
@@ -2217,6 +2415,22 @@ shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member
 
         if (current_value->type == ValueType::ARRAY) {
             targetObj = current_value->arrayValue;
+        }
+
+    }
+    
+    if (holds_alternative<Value>(objectValue)) {
+        
+        Value current_value = get<Value>(objectValue);
+        
+        if (current_value.type == ValueType::OBJECT) {
+            
+            targetObj = current_value.objectValue;
+
+        }
+
+        if (current_value.type == ValueType::ARRAY) {
+            targetObj = current_value.arrayValue;
         }
 
     }

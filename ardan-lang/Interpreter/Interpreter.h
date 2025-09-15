@@ -47,6 +47,8 @@ public:
                                JSObject* js_object,
                                const string& key);
     R create_js_class(vector<unique_ptr<PropertyDeclaration>> fields, vector<unique_ptr<MethodDefinition>> body, Expression* superClass);
+    
+    R create_func_expr(FunctionDeclaration* stmt);
 
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;

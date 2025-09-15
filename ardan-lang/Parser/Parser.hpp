@@ -489,7 +489,7 @@ private:
                     
                 }
                 
-                auto exprBody = parseExpression();
+                auto exprBody = parseAssignment();
                 
                 // (x) => x
                 return make_unique<ArrowFunction>(std::move(expr), std::move(exprBody));
