@@ -27,13 +27,13 @@ public:
     
     Print() {
         
-        set("log", Value::native([](const vector<Value>& args) {
+        set_builtin_value("log", Value::native([](const vector<Value>& args) {
                         
             Print::print(args);
             
             return Value();
             
-        }), "VAR", {});
+        }));
         
     }
     

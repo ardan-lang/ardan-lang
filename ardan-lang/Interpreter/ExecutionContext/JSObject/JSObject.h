@@ -38,6 +38,7 @@ public:
     
     void set(const string& key, const Value& val);
     void set(const string& key, const Value& val, string type, vector<string> modifiers);
+    void set_builtin_value(const string& key, const Value& val);
 
     Value get(const string& key);
 

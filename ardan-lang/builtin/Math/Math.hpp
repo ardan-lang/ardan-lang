@@ -20,24 +20,24 @@ class Math : public JSObject {
 public:
     
     Math() {
-        set("abs", Value::native([](const std::vector<Value>& args) {
+        set_builtin_value("abs", Value::native([](const std::vector<Value>& args) {
 
             double n = args.size() > 0 ? args[0].numberValue : 0;
 
             return Value::number(std::abs(n));
             
-        }), "VAR", {});
+        }));
         
-        set("pow", Value::native([](const std::vector<Value>& args) {
+        set_builtin_value("pow", Value::native([](const std::vector<Value>& args) {
 
             double num = args.size() > 0 ? args[0].numberValue : 0;
             double exp = args.size() > 1 ? args[1].numberValue : 0;
 
             return Value::number(Math::pow(num, exp));
             
-        }), "VAR", {});
+        }));
         
-        set("PI", Value::number(Math::PI), "VAR", {});
+        set_builtin_value("PI", Value::number(Math::PI));
         
     }
     

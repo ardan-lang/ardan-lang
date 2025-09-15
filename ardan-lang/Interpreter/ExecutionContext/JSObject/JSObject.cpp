@@ -145,3 +145,7 @@ string JSObject::toString() {
 void JSObject::set_as_object_literal() {
     is_object_literal = true;
 }
+
+void JSObject::set_builtin_value(const string& key, const Value& val) {
+    var_properties[key] = { key, {}, val };
+}

@@ -25,7 +25,7 @@ Interpreter::Interpreter() {
     // init all builtins
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
-    // env->set_var("readFile", );
+    env->set_var("fs", make_shared<File>());
     
 }
 
@@ -40,7 +40,7 @@ Interpreter::Interpreter(Env* local_env) {
 
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
-
+    env->set_var("fs", make_shared<File>());
     
 }
 
