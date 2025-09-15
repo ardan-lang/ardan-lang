@@ -42,6 +42,8 @@ class TemplateLiteral;
 class RestParameter;
 class FunctionExpression;
 class ClassExpression;
+class NullKeyword;
+class UndefinedKeyword;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -78,7 +80,9 @@ public:
     virtual R visitRestParameter(RestParameter* expr) = 0;
     virtual R visitFunctionExpression(FunctionExpression* visitor) = 0;
     virtual R visitClassExpression(ClassExpression* visitor) = 0;
-
+    virtual R visitNullKeyword(NullKeyword* visitor) = 0;
+    virtual R visitUndefinedKeyword(UndefinedKeyword* visitor) = 0;
+    
 };
 
 #endif /* ExpressionVisitor_hpp */

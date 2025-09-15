@@ -104,7 +104,8 @@ public:
     R visitImportDeclaration(ImportDeclaration* stmt) override;
     R visitFunctionExpression(FunctionExpression* expr) override;
     R visitClassExpression(ClassExpression* expr) override;
-
+    R visitNullKeyword(NullKeyword* visitor) override;
+    R visitUndefinedKeyword(UndefinedKeyword* visitor) override;
 };
 
 #endif /* Interpreter_hpp */

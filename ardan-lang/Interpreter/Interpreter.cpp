@@ -502,7 +502,7 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
                     auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
                     if (left) {
                         paramName = left->token.lexeme;
-                        if (paramValue.type == ValueType::UNDEFINED) {
+                        if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
                             paramValue = toValue(bin_expr->right->accept(*intr));
                         }
                     }
@@ -2247,7 +2247,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                             
                             if (left) {
                                 paramName = left->token.lexeme;
-                                if (paramValue.type == ValueType::UNDEFINED) {
+                                if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
                                     paramValue = toValue(bin_expr->right->accept(*intr));
                                 }
                             }
@@ -2655,7 +2655,7 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
                             
                             if (left) {
                                 paramName = left->token.lexeme;
-                                if (paramValue.type == ValueType::UNDEFINED) {
+                                if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
                                     paramValue = toValue(bin_expr->right->accept(*intr));
                                 }
                             }
@@ -2718,6 +2718,15 @@ R Interpreter::visitClassExpression(ClassExpression* expr) {
 
     return js_class;
 
+}
+
+R Interpreter::visitNullKeyword(NullKeyword* visitor) {
+    return Value::nullVal();
+}
+
+R Interpreter::visitUndefinedKeyword(UndefinedKeyword* visitor) {
+    Value v;
+    return v;
 }
 
 //R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {

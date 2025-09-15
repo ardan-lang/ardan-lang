@@ -384,4 +384,26 @@ public:
 
 };
 
+class NullKeyword : public Expression {
+public:
+    Token token;
+    NullKeyword(Token token) : token(token) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitNullKeyword(this);
+    }
+
+};
+
+class UndefinedKeyword : public Expression {
+public:
+    Token token;
+    UndefinedKeyword(Token token) : token(token) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitUndefinedKeyword(this);
+    }
+
+};
+
 #endif /* Expression_hpp */
