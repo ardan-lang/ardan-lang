@@ -726,13 +726,6 @@ R Interpreter::visitContinue(ContinueStatement* stmt) {
     throw ContinueException();
 }
 
-R Interpreter::visitThrow(ThrowStatement* stmt) {
-    
-    throw runtime_error(toString(stmt->argument->accept(*this)));
-    
-    return false;
-}
-
 R Interpreter::visitEmpty(EmptyStatement* stmt) {
     return true;
 }
@@ -945,13 +938,23 @@ R Interpreter::visitTry(TryStatement* stmt) {
     try {
         if (stmt->block)
             stmt->block->accept(*this);
+    } catch (const Value& v) {
+        if (stmt->handler) {
+                Env* previous = env;
+                env = new Env(previous);
+                env->set_var(stmt->handler->param, v);
+                stmt->handler->accept(*this);
+                env = previous;
+            } else {
+                throw; // propagate
+            }
     } catch (const std::exception& err) {
         if (stmt->handler) {
             // Enter a new environment scope for catch
             Env* previous = env;
             env = new Env(previous);
             // Bind the exception to the catch variable
-            env->set_var(stmt->handler->param, std::string(err.what()));
+            env->set_var(stmt->handler->param, toValue(err.what()));
             try {
                 stmt->handler->accept(*this); // invokes visitCatch
             } catch(...) {
@@ -988,6 +991,15 @@ R Interpreter::visitTry(TryStatement* stmt) {
         stmt->finalizer->accept(*this);
     }
     return true;
+}
+
+R Interpreter::visitThrow(ThrowStatement* stmt) {
+    
+    // throw runtime_error(toValue(stmt->argument->accept(*this)).toString());
+    
+    throw (toValue(stmt->argument->accept(*this)));
+                  
+    return false;
 }
 
 // -------- Expressions --------
