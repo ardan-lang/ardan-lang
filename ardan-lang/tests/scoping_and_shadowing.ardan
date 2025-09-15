@@ -1,36 +1,44 @@
-print("=== Scoping & Shadowing ===");
+// print("=== Scoping & Shadowing ===");
 
-var a = 1;
-function test1() {
-  var a = 2;
-  print("inner a=", a);
-}
-test1(); print("outer a=", a);
+// var a = 1;
+// function test1() {
+//   var a = 2;
+//   print("inner a=", a);
+// }
+// test1(); print("outer a=", a);
 
-function test2() {
-  let b = 3;
-  if (true) { let b = 4; print("block b=", b); }
-  print("func b=", b);
-}
-test2();
+// function test2() {
+//   let b = 3;
+//   if (true) { let b = 4; print("block b=", b); }
+//   print("func b=", b);
+// }
+// test2();
 
-const c = 5;
-function test3() { print("const c=", c); }
-test3();
+// const c = 5;
+// function test3() { print("const c=", c); }
+// test3();
 
-var d = 10;
-function outer() {
-  let d = 20;
-  function inner() { print("shadow d=", d); }
-  inner();
-}
-outer(); print("global d=", d);
+// var d = 10;
+// function outer() {
+//   let d = 20;
+//   function inner() { print("shadow d=", d); }
+//   inner();
+// }
+// outer(); print("global d=", d);
 
-// Re-declaration errors (commented)
-// let x = 7; let x = 8; // error
+// // Re-declaration errors (commented)
+// // let x = 7; let x = 8; // error
 
-// Closure stale
-function makeCounter() { let cnt = 0; return () => { cnt++; return cnt; }; }
-let ctr = makeCounter(); print(ctr(), ctr(), ctr());
+// // Closure stale
+// function makeCounter() { let cnt = 0; return () => { cnt++; return cnt; }; }
+// let ctr = makeCounter(); print(ctr(), ctr(), ctr());
 
-print("=== Done Scoping ===");
+// print("=== Done Scoping ===");
+
+fs.readFileSync("/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/scoping_and_shadowing.ardan", (err, data) => {
+    if (err) {
+        console.error("Error reading file:", err);
+        return;
+    }
+    console.log("File contents:", data);
+});

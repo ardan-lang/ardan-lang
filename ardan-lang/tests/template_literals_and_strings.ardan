@@ -25,4 +25,13 @@ print(concat);
 let only = `${a*a}`;
 print(only);
 
+print(`Hello, ${b} ${a}!`);
 print("=== Done Template Literals ===");
+console.log(`Hello, ${b} ${a}!`);
+
+let greet = (firstName, lastName, ...otherInfo) => {
+    console.log(`Hello, ${firstName} ${lastName}!`);
+    console.log("Additional info:", otherInfo);
+};
+
+greet("John", "Doe", "Developer", "New York", "Single");
