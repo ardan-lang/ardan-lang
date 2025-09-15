@@ -656,7 +656,16 @@ private:
                 consume(TokenType::INTERPOLATION_END, "Unterminated interpolation");
 
                 // Ensure even if empty, a new quasi exists after interpolation
-                quasis.push_back(make_unique<StringLiteral>(""));
+                // quasis.push_back(make_unique<StringLiteral>(""));
+                // Ensure a quasi slot exists after interpolation
+                if (check(TokenType::INTERPOLATION_START) || check(TokenType::TEMPLATE_END)) {
+                    // consecutive ${...} or immediate end → must insert ""
+                    quasis.push_back(make_unique<StringLiteral>(""));
+                } else {
+                    // let the next chunk fill naturally
+                    currentChunk = "";
+                }
+
             }
             else {
                 advance(); // recover
