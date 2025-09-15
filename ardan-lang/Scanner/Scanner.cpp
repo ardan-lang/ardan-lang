@@ -455,6 +455,7 @@ vector<Token>& Scanner::getTokens() {
 
             case '`':
                 collectLiteralString();
+                current--;
                 break;
                 
             default:
@@ -699,9 +700,9 @@ void Scanner::collectLiteralString() {
             }
             addToken(TokenType::TEMPLATE_END);
             // we are at the end of the template literal.
-            if (peek() != ';') {
+            //if (peek() != ';') {
                 advance(); // Skip closing `
-            }
+            //}
             return;
         }
         

@@ -604,6 +604,8 @@ private:
             }
         }
 
+        Token ccp = peek();
+
         return make_unique<TemplateLiteral>(std::move(quasis), std::move(expressions));
     }
     
