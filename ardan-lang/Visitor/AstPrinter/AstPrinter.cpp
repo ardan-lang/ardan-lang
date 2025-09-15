@@ -614,3 +614,15 @@ R AstPrinter::visitFunctionExpression(FunctionExpression* visitor) {
 R AstPrinter::visitClassExpression(ClassExpression* visitor) {
     return true;
 }
+
+R AstPrinter::visitNullKeyword(NullKeyword* visitor) {
+    printIndent();
+    std::cout << "Null \"" << visitor->token.lexeme << "\"\n";
+    return true;
+}
+
+R AstPrinter::visitUndefinedKeyword(UndefinedKeyword* visitor) {
+    printIndent();
+    std::cout << "Undefined \"" << visitor->token.lexeme << "\"\n";
+    return true;
+}

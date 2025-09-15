@@ -78,6 +78,8 @@ public:
     R visitImportDeclaration(ImportDeclaration* stmt) override;
     R visitFunctionExpression(FunctionExpression* visitor) override;
     R visitClassExpression(ClassExpression* visitor) override;
+    R visitNullKeyword(NullKeyword* visitor) override;
+    R visitUndefinedKeyword(UndefinedKeyword* visitor) override;
 
 };
 
