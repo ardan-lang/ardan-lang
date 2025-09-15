@@ -8,5 +8,9 @@
 #ifndef gui_h
 #define gui_h
 
+#include <stdio.h>
+#import <Cocoa/Cocoa.h>
+
+void showWindow();
 
 #endif /* gui_h */

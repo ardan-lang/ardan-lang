@@ -398,18 +398,6 @@ public:
     
 };
 
-//class TemplateLiteral : public Expression {
-//public:
-//    vector<unique_ptr<Statement>> parts;
-//    
-//    TemplateLiteral(vector<unique_ptr<Statement>> parts) : parts(std::move(parts)) {}
-//
-//    R accept(ExpressionVisitor& visitor) {
-//        return visitor.visitTemplateLiteral(this);
-//    }
-//
-//};
-
 class TemplateLiteral : public Expression {
 public:
     vector<unique_ptr<StringLiteral>> quasis;

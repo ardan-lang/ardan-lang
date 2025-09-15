@@ -10,4 +10,11 @@
 
 #include <stdio.h>
 
+class Network {
+public:
+    Network() {
+        
+    }
+};
+
 #endif /* Network_hpp */
