@@ -22,6 +22,8 @@
 #include "REPL/REPL.hpp"
 #include "JSON/JSON.hpp"
 
+#include "GUI/gui.h"
+
 string read_file(const string& filename);
 
 using namespace std;
@@ -498,10 +500,12 @@ fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
 
 int main(int argc, const char * argv[]) {
     
-//    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/core_integrations.ardan";
-//        
-//    string source = read_file(entryFileName);
-//    run_interpreter(entryFileName, source);
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/scoping_and_shadowing.ardan";
+        
+    string source = read_file(entryFileName);
+    run_interpreter(entryFileName, source);
+    
+    showWindow();
 
 
     //run_interpreter_inline_test();
@@ -509,7 +513,7 @@ int main(int argc, const char * argv[]) {
 //    REPL repl;
 //    repl.start_repl();
     
-//    return 0;
+    return 0;
     
     bool interpret = false;
     bool compile = false;

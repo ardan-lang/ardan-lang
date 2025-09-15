@@ -70,9 +70,7 @@ public:
     void debugPrint() const;
 
 private:
-    unordered_map<string, R> variables = {
-        {"print", "print"}
-    };
+    unordered_map<string, R> variables = {};
     unordered_map<string, R> let_variables = {};
     unordered_map<string, R> const_variables = {};
 

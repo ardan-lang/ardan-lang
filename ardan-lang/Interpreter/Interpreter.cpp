@@ -26,22 +26,26 @@ Interpreter::Interpreter() {
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
+    env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
+        Print::print(args);
+        return Value::nullVal();
+    }));
     
 }
 
 Interpreter::Interpreter(Env* local_env) {
     
-    // init all builtins
-    // local_env->set_var("Math", make_shared<Math>());
-    // local_env->set_var("console", make_shared<Print>());
-    // env->set_var("readFile", );
-
     env = local_env;
-
+    
+    // init all builtins
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
-    
+    env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
+        Print::print(args);
+        return Value::nullVal();
+    }));
+
 }
 
 Interpreter::~Interpreter() {
@@ -70,30 +74,6 @@ void Interpreter::executeBlock(unique_ptr<Statement> block) {
 R Interpreter::visitExpression(ExpressionStatement* stmt) {
     return stmt->expression->accept(*this);
 }
-
-//R Interpreter::visitBlock(BlockStatement* stmt) {
-//    
-//    Env* previous = env;           // save current scope
-//    env = new Env(previous);       // allocate child env on heap
-//    
-//    // inherit or set `this_binding`
-//    env->this_binding = previous->this_binding;
-//    
-//    for (auto& item : previous->getStack()) {
-//        env->set_var(item.first, item.second);
-//    }
-//
-//    for (auto& s : stmt->body) {
-//        s->accept(*this);
-//    }
-//    
-//    previous->clearStack();
-//    previous->this_binding = nullptr;
-//    delete env;                    // cleanup after block
-//    env = previous;                // restore old scope
-//    
-//    return true;
-//}
 
 R Interpreter::visitBlock(BlockStatement* stmt) {
     Env* previous = env;
@@ -2113,51 +2093,7 @@ R Interpreter::visitObject(ObjectLiteralExpression* expr) {
 }
 
 R Interpreter::visitSuper(SuperExpression* expr) {
-    
-//    shared_ptr<JSClass> parent_class = env->this_binding->parent_class;
-//    auto klass = env->get(parent_class->name);
-//    
-//    shared_ptr<JSObject> parent_object = get<shared_ptr<JSObject>>(klass);
-    
-//    auto parent_object = make_shared<JSObject>();
-
-    // add all props from this_binding to parent class.
-//    for (auto& field : parent_class->fields) {
-//
-//        // property is a Statement: VariableStatement
-//        if (VariableStatement* variable = dynamic_cast<VariableStatement*>(field.second->property.get())) {
-//
-//            for (auto& declarator : variable->declarations) {
-//                
-//                if (declarator.init == nullptr) {
-//                    throw runtime_error("Missing initializer in const declaration: " + declarator.id);
-//                }
-//                
-//                if (declarator.init) {
-//                    
-//                    R value = declarator.init->accept(*this);
-//
-//                    // TODO: fix
-//                    parent_object->set(declarator.id, toValue(value));
-//
-//                }
-//            }
-//
-//        }
-//
-//    }
-                
-    // copy methods
-//    for (auto& method : parent_class->methods) {
-//                
-//        parent_object->set(method.first, Value::method(parent_object));
-//        
-//    }
-    
-//    env->this_binding->parent_object = parent_object;
-//    
-//    return parent_object;
-    
+        
     return env->this_binding->parent_object;
     
 }
@@ -2285,13 +2221,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
             } else if (expr->stmtBody) {
                 
                 expr->stmtBody->accept(*intr);
-                
-//                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->stmtBody.get())->body) {
-//                    
-//                    stmt->accept(*intr);
-//                    
-//                }
-                
+                                
             }
 
             intr->env = prevEnv;  // restore before returning
@@ -2460,25 +2390,6 @@ shared_ptr<JSObject> Interpreter::getMemberExprJSObject(MemberExpression* member
     return targetObj;
     
 }
-
-//R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
-//    
-//    string concat;
-    
-//    for (auto& part : expr->parts) {
-//        
-//        ExpressionStatement* expr_stmt = dynamic_cast<ExpressionStatement*>(part.get());
-//        
-//        if (expr_stmt) {
-//            Value expr_string = toValue(expr_stmt->expression->accept(*this));
-//            concat += expr_string.toString();
-//        }
-//        
-//    }
-    
-//    return concat;
-//    
-//}
 
 R Interpreter::visitTemplateLiteral(TemplateLiteral* expr) {
     
@@ -2687,13 +2598,7 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
             if (expr->body) {
                 
                 expr->body->accept(*intr);
-                
-//                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->body.get())->body) {
-//                    
-//                    stmt->accept(*intr);
-//                    
-//                }
-                
+                                
             }
 
             intr->env = prevEnv;  // restore before returning
