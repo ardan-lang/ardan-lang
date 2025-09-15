@@ -1,12 +1,12 @@
 # Ardan Programming Language
 
-Ardan is an experimental, dynamically typed programming language inspired by JavaScript, featuring a hand-written lexer, parser, and interpreter implemented in C++. Ardan supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as let/const/var, scoping, and operator overloading.
+Ardan is an experimental, dynamically typed programming language, featuring a hand-written lexer, parser, and interpreter implemented in C++. Ardan supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as let/const/var, scoping, and operator overloading.
 
 ## Features
 - **Dynamic Typing**: Variable types are determined at runtime.
 - **Lexical Scope**: Supports block, function, and global scoping with `var`, `let`, `const`.
 - **First-Class Functions**: Functions can be assigned to variables, passed as arguments, and returned.
-- **Classes & Inheritance**: JavaScript-like class syntax with fields, methods, and inheritance via `extends`.
+- **Classes & Inheritance**: Class syntax with fields, methods, and inheritance via `extends`.
 - **Arrays & Objects**: Flexible objects and arrays with dot and bracket notation.
 - **Comprehensive Operator Support**: Arithmetic, logical, bitwise, assignment, comparison, and more.
 - **Exception Handling**: Try/catch/finally for robust error handling.
@@ -15,7 +15,7 @@ Ardan is an experimental, dynamically typed programming language inspired by Jav
 
 Ardan Programming Language
 
-Ardan is a modern, JavaScript-inspired programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
+Ardan is a modern programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
 
 ⸻
 
@@ -50,11 +50,19 @@ Ardan is a modern, JavaScript-inspired programming language, implemented in C++.
 Ardan is a C++ project. Build it with CMake or your preferred C++ toolchain.
 
 ```sh
-git clone https://github.com/philipszdavido/ardan-lang
+git clone https://github.com/ardan-lang/ardan-lang
 cd ardan-lang
 mkdir build && cd build
 cmake ..
 cmake --build .
+```
+
+Using scripts:
+
+```sh
+git clone https://github.com/ardan-lang/ardan-lang
+cd ardan-lang
+sudo sh ./build.sh
 ```
 
 Running a Ardan File
@@ -76,7 +84,7 @@ Or start a REPL (not yet available):
 
 ### Variables
 
-Ardan supports three kinds of variable declarations, similar to JavaScript:
+Ardan supports three kinds of variable declarations:
 
 ```
 var x = 42;     // Function-scoped, mutable
@@ -226,19 +234,13 @@ print(add5(3)); // 8
 
 ### Default and Rest Arguments
 
-Got it 👍 — here’s a **doc-style explanation** you could use for your interpreter (fits both your `visitArrowFunction` / `visitFunctionExpression` code and JavaScript-like semantics).
-
----
-
-# Default and Rest Parameters
-
-### 1. Default Parameters
+### 1. Default
 
 Default parameters allow a function parameter to have a fallback value if no argument is provided, or if `undefined` is explicitly passed.
 
 **Syntax:**
 
-```js
+```
 function greet(name = "World") {
   console.log("Hello, " + name);
 }
@@ -255,7 +257,7 @@ greet(null);     // Hello, null (default does NOT apply)
 * Defaults are only used when the argument is `missing` or explicitly `undefined`.
 * Defaults can reference earlier parameters:
 
-  ```js
+  ```
   function f(a = 1, b = a + 2) {
     console.log(a, b);
   }
@@ -265,13 +267,13 @@ greet(null);     // Hello, null (default does NOT apply)
 
 ---
 
-### 2. Rest Parameters
+### 2. Rest
 
 Rest parameters allow a function to capture all **remaining arguments** into a single array.
 
 **Syntax:**
 
-```js
+```
 function sum(...nums) {
   return nums.reduce((a, b) => a + b, 0);
 }
@@ -311,7 +313,7 @@ Ardan supports all standard control flow constructs.
 
 ### If-Else
 
-```
+```ardan
 if (x > 10) {
     print("big");
 } else if (x > 5) {
@@ -619,3 +621,7 @@ g.greet(); // Hello, Ardan!
 - A: Extend the interpreter in C++ and register new functions in Env.
 
 ⸻
+
+
+- Developer: Chidume Nnamdi
+- Email: kurtwanger40@gmail.com
