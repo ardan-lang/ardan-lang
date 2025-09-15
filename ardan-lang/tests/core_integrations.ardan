@@ -65,6 +65,6 @@ switch(sx) {
   default: print("other");
 }
 
-// // Optional: Import statement (if supported)
-// // import "./stub_module.ardan";
-// print("=== All Tests Completed ===");
+// Optional: Import statement (if supported)
+// import "./stub_module.ardan";
+print("=== All Tests Completed ===");

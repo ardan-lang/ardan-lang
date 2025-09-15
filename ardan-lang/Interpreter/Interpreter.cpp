@@ -45,9 +45,9 @@ Interpreter::Interpreter(Env* local_env) {
 }
 
 Interpreter::~Interpreter() {
-    
+    cout << "Deleted env" << endl;
     if (env != nullptr) {
-        //delete env;
+        delete env;
     }
     
 }
@@ -71,27 +71,52 @@ R Interpreter::visitExpression(ExpressionStatement* stmt) {
     return stmt->expression->accept(*this);
 }
 
+//R Interpreter::visitBlock(BlockStatement* stmt) {
+//    
+//    Env* previous = env;           // save current scope
+//    env = new Env(previous);       // allocate child env on heap
+//    
+//    // inherit or set `this_binding`
+//    env->this_binding = previous->this_binding;
+//    
+//    for (auto& item : previous->getStack()) {
+//        env->set_var(item.first, item.second);
+//    }
+//
+//    for (auto& s : stmt->body) {
+//        s->accept(*this);
+//    }
+//    
+//    previous->clearStack();
+//    previous->this_binding = nullptr;
+//    delete env;                    // cleanup after block
+//    env = previous;                // restore old scope
+//    
+//    return true;
+//}
+
 R Interpreter::visitBlock(BlockStatement* stmt) {
-    
-    Env* previous = env;           // save current scope
-    env = new Env(previous);       // allocate child env on heap
-    
-    // inherit or set `this_binding`
+    Env* previous = env;
+    env = new Env(previous);
     env->this_binding = previous->this_binding;
-    
     for (auto& item : previous->getStack()) {
         env->set_var(item.first, item.second);
     }
 
-    for (auto& s : stmt->body) {
-        s->accept(*this);
+    try {
+        for (auto& s : stmt->body) {
+            s->accept(*this);
+        }
+    } catch (...) {
+        //delete env;
+        env = previous;
+        throw;
     }
-    
+
     previous->clearStack();
     previous->this_binding = nullptr;
-    delete env;                    // cleanup after block
-    env = previous;                // restore old scope
-    
+    //delete env;
+    env = previous;
     return true;
 }
 
@@ -103,7 +128,7 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
         
         for (auto& declarator : stmt->declarations) {
             
-            if (kind == "CONST" && declarator.init == nullptr) {
+            if (kind == CONST && declarator.init == nullptr) {
                 throw runtime_error("Missing initializer in const declaration: " + declarator.id);
             }
             
@@ -154,11 +179,11 @@ R Interpreter::visitVariable(VariableStatement* stmt) {
 
                 }
                 
-                if (kind == "VAR") {
+                if (kind == VAR) {
                     env->set_var(declarator.id, value);
-                } else if (kind == "LET") {
+                } else if (kind == LET) {
                     env->set_let(declarator.id, value);
-                } else if (kind == "CONST") {
+                } else if (kind == CONST) {
                     
                     // check if const already exists
                     
@@ -848,11 +873,11 @@ R Interpreter::visitTry(TryStatement* stmt) {
             try {
                 stmt->handler->accept(*this); // invokes visitCatch
             } catch(...) {
-                delete env;
+                //delete env;
                 env = previous;
                 throw;
             }
-            delete env;
+            //delete env;
             env = previous;
         } else {
             // No catch handler: propagate
@@ -867,11 +892,11 @@ R Interpreter::visitTry(TryStatement* stmt) {
             try {
                 stmt->handler->accept(*this);
             } catch(...) {
-                delete env;
+                //delete env;
                 env = previous;
                 throw;
             }
-            delete env;
+            //delete env;
             env = previous;
         } else {
             throw;
@@ -1957,7 +1982,8 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
     return Value::function([closure, lexicalThis, expr, intr](vector<Value> args) mutable -> Value {
         
         // Create a new local environment inheriting from the closure
-        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
+//        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
+        Env* localEnv = new Env(closure);
         localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
         
         // Bind parameters to arguments
@@ -1998,7 +2024,16 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                         break; // we break because rest should be the last param.
 
                     } else {
-                        param_expr->accept(*intr);
+                        
+                        if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
+                            auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                            
+                            if (left) {
+                                paramName = left->token.lexeme;
+                                paramValue = toValue(bin_expr->right->accept(*intr));
+                            }
+                        }
+                        // param_expr->accept(*intr);
                     }
                     
                     localEnv->set_var(paramName, paramValue);
@@ -2016,7 +2051,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
         }
         
         auto prevEnv = intr->env;
-        intr->env = localEnv.get();  // safe: shared_ptr keeps it alive
+        intr->env = localEnv; //localEnv.get();  // safe: shared_ptr keeps it alive
         // TODO: check whether we need to copy this_binding
 
         // Evaluate the body
@@ -2030,11 +2065,13 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                 
             } else if (expr->stmtBody) {
                 
-                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->stmtBody.get())->body) {
-                    
-                    stmt->accept(*intr);
-                    
-                }
+                expr->stmtBody->accept(*intr);
+                
+//                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->stmtBody.get())->body) {
+//                    
+//                    stmt->accept(*intr);
+//                    
+//                }
                 
             }
 
@@ -2335,7 +2372,8 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
     return Value::function([closure, lexicalThis, expr, intr](vector<Value> args) mutable -> Value {
         
         // Create a new local environment inheriting from the closure
-        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
+        // shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
+        Env* localEnv = new Env(closure);
         localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
         
         // Bind parameters to arguments
@@ -2375,7 +2413,15 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
                         break; // we break because rest should be the last param.
 
                     } else {
-                        param_expr->accept(*intr);
+                        if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
+                            auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                            
+                            if (left) {
+                                paramName = left->token.lexeme;
+                                paramValue = toValue(bin_expr->right->accept(*intr));
+                            }
+                        }
+                        // param_expr->accept(*intr);
                     }
                     
                     localEnv->set_var(paramName, paramValue);
@@ -2393,7 +2439,7 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
 //        }
         
         auto prevEnv = intr->env;
-        intr->env = localEnv.get();  // safe: shared_ptr keeps it alive
+        intr->env = localEnv;//localEnv.get();  // safe: shared_ptr keeps it alive
         // TODO: check whether we need to copy this_binding
 
         // Evaluate the body
@@ -2401,11 +2447,13 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
 
             if (expr->body) {
                 
-                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->body.get())->body) {
-                    
-                    stmt->accept(*intr);
-                    
-                }
+                expr->body->accept(*intr);
+                
+//                for (auto& stmt : dynamic_cast<BlockStatement*>(expr->body.get())->body) {
+//                    
+//                    stmt->accept(*intr);
+//                    
+//                }
                 
             }
 

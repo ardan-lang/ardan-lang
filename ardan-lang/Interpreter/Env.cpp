@@ -73,15 +73,18 @@ R Env::get(const string& key) {
 }
 
 void Env::set_var(const string& key, R value) {
-    variables[key] = std::move(value);
+    // variables[key] = std::move(value);
+    variables[key] = std::forward<R>(value);
 }
 
 void Env::set_let(const string& key, R value) {
-    let_variables[key] = std::move(value);
+     let_variables[key] = std::forward<R>(value);
+    // let_variables[key] = std::move(value);
 }
 
 void Env::set_const(const string& key, R value) {
-    const_variables[key] = std::move(value);
+    // const_variables[key] = std::move(value);
+    const_variables[key] = std::forward<R>(value);
 }
 
 bool Env::is_const_key_set(const string& key) {
