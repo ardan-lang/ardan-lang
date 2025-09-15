@@ -35,6 +35,14 @@ public:
             
         }));
         
+        set_builtin_value("error", Value::native([](const vector<Value>& args) {
+            
+            Print::print(args);
+            
+            return Value();
+            
+        }));
+        
     }
     
     static void print(const vector<Value>& args) {
