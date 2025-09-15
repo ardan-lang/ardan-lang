@@ -1,0 +1,60 @@
+console.log("=== Exceptions & Error Handling ===");
+
+try {
+    throw "fail1";
+} catch (e) {
+    console.log("catch1", e);
+}
+// no outer catch needed
+//--------------------------------
+
+try {
+    throw [1,2,3];
+} catch (e) {
+    console.log("catch2", e);
+} finally {
+    console.log("finally2");
+}
+//--------------------------------
+
+// try {
+//     console.log("before throw");
+//     throw { msg: "fail object" };
+//     console.log("should not reach");
+// } catch (e) {
+//     if (typeof e === "object" && e.msg) {
+//         console.log("catch object", e.msg);
+//     } else {
+//         console.log("catch object", e);
+//     }
+//     throw "rethrow!";
+// } catch (e2) {
+//     // <-- In real JS this is invalid (only 1 catch allowed),
+//     // you’d need nesting:
+//     try {
+//         throw "rethrow!";
+//     } catch (e2) {
+//         console.log("2nd catch", e2);
+//     }
+// } finally {
+//     console.log("finally3");
+// }
+//--------------------------------
+
+try {
+    throw "outer";
+} catch (e) {
+    try {
+        throw "inner";
+    } catch (x) {
+        console.log("nested", x);
+    }
+    console.log("after nested");
+}
+//--------------------------------
+
+// Uncaught exception test
+// throw "fatal";
+// console.log("should not reach");
+
+console.log("=== Done Exceptions ===");
