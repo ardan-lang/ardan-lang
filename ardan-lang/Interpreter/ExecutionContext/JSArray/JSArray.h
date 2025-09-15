@@ -58,6 +58,46 @@ public:
             return Value(concat);
             
         }));
+        
+        set("reduce", Value::native([this](const vector<Value>& args) {
+            
+            if (args.size() < 1) {
+                throw runtime_error("reduce expects at least (callback)");
+            }
+            
+            Value callback = args[0];
+            if (callback.type != ValueType::FUNCTION) {
+                throw std::runtime_error("First argument to reduce must be a function");
+            }
+            
+            size_t len = elements_size;
+            
+            // Setup accumulator
+            Value acc;
+            size_t start = 0;
+            if (args.size() >= 3) {
+                acc = args[2]; // initial value
+            } else {
+                if (len == 0) {
+                    throw runtime_error("reduce of empty array with no initial value");
+                }
+                acc = getIndex(0);
+                start = 1;
+            }
+            
+            for (size_t i = start; i < len; i++) {
+                //vector<Value> cbArgs = { acc, getIndex(i), Value((double)i), this };
+                std::vector<Value> cbArgs = {
+                    acc,
+                    getIndex(i),
+                    Value((double)i)
+                };
+                acc = callback.functionValue(cbArgs);
+            }
+            
+            return acc;
+            
+        }));
 
         set("length", elements_size);
 

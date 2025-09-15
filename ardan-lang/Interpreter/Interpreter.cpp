@@ -472,6 +472,8 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
     Value closureValue = Value::function([stmt, closureEnv, lexicalThis, intr](std::vector<Value> args) mutable -> Value {
         Env* localEnv = new Env(closureEnv);
         localEnv->this_binding = lexicalThis;
+        auto prevEnv = intr->env;
+        intr->env = localEnv;
 
         // Bind parameters to arguments
         for (size_t i = 0; i < stmt->params.size(); ++i) {
@@ -500,14 +502,16 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
                     auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
                     if (left) {
                         paramName = left->token.lexeme;
-                        paramValue = toValue(bin_expr->right->accept(*intr));
+                        if (paramValue.type == ValueType::UNDEFINED) {
+                            paramValue = toValue(bin_expr->right->accept(*intr));
+                        }
                     }
                 }
             }
             localEnv->set_var(paramName, paramValue);
         }
-        auto prevEnv = intr->env;
-        intr->env = localEnv;
+//        auto prevEnv = intr->env;
+//        intr->env = localEnv;
         try {
             if (stmt->body) {
                 stmt->body->accept(*intr);
@@ -2195,7 +2199,10 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
 //        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
         Env* localEnv = new Env(closure);
         localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
-        
+
+        auto prevEnv = intr->env;
+        intr->env = localEnv; //localEnv.get();  // safe: shared_ptr keeps it alive
+
         // Bind parameters to arguments
         if (expr->parameters != nullptr) {
             
@@ -2240,7 +2247,9 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                             
                             if (left) {
                                 paramName = left->token.lexeme;
-                                paramValue = toValue(bin_expr->right->accept(*intr));
+                                if (paramValue.type == ValueType::UNDEFINED) {
+                                    paramValue = toValue(bin_expr->right->accept(*intr));
+                                }
                             }
                         }
                         // param_expr->accept(*intr);
@@ -2260,8 +2269,8 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
             // localEnv->set_var(expr->token.lexeme, args[0]);
         }
         
-        auto prevEnv = intr->env;
-        intr->env = localEnv; //localEnv.get();  // safe: shared_ptr keeps it alive
+//        auto prevEnv = intr->env;
+//        intr->env = localEnv; //localEnv.get();  // safe: shared_ptr keeps it alive
         // TODO: check whether we need to copy this_binding
 
         // Evaluate the body
@@ -2601,7 +2610,9 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
         // shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
         Env* localEnv = new Env(closure);
         localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
-        
+        auto prevEnv = intr->env;
+        intr->env = localEnv;
+
         // Bind parameters to arguments
         //if (expr->params != nullptr) {
             
@@ -2644,7 +2655,9 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
                             
                             if (left) {
                                 paramName = left->token.lexeme;
-                                paramValue = toValue(bin_expr->right->accept(*intr));
+                                if (paramValue.type == ValueType::UNDEFINED) {
+                                    paramValue = toValue(bin_expr->right->accept(*intr));
+                                }
                             }
                         }
                         // param_expr->accept(*intr);
@@ -2664,8 +2677,8 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
 //            localEnv->set_var(expr->token.lexeme, args[0]);
 //        }
         
-        auto prevEnv = intr->env;
-        intr->env = localEnv;//localEnv.get();  // safe: shared_ptr keeps it alive
+//        auto prevEnv = intr->env;
+//        intr->env = localEnv;//localEnv.get();  // safe: shared_ptr keeps it alive
         // TODO: check whether we need to copy this_binding
 
         // Evaluate the body
