@@ -58,7 +58,8 @@ private:
 
     vector<unique_ptr<Expression>> parseParameterList();
     unique_ptr<Statement> parseExpressionStatement();
-
+    unique_ptr<Statement> parseAsyncStatement();
+    
     // ───────────── Helpers ─────────────
 
     bool match(TokenType type);
@@ -292,7 +293,7 @@ private:
     // ───────────── LHS: calls, member access, new, super ─────────────
 
     unique_ptr<Expression> parseLeftHandSide() {
-        auto expr = parseFunctionExpression();
+        auto expr = parseAwaitExpression();
 
         while (true) {
             if (match(TokenType::LEFT_PARENTHESIS)) {
@@ -317,6 +318,38 @@ private:
         }
 
         return expr;
+    }
+    
+    unique_ptr<Expression> parseAwaitExpression() {
+        
+        if (matchKeyword("AWAIT")) {
+            return make_unique<AwaitExpression>(parseAsyncExpression());
+        }
+        
+        return parseAsyncExpression();
+        
+    }
+    
+    unique_ptr<Expression> parseAsyncExpression() {
+        
+        if (matchKeyword("ASYNC")) {
+            
+            auto expr = parseFunctionExpression();
+            
+            if (ArrowFunction* arrow_expr = dynamic_cast<ArrowFunction*>(expr.get())) {
+                arrow_expr->is_async = true;
+            }
+            
+            if (auto function_expr = dynamic_cast<FunctionExpression*>(expr.get())) {
+                function_expr->is_async = true;
+            }
+            
+            return expr;
+            
+        }
+        
+        return parseFunctionExpression();
+
     }
     
     unique_ptr<Expression> parseFunctionExpression() {

@@ -170,13 +170,14 @@ public:
     string id;
     vector<unique_ptr<Expression>> params;
     unique_ptr<Statement> body;
+    bool is_async;
 
     FunctionDeclaration(string id,
                         vector<unique_ptr<Expression>> params,
                         unique_ptr<Statement> body)
         : id(std::move(id)),
           params(std::move(params)),
-          body(std::move(body)) {}
+    body(std::move(body)) {}
 
     R accept(StatementVisitor& visitor) {
         return visitor.visitFunction(this);
@@ -371,7 +372,8 @@ public:
     
     unique_ptr<Expression> exprBody;   // expression body (x => x + 1)
     unique_ptr<Statement> stmtBody; // block body (x => { return x + 1; })
-
+    bool is_async;
+    
     // x => x + 1
     ArrowFunction(Token token,
                   unique_ptr<Expression> exprBody)
@@ -446,6 +448,7 @@ public:
     Token token;
     vector<unique_ptr<Expression>> params;
     unique_ptr<Statement> body;
+    bool is_async;
 
     FunctionExpression(Token token, vector<unique_ptr<Expression>> params,
                         unique_ptr<Statement> body)

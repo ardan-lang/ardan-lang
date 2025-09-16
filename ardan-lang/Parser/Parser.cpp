@@ -45,6 +45,7 @@ unique_ptr<Statement> Parser::parseStatement() {
                 peek().lexeme == ("CONST"))    return parseVariableStatement();
             if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
             if (peek().lexeme == ("IMPORT")) return parseImportDeclaration();
+            if (peek().lexeme == "ASYNC") return parseAsyncStatement();
             else return parseExpressionStatement();
         }
         case TokenType::CLASS:
@@ -489,6 +490,23 @@ unique_ptr<Statement> Parser::parseImportDeclaration() {
     consume(TokenType::STRING, "Expect path after 'import'.");
     consume(TokenType::SEMI_COLON, "Expect ';' after the import statement.");
     return make_unique<ImportDeclaration>(path, this->sourceFile);
+}
+
+unique_ptr<Statement> Parser::parseAsyncStatement() {
+    consumeKeyword("ASYNC");
+    unique_ptr<Statement> stmt;
+    
+    if (peek().type == TokenType::KEYWORD && peek().lexeme == "FUNCTION") {
+        stmt = parseFunctionDeclaration();
+        auto func_decl = dynamic_cast<FunctionDeclaration*>(stmt.get());
+        
+        if (func_decl) {
+            func_decl->is_async = true;
+        }
+    }
+        
+    return stmt;
+    
 }
 
 // ───────────── Helpers ─────────────

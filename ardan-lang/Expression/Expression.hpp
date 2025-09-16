@@ -406,4 +406,16 @@ public:
 
 };
 
+class AwaitExpression : public Expression {
+public:
+    unique_ptr<Expression> inner;
+    AwaitExpression(unique_ptr<Expression> inner) : inner(std::move(inner)) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitAwaitExpression(this);
+    }
+
+};
+
+
 #endif /* Expression_hpp */
