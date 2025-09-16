@@ -52,7 +52,7 @@ R AstPrinter::visitVariable(VariableStatement* stmt) {
 }
 
 R AstPrinter::visitFunction(FunctionDeclaration* stmt) {
-    printIndent(); std::cout << "Function " << stmt->id << "(";
+    printIndent(); std::cout << (stmt->is_async ? "Async" : "") << "Function " << stmt->id << "(";
     for (size_t i = 0; i < stmt->params.size(); i++) {
         stmt->params[i]->accept(*this); std::cout << ", ";
     }
@@ -541,8 +541,7 @@ R AstPrinter::visitStaticKeyword(StaticKeyword* expr) {
 }
 
 R AstPrinter::visitArrowFunction(ArrowFunction *expr) {
-    
-    printIndent(); std::cout << "(";
+    printIndent(); std::cout << (expr->is_async ? "Async" : "") << "(";
     
     indent++;
     cout << expr->token.lexeme;
@@ -607,7 +606,8 @@ R AstPrinter::visitImportDeclaration(ImportDeclaration* stmt) {
     return true;
 }
 
-R AstPrinter::visitFunctionExpression(FunctionExpression* visitor) {
+R AstPrinter::visitFunctionExpression(FunctionExpression* expr) {
+    printIndent(); std::cout << (expr->is_async ? "Async" : "") << "(";
     return true;
 }
 
@@ -624,5 +624,11 @@ R AstPrinter::visitNullKeyword(NullKeyword* visitor) {
 R AstPrinter::visitUndefinedKeyword(UndefinedKeyword* visitor) {
     printIndent();
     std::cout << "Undefined \"" << visitor->token.lexeme << "\"\n";
+    return true;
+}
+
+R AstPrinter::visitAwaitExpression(AwaitExpression* expr) {
+    printIndent(); cout << "Await";
+    expr->inner->accept(*this);
     return true;
 }

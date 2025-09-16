@@ -15,6 +15,7 @@
 #include "../Statements/StatementVisitor.hpp"
 #include "R.hpp"
 #include "Env.h"
+#include "../EventLoop/EventLoop.hpp"
 
 using namespace std;
 
@@ -22,6 +23,7 @@ class Interpreter : public ExpressionVisitor, public StatementVisitor {
 
 private:
     Env* env;
+    EventLoop* event_loop;
     struct BreakException {};
     struct ContinueException {};
     struct ReturnException {
@@ -50,6 +52,7 @@ public:
     
     R create_func_expr(FunctionDeclaration* stmt);
     void init_builtins();
+    R create_async_function(Statement* body, Expression* expr_body, vector<Expression*>* vector_params, Expression* expr_params);
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
@@ -107,6 +110,8 @@ public:
     R visitClassExpression(ClassExpression* expr) override;
     R visitNullKeyword(NullKeyword* visitor) override;
     R visitUndefinedKeyword(UndefinedKeyword* visitor) override;
+    R visitAwaitExpression(AwaitExpression* visitor) override;
+    
 };
 
 #endif /* Interpreter_hpp */

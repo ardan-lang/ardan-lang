@@ -22,6 +22,7 @@
 
 Interpreter::Interpreter() {
     env = new Env();
+    event_loop = new EventLoop();
     
     // init all builtins
     init_builtins();
@@ -31,7 +32,8 @@ Interpreter::Interpreter() {
 Interpreter::Interpreter(Env* local_env) {
     
     env = local_env;
-    
+    event_loop = new EventLoop();
+
     // init all builtins
     init_builtins();
 
@@ -43,21 +45,48 @@ Interpreter::~Interpreter() {
         delete env;
     }
     
+    if (event_loop != nullptr) {
+        event_loop->stop();
+        delete event_loop;
+    }
+    
 }
 
 void Interpreter::init_builtins() {
+    
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
+    
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
         return Value::nullVal();
     }));
-    env->set_var("showWindow", Value::function([this](vector<Value> args) mutable -> Value {
-        showWindow();
+    
+    env->set_var("window", Value::function([this](vector<Value> args) mutable -> Value {
+        
+        gui_init();
+        
+        std::string titleStr = args[0].toString();
+        const char* title = titleStr.c_str();
+        gui_create_window(title,
+                          200,
+                          200,
+                          args[1].numberValue,
+                          args[2].numberValue);
+        
         return Value::nullVal();
+        
     }));
-
+    
+    env->set_var("run", Value::function([this](vector<Value> args) mutable -> Value {
+        
+        gui_run();
+        
+        return Value::nullVal();
+        
+    }));
+    
 }
 
 void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
@@ -69,6 +98,10 @@ void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
         // stmt->accept(printer);
         // cout << "**************" << endl;
     }
+    
+    // run the event loop
+    event_loop->run();
+    
 }
 
 void Interpreter::executeBlock(unique_ptr<Statement> block) {
@@ -453,59 +486,77 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
     auto intr = this;
 
     // Build a closure Value that can be called
-    Value closureValue = Value::function([stmt, closureEnv, lexicalThis, intr](std::vector<Value> args) mutable -> Value {
-        Env* localEnv = new Env(closureEnv);
-        localEnv->this_binding = lexicalThis;
-        auto prevEnv = intr->env;
-        intr->env = localEnv;
-
-        // Bind parameters to arguments
-        for (size_t i = 0; i < stmt->params.size(); ++i) {
-            Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
-            Expression* param_expr = stmt->params[i].get();
-            std::string paramName;
-            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
-                paramName = ident->token.lexeme;
-            } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
-                paramName = variable->declarations[0].id;
-                if (i >= args.size()) {
-                    paramValue = toValue(variable->declarations[0].init->accept(*intr));
-                }
-            } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
-                paramName = toValue(param_expr->accept(*intr)).stringValue;
-                auto array = make_shared<JSArray>();
-                int arr_index = 0;
-                for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
-                    array->setIndex(arr_index, args[rest_i]);
-                    arr_index++;
-                }
-                localEnv->set_var(paramName, array);
-                break;
-            } else {
-                if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
-                    auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
-                    if (left) {
-                        paramName = left->token.lexeme;
-                        if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
-                            paramValue = toValue(bin_expr->right->accept(*intr));
+    Value closureValue = Value::function([stmt, closureEnv, lexicalThis, intr, this](vector<Value> args) mutable -> Value {
+        
+        auto callback_func = [stmt, closureEnv, lexicalThis, intr](vector<Value> args) -> Value {
+            
+            Env* localEnv = new Env(closureEnv);
+            localEnv->this_binding = lexicalThis;
+            auto prevEnv = intr->env;
+            intr->env = localEnv;
+            
+            // Bind parameters to arguments
+            for (size_t i = 0; i < stmt->params.size(); ++i) {
+                Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
+                Expression* param_expr = stmt->params[i].get();
+                std::string paramName;
+                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
+                    paramName = ident->token.lexeme;
+                } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
+                    paramName = variable->declarations[0].id;
+                    if (i >= args.size()) {
+                        paramValue = toValue(variable->declarations[0].init->accept(*intr));
+                    }
+                } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
+                    paramName = toValue(param_expr->accept(*intr)).stringValue;
+                    auto array = make_shared<JSArray>();
+                    int arr_index = 0;
+                    for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
+                        array->setIndex(arr_index, args[rest_i]);
+                        arr_index++;
+                    }
+                    localEnv->set_var(paramName, array);
+                    break;
+                } else {
+                    if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
+                        auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                        if (left) {
+                            paramName = left->token.lexeme;
+                            if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
+                                paramValue = toValue(bin_expr->right->accept(*intr));
+                            }
                         }
                     }
                 }
+                localEnv->set_var(paramName, paramValue);
             }
-            localEnv->set_var(paramName, paramValue);
-        }
-//        auto prevEnv = intr->env;
-//        intr->env = localEnv;
-        try {
-            if (stmt->body) {
-                stmt->body->accept(*intr);
+            
+            try {
+                if (stmt->body) {
+                    stmt->body->accept(*intr);
+                }
+                intr->env = prevEnv;
+                return Value::undefined();
+            } catch (const ReturnException& r) {
+                intr->env = prevEnv;
+                return toValue(r.value);
             }
-            intr->env = prevEnv;
-            return Value::undefined();
-        } catch (const ReturnException& r) {
-            intr->env = prevEnv;
-            return toValue(r.value);
+            
+        };
+        
+        if (stmt->is_async) {
+            // what happens here?
+            // it pushes callback to Event Loop queue.
+            // what happens inside the callback?
+            
+            event_loop->post(callback_func, args);
+            
+            return Value::nullVal();
+
         }
+        
+        return callback_func(args);
+
     });
     
     return closureValue;
@@ -1000,10 +1051,19 @@ R Interpreter::visitBinary(BinaryExpression* expr) {
     R rvalue = expr->right->accept(*this);
     
     auto add = [](R lvalue, R rvalue) -> R {
+        
         if (holds_alternative<string>(lvalue) || holds_alternative<string>(rvalue)) {
             return toValue(lvalue).toString() + toValue(rvalue).toString();
         }
-        return toValue(lvalue).numberValue + toValue(rvalue).numberValue;
+                
+        Value l_value = toValue(lvalue);
+        Value r_value = toValue(rvalue);
+        
+        if (l_value.type == ValueType::STRING || r_value.type == ValueType::STRING) {
+            return l_value.toString() + r_value.toString();
+        }
+        
+        return l_value.numberValue + r_value.numberValue;
     };
     
     auto minus = [] (R lvalue, R rvalue) -> R {
@@ -2133,111 +2193,118 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
     auto intr = this;
 
     // Return a callable Value (assuming Value supports callable lambdas)
-    return Value::function([closure, lexicalThis, expr, intr](vector<Value> args) mutable -> Value {
+    return Value::function([closure, lexicalThis, expr, intr, this](vector<Value> args) mutable -> Value {
         
-        // Create a new local environment inheriting from the closure
-//        shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
-        Env* localEnv = new Env(closure);
-        localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
-
-        auto prevEnv = intr->env;
-        intr->env = localEnv; //localEnv.get();  // safe: shared_ptr keeps it alive
-
-        // Bind parameters to arguments
-        if (expr->parameters != nullptr) {
+        auto callback_func = [closure, lexicalThis, expr, intr](vector<Value> args) -> Value {
             
-            if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
+            // Create a new local environment inheriting from the closure
+            Env* localEnv = new Env(closure);
+            localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
+            
+            auto prevEnv = intr->env;
+            intr->env = localEnv;
+            
+            // Bind parameters to arguments
+            if (expr->parameters != nullptr) {
                 
-                for (size_t i = 0; i < seq->expressions.size(); ++i) {
-
-                    Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
-
-                    Expression* param_expr = seq->expressions[i].get();
-                    string paramName;
+                if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
                     
-                    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
-                        paramName = ident->token.lexeme;
-                    } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
-                        // TODO: fix var decl
-                        paramName = variable->declarations[0].id;
+                    for (size_t i = 0; i < seq->expressions.size(); ++i) {
                         
-                        // use the init value if no value is passed for the argument.
-                        if (i >= args.size()) {
-                            paramValue = toValue(variable->declarations[0].init->accept(*intr));
-                        }
+                        Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
                         
-                    } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
-                        paramName = toValue(param_expr->accept(*intr)).stringValue;
+                        Expression* param_expr = seq->expressions[i].get();
+                        string paramName;
                         
-                        auto array = make_shared<JSArray>();
-                        int arr_index = 0;
-                        
-                        for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
-                            array->setIndex(arr_index, args[rest_i]);
-                            arr_index++;
-                        }
-                        
-                        localEnv->set_var(paramName, array);
-                        break; // we break because rest should be the last param.
-
-                    } else {
-                        
-                        if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
-                            auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                        if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
+                            paramName = ident->token.lexeme;
+                        } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
+                            // TODO: fix var decl
+                            paramName = variable->declarations[0].id;
                             
-                            if (left) {
-                                paramName = left->token.lexeme;
-                                if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
-                                    paramValue = toValue(bin_expr->right->accept(*intr));
+                            // use the init value if no value is passed for the argument.
+                            if (i >= args.size()) {
+                                paramValue = toValue(variable->declarations[0].init->accept(*intr));
+                            }
+                            
+                        } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
+                            paramName = toValue(param_expr->accept(*intr)).stringValue;
+                            
+                            auto array = make_shared<JSArray>();
+                            int arr_index = 0;
+                            
+                            for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
+                                array->setIndex(arr_index, args[rest_i]);
+                                arr_index++;
+                            }
+                            
+                            localEnv->set_var(paramName, array);
+                            break; // we break because rest should be the last param.
+                            
+                        } else {
+                            
+                            if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
+                                auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                                
+                                if (left) {
+                                    paramName = left->token.lexeme;
+                                    if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
+                                        paramValue = toValue(bin_expr->right->accept(*intr));
+                                    }
                                 }
                             }
+                            // param_expr->accept(*intr);
                         }
-                        // param_expr->accept(*intr);
+                        
+                        localEnv->set_var(paramName, paramValue);
+                        
                     }
                     
-                    localEnv->set_var(paramName, paramValue);
+                }
+                
+                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+                    localEnv->set_var(ident->token.lexeme, args.size() > 0 ? args[0] : Value::undefined());
+                }
+                
+            }
+            
+            // Evaluate the body
+            try {
+                
+                if (expr->exprBody) {
+                    
+                    R value = expr->exprBody->accept(*intr);
+                    intr->env = prevEnv;  // restore
+                    return toValue(value);
+                    
+                } else if (expr->stmtBody) {
+                    
+                    expr->stmtBody->accept(*intr);
                     
                 }
+                
+                intr->env = prevEnv;  // restore before returning
+                return Value::undefined();
+                
+            } catch (const ReturnException& r) {
+                
+                intr->env = prevEnv;  // restore before throwing
+                return toValue(r.value);
+                
+            }
+            
+        };
+        
+        if (expr->is_async) {
+            
+            event_loop->post(callback_func, args);
+            
+            return Value::nullVal();
 
-            }
-            
-            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
-                localEnv->set_var(ident->token.lexeme, args.size() > 0 ? args[0] : Value::undefined());
-            }
-            
-        } else {
-            // localEnv->set_var(expr->token.lexeme, args[0]);
         }
         
-//        auto prevEnv = intr->env;
-//        intr->env = localEnv; //localEnv.get();  // safe: shared_ptr keeps it alive
-        // TODO: check whether we need to copy this_binding
+        return callback_func(args);
 
-        // Evaluate the body
-        try {
-
-            if (expr->exprBody) {
-                
-                R value = expr->exprBody->accept(*intr);
-                intr->env = prevEnv;  // restore
-                return toValue(value);
-                
-            } else if (expr->stmtBody) {
-                
-                expr->stmtBody->accept(*intr);
-                                
-            }
-
-            intr->env = prevEnv;  // restore before returning
-            return Value::undefined();
-
-        } catch (const ReturnException& r) {
-            
-            intr->env = prevEnv;  // restore before throwing
-            return toValue(r.value);
-            
-        }
-        
     });
     
 }
@@ -2517,106 +2584,106 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
     Env* closure = env;
     auto lexicalThis = env->this_binding;
     auto intr = this;
-
+    
     // Return a callable Value (assuming Value supports callable lambdas)
-    return Value::function([closure, lexicalThis, expr, intr](vector<Value> args) mutable -> Value {
+    return Value::function([closure, lexicalThis, expr, intr, this](vector<Value> args) mutable -> Value {
         
-        // Create a new local environment inheriting from the closure
-        // shared_ptr<Env> localEnv = std::make_shared<Env>(closure);
-        Env* localEnv = new Env(closure);
-        localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
-        auto prevEnv = intr->env;
-        intr->env = localEnv;
-
-        // Bind parameters to arguments
-        //if (expr->params != nullptr) {
+        auto callback_func = [closure, lexicalThis, expr, intr](vector<Value> args) -> Value {
             
-                
+            // Create a new local environment inheriting from the closure
+            Env* localEnv = new Env(closure);
+            localEnv->this_binding = lexicalThis; // Lexical 'this' (as in arrow functions)
+            auto prevEnv = intr->env;
+            intr->env = localEnv;
+            
+            // Bind parameters to arguments
+            
             for (size_t i = 0; i < expr->params.size(); ++i) {
-
-                    Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
-
-                    Expression* param_expr = expr->params[i].get();
-                    string paramName;
+                
+                Value paramValue = (i < args.size()) ? args[i] : Value::undefined();
+                
+                Expression* param_expr = expr->params[i].get();
+                string paramName;
+                
+                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
+                    paramName = ident->token.lexeme;
+                } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
+                    // TODO: fix var decl
+                    paramName = variable->declarations[0].id;
                     
-                    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(param_expr)) {
-                        paramName = ident->token.lexeme;
-                    } else if (VariableStatement* variable = dynamic_cast<VariableStatement*>(param_expr)) {
-                        // TODO: fix var decl
-                        paramName = variable->declarations[0].id;
-                        
-                        // use the init value if no value is passed for the argument.
-                        if (i >= args.size()) {
-                            paramValue = toValue(variable->declarations[0].init->accept(*intr));
-                        }
-                        
-                    } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
-                        paramName = toValue(param_expr->accept(*intr)).stringValue;
-                        
-                        auto array = make_shared<JSArray>();
-                        int arr_index = 0;
-                        
-                        for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
-                            array->setIndex(arr_index, args[rest_i]);
-                            arr_index++;
-                        }
-                        
-                        localEnv->set_var(paramName, array);
-                        break; // we break because rest should be the last param.
-
-                    } else {
-                        if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
-                            auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
-                            
-                            if (left) {
-                                paramName = left->token.lexeme;
-                                if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
-                                    paramValue = toValue(bin_expr->right->accept(*intr));
-                                }
-                            }
-                        }
-                        // param_expr->accept(*intr);
+                    // use the init value if no value is passed for the argument.
+                    if (i >= args.size()) {
+                        paramValue = toValue(variable->declarations[0].init->accept(*intr));
                     }
                     
-                    localEnv->set_var(paramName, paramValue);
+                } else if (RestParameter* rest_expr = dynamic_cast<RestParameter*>(param_expr)) {
+                    paramName = toValue(param_expr->accept(*intr)).stringValue;
+                    
+                    auto array = make_shared<JSArray>();
+                    int arr_index = 0;
+                    
+                    for (size_t rest_i = i; rest_i < args.size(); rest_i++) {
+                        array->setIndex(arr_index, args[rest_i]);
+                        arr_index++;
+                    }
+                    
+                    localEnv->set_var(paramName, array);
+                    break; // we break because rest should be the last param.
+                    
+                } else {
+                    if (BinaryExpression* bin_expr = dynamic_cast<BinaryExpression*>(param_expr)) {
+                        auto left = dynamic_cast<IdentifierExpression*>(bin_expr->left.get());
+                        
+                        if (left) {
+                            paramName = left->token.lexeme;
+                            if (paramValue.type == ValueType::UNDEFINED || paramValue.type == ValueType::NULLTYPE) {
+                                paramValue = toValue(bin_expr->right->accept(*intr));
+                            }
+                        }
+                    }
+                    // param_expr->accept(*intr);
+                }
+                
+                localEnv->set_var(paramName, paramValue);
+                
+            }
+            
+            // Evaluate the body
+            try {
+                
+                if (expr->body) {
+                    
+                    expr->body->accept(*intr);
                     
                 }
-
-            
-//            if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->params.get())) {
-//                localEnv->set_var(ident->token.lexeme, args.size() > 0 ? args[0] : Value::undefined());
-//            }
-            
-        //}
-//        else {
-//            localEnv->set_var(expr->token.lexeme, args[0]);
-//        }
-        
-//        auto prevEnv = intr->env;
-//        intr->env = localEnv;//localEnv.get();  // safe: shared_ptr keeps it alive
-        // TODO: check whether we need to copy this_binding
-
-        // Evaluate the body
-        try {
-
-            if (expr->body) {
                 
-                expr->body->accept(*intr);
-                                
+                intr->env = prevEnv;  // restore before returning
+                return Value::undefined();
+                
+            } catch (const ReturnException& r) {
+                
+                intr->env = prevEnv;  // restore before throwing
+                return toValue(r.value);
+                
             }
-
-            intr->env = prevEnv;  // restore before returning
-            return Value::undefined();
-
-        } catch (const ReturnException& r) {
             
-            intr->env = prevEnv;  // restore before throwing
-            return toValue(r.value);
+        };
+        
+        if (expr->is_async) {
+            // what happens here?
+            // it pushes callback to Event Loop queue.
+            // what happens inside the callback?
             
+            event_loop->post(callback_func, args);
+            
+            return Value::nullVal();
+
         }
         
+        return callback_func(args);
+        
     });
-
+    
 }
 
 R Interpreter::visitClassExpression(ClassExpression* expr) {
@@ -2636,6 +2703,10 @@ R Interpreter::visitNullKeyword(NullKeyword* visitor) {
 R Interpreter::visitUndefinedKeyword(UndefinedKeyword* visitor) {
     Value v;
     return v;
+}
+
+R Interpreter::visitAwaitExpression(AwaitExpression* expr) {
+    return expr->inner->accept(*this);
 }
 
 //R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {
