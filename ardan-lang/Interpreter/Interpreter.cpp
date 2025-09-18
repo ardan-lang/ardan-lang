@@ -19,6 +19,7 @@
 #include "../Scanner/Scanner.hpp"
 #include "../Parser/Parser.hpp"
 #include "../GUI/gui.h"
+#include "Promise/Promise.hpp"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -95,7 +96,7 @@ void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
     for (unique_ptr<Statement>& stmt : ast) {
         // cout << "--------------" << endl;
         stmt->accept(*this);
-        // stmt->accept(printer);
+        //stmt->accept(printer);
         // cout << "**************" << endl;
     }
     
@@ -284,6 +285,10 @@ R Interpreter::visitCall(CallExpression* expr) {
                 js_object = value.objectValue;
             }
             
+            if (value.type == ValueType::PROMISE) {
+                js_object = value.promiseValue;
+            }
+
             check_obj_prop_access(member, js_object.get(), property_name);
             prop_val = js_object->get(property_name);
             
@@ -487,8 +492,10 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
 
     // Build a closure Value that can be called
     Value closureValue = Value::function([stmt, closureEnv, lexicalThis, intr, this](vector<Value> args) mutable -> Value {
-        
-        auto callback_func = [stmt, closureEnv, lexicalThis, intr](vector<Value> args) -> Value {
+
+        auto promise = std::make_shared<Promise>();
+
+        auto callback_func = [stmt, closureEnv, lexicalThis, intr, promise](vector<Value> args) -> Value {
             
             Env* localEnv = new Env(closureEnv);
             localEnv->this_binding = lexicalThis;
@@ -532,14 +539,29 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
             }
             
             try {
+                
                 if (stmt->body) {
                     stmt->body->accept(*intr);
                 }
+                promise->resolve(Value::undefined());
+
                 intr->env = prevEnv;
                 return Value::undefined();
+                
             } catch (const ReturnException& r) {
+                
+                promise->resolve(toValue(r.value));
                 intr->env = prevEnv;
                 return toValue(r.value);
+                
+            } catch (std::exception& e) {
+                
+                intr->env = prevEnv;
+
+                // If it throws, reject the promise
+                promise->reject(Value::str(e.what()));
+                return Value::str(e.what());
+                
             }
             
         };
@@ -551,7 +573,7 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
             
             event_loop->post(callback_func, args);
             
-            return Value::nullVal();
+            return Value::promise(promise);
 
         }
         
@@ -2194,8 +2216,10 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
 
     // Return a callable Value (assuming Value supports callable lambdas)
     return Value::function([closure, lexicalThis, expr, intr, this](vector<Value> args) mutable -> Value {
-        
-        auto callback_func = [closure, lexicalThis, expr, intr](vector<Value> args) -> Value {
+
+        auto promise = std::make_shared<Promise>();
+
+        auto callback_func = [closure, lexicalThis, expr, intr, promise](vector<Value> args) -> Value {
             
             // Create a new local environment inheriting from the closure
             Env* localEnv = new Env(closure);
@@ -2282,14 +2306,26 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
                     expr->stmtBody->accept(*intr);
                     
                 }
-                
+
+                promise->resolve(Value::undefined());
+
                 intr->env = prevEnv;  // restore before returning
                 return Value::undefined();
                 
             } catch (const ReturnException& r) {
                 
+                promise->resolve(toValue(r.value));
+
                 intr->env = prevEnv;  // restore before throwing
                 return toValue(r.value);
+                
+            } catch (std::exception& e) {
+                
+                intr->env = prevEnv;  // restore before throwing
+
+                // If it throws, reject the promise
+                promise->reject(Value::str(e.what()));
+                return Value::str(e.what());
                 
             }
             
@@ -2299,7 +2335,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
             
             event_loop->post(callback_func, args);
             
-            return Value::nullVal();
+            return Value::promise(promise);
 
         }
         
@@ -2588,7 +2624,9 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
     // Return a callable Value (assuming Value supports callable lambdas)
     return Value::function([closure, lexicalThis, expr, intr, this](vector<Value> args) mutable -> Value {
         
-        auto callback_func = [closure, lexicalThis, expr, intr](vector<Value> args) -> Value {
+        auto promise = std::make_shared<Promise>();
+                
+        auto callback_func = [closure, lexicalThis, expr, intr, promise](vector<Value> args) -> Value {
             
             // Create a new local environment inheriting from the closure
             Env* localEnv = new Env(closure);
@@ -2658,12 +2696,22 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
                 }
                 
                 intr->env = prevEnv;  // restore before returning
+                promise->resolve(Value::undefined());
                 return Value::undefined();
                 
             } catch (const ReturnException& r) {
                 
                 intr->env = prevEnv;  // restore before throwing
+                promise->resolve(toValue(r.value));
                 return toValue(r.value);
+                
+            } catch (std::exception& e) {
+
+                intr->env = prevEnv;  // restore before throwing
+
+                // If it throws, reject the promise
+                promise->reject(Value::str(e.what()));
+                return Value::str(e.what());
                 
             }
             
@@ -2676,7 +2724,7 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
             
             event_loop->post(callback_func, args);
             
-            return Value::nullVal();
+            return Value::promise(promise);
 
         }
         
@@ -2706,6 +2754,8 @@ R Interpreter::visitUndefinedKeyword(UndefinedKeyword* visitor) {
 }
 
 R Interpreter::visitAwaitExpression(AwaitExpression* expr) {
+    // here, we are inside the event loop
+    // it waits for an async to return
     return expr->inner->accept(*this);
 }
 

@@ -26,13 +26,15 @@ enum class ValueType {
     NULLTYPE,
     NATIVE_FUNCTION,
     FUNCTION,
-    METHOD
+    METHOD,
+    PROMISE
 };
 
 class Value;
 class JSObject; // forward declare
 class JSClass;
 class JSArray;
+class Promise;
 
 using NativeFn = function<Value(const vector<Value>&)>;
 
@@ -50,6 +52,7 @@ public:
     shared_ptr<JSClass> classValue;
     NativeFn nativeFunction;
     function<Value(std::vector<Value>)> functionValue;
+    shared_ptr<Promise> promiseValue;
     
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
     
@@ -79,6 +82,13 @@ public:
         Value v;
         v.type = ValueType::METHOD;
         v.classValue = klass;
+        return v;
+    }
+    
+    static Value promise(shared_ptr<Promise> promise_value) {
+        Value v;
+        v.type = ValueType::PROMISE;
+        v.promiseValue = promise_value;
         return v;
     }
     

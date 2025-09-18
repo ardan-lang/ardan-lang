@@ -85,6 +85,7 @@ string Value::toString() const {
         case ValueType::FUNCTION: return "[function]";
         case ValueType::METHOD: return "[method]";
         case ValueType::ARRAY: return "[array Array]";
+        case ValueType::PROMISE: return "[promise Promise]";
     }
     return "undefined";
 }
@@ -101,6 +102,7 @@ bool Value::isTruthy() const {
         case ValueType::NATIVE_FUNCTION: return true;
         case ValueType::METHOD: return true;
         case ValueType::ARRAY: return true;
+        case ValueType::PROMISE: return true;
     }
     return false;
 }
@@ -121,6 +123,7 @@ int Value::integer() {
         case ValueType::NATIVE_FUNCTION: return 1;
         case ValueType::METHOD: return 1;
         case ValueType::ARRAY: return 1;
+        case ValueType::PROMISE: return 1;
     }
     return 0;
 }
@@ -137,6 +140,7 @@ bool Value::boolean() {
         case ValueType::NATIVE_FUNCTION: return true;
         case ValueType::METHOD: return true;
         case ValueType::ARRAY: return true;
+        case ValueType::PROMISE: return true;
     }
     return false;
 }
@@ -154,6 +158,7 @@ bool Value::isNull() {
         case ValueType::NATIVE_FUNCTION: return false;
         case ValueType::METHOD: return false;
         case ValueType::ARRAY: return false;
+        case ValueType::PROMISE: return false;
     }
     return false;
 
