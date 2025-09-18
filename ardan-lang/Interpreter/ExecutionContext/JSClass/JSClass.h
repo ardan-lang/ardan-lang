@@ -29,6 +29,7 @@ public:
     unordered_map<string, ValueField> var_static_fields;
     unordered_map<string, ValueField> let_static_fields;
     unordered_map<string, ValueField> const_static_fields;
+    bool is_native = false;
 
     // need to add var, let, const fields
     
@@ -42,7 +43,10 @@ public:
     void set_var(const string& key, Value value, const vector<string> modifiers);
     void set_let(const string& key, Value value, const vector<string> modifiers);
     void set_const(const string& key, Value value, const vector<string> modifiers);
-
+    
+    virtual std::shared_ptr<JSObject> construct() {
+        return nullptr;
+    }
 };
 
 #endif /* JSClass_h */

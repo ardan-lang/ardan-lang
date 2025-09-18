@@ -85,10 +85,10 @@ public:
         return v;
     }
     
-    static Value promise(shared_ptr<Promise> promise_value) {
+    static Value promise(shared_ptr<JSObject> promise_value) {
         Value v;
-        v.type = ValueType::PROMISE;
-        v.promiseValue = promise_value;
+        v.type = ValueType::OBJECT;
+        v.objectValue = promise_value;
         return v;
     }
     
