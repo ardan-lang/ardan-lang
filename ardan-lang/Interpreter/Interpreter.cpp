@@ -64,29 +64,29 @@ void Interpreter::init_builtins() {
         return Value::nullVal();
     }));
     
-    env->set_var("window", Value::function([this](vector<Value> args) mutable -> Value {
-        
-        gui_init();
-        
-        std::string titleStr = args[0].toString();
-        const char* title = titleStr.c_str();
-        gui_create_window(title,
-                          200,
-                          200,
-                          args[1].numberValue,
-                          args[2].numberValue);
-        
-        return Value::nullVal();
-        
-    }));
-    
-    env->set_var("run", Value::function([this](vector<Value> args) mutable -> Value {
-        
-        gui_run();
-        
-        return Value::nullVal();
-        
-    }));
+//    env->set_var("window", Value::function([this](vector<Value> args) mutable -> Value {
+//        
+//        gui_init();
+//        
+//        std::string titleStr = args[0].toString();
+//        const char* title = titleStr.c_str();
+//        gui_create_window(title,
+//                          200,
+//                          200,
+//                          args[1].numberValue,
+//                          args[2].numberValue);
+//        
+//        return Value::nullVal();
+//        
+//    }));
+//    
+//    env->set_var("run", Value::function([this](vector<Value> args) mutable -> Value {
+//        
+//        gui_run();
+//        
+//        return Value::nullVal();
+//        
+//    }));
     
 }
 
