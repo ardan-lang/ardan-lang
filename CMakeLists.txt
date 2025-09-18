@@ -21,6 +21,7 @@ file(GLOB_RECURSE SRC_FILES
     "ardan-lang/Visitor/*.cpp"
     "ardan-lang/REPL/*.cpp"
     "ardan-lang/JSON/*.cpp"
+    "ardan-lang/EventLoop/*.cpp"
     "ardan-lang/*.cpp"
 )
 
@@ -35,7 +36,7 @@ target_include_directories(ardan PRIVATE
 # OS-specific libraries
 if(APPLE)
     message(STATUS "Building on macOS")
-    # target_link_libraries(ardan-lang PRIVATE "-framework Cocoa")
+    target_link_libraries(ardan PRIVATE "-framework Cocoa")
 elseif(WIN32)
     message(STATUS "Building on Windows")
     target_link_libraries(ardan PRIVATE ws2_32)
