@@ -473,13 +473,15 @@ R AstPrinter::visitNumericLiteral(NumericLiteral* expr) {
     indent++;
     
     auto value = expr->value;
-    
+
     if (std::holds_alternative<std::monostate>(value)) {
         std::cout << "nil";
     } else if (std::holds_alternative<double>(value)) {
         std::cout << std::get<double>(value);
     } else if (std::holds_alternative<unsigned long>(value)) {
         std::cout << std::get<unsigned long>(value);
+    } else if (std::holds_alternative<unsigned short>(value)) {
+        std::cout << std::get<unsigned short>(value);
     } else if (std::holds_alternative<int>(value)) {
         std::cout << std::get<int>(value);
     } else if (std::holds_alternative<size_t>(value)) {
