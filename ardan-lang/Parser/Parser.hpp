@@ -477,12 +477,12 @@ private:
                 if (check(TokenType::LEFT_BRACKET)) {
                     auto block = parseBlockStatement();
                     // x => {}
-                    return make_unique<ArrowFunction>(token_previous, std::move(block));
+                    return make_unique<ArrowFunction>(make_unique<IdentifierExpression>(std::move(token_previous)), std::move(block));
                 }
 
                 auto expr = parseAssignment();
                 // x => x
-                return make_unique<ArrowFunction>(token_previous, std::move(expr));
+                return make_unique<ArrowFunction>(make_unique<IdentifierExpression>(std::move(token_previous)), std::move(expr));
 
             }
 
