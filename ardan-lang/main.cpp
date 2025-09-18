@@ -22,7 +22,8 @@
 #include "REPL/REPL.hpp"
 #include "JSON/JSON.hpp"
 
-#include "GUI/gui.h"
+//#include "GUI/gui.h"
+//#import <Cocoa/Cocoa.h>
 
 string read_file(const string& filename);
 
@@ -424,9 +425,9 @@ void run_interpreter(string& filename, string& source) {
     
     auto tokens = scanner.getTokens();
 
-//    for(Token token : tokens) {
-//        cout << token.type << " : " << token.lexeme << " [Line: " << token.line << "]" << endl;
-//    }
+    for(Token token : tokens) {
+        cout << token.type << " : " << token.lexeme << " [Line: " << token.line << "]" << endl;
+    }
 
     Parser parser(tokens);
     parser.sourceFile = filename;
@@ -500,20 +501,17 @@ fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
 
 int main(int argc, const char * argv[]) {
     
-    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/scoping_and_shadowing.ardan";
-        
-    string source = read_file(entryFileName);
-    run_interpreter(entryFileName, source);
-    
-    showWindow();
-
-
+//    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/gui.ardan";
+//        
+//    string source = read_file(entryFileName);
+//    run_interpreter(entryFileName, source);
+    // showWindow();
     //run_interpreter_inline_test();
     
 //    REPL repl;
 //    repl.start_repl();
     
-    return 0;
+//    return 0;
     
     bool interpret = false;
     bool compile = false;
