@@ -20,6 +20,7 @@
 #include "../Parser/Parser.hpp"
 #include "../GUI/gui.h"
 #include "Promise/Promise.hpp"
+#include "../builtin/Server/Server.hpp"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -58,6 +59,7 @@ void Interpreter::init_builtins() {
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
+    env->set_var("Server", make_shared<Server>());
     
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
@@ -96,12 +98,15 @@ void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
     for (unique_ptr<Statement>& stmt : ast) {
         // cout << "--------------" << endl;
         stmt->accept(*this);
-        //stmt->accept(printer);
+        // stmt->accept(printer);
         // cout << "**************" << endl;
     }
     
     // run the event loop
-    event_loop->run();
+    // add function to the ev
+//    auto dummy = [](vector<Value> v) -> Value { return Value::nullVal(); };
+//    event_loop->post(dummy, {});
+//    event_loop->run();
     
 }
 
@@ -285,10 +290,6 @@ R Interpreter::visitCall(CallExpression* expr) {
                 js_object = value.objectValue;
             }
             
-            if (value.type == ValueType::PROMISE) {
-                js_object = value.promiseValue;
-            }
-
             check_obj_prop_access(member, js_object.get(), property_name);
             prop_val = js_object->get(property_name);
             
@@ -2032,6 +2033,8 @@ R Interpreter::visitNew(NewExpression* expr) {
 //    unique_ptr<Expression> callee;
 //    vector<unique_ptr<Expression>> arguments;
 
+    // TODO: do we need to add support for native classes?
+    
     // here, the object is created from user-defined class
     auto object = make_shared<JSObject>();
     
@@ -2046,8 +2049,13 @@ R Interpreter::visitNew(NewExpression* expr) {
             throw runtime_error("New keyword should always instantiate a class. " + to_string(expr->token.line));
             return monostate();
         }
-
+                
         std::shared_ptr<JSClass> new_class = std::get<std::shared_ptr<JSClass>>(value);
+
+        if (new_class->is_native == true) {
+            return new_class->construct();
+        }
+
         object->setClass(new_class);
         
         // set properties from class value to object.
