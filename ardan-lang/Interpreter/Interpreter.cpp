@@ -96,10 +96,8 @@ void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
     AstPrinter printer;
 
     for (unique_ptr<Statement>& stmt : ast) {
-        // cout << "--------------" << endl;
         stmt->accept(*this);
         // stmt->accept(printer);
-        // cout << "**************" << endl;
     }
     
     // run the event loop
