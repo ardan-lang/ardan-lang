@@ -425,9 +425,9 @@ void run_interpreter(string& filename, string& source) {
     
     auto tokens = scanner.getTokens();
 
-    for(Token token : tokens) {
-        cout << token.type << " : " << token.lexeme << " [Line: " << token.line << "]" << endl;
-    }
+//    for(Token token : tokens) {
+//        cout << token.type << " : " << token.lexeme << " [Line: " << token.line << "]" << endl;
+//    }
 
     Parser parser(tokens);
     parser.sourceFile = filename;
