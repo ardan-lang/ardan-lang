@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4FCAAE752E78B82700496C50 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4FCAAE742E78B82700496C50 /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		4F613CF42E4D114300CEABAF /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -20,6 +24,7 @@
 
 /* Begin PBXFileReference section */
 		4F613CF62E4D114300CEABAF /* ardan-lang */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "ardan-lang"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4FCAAE742E78B82700496C50 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -35,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4FCAAE752E78B82700496C50 /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -45,6 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				4F613CF82E4D114300CEABAF /* ardan-lang */,
+				4FCAAE732E78B82700496C50 /* Frameworks */,
 				4F613CF72E4D114300CEABAF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +62,14 @@
 				4F613CF62E4D114300CEABAF /* ardan-lang */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4FCAAE732E78B82700496C50 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4FCAAE742E78B82700496C50 /* Cocoa.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
