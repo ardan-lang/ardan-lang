@@ -552,8 +552,20 @@ private:
             vector<pair<Token, unique_ptr<Expression>>> props;
             if (!check(TokenType::RIGHT_BRACKET)) {
                 do {
-                    Token key = consume(TokenType::IDENTIFIER,
-                                        "Expected property key at line: " + to_string(peek().line));
+                    
+                    Token key;
+                    
+                    // key in object-literal can be a string
+                    if (peek().type == TokenType::STRING) {
+                        key = consume(TokenType::STRING,
+                                      "Expected property key at line: " + to_string(peek().line));
+                    } else if (peek().type == TokenType::IDENTIFIER) {
+                        key = consume(TokenType::IDENTIFIER,
+                                      "Expected property key at line: " + to_string(peek().line));
+                    } else {
+                        throw runtime_error("Expected property key at line: " + to_string(peek().line));
+                    }
+                    
                     consume(TokenType::COLON,
                             "Expected ':' after property key at line: " + to_string(peek().line));
                     auto value = parseAssignment();
