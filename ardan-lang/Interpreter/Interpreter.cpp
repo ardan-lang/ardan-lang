@@ -59,7 +59,7 @@ void Interpreter::init_builtins() {
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
-    env->set_var("Server", make_shared<Server>());
+    env->set_var("Server", make_shared<Server>(event_loop));
     
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
@@ -104,9 +104,7 @@ void Interpreter::execute(vector<unique_ptr<Statement>> ast) {
     
     // run the event loop
     // add function to the ev
-//    auto dummy = [](vector<Value> v) -> Value { return Value::nullVal(); };
-//    event_loop->post(dummy, {});
-//    event_loop->run();
+    event_loop->run();
     
 }
 
