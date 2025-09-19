@@ -16,15 +16,22 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <fcntl.h>
+
 #include "../../Interpreter/ExecutionContext/Value/Value.h"
 #include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
 #include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../Statements/Statements.hpp"
 
+#include "../../EventLoop/EventLoop.hpp"
+
 class Server : public JSClass {
 public:
-    
-    Server() { is_native = true; }
+    EventLoop* event_loop;
+    Server(EventLoop* event_loop)
+            : event_loop(event_loop) {   
+            is_native = true;
+        }
 
     shared_ptr<JSObject> obj = std::make_shared<JSObject>();
 
