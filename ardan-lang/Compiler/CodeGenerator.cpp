@@ -9,26 +9,7 @@
 
 CodeGen::CodeGen() : cur(nullptr), nextLocalSlot(0) { }
 
-//shared_ptr<Chunk> CodeGen::generate(vector<unique_ptr<Statement>> program) {
-//    
-//    cur = std::make_shared<Chunk>();
-//    cur->name = "BYTECODE";
-//    locals.clear();
-//    nextLocalSlot = 0;
-//
-//    // top-level: compile statements
-//    for (const auto &s : program) {
-//        s->accept(*this);
-//    }
-//
-//    // ensure script ends with OP_HALT
-//    emit(OpCode::OP_HALT);
-//    
-//    return cur;
-//    
-//}
-
-void CodeGen::generate(vector<unique_ptr<Statement>> program) {
+shared_ptr<Chunk> CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = std::make_shared<Chunk>();
     cur->name = "BYTECODE";
     locals.clear();
@@ -38,11 +19,9 @@ void CodeGen::generate(vector<unique_ptr<Statement>> program) {
         s->accept(*this);
     }
 
-    // We nned to ensure the generated opcodes ends with OP_HALT
     emit(OpCode::OP_HALT);
-        
     disassembleChunk(cur.get(), cur->name);
-
+    return cur;
 }
 
 // ------------------- Statements --------------------

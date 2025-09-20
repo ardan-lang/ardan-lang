@@ -34,8 +34,7 @@ class CodeGen : public ExpressionVisitor, public StatementVisitor {
 public:
     CodeGen();
 
-    //shared_ptr<Chunk> generate(vector<unique_ptr<Statement>> program);
-    void generate(vector<unique_ptr<Statement>> program);
+    shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
