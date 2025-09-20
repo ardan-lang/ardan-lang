@@ -116,7 +116,18 @@ public:
     bool isNull();
     
     bool operator==(const Value& rhs);
-
+    
+    friend std::ostream& operator<<(std::ostream& os, const Value& v) {
+        switch(v.type) {
+//            case NUMBER: os << v.num; break;
+//            case BOOL: os << (v.b ? "true" : "false"); break;
+//            case STRING: os << v.str; break;
+//            case NIL_: os << "nil"; break;
+//            case OBJECT: os << "[object]"; break;
+        }
+        return os;
+    }
+    
 };
 
 struct ValueField {
