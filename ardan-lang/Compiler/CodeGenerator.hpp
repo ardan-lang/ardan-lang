@@ -22,6 +22,7 @@
 
 #include "VM/Bytecode.hpp"
 #include "VM/Chunk.hpp"
+#include "VM/VM.hpp"
 
 using namespace std;
 
@@ -35,6 +36,7 @@ public:
     CodeGen();
 
     shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
+    void emitAssignment(BinaryExpression* expr);
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
@@ -122,3 +124,4 @@ inline uint32_t readUint32(const Chunk* chunk, size_t offset);
 size_t disassembleInstruction(const Chunk* chunk, size_t offset);
 
 void disassembleChunk(const Chunk* chunk, const std::string& name);
+Token createToken(TokenType type);

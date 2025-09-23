@@ -142,47 +142,47 @@ R CodeGen::visitReturn(ReturnStatement* stmt) {
 R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     // compile function body into its own chunk
     // create a new CodeGen instance to compile function separately
-//    CodeGen nested;
-//    // map params as locals in nested
-//    vector<string> paramNames;
-//    for (auto &p : stmt->params) {
-//        if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//            paramNames.push_back(ident->token.lexeme);
-//        } else {
-//            paramNames.push_back(""); // placeholder
-//        }
-//    }
-//    nested.locals.clear(); nested.nextLocalSlot = 0;
-//    nested.cur = std::make_shared<Chunk>();
-//    nested.cur->name = stmt->id;
-//    // allocate local slots for params
-//    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-//    // compile function body
-//    if (stmt->body) stmt->body->accept(nested);
-//    // ensure there's a return at end
-//    nested.emit(OpCode::OP_CONSTANT);
-//    int ud = nested.emitConstant(Value::undefined());
-//    nested.emitUint32(ud);
-//    nested.emit(OpCode::OP_RETURN);
-//
-//    // create a Value::function that runs this chunk
-//    shared_ptr<Chunk> fnChunk = nested.cur;
-//    fnChunk->arity = (uint32_t)paramNames.size();
-//
-//    Value fnValue = Value::function([fnChunk](vector<Value> args) -> Value {
-//        VM vm;
-//        // If function needs access to globals, you might want to set vm.globals from outer scope.
-//        return vm.run(fnChunk, args);
-//    });
-//
-//    int constIndex = emitConstant(fnValue);
-//    emit(OpCode::OP_CONSTANT);
-//    emitUint32(constIndex);
-//
-//    // define global under the function name
-//    int nameIdx = emitConstant(Value::str(stmt->id));
-//    emit(OpCode::OP_DEFINE_GLOBAL);
-//    emitUint32(nameIdx);
+    CodeGen nested;
+    // map params as locals in nested
+    vector<string> paramNames;
+    for (auto &p : stmt->params) {
+        if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+            paramNames.push_back(ident->token.lexeme);
+        } else {
+            paramNames.push_back(""); // placeholder
+        }
+    }
+    nested.locals.clear(); nested.nextLocalSlot = 0;
+    nested.cur = std::make_shared<Chunk>();
+    nested.cur->name = stmt->id;
+    // allocate local slots for params
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+    // compile function body
+    if (stmt->body) stmt->body->accept(nested);
+    // ensure there's a return at end
+    nested.emit(OpCode::OP_CONSTANT);
+    int ud = nested.emitConstant(Value::undefined());
+    nested.emitUint32(ud);
+    nested.emit(OpCode::OP_RETURN);
+
+    // create a Value::function that runs this chunk
+    shared_ptr<Chunk> fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+
+    Value fnValue = Value::function([fnChunk](vector<Value> args) -> Value {
+        VM vm;
+        // If function needs access to globals, you might want to set vm.globals from outer scope.
+        return vm.run(fnChunk, args);
+    });
+
+    int constIndex = emitConstant(fnValue);
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(constIndex);
+
+    // define global under the function name
+    int nameIdx = emitConstant(Value::str(stmt->id));
+    emit(OpCode::OP_DEFINE_GLOBAL);
+    emitUint32(nameIdx);
 
     return true;
 }
@@ -190,24 +190,291 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
 // ------------------- Expressions --------------------
 
 R CodeGen::visitBinary(BinaryExpression* expr) {
+    switch (expr->op.type) {
+        case TokenType::ASSIGN:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_MINUS:
+        case TokenType::ASSIGN_MUL:
+        case TokenType::ASSIGN_DIV:
+        case TokenType::MODULI_ASSIGN:
+        case TokenType::POWER_ASSIGN:
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN:
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_AND_ASSIGN:
+        case TokenType::BITWISE_OR_ASSIGN:
+        case TokenType::BITWISE_XOR_ASSIGN:
+        case TokenType::LOGICAL_AND_ASSIGN:
+        case TokenType::LOGICAL_OR_ASSIGN:
+        case TokenType::NULLISH_COALESCING_ASSIGN:
+            emitAssignment(expr);
+            return true;
+        default:
+            break;
+    }
+
+    // For all other operators, existing logic:
     expr->left->accept(*this);
     expr->right->accept(*this);
 
+    // Emit the appropriate operation instruction
     switch (expr->op.type) {
-        case TokenType::ADD: emit(OpCode::OP_ADD); break;
-        case TokenType::MINUS: emit(OpCode::OP_SUB); break;
-        case TokenType::MUL: emit(OpCode::OP_MUL); break;
-        case TokenType::DIV: emit(OpCode::OP_DIV); break;
-        case TokenType::MODULI: emit(OpCode::OP_MOD); break;
-        case TokenType::POWER: emit(OpCode::OP_POW); break;
-        case TokenType::VALUE_EQUAL: emit(OpCode::OP_EQUAL); break;
-        case TokenType::INEQUALITY: emit(OpCode::OP_NOTEQUAL); break;
-        case TokenType::LESS_THAN: emit(OpCode::OP_LESS); break;
-        case TokenType::LESS_THAN_EQUAL: emit(OpCode::OP_LESSEQUAL); break;
-        case TokenType::GREATER_THAN: emit(OpCode::OP_GREATER); break;
-        case TokenType::GREATER_THAN_EQUAL: emit(OpCode::OP_GREATEREQUAL); break;
+        // --- Arithmetic ---
+        case TokenType::ADD:
+            emit(OpCode::OP_ADD); // stack: left, right -> left+right
+            break;
+        case TokenType::MINUS:
+            emit(OpCode::OP_SUB);
+            break;
+        case TokenType::MUL:
+            emit(OpCode::OP_MUL);
+            break;
+        case TokenType::DIV:
+            emit(OpCode::OP_DIV);
+            break;
+        case TokenType::MODULI:
+            emit(OpCode::OP_MOD);
+            break;
+        case TokenType::POWER:
+            emit(OpCode::OP_POW);
+            break;
+
+        // --- Comparisons ---
+        case TokenType::VALUE_EQUAL:
+            emit(OpCode::OP_EQUAL);
+            break;
+        case TokenType::REFERENCE_EQUAL:
+            emit(OpCode::REFERENCE_EQUAL);
+            break;
+        case TokenType::INEQUALITY:
+            emit(OpCode::OP_NOTEQUAL);
+            break;
+        case TokenType::STRICT_INEQUALITY:
+            emit(OpCode::STRICT_INEQUALITY);
+            break;
+        case TokenType::LESS_THAN:
+            emit(OpCode::OP_LESS);
+            break;
+        case TokenType::LESS_THAN_EQUAL:
+            emit(OpCode::OP_LESSEQUAL);
+            break;
+        case TokenType::GREATER_THAN:
+            emit(OpCode::OP_GREATER);
+            break;
+        case TokenType::GREATER_THAN_EQUAL:
+            emit(OpCode::OP_GREATEREQUAL);
+            break;
+
+        // --- Logical ---
+        case TokenType::LOGICAL_AND:
+            emit(OpCode::LOGICAL_AND);
+            break;
+        case TokenType::LOGICAL_OR:
+            emit(OpCode::LOGICAL_OR);
+            break;
+        case TokenType::NULLISH_COALESCING:
+            emit(OpCode::NULLISH_COALESCING);
+            break;
+
+        // --- Bitwise ---
+        case TokenType::BITWISE_AND:
+            emit(OpCode::OP_BIT_AND);
+            break;
+        case TokenType::BITWISE_OR:
+            emit(OpCode::OP_BIT_OR);
+            break;
+        case TokenType::BITWISE_XOR:
+            emit(OpCode::OP_BIT_XOR);
+            break;
+        case TokenType::BITWISE_LEFT_SHIFT:
+            emit(OpCode::OP_SHL);
+            break;
+        case TokenType::BITWISE_RIGHT_SHIFT:
+            emit(OpCode::OP_SHR);
+            break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT:
+            emit(OpCode::OP_USHR);
+            break;
+
         default:
-            throw std::runtime_error("Unsupported binary op in CodeGen: " + expr->op.lexeme);
+            throw std::runtime_error("Unknown binary operator in compiler: " + expr->op.lexeme);
+    }
+    
+    return true;
+
+}
+
+void CodeGen::emitAssignment(BinaryExpression* expr) {
+    auto left = expr->left.get();
+
+    // --------------------
+    // Plain assignment (=)
+    // --------------------
+    if (expr->op.type == TokenType::ASSIGN) {
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+            // Evaluate RHS first
+            expr->right->accept(*this);
+
+            if (hasLocal(ident->name)) {
+                emit(OpCode::OP_SET_LOCAL);
+                emitUint32(getLocal(ident->name));
+            } else {
+                int nameIdx = emitConstant(Value::str(ident->name));
+                emit(OpCode::OP_SET_GLOBAL);
+                emitUint32(nameIdx);
+            }
+        }
+        else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+            // Push object first
+            member->object->accept(*this);
+            // Then RHS
+            expr->right->accept(*this);
+
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::OP_SET_PROPERTY);
+            emitUint32(nameIdx);
+        }
+        else {
+            throw std::runtime_error("Unsupported assignment target in CodeGen");
+        }
+
+        // If assignments are statements only, discard the result:
+        // emit(OpCode::OP_POP);
+
+        return;
+    }
+
+    // -----------------------------
+    // Compound assignment (+=, etc.)
+    // -----------------------------
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        if (hasLocal(ident->name)) {
+            emit(OpCode::OP_GET_LOCAL);
+            emitUint32(getLocal(ident->name));
+        } else {
+            int nameIdx = emitConstant(Value::str(ident->name));
+            emit(OpCode::OP_GET_GLOBAL);
+            emitUint32(nameIdx);
+        }
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+        // Push object, duplicate it for later use
+        member->object->accept(*this);
+        emit(OpCode::OP_DUP);
+
+        int nameIdx = emitConstant(Value::str(member->name.lexeme));
+        emit(OpCode::OP_GET_PROPERTY);
+        emitUint32(nameIdx);
+    }
+    else {
+        throw std::runtime_error("Unsupported assignment target in CodeGen");
+    }
+
+    // Evaluate RHS
+    expr->right->accept(*this);
+
+    // Apply compound operation
+    switch (expr->op.type) {
+        case TokenType::ASSIGN_ADD: emit(OpCode::OP_ADD); break;
+        case TokenType::ASSIGN_MINUS: emit(OpCode::OP_SUB); break;
+        case TokenType::ASSIGN_MUL: emit(OpCode::OP_MUL); break;
+        case TokenType::ASSIGN_DIV: emit(OpCode::OP_DIV); break;
+        case TokenType::MODULI_ASSIGN: emit(OpCode::OP_MOD); break;
+        case TokenType::POWER_ASSIGN: emit(OpCode::OP_POW); break;
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: emit(OpCode::OP_SHL); break;
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: emit(OpCode::OP_SHR); break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: emit(OpCode::OP_USHR); break;
+        case TokenType::BITWISE_AND_ASSIGN: emit(OpCode::OP_BIT_AND); break;
+        case TokenType::BITWISE_OR_ASSIGN: emit(OpCode::OP_BIT_OR); break;
+        case TokenType::BITWISE_XOR_ASSIGN: emit(OpCode::OP_BIT_XOR); break;
+        case TokenType::LOGICAL_AND_ASSIGN: emit(OpCode::LOGICAL_AND); break;
+        case TokenType::LOGICAL_OR_ASSIGN: emit(OpCode::LOGICAL_OR); break;
+        case TokenType::NULLISH_COALESCING_ASSIGN: emit(OpCode::NULLISH_COALESCING); break;
+        default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
+    }
+
+    // Store result back
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        if (hasLocal(ident->name)) {
+            emit(OpCode::OP_SET_LOCAL);
+            emitUint32(getLocal(ident->name));
+        } else {
+            int nameIdx = emitConstant(Value::str(ident->name));
+            emit(OpCode::OP_SET_GLOBAL);
+            emitUint32(nameIdx);
+        }
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+        int nameIdx = emitConstant(Value::str(member->name.lexeme));
+        emit(OpCode::OP_SET_PROPERTY);
+        emitUint32(nameIdx);
+    }
+
+    // Optional: if compound assignments are statements, discard result:
+    // emit(OpCode::OP_POP);
+}
+
+R CodeGen::visitUnary(UnaryExpression* expr) {
+    // For prefix unary ops that target identifiers or members, we need special handling.
+    if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
+        // ++x or --x
+        if (auto ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
+            // load current value
+            if (hasLocal(ident->name)) {
+                emit(OpCode::OP_GET_LOCAL);
+                emitUint32(getLocal(ident->name));
+            } else {
+                int nameIdx = emitConstant(Value::str(ident->name));
+                emit(OpCode::OP_GET_GLOBAL);
+                emitUint32(nameIdx);
+            }
+            // push 1
+            emit(OpCode::OP_CONSTANT);
+            emitUint32(emitConstant(Value::number(1)));
+            // apply
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+            // store back
+            if (hasLocal(ident->name)) {
+                emit(OpCode::OP_SET_LOCAL);
+                emitUint32(getLocal(ident->name));
+            } else {
+                int nameIdx = emitConstant(Value::str(ident->name));
+                emit(OpCode::OP_SET_GLOBAL);
+                emitUint32(nameIdx);
+            }
+            return true;
+        }
+
+        if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
+            // Evaluate object once
+            member_expr->object->accept(*this);
+            emit(OpCode::OP_DUP); // [obj, obj]
+            int nameIdx = emitConstant(Value::str(member_expr->name.lexeme));
+            // GET_PROPERTY -> consumes one obj
+            emit(OpCode::OP_GET_PROPERTY);
+            emitUint32(nameIdx); // stack: [obj, value]
+            // push 1
+            emit(OpCode::OP_CONSTANT);
+            emitUint32(emitConstant(Value::number(1)));
+            // apply
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+            // SET_PROPERTY (consumes [obj, value])
+            emit(OpCode::OP_SET_PROPERTY);
+            emitUint32(nameIdx);
+            return true;
+        }
+
+        throw std::runtime_error("Unsupported unary increment/decrement target");
+    }
+
+    // non-targeted unary ops (prefix) evaluate their operand first
+    expr->right->accept(*this);
+    switch (expr->op.type) {
+        case TokenType::LOGICAL_NOT: emit(OpCode::OP_NOT); break;
+        case TokenType::MINUS: emit(OpCode::OP_NEGATE); break;
+        case TokenType::BITWISE_NOT: emit(OpCode::OP_NOT); break;
+        case TokenType::ADD: emit(OpCode::OP_POSITIVE); break;
+        default: throw std::runtime_error("Unsupported unary op in CodeGen");
     }
     return true;
 }
@@ -269,9 +536,11 @@ R CodeGen::visitMember(MemberExpression* expr) {
     if (expr->computed) {
         // compute property expression now
         expr->property->accept(*this);
+        emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
+        return true;
         // pop the computed property -> evaluate to constant string at runtime not supported here
         // Simplify: only support non-computed for codegen for now
-        throw std::runtime_error("Computed member expressions not supported by this CodeGen yet.");
+        // throw std::runtime_error("Computed member expressions not supported by this CodeGen yet.");
     } else {
         propName = expr->name.lexeme;
     }
@@ -325,90 +594,79 @@ R CodeGen::visitConditional(ConditionalExpression* expr) {
     return true;
 }
 
-R CodeGen::visitUnary(UnaryExpression* expr) {
-    expr->right->accept(*this);
-    switch (expr->op.type) {
-        case TokenType::LOGICAL_NOT: emit(OpCode::OP_NOT); break;
-        case TokenType::MINUS: emit(OpCode::OP_NEGATE); break;
-        default:
-            throw std::runtime_error("Unsupported unary op in CodeGen");
-    }
-    return true;
-}
-
 R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     // compile arrow to a function chunk similarly to visitFunction
     // Only support simple param list (Identifier or sequence) and expression or statement body
-//    CodeGen nested;
-//    nested.cur = std::make_shared<Chunk>();
-//    vector<string> params;
-//    if (expr->parameters) {
-//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
-//            for (auto &p : seq->expressions) {
-//                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get()))
-//                    params.push_back(ident->token.lexeme);
-//                else params.push_back("");
-//            }
-//        } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
-//            params.push_back(ident->token.lexeme);
-//        }
-//    }
-//    nested.resetLocalsForFunction((uint32_t)params.size(), params);
-//    if (expr->exprBody) {
-//        expr->exprBody->accept(nested);
-//        // leave value on stack and return
-//        nested.emit(OpCode::OP_RETURN);
-//    } else if (expr->stmtBody) {
-//        expr->stmtBody->accept(nested);
-//        // ensure return
-//        nested.emit(OpCode::OP_CONSTANT);
-//        int ud = nested.emitConstant(Value::undefined());
-//        nested.emitUint32(ud);
-//        nested.emit(OpCode::OP_RETURN);
-//    }
-//
-//    shared_ptr<Chunk> fnChunk = nested.cur;
-//    fnChunk->arity = (uint32_t)params.size();
-//
-//    Value fnValue = Value::function([fnChunk](vector<Value> args) -> Value {
-//        VM vm;
-//        return vm.run(fnChunk, args);
-//    });
-//
-//    int ci = emitConstant(fnValue);
-//    emit(OpCode::OP_CONSTANT);
-//    emitUint32(ci);
+    CodeGen nested;
+    nested.cur = std::make_shared<Chunk>();
+    vector<string> params;
+    if (expr->parameters) {
+        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
+            for (auto &p : seq->expressions) {
+                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get()))
+                    params.push_back(ident->token.lexeme);
+                else params.push_back("");
+            }
+        } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+            params.push_back(ident->token.lexeme);
+        }
+    }
+    nested.resetLocalsForFunction((uint32_t)params.size(), params);
+    if (expr->exprBody) {
+        expr->exprBody->accept(nested);
+        // leave value on stack and return
+        nested.emit(OpCode::OP_RETURN);
+    } else if (expr->stmtBody) {
+        expr->stmtBody->accept(nested);
+        // ensure return
+        nested.emit(OpCode::OP_CONSTANT);
+        int ud = nested.emitConstant(Value::undefined());
+        nested.emitUint32(ud);
+        nested.emit(OpCode::OP_RETURN);
+    }
+    
+    shared_ptr<Chunk> fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)params.size();
+    
+    Value fnValue = Value::function([fnChunk](vector<Value> args) -> Value {
+        VM vm;
+        return vm.run(fnChunk, args);
+    });
+    
+    int ci = emitConstant(fnValue);
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(ci);
     return true;
 }
 
 R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     // compile similarly to FunctionDeclaration but produce value (not define global)
-//    CodeGen nested;
-//    nested.cur = std::make_shared<Chunk>();
-//    vector<string> params;
-//    for (auto &p : expr->params) {
-//        if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get()))
-//            params.push_back(ident->token.lexeme);
-//        else params.push_back("");
-//    }
-//    nested.resetLocalsForFunction((uint32_t)params.size(), params);
-//    if (expr->body) expr->body->accept(nested);
-//    nested.emit(OpCode::OP_CONSTANT);
-//    int ud = nested.emitConstant(Value::undefined());
-//    nested.emitUint32(ud);
-//    nested.emit(OpCode::OP_RETURN);
-//
-//    shared_ptr<Chunk> fnChunk = nested.cur;
-//    fnChunk->arity = (uint32_t)params.size();
-//
-//    Value fnValue = Value::function([fnChunk](vector<Value> args) -> Value {
-//        VM vm;
-//        return vm.run(fnChunk, args);
-//    });
-//
-//    int ci = emitConstant(fnValue);
-//    emit(OpCode::OP_CONSTANT);
-//    emitUint32(ci);
+    CodeGen nested;
+    nested.cur = std::make_shared<Chunk>();
+    vector<string> params;
+    for (auto &p : expr->params) {
+        if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get()))
+            params.push_back(ident->token.lexeme);
+        else params.push_back("");
+    }
+    nested.resetLocalsForFunction((uint32_t)params.size(), params);
+    if (expr->body) expr->body->accept(nested);
+    nested.emit(OpCode::OP_CONSTANT);
+    int ud = nested.emitConstant(Value::undefined());
+    nested.emitUint32(ud);
+    nested.emit(OpCode::OP_RETURN);
+
+    shared_ptr<Chunk> fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)params.size();
+
+    Value fnValue = Value::function([fnChunk](vector<Value> args) -> Value {
+        VM vm;
+        return vm.run(fnChunk, args);
+    });
+
+    int ci = emitConstant(fnValue);
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(ci);
 
     return true;
 }
@@ -457,39 +715,115 @@ R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
 }
 
 R CodeGen::visitAssignment(AssignmentExpression* expr) {
+    // Evaluate right-hand side
+    expr->right->accept(*this);
+
+    // Assign to variable or property
+    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+        if (hasLocal(ident->name)) {
+            emit(OpCode::OP_SET_LOCAL);
+            emitUint32(getLocal(ident->name));
+        } else {
+            int nameIdx = emitConstant(Value::str(ident->name));
+            emit(OpCode::OP_SET_GLOBAL);
+            emitUint32(nameIdx);
+        }
+    } else if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->left.get())) {
+        // obj.prop = value
+        // Evaluate object
+        member->object->accept(*this);
+        // Swap stack: [value,obj] -> [obj,value]
+        emit(OpCode::OP_DUP);
+        emit(OpCode::OP_POP);
+        // Push property name
+        int nameIdx = emitConstant(Value::str(member->name.lexeme));
+        emit(OpCode::OP_SET_PROPERTY);
+        emitUint32(nameIdx);
+    } else {
+        throw std::runtime_error("Unsupported assignment target in CodeGen");
+    }
     return true;
 }
 
 R CodeGen::visitLogical(LogicalExpression* expr) {
+    expr->left->accept(*this);
+    if (expr->op.type == TokenType::LOGICAL_OR) {
+        int endJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+        emit(OpCode::OP_POP);
+        expr->right->accept(*this);
+        patchJump(endJump);
+    } else if (expr->op.type == TokenType::LOGICAL_AND) {
+        int endJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+        expr->right->accept(*this);
+        patchJump(endJump);
+    } else {
+        throw std::runtime_error("Unsupported logical operator");
+    }
     return true;
 }
 
 R CodeGen::visitThis(ThisExpression* expr) {
-    return true;
-}
-
-R CodeGen::visitSuper(SuperExpression* expr) {
+    // Assumes 'this' is always local 0 in method frames
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32(0); // slot 0 reserved for 'this'
     return true;
 }
 
 R CodeGen::visitProperty(PropertyExpression* expr) {
+//    expr->object->accept(*this);
+//    int nameIdx = emitConstant(Value::str(expr->name.lexeme));
+//    emit(OpCode::OP_GET_PROPERTY);
+//    emitUint32(nameIdx);
     return true;
 }
 
 R CodeGen::visitSequence(SequenceExpression* expr) {
+    size_t n = expr->expressions.size();
+    for (size_t i = 0; i < n; ++i) {
+        expr->expressions[i]->accept(*this);
+        if (i + 1 < n) emit(OpCode::OP_POP);
+    }
     return true;
 }
 
 R CodeGen::visitUpdate(UpdateExpression* expr) {
+    // Only support identifier for now
+    IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->argument.get());
+    if (!ident) throw std::runtime_error("Update target must be identifier");
+    // Load current value
+    if (hasLocal(ident->name)) {
+        emit(OpCode::OP_GET_LOCAL);
+        emitUint32(getLocal(ident->name));
+    } else {
+        int nameIdx = emitConstant(Value::str(ident->name));
+        emit(OpCode::OP_GET_GLOBAL);
+        emitUint32(nameIdx);
+    }
+    // Increment or decrement
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::number(1)));
+    emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+    // Store back
+    if (hasLocal(ident->name)) {
+        emit(OpCode::OP_SET_LOCAL);
+        emitUint32(getLocal(ident->name));
+    } else {
+        int nameIdx = emitConstant(Value::str(ident->name));
+        emit(OpCode::OP_SET_GLOBAL);
+        emitUint32(nameIdx);
+    }
     return true;
 }
 
 R CodeGen::visitFalseKeyword(FalseKeyword* expr) {
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::boolean(false)));
     return true;
 }
 
 R CodeGen::visitTrueKeyword(TrueKeyword* expr) {
-
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::boolean(true)));
     return true;
 }
 
@@ -582,6 +916,10 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
 }
 
 R CodeGen::visitForOf(ForOfStatement* stmt) {
+    return true;
+}
+
+R CodeGen::visitSuper(SuperExpression* stmt) {
     return true;
 }
 
@@ -690,6 +1028,25 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_NEW_ARRAY:
         case OpCode::OP_RETURN:
         case OpCode::OP_HALT:
+            
+        case OpCode::OP_INCREMENT:
+            
+        case OpCode::LOGICAL_AND:
+        case OpCode::LOGICAL_OR:
+        case OpCode::NULLISH_COALESCING:
+        case OpCode::REFERENCE_EQUAL:
+        case OpCode::STRICT_INEQUALITY:
+        case OpCode::OP_DECREMENT:
+            
+            // bitwise
+        case OpCode::OP_BIT_AND:
+        case OpCode::OP_BIT_OR:
+        case OpCode::OP_BIT_XOR:
+        case OpCode::OP_SHL:
+        case OpCode::OP_SHR:
+        case OpCode::OP_USHR:
+        case OpCode::OP_POSITIVE:
+
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
 
@@ -717,7 +1074,7 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_SET_PROPERTY:
         case OpCode::OP_GET_PROPERTY: {
             uint32_t nameIndex = readUint32(chunk, offset + 1);
-            std::cout << opcodeToString(op) << " name[" << nameIndex << "]";
+            std::cout << opcodeToString(op) << " constant[" << nameIndex << "]";
             if (nameIndex < chunk->constants.size()) {
                 std::cout << " \"" << chunk->constants[nameIndex].toString() << "\"";
             }
@@ -758,3 +1115,10 @@ void disassembleChunk(const Chunk* chunk, const std::string& name) {
         offset = disassembleInstruction(chunk, offset);
     }
 }
+
+Token createToken(TokenType type) {
+    Token token;
+    token.type = type;
+    return token;
+}
+

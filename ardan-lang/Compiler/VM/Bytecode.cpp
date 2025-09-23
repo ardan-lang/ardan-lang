@@ -43,6 +43,26 @@ const char* opcodeToString(OpCode op) {
         case OpCode::OP_CALL:           return "CALL";
         case OpCode::OP_RETURN:         return "RETURN";
         case OpCode::OP_HALT:           return "HALT";
+        case OpCode::OP_INCREMENT:      return "INCREMENT";
+            
+        case OpCode::LOGICAL_AND: return "LOGICAL_AND"; // &&
+        case OpCode::LOGICAL_OR: return "LOGICAL_OR"; // ||
+        case OpCode::NULLISH_COALESCING: return "NULLISH_COALESCING";  // ? :
+        case OpCode::REFERENCE_EQUAL: return "REFERENCE_EQUAL";  // ===
+        case OpCode::STRICT_INEQUALITY: return "STRICT_INEQUALITY";  // !==
+            
+        case OpCode::OP_DECREMENT: return "OP_DECREMENT";
+            
+            // bitwise
+        case OpCode::OP_BIT_AND: return "OP_BIT_AND";
+        case OpCode::OP_BIT_OR: return "OP_BIT_OR";
+        case OpCode::OP_BIT_XOR: return "OP_BIT_XOR";
+        case OpCode::OP_SHL: return "OP_SHL";
+        case OpCode::OP_SHR: return "OP_SHR";
+        case OpCode::OP_USHR: return "OP_USHR";
+        case OpCode::OP_POSITIVE: return "OP_POSITIVE";
+        case OpCode::OP_GET_PROPERTY_DYNAMIC: return "OP_GET_PROPERTY_DYNAMIC";
+            
     }
     return "UNKNOWN";
 }

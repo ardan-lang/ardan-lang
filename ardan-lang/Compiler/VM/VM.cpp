@@ -7,6 +7,13 @@
 
 #include "VM.hpp"
 
+VM::VM() {
+    globals["print"] = Value::function([](vector<Value> args) -> Value {
+        Print::print(args);
+        return Value::undefined();
+    });
+}
+
 Value VM::pop() {
     if (stack.empty()) return Value::undefined();
     Value v = stack.back();
@@ -94,7 +101,7 @@ Value VM::getProperty(const Value &objVal, const string &propName) {
 
 void VM::setProperty(const Value &objVal, const string &propName, const Value &val) {
     if (objVal.type == ValueType::OBJECT) {
-        objVal.objectValue->set(propName, val);
+        objVal.objectValue->set(propName, val, "VAR", {});
         return;
     }
     if (objVal.type == ValueType::ARRAY) {
@@ -177,7 +184,7 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 string name = nameVal.toString();
                 Value v = pop();
                 globals[name] = v;
-                push(v);
+                //push(v);
                 break;
             }
 
@@ -187,7 +194,7 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 string name = nameVal.toString();
                 Value v = pop();
                 globals[name] = v;
-                push(v);
+                //push(v);
                 break;
             }
 
@@ -216,6 +223,16 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 string prop = chunk->constants[ci].toString();
                 Value objVal = pop();
                 Value v = getProperty(objVal, prop);
+                push(v);
+                break;
+            }
+                
+            case OpCode::OP_GET_PROPERTY_DYNAMIC: {
+                // object is on stack
+                // property is on stack
+                Value val = pop();
+                Value objVal = pop();
+                Value v = getProperty(objVal, val.toString());
                 push(v);
                 break;
             }
@@ -287,6 +304,18 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 push(Value::boolean(!isTruthy(a)));
                 break;
             }
+                
+            case OpCode::OP_INCREMENT: {
+                
+                Value a = pop();
+                Value b = pop();
+                
+                int sum = a.numberValue + b.numberValue;
+                
+                push(Value(sum));
+
+                break;
+            }
 
             case OpCode::OP_EQUAL: {
                 Value b = pop();
@@ -294,34 +323,86 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 push(Value::boolean(equals(a,b)));
                 break;
             }
+
             case OpCode::OP_NOTEQUAL: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(!equals(a,b)));
                 break;
             }
+
             case OpCode::OP_LESS: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue < b.numberValue));
                 break;
             }
+                
             case OpCode::OP_LESSEQUAL: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue <= b.numberValue));
                 break;
             }
+                
             case OpCode::OP_GREATER: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue > b.numberValue));
                 break;
             }
+                
             case OpCode::OP_GREATEREQUAL: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue >= b.numberValue));
+                break;
+            }
+                                
+            case OpCode::LOGICAL_AND: {
+                break;
+            }
+                
+            case OpCode::LOGICAL_OR: {
+                break;
+            }
+                
+            case OpCode::NULLISH_COALESCING: {
+                break;
+            }
+                
+            case OpCode::REFERENCE_EQUAL: {
+                break;
+            }
+                
+            case OpCode::STRICT_INEQUALITY: {
+                break;
+            }
+            case OpCode::OP_DECREMENT: {
+                break;
+            }
+                
+                // bitwise
+            case OpCode::OP_BIT_AND: {
+                break;
+            }
+            case OpCode::OP_BIT_OR: {
+                break;
+            }
+            case OpCode::OP_BIT_XOR: {
+                break;
+            }
+            case OpCode::OP_SHL: {
+                break;
+            }
+            case OpCode::OP_SHR: {
+                break;
+            }
+            case OpCode::OP_USHR: {
+                break;
+            }
+                
+            case OpCode::OP_POSITIVE: {
                 break;
             }
 
@@ -356,7 +437,6 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 if (callee.type == ValueType::FUNCTION) {
                     // call host function (native or compiled wrapper)
                     Value result = callee.functionValue(args);
-                    push(result);
                 } else {
                     throw std::runtime_error("Attempted to call a non-function value.");
                 }

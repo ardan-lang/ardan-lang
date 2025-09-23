@@ -53,7 +53,26 @@ enum class OpCode : uint8_t {
     OP_LESSEQUAL,
     OP_GREATER,
     OP_GREATEREQUAL,
-
+    
+    LOGICAL_AND, // &&
+    LOGICAL_OR, // ||
+    NULLISH_COALESCING, // ? :
+    REFERENCE_EQUAL, // ===
+    STRICT_INEQUALITY, // !==
+    
+    OP_INCREMENT,
+    OP_DECREMENT,
+    
+    // bitwise
+    OP_BIT_AND,
+    OP_BIT_OR,
+    OP_BIT_XOR,
+    OP_SHL,
+    OP_SHR,
+    OP_USHR,
+    
+    OP_POSITIVE,
+    
     // jumps
     OP_JUMP,            // u32 offset (forward)
     OP_JUMP_IF_FALSE,   // u32 offset
@@ -62,6 +81,8 @@ enum class OpCode : uint8_t {
     // calls & returns
     OP_CALL,            // u8 arg_count
     OP_RETURN,          // return top of stack (pop)
+    
+    OP_GET_PROPERTY_DYNAMIC,
 
     // debug / sentinel
     OP_HALT

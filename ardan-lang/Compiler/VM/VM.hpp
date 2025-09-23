@@ -24,6 +24,8 @@
 #include "../../Interpreter/ExecutionContext/JSArray/JSArray.h"
 #include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
 #include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "../../Interpreter/Utils/Utils.h"
+#include "../../builtin/Print/Print.hpp"
 
 using namespace std;
 
@@ -39,7 +41,7 @@ using std::string;
 
 class VM {
 public:
-    VM() = default;
+    VM();
 
     // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<Chunk> chunk, const vector<Value>& args = {});

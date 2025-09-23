@@ -14,5 +14,6 @@ Compiler::~Compiler() {}
 void Compiler::compile(const vector<unique_ptr<Statement>> &ast) {
     auto codegen = std::make_shared<CodeGen>();
     VM vm;
-    vm.run(codegen->generate(ast));
+    auto bytceodes = codegen->generate(ast);
+    vm.run(bytceodes);
 }
