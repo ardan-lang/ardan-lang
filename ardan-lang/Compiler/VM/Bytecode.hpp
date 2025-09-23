@@ -64,7 +64,7 @@ enum class OpCode : uint8_t {
     OP_DECREMENT,
     
     // bitwise
-    OP_BIT_AND,
+    OP_BIT_AND, // &
     OP_BIT_OR,
     OP_BIT_XOR,
     OP_SHL,

@@ -360,10 +360,18 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
             }
                                 
             case OpCode::LOGICAL_AND: {
+                Value b = pop();
+                Value a = pop();
+                bool result = isTruthy(a) && isTruthy(b);
+                push(Value::boolean(result));
                 break;
             }
-                
+
             case OpCode::LOGICAL_OR: {
+                Value b = pop();
+                Value a = pop();
+                bool result = isTruthy(a) || isTruthy(b);
+                push(Value::boolean(result));
                 break;
             }
                 
@@ -372,37 +380,111 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
             }
                 
             case OpCode::REFERENCE_EQUAL: {
+                Value b = pop();
+                Value a = pop();
+                bool isEqual = false;
+                // For objects/arrays: compare pointers
+                if (a.type == b.type) {
+                    if (a.type == ValueType::OBJECT)
+                        isEqual = (a.objectValue == b.objectValue);
+                    else if (a.type == ValueType::ARRAY)
+                        isEqual = (a.arrayValue == b.arrayValue);
+                    // For other types, could default to pointer or identity check
+                }
+                push(Value::boolean(isEqual));
                 break;
             }
                 
             case OpCode::STRICT_INEQUALITY: {
+                Value b = pop();
+                Value a = pop();
+                bool notEqual = false;
+                // For numbers, strings, booleans, etc
+                if (a.type != b.type) {
+                    notEqual = true;
+                } else {
+                    // For numbers
+                    if (a.type == ValueType::NUMBER)
+                        notEqual = a.numberValue != b.numberValue;
+                    // For strings
+                    else if (a.type == ValueType::STRING)
+                        notEqual = a.stringValue != b.stringValue;
+                    // For booleans
+                    else if (a.type == ValueType::BOOLEAN)
+                        notEqual = a.boolValue != b.boolValue;
+                    // For objects/arrays, compare pointers
+                    else if (a.type == ValueType::OBJECT)
+                        notEqual = a.objectValue != b.objectValue;
+                    else if (a.type == ValueType::ARRAY)
+                        notEqual = a.arrayValue != b.arrayValue;
+                    // etc.
+                }
+                push(Value::boolean(notEqual));
                 break;
             }
+                
             case OpCode::OP_DECREMENT: {
+                Value a = pop();
+                Value b = pop();
+                int sum = a.numberValue - b.numberValue;
+                push(Value(sum));
                 break;
             }
                 
                 // bitwise
             case OpCode::OP_BIT_AND: {
+                Value b = pop();
+                Value a = pop();
+                int result = (int)a.numberValue & (int)b.numberValue;
+                push(Value(result));
                 break;
             }
+
             case OpCode::OP_BIT_OR: {
+                Value b = pop();
+                Value a = pop();
+                int result = (int)a.numberValue | (int)b.numberValue;
+                push(Value(result));
                 break;
             }
+
             case OpCode::OP_BIT_XOR: {
+                Value b = pop();
+                Value a = pop();
+                int result = (int)a.numberValue ^ (int)b.numberValue;
+                push(Value(result));
                 break;
             }
+
             case OpCode::OP_SHL: {
+                Value b = pop(); // shift amount
+                Value a = pop(); // value to shift
+                int result = (int)a.numberValue << (int)b.numberValue;
+                push(Value(result));
                 break;
             }
+
             case OpCode::OP_SHR: {
+                Value b = pop(); // shift amount
+                Value a = pop(); // value to shift
+                int result = (int)a.numberValue >> (int)b.numberValue;
+                push(Value(result));
                 break;
             }
+
             case OpCode::OP_USHR: {
+                Value b = pop(); // shift amount
+                Value a = pop(); // value to shift
+                unsigned int result = (unsigned int)a.numberValue >> (unsigned int)b.numberValue;
+                push(Value(result));
                 break;
             }
                 
             case OpCode::OP_POSITIVE: {
+                Value a = pop();
+                Value b = pop();
+                int result = (int)a.numberValue & (int)b.numberValue;
+                push(Value(result));
                 break;
             }
 
@@ -412,12 +494,14 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 ip += offset;
                 break;
             }
+
             case OpCode::OP_JUMP_IF_FALSE: {
                 uint32_t offset = readUint32();
                 Value cond = pop();
                 if (!isTruthy(cond)) ip += offset;
                 break;
             }
+
             case OpCode::OP_LOOP: {
                 uint32_t offset = readUint32();
                 // jump backwards
