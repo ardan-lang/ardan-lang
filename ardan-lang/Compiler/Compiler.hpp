@@ -11,6 +11,7 @@
 
 #include "VM/VM.hpp"
 #include "CodeGenerator.hpp"
+#include "VM/Module.hpp"
 
 class Chunk;
 

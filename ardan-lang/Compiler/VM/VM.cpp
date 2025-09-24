@@ -14,6 +14,15 @@ VM::VM() {
     });
 }
 
+VM::VM(shared_ptr<Module> module_) : module_(module_) {
+    
+    globals["print"] = Value::function([](vector<Value> args) -> Value {
+        Print::print(args);
+        return Value::undefined();
+    });
+    
+}
+
 Value VM::pop() {
     if (stack.empty()) return Value::undefined();
     Value v = stack.back();
@@ -116,16 +125,46 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
 }
 
 Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
-    chunk = chunk_;
-    ip = 0;
-    stack.clear();
+    // prepare a top-level frame that will be executed by runFrame()
+    CallFrame frame;
+    frame.chunk = chunk_;
+    frame.ip = 0;
+    frame.locals.resize(chunk_->maxLocals, Value::undefined());
+    uint32_t ncopy = std::min((uint32_t)args.size(), chunk_->maxLocals);
+    for (uint32_t i = 0; i < ncopy; ++i) frame.locals[i] = args[i];
 
-    // initialize locals
-    locals.clear();
-    locals.resize(chunk->maxLocals, Value::undefined());
-    // copy args into first slots
-    uint32_t ncopy = std::min((uint32_t)args.size(), chunk->maxLocals);
-    for (uint32_t i = 0; i < ncopy; ++i) locals[i] = args[i];
+    callStack.push_back(std::move(frame));
+    Value result = runFrame();
+    callStack.pop_back();
+    return result;
+}
+
+Value VM::runFrame() {
+    
+    if (callStack.empty()) return Value::undefined();
+    CallFrame &frame = callStack.back();
+
+    // Save current VM-level chunk/ip/locals to restore after this frame (if they are used elsewhere)
+    auto prevChunk = chunk;
+    // size_t prevIp = ip;
+    auto prevLocals = std::move(locals); // move out current locals (if you rely on them elsewhere)
+    // We'll restore them at the end.
+
+    // Point VM at this frame's chunk/locals
+    chunk = frame.chunk;
+    ip = frame.ip;
+    locals = frame.locals; // copy frame locals into VM locals for existing opcode handlers
+
+//    chunk = chunk_;
+//    ip = 0;
+//    stack.clear();
+//
+//    // initialize locals
+//    locals.clear();
+//    locals.resize(chunk->maxLocals, Value::undefined());
+//    // copy args into first slots
+//    uint32_t ncopy = std::min((uint32_t)args.size(), chunk->maxLocals);
+//    for (uint32_t i = 0; i < ncopy; ++i) locals[i] = args[i];
 
     while (true) {
         OpCode op = static_cast<OpCode>(readByte());
@@ -133,6 +172,7 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
             case OpCode::OP_NOP:
                 break;
 
+                // pushes the constant to stack
             case OpCode::OP_CONSTANT: {
                 uint32_t ci = readUint32();
                 push(chunk->constants[ci]);
@@ -169,6 +209,7 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 break;
             }
 
+                // pushes the value of the global to stack
             case OpCode::OP_GET_GLOBAL: {
                 uint32_t ci = readUint32();
                 Value nameVal = chunk->constants[ci];
@@ -178,23 +219,25 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 break;
             }
 
+                // leaves nothing on stack
             case OpCode::OP_SET_GLOBAL: {
                 uint32_t ci = readUint32();
                 Value nameVal = chunk->constants[ci];
                 string name = nameVal.toString();
                 Value v = pop();
                 globals[name] = v;
-                //push(v);
+                push(v);
                 break;
             }
 
+                // leaves nothing on stack
             case OpCode::OP_DEFINE_GLOBAL: {
                 uint32_t ci = readUint32();
                 Value nameVal = chunk->constants[ci];
                 string name = nameVal.toString();
                 Value v = pop();
                 globals[name] = v;
-                //push(v);
+                push(v);
                 break;
             }
 
@@ -509,21 +552,32 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
                 break;
             }
 
+//            case OpCode::OP_CALL: {
+//                uint8_t argc = readUint8();
+//                vector<Value> args(argc);
+//                // args were pushed left-to-right; pop in reverse to place in array correctly
+//                for (int i = argc - 1; i >= 0; --i) {
+//                    args[i] = pop();
+//                }
+//                Value callee = pop();
+//
+//                if (callee.type == ValueType::FUNCTION) {
+//                    // call host function (native or compiled wrapper)
+//                    Value result = callee.functionValue(args);
+//                } else {
+//                    throw std::runtime_error("Attempted to call a non-function value.");
+//                }
+//                break;
+//            }
+            
             case OpCode::OP_CALL: {
-                uint8_t argc = readUint8();
-                vector<Value> args(argc);
-                // args were pushed left-to-right; pop in reverse to place in array correctly
-                for (int i = argc - 1; i >= 0; --i) {
-                    args[i] = pop();
-                }
-                Value callee = pop();
-
-                if (callee.type == ValueType::FUNCTION) {
-                    // call host function (native or compiled wrapper)
-                    Value result = callee.functionValue(args);
-                } else {
-                    throw std::runtime_error("Attempted to call a non-function value.");
-                }
+                uint32_t argCount = readUint8();
+                // top-of-stack should be the callee value (function ref)
+                Value callee = peek(argCount); // or adjust as per your calling convention
+                vector<Value> args = popArgs(argCount);
+                Value result = callFunction(callee, args);
+                // pop callee and args and push result
+                push(result);
                 break;
             }
 
@@ -540,4 +594,69 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
         }
     }
     return Value::undefined();
+}
+
+Value VM::callFunction(Value callee, vector<Value>& args) {
+    
+    if (callee.type == ValueType::FUNCTION) {
+        // call host function (native or compiled wrapper)
+        Value result = callee.functionValue(args);
+        return result;
+    }
+    
+    if (callee.type != ValueType::FUNCTION_REF) {
+        // runtimeError("Attempt to call non-function");
+        return Value::undefined();
+    }
+    
+    auto fn = callee.fnRef;
+    
+    if (!module_) {
+        // runtimeError("Module not set in VM");
+        return Value::undefined();
+    }
+    
+    if (fn->chunkIndex >= module_->chunks.size()) {
+        // runtimeError("Bad function index");
+        return Value::undefined();
+    }
+    
+    shared_ptr<Chunk> calleeChunk = module_->chunks[fn->chunkIndex];
+
+    // Build new frame
+    CallFrame frame;
+    frame.chunk = calleeChunk;
+    frame.ip = 0;
+    // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
+    frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+
+    // copy args into frame.locals[0..]
+    uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
+    for (uint32_t i = 0; i < ncopy; ++i) frame.locals[i] = args[i];
+
+    // push frame and execute it
+    callStack.push_back(std::move(frame));
+    Value result = runFrame();
+    callStack.pop_back();
+
+    return result;
+    
+}
+
+vector<Value> VM::popArgs(size_t count) {
+    
+    vector<Value> args;
+    args.resize(count, Value::undefined());
+
+    // args were pushed left-to-right, so top of stack is last arg.
+    // pop in reverse to restore original order into args[0..count-1].
+    for (size_t i = 0; i < count; ++i) {
+        if (stack.empty()) {
+            args[count - 1 - i] = Value::undefined();
+        } else {
+            args[count - 1 - i] = stack.back();
+            stack.pop_back();
+        }
+    }
+    return args;
 }

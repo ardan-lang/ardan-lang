@@ -15,7 +15,6 @@
 
 #include "../ExpressionVisitor/ExpressionVisitor.hpp"
 #include "../Statements/StatementVisitor.hpp"
-//#include "../Interpreter/R.hpp"
 #include "../Statements/Statements.hpp"
 #include "../Expression/Expression.hpp"
 #include "../Interpreter/Utils/Utils.h"
@@ -23,6 +22,7 @@
 #include "VM/Bytecode.hpp"
 #include "VM/Chunk.hpp"
 #include "VM/VM.hpp"
+#include "VM/Module.hpp"
 
 using namespace std;
 
@@ -34,7 +34,9 @@ using std::vector;
 class CodeGen : public ExpressionVisitor, public StatementVisitor {
 public:
     CodeGen();
-
+    CodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
+    shared_ptr<Module> module_;
+    
     shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
     void emitAssignment(BinaryExpression* expr);
     

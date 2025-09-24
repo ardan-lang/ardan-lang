@@ -16,6 +16,18 @@
 
 using namespace std;
 
+// forward
+struct Chunk;
+
+// A tiny Function object: holds chunk id/index and arity (and optional name)
+struct FunctionObject {
+    uint32_t chunkIndex;   // index into module/file chunk table
+    uint32_t arity;
+    std::string name;
+
+    // optional: other metadata (source location, flags)
+};
+
 enum class ValueType {
     NUMBER,
     STRING,
@@ -27,7 +39,8 @@ enum class ValueType {
     NATIVE_FUNCTION,
     FUNCTION,
     METHOD,
-    PROMISE
+    PROMISE,
+    FUNCTION_REF
 };
 
 class Value;
@@ -53,6 +66,7 @@ public:
     NativeFn nativeFunction;
     function<Value(std::vector<Value>)> functionValue;
     shared_ptr<Promise> promiseValue;
+    std::shared_ptr<FunctionObject> fnRef; // if FUNCTION_REF
     
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
     
@@ -90,6 +104,10 @@ public:
         v.type = ValueType::OBJECT;
         v.objectValue = promise_value;
         return v;
+    }
+    
+    static Value functionRef(std::shared_ptr<FunctionObject> f) {
+        Value v; v.type = ValueType::FUNCTION_REF; v.fnRef = f; return v;
     }
     
     Value(int n);
