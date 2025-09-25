@@ -154,7 +154,7 @@ Value VM::runFrame() {
     chunk = frame.chunk;
     ip = frame.ip;
     locals = frame.locals; // copy frame locals into VM locals for existing opcode handlers
-
+        
 //    chunk = chunk_;
 //    ip = 0;
 //    stack.clear();
@@ -166,7 +166,7 @@ Value VM::runFrame() {
 //    uint32_t ncopy = std::min((uint32_t)args.size(), chunk->maxLocals);
 //    for (uint32_t i = 0; i < ncopy; ++i) locals[i] = args[i];
 
-    while (true) {
+    while (running) {
         OpCode op = static_cast<OpCode>(readByte());
         switch (op) {
             case OpCode::OP_NOP:
@@ -604,7 +604,122 @@ Value VM::runFrame() {
                 push(result);
                 break;
             }
+                
+            case OpCode::OP_TRY: {
+                uint32_t catchOffset = readUint32();   // relative offset from after the two offsets
+                uint32_t finallyOffset = readUint32();
+                // compute absolute IPs
+                int base = ip; // ip now points after the offsets
+                TryFrame f;
+                f.catchIP = (catchOffset == 0) ? -1 : (base + (int)catchOffset);
+                f.finallyIP = (finallyOffset == 0) ? -1 : (base + (int)finallyOffset);
+                f.stackDepth = (int)stack.size();
+                // ipAfterTry can be filled later by codegen if you want; keep -1 if unused
+                f.ipAfterTry = -1;
+                tryStack.push_back(f);
+                break;
+            }
 
+            case OpCode::OP_END_TRY: {
+                if (tryStack.empty()) {
+                    // runtime error: unmatched END_TRY
+                    running = false;
+                    break;
+                }
+                tryStack.pop_back();
+                break;
+            }
+                
+            case OpCode::OP_THROW: {
+                // exception value on top of stack
+                Value exc = pop();
+                // unwind frames until we find a handler (catch or finally)
+                bool handled = false;
+                // Store a 'pending exception' to know we are unwinding due to throw
+                Value pending = exc;
+                
+                while (!tryStack.empty()) {
+                    TryFrame f = tryStack.back();
+                    tryStack.pop_back();
+                    
+                    // first, unwind the value stack to the depth at try entry
+                    while ((int)stack.size() > f.stackDepth) stack.pop_back();
+                    
+                    // If there is a finally, run it first.
+                    if (f.finallyIP != -1) {
+                        // push pending exception so finalizer can see it if needed
+                        stack.push_back(pending);
+                        
+                        // Record a special marker frame to indicate we are resuming a throw after finally
+                        // We'll push a synthetic TryFrame with catchIP = original catchIP, finallyIP = -1
+                        TryFrame resume;
+                        resume.catchIP = f.catchIP;
+                        resume.finallyIP = -1; // don't re-run finalizer
+                        resume.stackDepth = f.stackDepth; // after finally resumes, stack depth should be this
+                        resume.ipAfterTry = -1;
+                        tryStack.push_back(resume);
+                        // jump into finalizer
+                        ip = f.finallyIP;
+                        handled = true; // we will handle after finalizer/resume
+                        break;
+                    }
+                    
+                    // If no finally, but there is a catch, jump to catch and push exception
+                    if (f.catchIP != -1) {
+                        stack.push_back(pending);
+                        ip = f.catchIP;
+                        handled = true;
+                        break;
+                    }
+                    
+                    // else continue unwinding to outer try frame
+                }
+                
+                if (!handled) {
+                    // uncaught
+                    // Here: runtime uncaught exception -> abort or print error
+                    // For demo, we stop the VM
+                    printf("Uncaught exception, halting VM\n");
+                    running = false;
+                }
+                break;
+            }
+                
+            case OpCode::OP_END_FINALLY: {
+                // When a finally finishes, we must check whether we have a resume frame that carries a pending throw
+                // Approach: if there is a TryFrame on tryStack whose catchIP != -1 and which we pushed as resume frame,
+                // then either jump into catch or rethrow.
+                if (!tryStack.empty()) {
+                    TryFrame resume = tryStack.back();
+                    // If resume.finallyIP == -1, we treat this as the resume frame we pushed earlier
+                    if (resume.finallyIP == -1) {
+                        tryStack.pop_back();
+                        if (resume.catchIP != -1) {
+                            // pending exception should be on stack top
+                            // jump into catch with exception on stack
+                            ip = resume.catchIP;
+                            break;
+                        } else {
+                            // no catch for the pending exception, continue unwinding:
+                            // emulate throwing again: pop pending exception and re-run OP_THROW logic
+                            Value pending = pop();
+                            // continue throw loop by re-inserting pending on stack and handling next frame
+                            // simplest approach: directly re-run THROW handling by pushing pending and continuing
+                            // For clarity, we will set a special behaviour: re-insert pending and emulate OP_THROW
+                            stack.push_back(pending);
+                            // simulate OP_THROW logic by jumping back one step: decrement ip so we re-execute OP_THROW
+                            // But cleaner: call a helper to handle rethrow. For brevity we perform a manual loop here.
+                            // (In production you would share the throw-handling code.)
+                            // For now: we'll call a helper:
+                            handleRethrow();
+                            break;
+                        }
+                    }
+                }
+                // Normal end finally with no pending throw resume -> continue execution
+                break;
+            }
+                
             case OpCode::OP_RETURN: {
                 Value v = pop();
                 return v;
@@ -683,4 +798,38 @@ vector<Value> VM::popArgs(size_t count) {
         }
     }
     return args;
+}
+
+void VM::handleRethrow() {
+    // simplified: pop pending exception and re-run OP_THROW-like unwinding
+    if (stack.empty()) { running = false; return; }
+    Value pending = pop();
+    // Re-run throw loop: same as OP_THROW handling but without recursion here.
+    bool handled = false;
+    while (!tryStack.empty()) {
+        TryFrame f = tryStack.back();
+        tryStack.pop_back();
+        while ((int)stack.size() > f.stackDepth) stack.pop_back();
+        if (f.finallyIP != -1) {
+            stack.push_back(pending);
+            TryFrame resume;
+            resume.catchIP = f.catchIP;
+            resume.finallyIP = -1;
+            resume.stackDepth = f.stackDepth;
+            tryStack.push_back(resume);
+            ip = f.finallyIP;
+            handled = true;
+            break;
+        }
+        if (f.catchIP != -1) {
+            stack.push_back(pending);
+            ip = f.catchIP;
+            handled = true;
+            break;
+        }
+    }
+    if (!handled) {
+        printf("Uncaught exception after finally, halting VM\n");
+        running = false;
+    }
 }

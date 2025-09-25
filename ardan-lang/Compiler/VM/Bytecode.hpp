@@ -90,6 +90,12 @@ enum class OpCode : uint8_t {
     // class
     OP_NEW_CLASS,
     
+    // try-catch-finally
+    OP_TRY,
+    OP_END_TRY,
+    OP_END_FINALLY,
+    OP_THROW,
+    
     // debug / sentinel
     OP_HALT
 };

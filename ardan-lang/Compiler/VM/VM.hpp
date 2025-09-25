@@ -47,6 +47,13 @@ struct CallFrame {
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
 };
 
+struct TryFrame {
+    int catchIP;      // -1 if none
+    int finallyIP;    // -1 if none
+    int stackDepth;   // stack size at entry
+    int ipAfterTry;   // where the linear try block ends (for normal flow)
+};
+
 class VM {
 public:
     VM();
@@ -71,6 +78,9 @@ private:
     
     // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame();
+    void handleRethrow();
+    bool running = true;
+    vector<TryFrame> tryStack;
     
     // execution state for a run
     shared_ptr<Chunk> chunk;

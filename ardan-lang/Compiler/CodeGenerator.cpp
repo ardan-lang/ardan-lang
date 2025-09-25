@@ -91,6 +91,9 @@ R CodeGen::visitIf(IfStatement* stmt) {
 }
 
 R CodeGen::visitWhile(WhileStatement* stmt) {
+    beginLoop();
+    loopStack.back().loopStart = (int)cur->size();
+
     // loop start
     size_t loopStart = cur->size();
     stmt->test->accept(*this);
@@ -104,10 +107,17 @@ R CodeGen::visitWhile(WhileStatement* stmt) {
     emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
     patchJump(exitJump);
     emit(OpCode::OP_POP);
+    
+    endLoop();
+    
     return true;
 }
 
 R CodeGen::visitFor(ForStatement* stmt) {
+    
+    beginLoop();
+    loopStack.back().loopStart = (int)cur->size();
+
     // For simplicity, translate to while:
     if (stmt->init) stmt->init->accept(*this);
     size_t loopStart = cur->size();
@@ -127,6 +137,9 @@ R CodeGen::visitFor(ForStatement* stmt) {
         if (stmt->update) stmt->update->accept(*this);
         emitLoop((uint32_t)(cur->size() - loopStart ) + 4 + 1);
     }
+    
+    endLoop();
+    
     return true;
 }
 
@@ -988,31 +1001,6 @@ R CodeGen::visitTrueKeyword(TrueKeyword* expr) {
     return true;
 }
 
-R CodeGen::visitPublicKeyword(PublicKeyword* expr) {
-    
-    return true;
-}
-
-R CodeGen::visitPrivateKeyword(PrivateKeyword* expr) {
-    return true;
-}
-
-R CodeGen::visitProtectedKeyword(ProtectedKeyword* expr) {
-    return true;
-}
-
-R CodeGen::visitStaticKeyword(StaticKeyword* expr) {
-    return true;
-}
-
-R CodeGen::visitRestParameter(RestParameter* expr) {
-    return true;
-}
-
-R CodeGen::visitClassExpression(ClassExpression* expr) {
-    return true;
-}
-
 R CodeGen::visitNullKeyword(NullKeyword* expr) {
     emit(OpCode::OP_CONSTANT);
     emitUint32(emitConstant(Value::nullVal()));
@@ -1071,8 +1059,8 @@ R CodeGen::visitContinue(ContinueStatement* stmt) {
 
 R CodeGen::visitThrow(ThrowStatement* stmt) {
     // Evaluate the exception value
-    stmt->argument->accept(*this);
-    // emit(OpCode::OP_THROW);
+    // stmt->argument->accept(*this);
+    emit(OpCode::OP_THROW);
     return true;
 }
 
@@ -1180,127 +1168,142 @@ R CodeGen::visitSwitchCase(SwitchCase* stmt) {
     // Each case's test should have already been checked in visitSwitch
     // Emit the body of this case
     for (auto& s : stmt->consequent) {
-        s->accept(*this);
+        if (auto break_stmt = dynamic_cast<BreakStatement*>(s.get())) {
+            continue;
+        } else {
+            s->accept(*this);
+
+        }
     }
     return true;
 }
 
 R CodeGen::visitSwitch(SwitchStatement* stmt) {
-    // Evaluate the discriminant once, keep it through all comparisons.
-    stmt->discriminant->accept(*this); // [discriminant]
+    std::vector<int> caseJumps;
+    int defaultJump = -1;
 
-    std::vector<int> caseJumpPositions;
-    std::vector<int> breakJumpPositions;
-    int defaultCaseIndex = -1;
+    // Evaluate the discriminant and leave on stack
+    stmt->discriminant->accept(*this);
 
-    // First: emit jump checks for all cases (except default), collect body positions.
-    std::vector<int> bodyPositions; // tracks where to jump for each case's body
-
+    // Emit checks for each case
     for (size_t i = 0; i < stmt->cases.size(); ++i) {
-        SwitchCase* kase = stmt->cases[i].get();
-
-        if (kase->test) {
-            // Duplicate discriminant for safe comparison
+        SwitchCase* scase = stmt->cases[i].get();
+        if (scase->test) {
+            // Duplicate discriminant for comparison
             emit(OpCode::OP_DUP);
-            kase->test->accept(*this); // push case value
+            scase->test->accept(*this);
             emit(OpCode::OP_EQUAL);
-            // If false, jump to next check
-            int condFalseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+
+            // If not equal, jump to next
+            int jump = emitJump(OpCode::OP_JUMP_IF_FALSE);
             emit(OpCode::OP_POP); // pop comparison result
-            // Matched: jump to body
-            bodyPositions.push_back((int)cur->size());
-            caseJumpPositions.push_back(condFalseJump);
+
+            // If equal, pop discriminant, emit case body, and jump to end
+            emit(OpCode::OP_POP);
+            scase->accept(*this);
+            caseJumps.push_back(emitJump(OpCode::OP_JUMP));
+            patchJump(jump);
         } else {
-            // Default case
-            defaultCaseIndex = (int)i;
-            bodyPositions.push_back((int)cur->size());
+            // Default case: remember its position
+            defaultJump = (int)cur->size();
+            // pop discriminant for default
+            emit(OpCode::OP_POP);
+            scase->accept(*this);
+            // No jump needed after default
         }
     }
 
-    // Patch unmatched jumps to next check or default
-    int afterChecks = (int)cur->size();
-    for (int pos : caseJumpPositions) {
-        patchJump(pos);
+    // Patch all jumps to here (after switch body)
+    for (int jmp : caseJumps) {
+        patchJump(jmp);
     }
-
-    // Now: emit each case body, with fallthrough by default
-    for (size_t i = 0; i < stmt->cases.size(); ++i) {
-        SwitchCase* kase = stmt->cases[i].get();
-
-        // Place label for this case's body (patch jumps here)
-        // (If CodeGen does not directly support labels, skip; patch bodyPositions after bodies emitted)
-
-        for (auto& stmt : kase->consequent) {
-            stmt->accept(*this);
-            // If the stmt is a break, emit a jump to after the switch; collect patch positions
-            // (Assume break handling logic already patches to after switch)
-        }
-        // If you want explicit fallthrough, do nothing here (next case's body will start executing)
-        // If you want to prevent fallthrough, emit a jump to after the switch unless the last stmt is break.
-    }
-
-    // After switch: patch all break jumps
-    int afterSwitch = (int)cur->size();
-    for (int breakPos : breakJumpPositions) {
-        patchJump(breakPos);
-    }
-
-    // Clean up: pop the discriminant if it remains
-    emit(OpCode::OP_POP);
 
     return true;
 }
-
-//R CodeGen::visitSwitch(SwitchStatement* stmt) {
-//    std::vector<int> caseJumps;
-//    int defaultJump = -1;
-//
-//    // Evaluate the discriminant and leave on stack
-//    stmt->discriminant->accept(*this);
-//
-//    // Emit checks for each case
-//    for (size_t i = 0; i < stmt->cases.size(); ++i) {
-//        SwitchCase* scase = stmt->cases[i].get();
-//        if (scase->test) {
-//            // Duplicate discriminant for comparison
-//            emit(OpCode::OP_DUP);
-//            scase->test->accept(*this);
-//            emit(OpCode::OP_EQUAL);
-//
-//            // If not equal, jump to next
-//            int jump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-//            emit(OpCode::OP_POP); // pop comparison result
-//
-//            // If equal, pop discriminant, emit case body, and jump to end
-//            emit(OpCode::OP_POP);
-//            scase->accept(*this);
-//            caseJumps.push_back(emitJump(OpCode::OP_JUMP));
-//            patchJump(jump);
-//        } else {
-//            // Default case: remember its position
-//            defaultJump = (int)cur->size();
-//            // pop discriminant for default
-//            emit(OpCode::OP_POP);
-//            scase->accept(*this);
-//            // No jump needed after default
-//        }
-//    }
-//
-//    // Patch all jumps to here (after switch body)
-//    for (int jmp : caseJumps) {
-//        patchJump(jmp);
-//    }
-//
-//    return true;
-//}
 
 R CodeGen::visitCatch(CatchClause* stmt) {
     return true;
 }
 
 R CodeGen::visitTry(TryStatement* stmt) {
+    // Mark start of try
+    int tryPos = emitTryPlaceholder();
+
+    // Compile try block
+    stmt->block->accept(*this);
+
+    // End of try
+    emit(OpCode::OP_END_TRY);
+
+    int endJump = -1;
+
+    // If there's a catch, emit jump over it for normal completion
+    if (stmt->handler) {
+        endJump = emitJump(OpCode::OP_JUMP);
+        // Patch catch offset
+        patchTryCatch(tryPos, (int)cur->size());
+
+        // Bind catch parameter (VM leaves exception value on stack)
+        declareLocal(stmt->handler->param);
+        emitSetLocal(paramSlot(stmt->handler->param));
+
+        stmt->handler->body->accept(*this);
+    }
+
+    // Jump over finally if we had a catch
+    if (endJump != -1) {
+        patchJump(endJump);
+    }
+
+    // If there's a finally, patch and emit it
+    if (stmt->finalizer) {
+        patchTryFinally(tryPos, (int)cur->size());
+
+        stmt->finalizer->accept(*this);
+        emit(OpCode::OP_END_FINALLY);
+    }
+
     return true;
 }
+
+//R CodeGen::visitTry(TryStatement* stmt) {
+//    // mark start of try
+//    int tryStart = (int)cur->size();
+//
+//    // Reserve handler jump
+//    int handlerJump = emitTryPlaceholder();
+//
+//    // compile try block
+//    stmt->block->accept(*this);
+//
+//    // leave try
+//    emit(OpCode::OP_END_TRY);
+//
+//    int endJump = -1;
+//    if (stmt->handler) {
+//        endJump = emitJump(OpCode::OP_JUMP); // skip catch if no throw
+//    }
+//
+//    // patch handler here
+//    patchTry(handlerJump);
+//
+//    if (stmt->handler) {
+//        // bind catch param (VM leaves exception value on stack)
+//        declareLocal(stmt->handler->param);
+//        emitSetLocal(paramSlot(stmt->handler->param));
+//
+//        stmt->handler->body->accept(*this);
+//    }
+//
+//    if (endJump != -1) patchJump(endJump);
+//
+//    if (stmt->finalizer) {
+//        stmt->finalizer->accept(*this);
+//        emit(OpCode::OP_END_FINALLY);
+//    }
+//
+//    return true;
+//}
 
 R CodeGen::visitForIn(ForInStatement* stmt) {
     return true;
@@ -1311,6 +1314,31 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
 }
 
 R CodeGen::visitSuper(SuperExpression* stmt) {
+    return true;
+}
+
+R CodeGen::visitPublicKeyword(PublicKeyword* expr) {
+    
+    return true;
+}
+
+R CodeGen::visitPrivateKeyword(PrivateKeyword* expr) {
+    return true;
+}
+
+R CodeGen::visitProtectedKeyword(ProtectedKeyword* expr) {
+    return true;
+}
+
+R CodeGen::visitStaticKeyword(StaticKeyword* expr) {
+    return true;
+}
+
+R CodeGen::visitRestParameter(RestParameter* expr) {
+    return true;
+}
+
+R CodeGen::visitClassExpression(ClassExpression* expr) {
     return true;
 }
 
@@ -1406,6 +1434,64 @@ void CodeGen::endLoop() {
     for (int breakAddr : ctx.breaks) {
         patchJump(breakAddr, end);
     }
+}
+
+int CodeGen::emitTryPlaceholder() {
+    emit(OpCode::OP_TRY);
+
+    // Reserve 8 bytes (two u32: catchOffset, finallyOffset)
+    int pos = (int)cur->size();
+    for (int i = 0; i < 8; i++) {
+        cur->code.push_back(0);
+    }
+    return pos; // return position where we wrote the offsets
+}
+
+//int CodeGen::emitTryPlaceholder() {
+//    emit(OpCode::OP_TRY);
+//    // reserve 4 bytes for jump target (like your emitJump)
+//    int pos = (int)cur->size();
+//    emitUint32(0);
+//    return pos; // position of placeholder
+//}
+
+void CodeGen::patchTryCatch(int tryPos, int target) {
+    uint32_t offset = (uint32_t)(target - (tryPos + 8));
+    cur->code[tryPos + 0] = (offset >> 0) & 0xFF;
+    cur->code[tryPos + 1] = (offset >> 8) & 0xFF;
+    cur->code[tryPos + 2] = (offset >> 16) & 0xFF;
+    cur->code[tryPos + 3] = (offset >> 24) & 0xFF;
+}
+
+void CodeGen::patchTryFinally(int tryPos, int target) {
+    uint32_t offset = (uint32_t)(target - (tryPos + 8));
+    cur->code[tryPos + 4] = (offset >> 0) & 0xFF;
+    cur->code[tryPos + 5] = (offset >> 8) & 0xFF;
+    cur->code[tryPos + 6] = (offset >> 16) & 0xFF;
+    cur->code[tryPos + 7] = (offset >> 24) & 0xFF;
+}
+
+void CodeGen::patchTry(int pos) {
+    uint32_t offset = (uint32_t)(cur->size() - (pos + 4));
+    cur->code[pos + 0] = (offset >> 0) & 0xFF;
+    cur->code[pos + 1] = (offset >> 8) & 0xFF;
+    cur->code[pos + 2] = (offset >> 16) & 0xFF;
+    cur->code[pos + 3] = (offset >> 24) & 0xFF;
+}
+
+int CodeGen::declareLocal(const string& name) {
+    int slot = nextLocalSlot++;
+    locals[name] = slot;
+    return slot;
+}
+
+void CodeGen::emitSetLocal(int slot) {
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32(slot);
+}
+
+int CodeGen::paramSlot(const string& name) {
+    return locals[name];
 }
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset) {

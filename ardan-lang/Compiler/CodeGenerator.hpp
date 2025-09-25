@@ -31,6 +31,11 @@ struct LoopContext {
     vector<int> breaks;    // jump addresses that need patching
 };
 
+struct ExceptionHandler {
+    int handlerIP;
+    int stackDepth;
+};
+
 using std::shared_ptr;
 using std::unordered_map;
 using std::string;
@@ -119,6 +124,15 @@ private:
     uint32_t getLocal(const string &name);
     void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
 
+    int emitTryPlaceholder();
+    void patchTry(int pos);
+    void patchTryFinally(int tryPos, int target);
+    void patchTryCatch(int tryPos, int target);
+    
+    int declareLocal(const string& name);
+    void emitSetLocal(int slot);
+    int paramSlot(const string& name);
+    
     // jump helpers
     int emitJump(OpCode op);
     void patchJump(int jumpPos);
@@ -128,6 +142,9 @@ private:
     void beginLoop();
     void endLoop();
     vector<LoopContext> loopStack;
+    
+    vector<ExceptionHandler> handlerStack;
+
 };
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset);
