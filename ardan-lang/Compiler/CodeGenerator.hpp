@@ -26,6 +26,11 @@
 
 using namespace std;
 
+struct LoopContext {
+    int loopStart;              // address of loop condition start
+    vector<int> breaks;    // jump addresses that need patching
+};
+
 using std::shared_ptr;
 using std::unordered_map;
 using std::string;
@@ -117,8 +122,12 @@ private:
     // jump helpers
     int emitJump(OpCode op);
     void patchJump(int jumpPos);
+    void patchJump(int jumpPos, int target);
     void emitLoop(uint32_t offset);
     
+    void beginLoop();
+    void endLoop();
+    vector<LoopContext> loopStack;
 };
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset);

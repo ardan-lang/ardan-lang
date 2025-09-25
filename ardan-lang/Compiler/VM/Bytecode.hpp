@@ -83,7 +83,13 @@ enum class OpCode : uint8_t {
     OP_RETURN,          // return top of stack (pop)
     
     OP_GET_PROPERTY_DYNAMIC,
-
+    
+    OP_DUP2,
+    OP_SET_PROPERTY_DYNAMIC,
+    
+    // class
+    OP_NEW_CLASS,
+    
     // debug / sentinel
     OP_HALT
 };

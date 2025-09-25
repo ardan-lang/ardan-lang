@@ -843,9 +843,8 @@ R CodeGen::visitSequence(SequenceExpression* expr) {
 }
 
 R CodeGen::visitUpdate(UpdateExpression* expr) {
-    // Support both identifiers and member expressions
+    // Identifiers: x++
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
-        // Load current value
         if (hasLocal(ident->name)) {
             emit(OpCode::OP_GET_LOCAL);
             emitUint32(getLocal(ident->name));
@@ -854,11 +853,9 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             emit(OpCode::OP_GET_GLOBAL);
             emitUint32(nameIdx);
         }
-        // Increment or decrement
         emit(OpCode::OP_CONSTANT);
         emitUint32(emitConstant(Value::number(1)));
         emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
-        // Store back
         if (hasLocal(ident->name)) {
             emit(OpCode::OP_SET_LOCAL);
             emitUint32(getLocal(ident->name));
@@ -869,28 +866,86 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
         }
         return true;
     }
-    
+    // Member expressions: obj.x++, arr[i]++, obj[prop]++
     if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
-        // Evaluate object (once)
-        member->object->accept(*this); // stack: [obj]
-        emit(OpCode::OP_DUP); // [obj, obj]
-        int nameIdx = emitConstant(Value::str(member->name.lexeme));
-        // GET_PROPERTY (consumes one obj)
-        emit(OpCode::OP_GET_PROPERTY);
-        emitUint32(nameIdx); // [obj, value]
-        // push 1
-        emit(OpCode::OP_CONSTANT);
-        emitUint32(emitConstant(Value::number(1)));
-        // apply ++ or --
-        emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
-        // SET_PROPERTY (consumes [obj, value])
-        emit(OpCode::OP_SET_PROPERTY);
-        emitUint32(nameIdx);
-        return true;
+        if (member->computed) {
+            // Computed: arr[i]++ or obj[prop]++
+            member->object->accept(*this);     // [obj]
+            member->property->accept(*this);   // [obj, key]
+            emit(OpCode::OP_DUP2);             // [obj, key, obj, key]
+            emit(OpCode::OP_GET_PROPERTY_DYNAMIC); // [obj, key, value]
+            emit(OpCode::OP_CONSTANT);
+            emitUint32(emitConstant(Value::number(1)));
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, key, result]
+            emit(OpCode::OP_SET_PROPERTY_DYNAMIC); // [result]
+            return true;
+        } else {
+            // Non-computed: obj.x++
+            member->object->accept(*this); // [obj]
+            emit(OpCode::OP_DUP);          // [obj, obj]
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::OP_GET_PROPERTY);
+            emitUint32(nameIdx);           // [obj, value]
+            emit(OpCode::OP_CONSTANT);
+            emitUint32(emitConstant(Value::number(1)));
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, result]
+            emit(OpCode::OP_SET_PROPERTY);
+            emitUint32(nameIdx);           // [result]
+            return true;
+        }
     }
-    
-    throw std::runtime_error("Update target must be identifier or member expression");
+    throw std::runtime_error("Update target must be identifier or member expression (including computed/array member)");
 }
+
+//R CodeGen::visitUpdate(UpdateExpression* expr) {
+//    // Support both identifiers and member expressions
+//    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
+//        // Load current value
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_GET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_GET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
+//        // Increment or decrement
+//        emit(OpCode::OP_CONSTANT);
+//        emitUint32(emitConstant(Value::number(1)));
+//        emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+//        // Store back
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_SET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_SET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
+//        return true;
+//    }
+//    
+//    if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+//        // Evaluate object (once)
+//        member->object->accept(*this); // stack: [obj]
+//        emit(OpCode::OP_DUP); // [obj, obj]
+//        int nameIdx = emitConstant(Value::str(member->name.lexeme));
+//        // GET_PROPERTY (consumes one obj)
+//        emit(OpCode::OP_GET_PROPERTY);
+//        emitUint32(nameIdx); // [obj, value]
+//        // push 1
+//        emit(OpCode::OP_CONSTANT);
+//        emitUint32(emitConstant(Value::number(1)));
+//        // apply ++ or --
+//        emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+//        // SET_PROPERTY (consumes [obj, value])
+//        emit(OpCode::OP_SET_PROPERTY);
+//        emitUint32(nameIdx);
+//        return true;
+//    }
+//    
+//    throw std::runtime_error("Update target must be identifier or member expression");
+//}
 
 //R CodeGen::visitUpdate(UpdateExpression* expr) {
 //    // Only support identifier for now
@@ -959,29 +1014,65 @@ R CodeGen::visitClassExpression(ClassExpression* expr) {
 }
 
 R CodeGen::visitNullKeyword(NullKeyword* expr) {
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::nullVal()));
     return true;
 }
 
 R CodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
-    
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::undefined()));
     return true;
 }
 
 R CodeGen::visitAwaitExpression(AwaitExpression* expr) {
-    
+    // Evaluate argument
+    //expr->argument->accept(*this);
+    // Call a built-in 'await' handler or emit await-specific opcode, e.g.:
+    //emit(OpCode::OP_AWAIT);
     return true;
 }
 
 R CodeGen::visitBreak(BreakStatement* stmt) {
-    
+    if (loopStack.empty()) {
+        throw ("Break outside loop");
+        return false;
+    }
+    // Emit jump with unknown target
+    int jumpAddr = emitJump(OpCode::OP_JUMP);
+    loopStack.back().breaks.push_back(jumpAddr);
     return true;
 }
+
+//R CodeGen::visitBreak(BreakStatement* stmt) {
+//    
+//    // Mark a jump-to-break-continue point for patching
+//    // int breakJump = emitJump(OpCode::OP_JUMP);
+//    // recordBreakJump(breakJump); // Store for later patching by enclosing loop/switch
+//    return true;
+//}
 
 R CodeGen::visitContinue(ContinueStatement* stmt) {
+    if (loopStack.empty()) {
+        throw ("Continue outside loop");
+        return false;
+    }
+    int loopStart = loopStack.back().loopStart;
+    emitLoop(loopStart); // emit a backwards jump
     return true;
 }
 
+//R CodeGen::visitContinue(ContinueStatement* stmt) {
+//    
+//    // int continueJump = emitJump(OpCode::OP_JUMP);
+//    // recordContinueJump(continueJump); // Store for patching by enclosing loop
+//    return true;
+//}
+
 R CodeGen::visitThrow(ThrowStatement* stmt) {
+    // Evaluate the exception value
+    stmt->argument->accept(*this);
+    // emit(OpCode::OP_THROW);
     return true;
 }
 
@@ -990,6 +1081,64 @@ R CodeGen::visitEmpty(EmptyStatement* stmt) {
 }
 
 R CodeGen::visitClass(ClassDeclaration* stmt) {
+    
+    // Step 1: Evaluate superclass (if any)
+    if (stmt->superClass) {
+        stmt->superClass->accept(*this); // [superclass]
+    } else {
+        emit(OpCode::OP_CONSTANT);
+        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
+    }
+
+    // Step 2: Create the class object (with superclass on stack)
+    emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
+
+    // Step 3: Define methods and fields
+//    for (auto& member : stmt->body) {
+//        if (auto* method = dynamic_cast<MethodDefinition*>(member.get())) {
+//            // Compile method (could be static or instance)
+//            // - Compile as a function object and attach to class
+//            // - Convention: static methods go on class, instance methods go on prototype
+//            if (method->isStatic) {
+//                // Compile function and attach as static property
+//                compileMethod(method); // leaves function object on stack
+//                int nameIdx = emitConstant(Value::str(method->key));
+//                emit(OpCode::OP_SET_STATIC_PROPERTY);
+//                emitUint32(nameIdx); // Pops class and function, sets property on class object
+//            } else {
+//                // Compile as instance method (on prototype)
+//                compileMethod(method); // leaves function on stack
+//                int nameIdx = emitConstant(Value::str(method->key));
+//                emit(OpCode::OP_SET_PROTO_PROPERTY);
+//                emitUint32(nameIdx); // Pops class and function, sets on prototype
+//            }
+//        }
+//        // Handle other member types as needed
+//    }
+    
+    // vector<unique_ptr<PropertyDeclaration>> fields;
+//    for (auto& field : stmt->fields) {
+//        // Instance field: record for constructor
+//        // Static field: evaluate initializer, set property
+//        if (field->isStatic) {
+//            if (field->initializer) {
+//                field->initializer->accept(*this);
+//            } else {
+//                emit(OpCode::OP_CONSTANT);
+//                emitUint32(emitConstant(Value::undefined()));
+//            }
+//            int nameIdx = emitConstant(Value::str(field->key));
+//            emit(OpCode::OP_SET_STATIC_PROPERTY);
+//            emitUint32(nameIdx);
+//        }
+//
+//    }
+
+    // Step 4: Define class in environment (global/local)
+    int classNameIdx = emitConstant(Value::str(stmt->id));
+    emit(OpCode::OP_DEFINE_GLOBAL);
+    emitUint32(classNameIdx);
+
     return true;
 }
 
@@ -998,16 +1147,152 @@ R CodeGen::visitMethodDefinition(MethodDefinition* stmt) {
 }
 
 R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
+
+    beginLoop();
+    loopStack.back().loopStart = (int)cur->size();
+    
+    // Mark loop start
+    size_t loopStart = cur->size();
+    
+    // Compile loop body
+    stmt->body->accept(*this);
+
+    // Compile the condition
+    stmt->condition->accept(*this);
+
+    // Jump back to loop start if condition is true
+    int condJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+    emit(OpCode::OP_POP); // pop condition
+
+    // Emit loop back
+    emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
+
+    // Patch the jump to after the loop if condition is false
+    patchJump(condJump);
+    emit(OpCode::OP_POP); // pop condition
+    
+    endLoop();
+
     return true;
 }
 
 R CodeGen::visitSwitchCase(SwitchCase* stmt) {
+    // Each case's test should have already been checked in visitSwitch
+    // Emit the body of this case
+    for (auto& s : stmt->consequent) {
+        s->accept(*this);
+    }
     return true;
 }
 
 R CodeGen::visitSwitch(SwitchStatement* stmt) {
+    // Evaluate the discriminant once, keep it through all comparisons.
+    stmt->discriminant->accept(*this); // [discriminant]
+
+    std::vector<int> caseJumpPositions;
+    std::vector<int> breakJumpPositions;
+    int defaultCaseIndex = -1;
+
+    // First: emit jump checks for all cases (except default), collect body positions.
+    std::vector<int> bodyPositions; // tracks where to jump for each case's body
+
+    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+        SwitchCase* kase = stmt->cases[i].get();
+
+        if (kase->test) {
+            // Duplicate discriminant for safe comparison
+            emit(OpCode::OP_DUP);
+            kase->test->accept(*this); // push case value
+            emit(OpCode::OP_EQUAL);
+            // If false, jump to next check
+            int condFalseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+            emit(OpCode::OP_POP); // pop comparison result
+            // Matched: jump to body
+            bodyPositions.push_back((int)cur->size());
+            caseJumpPositions.push_back(condFalseJump);
+        } else {
+            // Default case
+            defaultCaseIndex = (int)i;
+            bodyPositions.push_back((int)cur->size());
+        }
+    }
+
+    // Patch unmatched jumps to next check or default
+    int afterChecks = (int)cur->size();
+    for (int pos : caseJumpPositions) {
+        patchJump(pos);
+    }
+
+    // Now: emit each case body, with fallthrough by default
+    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+        SwitchCase* kase = stmt->cases[i].get();
+
+        // Place label for this case's body (patch jumps here)
+        // (If CodeGen does not directly support labels, skip; patch bodyPositions after bodies emitted)
+
+        for (auto& stmt : kase->consequent) {
+            stmt->accept(*this);
+            // If the stmt is a break, emit a jump to after the switch; collect patch positions
+            // (Assume break handling logic already patches to after switch)
+        }
+        // If you want explicit fallthrough, do nothing here (next case's body will start executing)
+        // If you want to prevent fallthrough, emit a jump to after the switch unless the last stmt is break.
+    }
+
+    // After switch: patch all break jumps
+    int afterSwitch = (int)cur->size();
+    for (int breakPos : breakJumpPositions) {
+        patchJump(breakPos);
+    }
+
+    // Clean up: pop the discriminant if it remains
+    emit(OpCode::OP_POP);
+
     return true;
 }
+
+//R CodeGen::visitSwitch(SwitchStatement* stmt) {
+//    std::vector<int> caseJumps;
+//    int defaultJump = -1;
+//
+//    // Evaluate the discriminant and leave on stack
+//    stmt->discriminant->accept(*this);
+//
+//    // Emit checks for each case
+//    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+//        SwitchCase* scase = stmt->cases[i].get();
+//        if (scase->test) {
+//            // Duplicate discriminant for comparison
+//            emit(OpCode::OP_DUP);
+//            scase->test->accept(*this);
+//            emit(OpCode::OP_EQUAL);
+//
+//            // If not equal, jump to next
+//            int jump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+//            emit(OpCode::OP_POP); // pop comparison result
+//
+//            // If equal, pop discriminant, emit case body, and jump to end
+//            emit(OpCode::OP_POP);
+//            scase->accept(*this);
+//            caseJumps.push_back(emitJump(OpCode::OP_JUMP));
+//            patchJump(jump);
+//        } else {
+//            // Default case: remember its position
+//            defaultJump = (int)cur->size();
+//            // pop discriminant for default
+//            emit(OpCode::OP_POP);
+//            scase->accept(*this);
+//            // No jump needed after default
+//        }
+//    }
+//
+//    // Patch all jumps to here (after switch body)
+//    for (int jmp : caseJumps) {
+//        patchJump(jmp);
+//    }
+//
+//    return true;
+//}
 
 R CodeGen::visitCatch(CatchClause* stmt) {
     return true;
@@ -1093,9 +1378,34 @@ void CodeGen::patchJump(int jumpPos) {
     cur->code[jumpPos + 3] = (offset >> 24) & 0xFF;
 }
 
+void CodeGen::patchJump(int jumpPos, int target) {
+    uint32_t offset = (uint32_t)(target - (jumpPos + 4));
+    cur->code[jumpPos + 0] = (offset >> 0) & 0xFF;
+    cur->code[jumpPos + 1] = (offset >> 8) & 0xFF;
+    cur->code[jumpPos + 2] = (offset >> 16) & 0xFF;
+    cur->code[jumpPos + 3] = (offset >> 24) & 0xFF;
+}
+
 void CodeGen::emitLoop(uint32_t offset) {
     emit(OpCode::OP_LOOP);
     emitUint32(offset);
+}
+
+void CodeGen::beginLoop() {
+    LoopContext ctx;
+    ctx.loopStart = (int)cur->size();
+    loopStack.push_back(ctx);
+}
+
+void CodeGen::endLoop() {
+    LoopContext ctx = loopStack.back();
+    loopStack.pop_back();
+
+    // Patch all breaks to jump here
+    int end = (int)cur->size();
+    for (int breakAddr : ctx.breaks) {
+        patchJump(breakAddr, end);
+    }
 }
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset) {
@@ -1152,6 +1462,9 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_SHR:
         case OpCode::OP_USHR:
         case OpCode::OP_POSITIVE:
+        case OpCode::OP_DUP2:
+        case OpCode::OP_SET_PROPERTY_DYNAMIC:
+        case OpCode::OP_GET_PROPERTY_DYNAMIC:
 
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
@@ -1209,9 +1522,7 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             std::cout << opcodeToString(op) << " " << (int)argCount << " args\n";
             return offset + 2;
         }
-        case OpCode::OP_GET_PROPERTY_DYNAMIC:
             
-            break;
     }
 
     std::cout << "UNKNOWN " << (int)instruction << "\n";
@@ -1230,4 +1541,3 @@ Token createToken(TokenType type) {
     token.type = type;
     return token;
 }
-

@@ -62,7 +62,8 @@ const char* opcodeToString(OpCode op) {
         case OpCode::OP_USHR: return "OP_USHR";
         case OpCode::OP_POSITIVE: return "OP_POSITIVE";
         case OpCode::OP_GET_PROPERTY_DYNAMIC: return "OP_GET_PROPERTY_DYNAMIC";
-            
+        case OpCode::OP_DUP2: return "OP_DUP2";
+        case OpCode::OP_SET_PROPERTY_DYNAMIC: return "OP_SET_PROPERTY_DYNAMIC";
     }
     return "UNKNOWN";
 }

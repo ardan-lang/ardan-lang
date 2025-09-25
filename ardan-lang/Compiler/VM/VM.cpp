@@ -189,7 +189,15 @@ Value VM::runFrame() {
                 push(v);
                 break;
             }
-
+                
+            case OpCode::OP_DUP2: {
+                Value b = stack[stack.size() - 1];
+                Value a = stack[stack.size() - 2];
+                stack.push_back(a);
+                stack.push_back(b);
+                break;
+            }
+                
             case OpCode::OP_GET_LOCAL: {
                 uint32_t idx = readUint32();
                 if (idx >= locals.size()) push(Value::undefined());
@@ -279,7 +287,23 @@ Value VM::runFrame() {
                 push(v);
                 break;
             }
+                
+            case OpCode::OP_SET_PROPERTY_DYNAMIC: {
+                // Stack: ... obj, key, value
+                Value value = stack.back(); stack.pop_back();
+                Value key = stack.back(); stack.pop_back();
+                Value& obj = stack.back();
 
+                // Set property; assuming obj is some kind of associative object
+                // obj.setProperty(key, value);
+                setProperty(obj, key.toString(), value);
+
+                // Remove obj from stack, push result if needed (often value or obj)
+                // Here, we keep 'value' on top as result of assignment:
+                stack.back() = value;
+                break;
+            }
+                
             case OpCode::OP_NEW_ARRAY: {
                 auto arr = std::make_shared<JSArray>();
                 Value v;
