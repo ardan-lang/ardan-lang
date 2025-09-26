@@ -612,7 +612,7 @@ R CodeGen::visitConditional(ConditionalExpression* expr) {
 
 R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     // create nested CodeGen to compile the function body
-    CodeGen nested(this->module_);
+    CodeGen nested(module_);
     nested.cur = std::make_shared<Chunk>();
     vector<string> params;
     if (expr->parameters) {
@@ -1222,6 +1222,7 @@ R CodeGen::visitSwitch(SwitchStatement* stmt) {
 }
 
 R CodeGen::visitCatch(CatchClause* stmt) {
+    stmt->body->accept(*this);
     return true;
 }
 
@@ -1396,7 +1397,84 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
 }
 
 R CodeGen::visitForOf(ForOfStatement* stmt) {
+
+    // std::unique_ptr<Statement> left; // variable declaration or expression
+    // std::unique_ptr<Expression> right; // iterable expression
+    // std::unique_ptr<Statement> body;
+    
+    stmt->right->accept(*this);
+    
+    emit(OpCode::OP_DUP);
+
+    emit(OpCode::OP_GET_OBJ_LENGTH);
+    // get array length
+    size_t length_slot = makeLocal("__for_of_length");
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32((uint32_t)length_slot);
+    emit(OpCode::OP_POP);
+
+    size_t idx_slot = makeLocal("__for_of_index");
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value(0)));
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32((uint32_t)idx_slot);
+
+    emit(OpCode::OP_POP);
+
+    int loop_start = (int)cur->size();
+        
+    // get both len and idx
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32((uint32_t)idx_slot);
+
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32((uint32_t)length_slot);
+    
+    emit(OpCode::OP_NOTEQUAL);
+    
+    int jump_if_false = emitJump(OpCode::OP_JUMP_IF_FALSE);
+
+    emit(OpCode::OP_DUP);
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32((uint32_t)idx_slot);
+    emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
+
+    // Assign value to loop variable
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
+        uint32_t slot = makeLocal(ident->name);
+        emit(OpCode::OP_SET_LOCAL);
+        emitUint32(slot);
+    } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
+        uint32_t slot = makeLocal(var_stmt->declarations[0].id);
+        emit(OpCode::OP_SET_LOCAL);
+        emitUint32(slot);
+    } else {
+        throw std::runtime_error("for-of only supports identifier/variable statement loop variables in codegen");
+    }
+
+    stmt->body->accept(*this);
+
+    emit(OpCode::OP_POP);
+    
+    // increment idx
+    // push idx
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32((uint32_t)idx_slot);
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::number(1)));
+    emit(OpCode::OP_ADD);
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32((uint32_t)idx_slot);
+
+    emit(OpCode::OP_POP);
+    emit(OpCode::OP_POP);
+
+    emitLoop((int)cur->size() - loop_start + 4 + 1);
+    patchJump(jump_if_false);
+    emit(OpCode::OP_POP);
+
     return true;
+    
 }
 
 R CodeGen::visitSuper(SuperExpression* stmt) {
@@ -1695,6 +1773,27 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 2;
         }
             
+        case OpCode::OP_NEW_CLASS:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_TRY:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_END_TRY:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_END_FINALLY:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_THROW:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_ENUM_KEYS:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_GET_OBJ_LENGTH:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
     }
 
     std::cout << "UNKNOWN " << (int)instruction << "\n";
