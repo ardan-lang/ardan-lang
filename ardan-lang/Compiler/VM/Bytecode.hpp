@@ -96,6 +96,12 @@ enum class OpCode : uint8_t {
     OP_END_FINALLY,
     OP_THROW,
     
+    // object
+    OP_ENUM_KEYS,
+    OP_GET_OBJ_LENGTH,
+    OP_GET_INDEX_PROPERTY_DYNAMIC,
+    OP_DEBUG,
+    
     // debug / sentinel
     OP_HALT
 };
