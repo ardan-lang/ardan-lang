@@ -207,6 +207,10 @@ vector<Token>& Scanner::getTokens() {
                         break;
                         
                     }
+                    
+                    consumeMultilineComment();
+                    break;
+                    
                 }
 
                 if (match('/')) {
@@ -874,6 +878,11 @@ void Scanner::consumeMultilineComment() {
     while (true && !eof()) {
 
         if (match('*')) {
+            
+            if (match('/')) {
+                break;
+            }
+
             if (match('*')) {
                 if (match('/')) {
                     break;
