@@ -1306,7 +1306,93 @@ R CodeGen::visitTry(TryStatement* stmt) {
 //}
 
 R CodeGen::visitForIn(ForInStatement* stmt) {
+    
+    // object, body, init
+    
+    // loop through the keys of the object
+    
+    // load object to stack
+    stmt->object->accept(*this);
+    
+    emit(OpCode::OP_DUP);
+    // get keys of object
+    emit(OpCode::OP_ENUM_KEYS);
+    uint32_t keys_slot = makeLocal("__for_in_keys");
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32(keys_slot);
+    emit(OpCode::OP_POP);
+
+    emit(OpCode::OP_GET_OBJ_LENGTH);
+    
+    uint32_t length_slot = makeLocal("__for_in_length");
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32(length_slot);
+
+    uint32_t idx_slot = makeLocal("__for_in_idx");
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::number(0)));
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32(idx_slot);
+    
+    emit(OpCode::OP_POP);
+    emit(OpCode::OP_POP);
+    
+    size_t loop_start = cur->size();
+    
+    // get both len and idx
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32(idx_slot);
+
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32(length_slot);
+
+    emit(OpCode::OP_NOTEQUAL);
+    int jump_if_false = emitJump(OpCode::OP_JUMP_IF_FALSE);
+    
+    emit(OpCode::OP_POP);
+
+    // Get key at idx: keys[idx]
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32(keys_slot);
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32(idx_slot);
+    emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
+
+    // Assign value to loop variable
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
+        uint32_t slot = makeLocal(ident->name);
+        emit(OpCode::OP_SET_LOCAL);
+        emitUint32(slot);
+    } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
+        uint32_t slot = makeLocal(var_stmt->declarations[0].id);
+        emit(OpCode::OP_SET_LOCAL);
+        emitUint32(slot);
+    } else {
+        throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
+    }
+    
+    // get size of the keys
+    
+    stmt->body->accept(*this);
+    
+    // Increment idx
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32(idx_slot);
+    emit(OpCode::OP_CONSTANT);
+    emitUint32(emitConstant(Value::number(1)));
+    emit(OpCode::OP_ADD);
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32(idx_slot);
+    
+    // loop till stack is empty
+    emit(OpCode::OP_LOOP);
+    emitUint32((int)cur->size() - (uint32_t)loop_start + 4 + 1);
+    
+    patchJump(jump_if_false);
+    emit(OpCode::OP_POP);
+    
     return true;
+    
 }
 
 R CodeGen::visitForOf(ForOfStatement* stmt) {
