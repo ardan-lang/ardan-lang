@@ -94,6 +94,20 @@ bool VM::equals(const Value &a, const Value &b) {
     }
 }
 
+int VM::getValueLength(Value& v) {
+    
+    if (v.type == ValueType::OBJECT) {
+        return (int)v.objectValue->get_all_properties().size();
+    }
+    
+    if (v.type == ValueType::ARRAY) {
+        return v.arrayValue->get("length").numberValue;
+    }
+    
+    return v.numberValue;
+
+}
+
 Value VM::getProperty(const Value &objVal, const string &propName) {
     if (objVal.type == ValueType::OBJECT) {
         return objVal.objectValue->get(propName);
@@ -288,6 +302,27 @@ Value VM::runFrame() {
                 break;
             }
                 
+            case OpCode::OP_GET_INDEX_PROPERTY_DYNAMIC: {
+                Value val = pop();
+                Value objVal = pop();
+                Value v = getProperty(objVal, val.toString());
+                push(v);
+                break;
+            }
+                
+            case OpCode::OP_GET_OBJ_LENGTH: {
+                
+                // object is in stack
+                Value objVal = pop();
+                
+                int size = getValueLength(objVal);
+                
+                push(Value(size));
+                
+                break;
+                
+            }
+                
             case OpCode::OP_SET_PROPERTY_DYNAMIC: {
                 // Stack: ... obj, key, value
                 Value value = stack.back(); stack.pop_back();
@@ -301,6 +336,25 @@ Value VM::runFrame() {
                 // Remove obj from stack, push result if needed (often value or obj)
                 // Here, we keep 'value' on top as result of assignment:
                 stack.back() = value;
+                break;
+            }
+                
+            case OpCode::OP_ENUM_KEYS: {
+                // object is in stack.
+                Value objVal = pop();
+                
+                auto obj = make_shared<JSObject>();
+                
+                int index = 0;
+                // get the properties
+                auto props = objVal.objectValue->get_all_properties();
+                for (auto key : props) {
+                    obj->set(to_string(index), key.first, "", {});
+                    index++;
+                }
+                // pop obj
+                push(Value::object(obj));
+                // push the properties
                 break;
             }
                 
@@ -318,7 +372,8 @@ Value VM::runFrame() {
                 Value arrVal = pop();
                 if (arrVal.type != ValueType::ARRAY)
                     throw std::runtime_error("OP_ARRAY_PUSH: target not array");
-                //arrVal.arrayValue->push(val);
+                // arrVal.arrayValue->push(val);
+                arrVal.arrayValue->push({val});
                 push(arrVal);
                 break;
             }
@@ -609,7 +664,7 @@ Value VM::runFrame() {
                 uint32_t catchOffset = readUint32();   // relative offset from after the two offsets
                 uint32_t finallyOffset = readUint32();
                 // compute absolute IPs
-                int base = ip; // ip now points after the offsets
+                int base = (int)ip; // ip now points after the offsets
                 TryFrame f;
                 f.catchIP = (catchOffset == 0) ? -1 : (base + (int)catchOffset);
                 f.finallyIP = (finallyOffset == 0) ? -1 : (base + (int)finallyOffset);
