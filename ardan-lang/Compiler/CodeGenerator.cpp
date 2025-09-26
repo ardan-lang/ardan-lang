@@ -1339,7 +1339,9 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emit(OpCode::OP_POP);
     
     size_t loop_start = cur->size();
-    
+    beginLoop();
+    loopStack.back().loopStart = (int)loop_start;
+
     // get both len and idx
     emit(OpCode::OP_GET_LOCAL);
     emitUint32(idx_slot);
@@ -1373,8 +1375,9 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     }
     
     // get size of the keys
-    
+    emit(OpCode::OP_NOP);
     stmt->body->accept(*this);
+    emit(OpCode::OP_NOP);
     
     // Increment idx
     emit(OpCode::OP_GET_LOCAL);
@@ -1392,16 +1395,20 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     patchJump(jump_if_false);
     emit(OpCode::OP_POP);
     
+    endLoop();
+    
     return true;
     
 }
 
+// TODO: we need to make sure statement leaves nothing on stack
+// TODO: for..of reads starts off by 1
 R CodeGen::visitForOf(ForOfStatement* stmt) {
 
     // std::unique_ptr<Statement> left; // variable declaration or expression
     // std::unique_ptr<Expression> right; // iterable expression
     // std::unique_ptr<Statement> body;
-    
+
     stmt->right->accept(*this);
     
     emit(OpCode::OP_DUP);
@@ -1422,7 +1429,10 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     emit(OpCode::OP_POP);
 
     int loop_start = (int)cur->size();
-        
+    
+    beginLoop();
+    loopStack.back().loopStart = loop_start;
+
     // get both len and idx
     emit(OpCode::OP_GET_LOCAL);
     emitUint32((uint32_t)idx_slot);
@@ -1472,6 +1482,8 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     emitLoop((int)cur->size() - loop_start + 4 + 1);
     patchJump(jump_if_false);
     emit(OpCode::OP_POP);
+    
+    endLoop();
 
     return true;
     
