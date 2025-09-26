@@ -47,7 +47,9 @@ public:
     CodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
     shared_ptr<Module> module_;
     
-    shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
+    // shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
+    size_t generate(const vector<unique_ptr<Statement>> &program);
+
     void emitAssignment(BinaryExpression* expr);
     
     R visitExpression(ExpressionStatement* stmt) override;

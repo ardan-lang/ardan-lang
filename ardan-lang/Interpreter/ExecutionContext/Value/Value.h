@@ -23,7 +23,7 @@ struct Chunk;
 struct FunctionObject {
     uint32_t chunkIndex;   // index into module/file chunk table
     uint32_t arity;
-    std::string name;
+    string name;
 
     // optional: other metadata (source location, flags)
 };

@@ -648,14 +648,28 @@ Value VM::runFrame() {
 //                }
 //                break;
 //            }
-            
+                
+            case OpCode::OP_LOAD_CHUNK_INDEX: {
+                
+                uint32_t chunkIndex = readUint32();
+                Value ci = module_->constants[chunkIndex];
+                push(ci);
+
+                break;
+                
+            }
+                
             case OpCode::OP_CALL: {
                 uint32_t argCount = readUint8();
                 // top-of-stack should be the callee value (function ref)
-                Value callee = peek(argCount); // or adjust as per your calling convention
+                // Value callee = peek(argCount); // or adjust as per your calling convention
                 vector<Value> args = popArgs(argCount);
+                Value callee = pop();
+                
                 Value result = callFunction(callee, args);
                 // pop callee and args and push result
+                // pop();
+                
                 push(result);
                 break;
             }
@@ -799,19 +813,19 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     }
     
     if (callee.type != ValueType::FUNCTION_REF) {
-        // runtimeError("Attempt to call non-function");
+        throw runtime_error("Attempt to call non-function");
         return Value::undefined();
     }
     
     auto fn = callee.fnRef;
     
     if (!module_) {
-        // runtimeError("Module not set in VM");
+        throw runtime_error("Module not set in VM");
         return Value::undefined();
     }
     
     if (fn->chunkIndex >= module_->chunks.size()) {
-        // runtimeError("Bad function index");
+        throw runtime_error("Bad function index");
         return Value::undefined();
     }
     
@@ -823,6 +837,15 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     frame.ip = 0;
     // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
     frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+    
+    // save current frame
+    CallFrame prev_frame;
+    prev_frame.chunk = chunk;
+    prev_frame.ip = ip;
+    prev_frame.locals = locals;
+    
+    auto prev_stack = std::move(stack);
+    stack.clear();
 
     // copy args into frame.locals[0..]
     uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
@@ -832,6 +855,11 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     callStack.push_back(std::move(frame));
     Value result = runFrame();
     callStack.pop_back();
+
+    chunk = prev_frame.chunk;
+    ip = prev_frame.ip;
+    locals = prev_frame.locals;
+    stack = prev_stack;
 
     return result;
     

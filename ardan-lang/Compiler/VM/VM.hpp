@@ -41,10 +41,15 @@ using std::shared_ptr;
 using std::string;
 
 struct CallFrame {
-    std::shared_ptr<Chunk> chunk;
+    shared_ptr<Chunk> chunk;
     size_t ip = 0;                    // instruction pointer for this frame
-    std::vector<Value> locals;        // local slots for this frame
+    vector<Value> locals;        // local slots for this frame
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
+    
+    shared_ptr<Chunk> prev_chunk;
+    size_t prev_ip = 0;
+    vector<Value> prev_locals;
+    
 };
 
 struct TryFrame {
@@ -101,6 +106,7 @@ private:
     Value getProperty(const Value &objVal, const string &propName);
     void setProperty(const Value &objVal, const string &propName, const Value &val);
     Value callFunction(Value callee, const vector<Value>& args);
+    int getValueLength(Value& v);
     
 };
 

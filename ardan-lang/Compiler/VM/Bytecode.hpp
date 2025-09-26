@@ -102,6 +102,9 @@ enum class OpCode : uint8_t {
     OP_GET_INDEX_PROPERTY_DYNAMIC,
     OP_DEBUG,
     
+    // load chunk index
+    OP_LOAD_CHUNK_INDEX,
+    
     // debug / sentinel
     OP_HALT
 };

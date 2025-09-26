@@ -9,7 +9,8 @@
 
 CodeGen::CodeGen() : cur(nullptr), nextLocalSlot(0) { }
 
-shared_ptr<Chunk> CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
+// shared_ptr<Chunk> CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
+size_t CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = std::make_shared<Chunk>();
     cur->name = "BYTECODE";
     locals.clear();
@@ -24,7 +25,7 @@ shared_ptr<Chunk> CodeGen::generate(const vector<unique_ptr<Statement>> &program
     
     uint32_t idx = module_->addChunk(cur);
     
-    return cur;
+    return idx;
 }
 
 // ------------------- Statements --------------------
@@ -631,13 +632,13 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
     if (expr->exprBody) {
         expr->exprBody->accept(nested);
-        nested.emit(OpCode::OP_RETURN);
+        // nested.emit(OpCode::OP_RETURN);
     } else if (expr->stmtBody) {
         expr->stmtBody->accept(nested);
-        nested.emit(OpCode::OP_CONSTANT);
-        int ud = nested.emitConstant(Value::undefined());
-        nested.emitUint32(ud);
-        nested.emit(OpCode::OP_RETURN);
+//        nested.emit(OpCode::OP_CONSTANT);
+//        int ud = nested.emitConstant(Value::undefined());
+//        nested.emitUint32(ud);
+//        nested.emit(OpCode::OP_RETURN);
     }
 
     shared_ptr<Chunk> fnChunk = nested.cur;
@@ -657,8 +658,11 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     int ci = module_->addConstant(fnValue);
 
     // Emit OP_CONSTANT (index into module constants)
-    emit(OpCode::OP_CONSTANT);
+    // emit(OpCode::OP_CONSTANT);
+    emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emitUint32((uint32_t)ci);
+
+    disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return true;
 }
@@ -1032,14 +1036,6 @@ R CodeGen::visitBreak(BreakStatement* stmt) {
     return true;
 }
 
-//R CodeGen::visitBreak(BreakStatement* stmt) {
-//    
-//    // Mark a jump-to-break-continue point for patching
-//    // int breakJump = emitJump(OpCode::OP_JUMP);
-//    // recordBreakJump(breakJump); // Store for later patching by enclosing loop/switch
-//    return true;
-//}
-
 R CodeGen::visitContinue(ContinueStatement* stmt) {
     if (loopStack.empty()) {
         throw ("Continue outside loop");
@@ -1049,13 +1045,6 @@ R CodeGen::visitContinue(ContinueStatement* stmt) {
     emitLoop(loopStart); // emit a backwards jump
     return true;
 }
-
-//R CodeGen::visitContinue(ContinueStatement* stmt) {
-//    
-//    // int continueJump = emitJump(OpCode::OP_JUMP);
-//    // recordContinueJump(continueJump); // Store for patching by enclosing loop
-//    return true;
-//}
 
 R CodeGen::visitThrow(ThrowStatement* stmt) {
     // Evaluate the exception value
@@ -1804,6 +1793,15 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
         case OpCode::OP_GET_OBJ_LENGTH:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_GET_INDEX_PROPERTY_DYNAMIC:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_DEBUG:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_LOAD_CHUNK_INDEX:
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
     }
