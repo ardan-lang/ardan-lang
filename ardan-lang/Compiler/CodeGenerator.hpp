@@ -36,6 +36,13 @@ struct ExceptionHandler {
     int stackDepth;
 };
 
+struct ParameterInfo {
+    string name;
+    bool hasDefault;
+    Expression* defaultExpr;
+    bool isRest;
+};
+
 using std::shared_ptr;
 using std::unordered_map;
 using std::string;

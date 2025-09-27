@@ -612,53 +612,113 @@ R CodeGen::visitConditional(ConditionalExpression* expr) {
 }
 
 R CodeGen::visitArrowFunction(ArrowFunction* expr) {
-    // create nested CodeGen to compile the function body
+    // Create a nested CodeGen for the function body
     CodeGen nested(module_);
     nested.cur = std::make_shared<Chunk>();
-    vector<string> params;
+
+    vector<string> paramNames;
+    vector<ParameterInfo> parameterInfos; // Assume a struct describing each parameter
+
+    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     if (expr->parameters) {
         if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
-            for (auto &p : seq->expressions) {
-                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get()))
-                    params.push_back(ident->token.lexeme);
-                else params.push_back("");
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                    // ...rest
+                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos
+                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+                    //}
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    // b = 90 or c = b
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+                    }
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                    // Simple arg
+                    paramNames.push_back(ident->name);
+                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+                }
             }
-        } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
-            params.push_back(ident->token.lexeme);
+        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+            paramNames.push_back(ident->name);
+            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
         }
     }
 
-    nested.resetLocalsForFunction((uint32_t)params.size(), params);
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
-    if (expr->exprBody) {
-        expr->exprBody->accept(nested);
-        // nested.emit(OpCode::OP_RETURN);
-    } else if (expr->stmtBody) {
-        expr->stmtBody->accept(nested);
-//        nested.emit(OpCode::OP_CONSTANT);
-//        int ud = nested.emitConstant(Value::undefined());
-//        nested.emitUint32(ud);
-//        nested.emit(OpCode::OP_RETURN);
+    // Emit parameter initialization logic
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            // collect rest arguments as array: arguments.slice(i)
+            nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
+            nested.emit(OpCode::OP_CONSTANT);            // Push i
+            nested.emitUint32(nested.emitConstant(Value::number(i)));
+            nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
+            nested.emit(OpCode::OP_CONSTANT);
+            nested.emitUint32(nested.emitConstant(Value::number(i)));
+            nested.emit(OpCode::OP_GREATER);
+            int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
+
+            // Use argument
+            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emitUint32((uint32_t)i);
+            int setLocalJump = nested.emitJump(OpCode::OP_JUMP);
+
+            // Use default
+            nested.patchJump(useArg);
+            // Evaluate default expression (can reference previous params!)
+            info.defaultExpr->accept(nested);
+
+            // Set local either way
+            nested.patchJump(setLocalJump);
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+        } else {
+            // Direct: assign argument i to local slot
+            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emitUint32((uint32_t)i);
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+        }
     }
 
-    shared_ptr<Chunk> fnChunk = nested.cur;
-    fnChunk->arity = (uint32_t)params.size();
+    // Compile function body
+    if (expr->exprBody) {
+        expr->exprBody->accept(nested);
+        // You may want to ensure OP_RETURN is emitted
+    } else if (expr->stmtBody) {
+        expr->stmtBody->accept(nested);
+    }
 
-    // === NEW: register chunk in Module, get chunk index ===
-    uint32_t chunkIndex = module_->addChunk(fnChunk); // module is the current module/context
+    // 5. Register chunk & emit as constant
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
 
-    // Create the serializable FunctionObject
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
     auto fnObj = std::make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
-    fnObj->name = "<arrow>"; // or derive from context
+    fnObj->name = "<arrow>";
 
-    // Add to constants pool as a FUNCTION_REF
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
 
-    // Emit OP_CONSTANT (index into module constants)
-    // emit(OpCode::OP_CONSTANT);
     emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emitUint32((uint32_t)ci);
 
@@ -666,6 +726,62 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
     return true;
 }
+
+//R CodeGen::visitArrowFunction(ArrowFunction* expr) {
+//    // create nested CodeGen to compile the function body
+//    CodeGen nested(module_);
+//    nested.cur = std::make_shared<Chunk>();
+//    vector<string> params;
+//    if (expr->parameters) {
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
+//            for (auto &p : seq->expressions) {
+//                if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(p.get()))
+//                    params.push_back(ident->token.lexeme);
+//                else params.push_back("");
+//            }
+//        } else if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+//            params.push_back(ident->token.lexeme);
+//        }
+//    }
+//
+//    nested.resetLocalsForFunction((uint32_t)params.size(), params);
+//
+//    if (expr->exprBody) {
+//        expr->exprBody->accept(nested);
+//        // nested.emit(OpCode::OP_RETURN);
+//    } else if (expr->stmtBody) {
+//        expr->stmtBody->accept(nested);
+////        nested.emit(OpCode::OP_CONSTANT);
+////        int ud = nested.emitConstant(Value::undefined());
+////        nested.emitUint32(ud);
+////        nested.emit(OpCode::OP_RETURN);
+//    }
+//
+//    shared_ptr<Chunk> fnChunk = nested.cur;
+//    fnChunk->arity = (uint32_t)params.size();
+//
+//    // === NEW: register chunk in Module, get chunk index ===
+//    uint32_t chunkIndex = module_->addChunk(fnChunk); // module is the current module/context
+//
+//    // Create the serializable FunctionObject
+//    auto fnObj = std::make_shared<FunctionObject>();
+//    fnObj->chunkIndex = chunkIndex;
+//    fnObj->arity = fnChunk->arity;
+//    fnObj->name = "<arrow>"; // or derive from context
+//
+//    // Add to constants pool as a FUNCTION_REF
+//    Value fnValue = Value::functionRef(fnObj);
+//    int ci = module_->addConstant(fnValue);
+//
+//    // Emit OP_CONSTANT (index into module constants)
+//    // emit(OpCode::OP_CONSTANT);
+//    emit(OpCode::OP_LOAD_CHUNK_INDEX);
+//    emitUint32((uint32_t)ci);
+//
+//    disassembleChunk(nested.cur.get(), nested.cur->name);
+//
+//    return true;
+//}
 
 //R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 //    // compile arrow to a function chunk similarly to visitFunction
@@ -712,7 +828,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 //    return true;
 //}
 
-R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
+// R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     // compile similarly to FunctionDeclaration but produce value (not define global)
 //    CodeGen nested;
 //    nested.cur = std::make_shared<Chunk>();
@@ -741,6 +857,10 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //    emit(OpCode::OP_CONSTANT);
 //    emitUint32(ci);
 
+//    return true;
+// }
+
+R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     return true;
 }
 
@@ -1742,6 +1862,8 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_SET_GLOBAL:
         case OpCode::OP_DEFINE_GLOBAL:
         case OpCode::OP_SET_PROPERTY:
+        case OpCode::OP_LOAD_CHUNK_INDEX:
+        case OpCode::OP_LOAD_ARGUMENT:
         case OpCode::OP_GET_PROPERTY: {
             uint32_t nameIndex = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " constant[" << nameIndex << "]";
@@ -1801,7 +1923,19 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_DEBUG:
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
-        case OpCode::OP_LOAD_CHUNK_INDEX:
+//        case OpCode::OP_LOAD_CHUNK_INDEX:
+//            std::cout << opcodeToString(op) << "\n";
+//            return offset + 1;
+//        case OpCode::OP_LOAD_ARGUMENT:
+//            std::cout << opcodeToString(op) << "\n";
+//            return offset + 1;
+        case OpCode::OP_LOAD_ARGUMENTS:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_SLICE:
+            std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_LOAD_ARGUMENTS_LENGTH:
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
     }
