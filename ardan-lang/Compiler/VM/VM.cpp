@@ -144,6 +144,8 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
     frame.chunk = chunk_;
     frame.ip = 0;
     frame.locals.resize(chunk_->maxLocals, Value::undefined());
+    frame.args = args;
+    
     uint32_t ncopy = std::min((uint32_t)args.size(), chunk_->maxLocals);
     for (uint32_t i = 0; i < ncopy; ++i) frame.locals[i] = args[i];
 
@@ -674,6 +676,55 @@ Value VM::runFrame() {
                 break;
             }
                 
+            case OpCode::OP_LOAD_ARGUMENT: {
+                // Expects next 4 bytes: uint32_t index of argument to load
+                uint32_t argIndex = readUint32();
+                // CallFrame& frame = callStack.back();
+                Value result = Value::undefined();
+                if (argIndex < frame.args.size()) {
+                    result = frame.args[argIndex];
+                }
+                push(result);
+                break;
+            }
+
+            case OpCode::OP_LOAD_ARGUMENTS: {
+                // Pushes the full arguments array as a JSArray object (or equivalent)
+                //CallFrame& frame = callStack.back();
+
+                auto arr = make_shared<JSArray>();
+                for (const Value& v : frame.args) {
+                    arr->push({v});
+                }
+                push(Value::array(arr));
+                break;
+            }
+
+            case OpCode::OP_SLICE: {
+                // Expects: [array, start] on stack; pops both and pushes array.slice(start)
+                Value startVal = pop();
+                Value arrayVal = pop();
+
+                int start = (int)startVal.numberValue;
+                shared_ptr<JSArray> inputArr = arrayVal.arrayValue;
+                auto arr = make_shared<JSArray>();
+
+                if (inputArr && start < (int)inputArr->length()) {
+                    for (int i = start; i < (int)inputArr->length(); ++i) {
+                        arr->push({ inputArr->get(to_string(i)) });
+                    }
+                }
+                push(Value::array(arr));
+                break;
+            }
+
+            case OpCode::OP_LOAD_ARGUMENTS_LENGTH: {
+                // Pushes the count of arguments passed to the current frame
+                //CallFrame& frame = callStack.back();
+                push(Value((double)frame.args.size()));
+                break;
+            }
+                
             case OpCode::OP_TRY: {
                 uint32_t catchOffset = readUint32();   // relative offset from after the two offsets
                 uint32_t finallyOffset = readUint32();
@@ -837,6 +888,7 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     frame.ip = 0;
     // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
     frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+    frame.args = args;
     
     // save current frame
     CallFrame prev_frame;

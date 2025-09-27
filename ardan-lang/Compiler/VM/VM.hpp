@@ -46,10 +46,7 @@ struct CallFrame {
     vector<Value> locals;        // local slots for this frame
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
     
-    shared_ptr<Chunk> prev_chunk;
-    size_t prev_ip = 0;
-    vector<Value> prev_locals;
-    
+    vector<Value> args;  // <-- Store actual call arguments here
 };
 
 struct TryFrame {
