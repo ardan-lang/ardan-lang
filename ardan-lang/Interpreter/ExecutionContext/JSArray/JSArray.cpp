@@ -78,6 +78,10 @@ string JSArray::toString() {
     
 }
 
+size_t JSArray::length() {
+    return elements_size;
+}
+
 bool JSArray::isNumeric(const std::string& s) {
     return !s.empty() &&
            std::all_of(s.begin(), s.end(), ::isdigit);

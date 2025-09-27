@@ -119,6 +119,7 @@ public:
     void pop();
     
     string toString();
+    size_t length();
     
 };
 
