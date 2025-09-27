@@ -12,6 +12,11 @@ VM::VM() {
         Print::print(args);
         return Value::undefined();
     });
+    globals["Math"] = Value::object(make_shared<Math>());
+    globals["console"] = Value::object(make_shared<Print>());
+    globals["fs"] = Value::object(make_shared<File>());
+    // globals["Server"] = make_shared<Server>(event_loop);
+
 }
 
 VM::VM(shared_ptr<Module> module_) : module_(module_) {
@@ -20,6 +25,11 @@ VM::VM(shared_ptr<Module> module_) : module_(module_) {
         Print::print(args);
         return Value::undefined();
     });
+    
+    globals["Math"] = Value::object(make_shared<Math>());
+    globals["console"] = Value::object(make_shared<Print>());
+    globals["fs"] = Value::object(make_shared<File>());
+    // globals["Server"] = make_shared<Server>(event_loop);
     
 }
 
@@ -860,6 +870,11 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     if (callee.type == ValueType::FUNCTION) {
         // call host function (native or compiled wrapper)
         Value result = callee.functionValue(args);
+        return result;
+    }
+    
+    if (callee.type == ValueType::NATIVE_FUNCTION) {
+        Value result = callee.nativeFunction(args);
         return result;
     }
     

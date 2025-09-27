@@ -652,10 +652,29 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
     // Compile function body
     if (expr->exprBody) {
+        nested.emit(OpCode::OP_RETURN);
         expr->exprBody->accept(nested);
-        // You may want to ensure OP_RETURN is emitted
+        // we must return the value of the expr
     } else if (expr->stmtBody) {
+        
         expr->stmtBody->accept(nested);
+        
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(expr->stmtBody.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        if (!is_return_avaialble) {
+            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::OP_CONSTANT);
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emitUint32(ud);
+        }
+        
     }
 
     // Register chunk & emit as constant
@@ -778,7 +797,23 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     // Compile function body
     if (expr->body) {
         expr->body->accept(nested);
-        // You may want to ensure OP_RETURN is emitted
+        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(expr->body.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        if (!is_return_avaialble) {
+            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::OP_CONSTANT);
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emitUint32(ud);
+        }
+
     }
 
     // Register chunk & emit as constant
@@ -804,45 +839,33 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 }
 
 R CodeGen::visitFunction(FunctionDeclaration* stmt) {
-    
-//    string id;
-//    vector<unique_ptr<Expression>> params;
-//    unique_ptr<Statement> body;
-//    bool is_async;
-
-    // Create a nested CodeGen for the function body
+    // Create a nested code generator for the function body
     CodeGen nested(module_);
-    nested.cur = make_shared<Chunk>();
+    nested.cur = std::make_shared<Chunk>();
 
-    vector<string> paramNames;
-    vector<ParameterInfo> parameterInfos;
+    std::vector<std::string> paramNames;
+    std::vector<ParameterInfo> parameterInfos;
 
     // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : stmt->params) {
         if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
             for (auto& p : seq->expressions) {
                 if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                    // ...rest
-                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
                     paramNames.push_back(rest->token.lexeme);
-                    parameterInfos
-                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-                    //}
+                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
                 } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                    // b = 90 or c = b
                     if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
                         paramNames.push_back(ident->name);
-                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
                     }
                 } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                    // Simple arg
                     paramNames.push_back(ident->name);
-                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
                 }
             }
         } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
             paramNames.push_back(ident->name);
-            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+            parameterInfos.emplace_back(ident->name, false, nullptr, false);
         }
     }
 
@@ -852,18 +875,16 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Emit parameter initialization logic
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
-        // For rest parameter
         if (info.isRest) {
-            // collect rest arguments as array: arguments.slice(i)
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
-            nested.emit(OpCode::OP_CONSTANT);            // Push i
+            // Collect rest arguments as array: arguments.slice(i)
+            nested.emit(OpCode::OP_LOAD_ARGUMENTS);
+            nested.emit(OpCode::OP_CONSTANT);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
+            nested.emit(OpCode::OP_SLICE);
             nested.emit(OpCode::OP_SET_LOCAL);
             nested.emitUint32(nested.getLocal(info.name));
             continue;
         }
-        // For parameters with default value
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
@@ -879,7 +900,6 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
 
             // Use default
             nested.patchJump(useArg);
-            // Evaluate default expression (can reference previous params!)
             info.defaultExpr->accept(nested);
 
             // Set local either way
@@ -898,7 +918,23 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Compile function body
     if (stmt->body) {
         stmt->body->accept(nested);
-        // You may want to ensure OP_RETURN is emitted
+        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(stmt->body.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        if (!is_return_avaialble) {
+            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::OP_CONSTANT);
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emitUint32(ud);
+        }
+
     }
 
     // Register chunk & emit as constant
@@ -910,7 +946,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     auto fnObj = std::make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
-    fnObj->name = "<function>";
+    fnObj->name = stmt->id; // Function name
 
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
@@ -918,8 +954,13 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emitUint32((uint32_t)ci);
 
-    disassembleChunk(nested.cur.get(), nested.cur->name);
+    // Bind function to its name in the global environment
+    emit(OpCode::OP_DEFINE_GLOBAL);
+    int nameIdx = emitConstant(Value::str(stmt->id));
+    emitUint32(nameIdx);
 
+    // Optionally disassemble the chunk for debugging
+    disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return true;
 }
