@@ -105,6 +105,11 @@ enum class OpCode : uint8_t {
     // load chunk index
     OP_LOAD_CHUNK_INDEX,
     
+    OP_LOAD_ARGUMENT,
+    OP_LOAD_ARGUMENTS,
+    OP_SLICE,
+    OP_LOAD_ARGUMENTS_LENGTH,
+
     // debug / sentinel
     OP_HALT
 };

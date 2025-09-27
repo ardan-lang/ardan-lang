@@ -64,6 +64,21 @@ const char* opcodeToString(OpCode op) {
         case OpCode::OP_GET_PROPERTY_DYNAMIC: return "OP_GET_PROPERTY_DYNAMIC";
         case OpCode::OP_DUP2: return "OP_DUP2";
         case OpCode::OP_SET_PROPERTY_DYNAMIC: return "OP_SET_PROPERTY_DYNAMIC";
+        case OpCode::OP_NEW_CLASS: return "OP_NEW_CLASS";
+        case OpCode::OP_TRY: return "OP_TRY";
+        case OpCode::OP_END_TRY: return "OP_END_TRY";
+        case OpCode::OP_END_FINALLY: return "OP_END_FINALLY";
+        case OpCode::OP_THROW: return "OP_THROW";
+        case OpCode::OP_ENUM_KEYS: return "OP_ENUM_KEYS";
+        case OpCode::OP_GET_OBJ_LENGTH: return "OP_GET_OBJ_LENGTH";
+        case OpCode::OP_GET_INDEX_PROPERTY_DYNAMIC: return "OP_GET_INDEX_PROPERTY_DYNAMIC";
+        case OpCode::OP_DEBUG: return "OP_DEBUG";
+        case OpCode::OP_LOAD_CHUNK_INDEX: return "OP_LOAD_CHUNK_INDEX";
+        case OpCode::OP_LOAD_ARGUMENT: return "OP_LOAD_ARGUMENT";
+        case OpCode::OP_LOAD_ARGUMENTS: return "OP_LOAD_ARGUMENTS";
+        case OpCode::OP_SLICE: return "OP_SLICE";
+        case OpCode::OP_LOAD_ARGUMENTS_LENGTH: return "OP_LOAD_ARGUMENTS_LENGTH";
+
     }
     return "UNKNOWN";
 }
