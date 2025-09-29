@@ -18,12 +18,16 @@ using namespace std;
 
 // forward
 struct Chunk;
+class Env;
+struct Closure;
 
 // A tiny Function object: holds chunk id/index and arity (and optional name)
 struct FunctionObject {
     uint32_t chunkIndex;   // index into module/file chunk table
     uint32_t arity;
     string name;
+    uint32_t upvalues_size;
+    Env* env;
 
     // optional: other metadata (source location, flags)
 };
@@ -67,6 +71,8 @@ public:
     function<Value(std::vector<Value>)> functionValue;
     shared_ptr<Promise> promiseValue;
     std::shared_ptr<FunctionObject> fnRef; // if FUNCTION_REF
+    
+    shared_ptr<Closure> closurePtr;
     
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
     

@@ -109,6 +109,12 @@ enum class OpCode : uint8_t {
     OP_LOAD_ARGUMENTS,
     OP_SLICE,
     OP_LOAD_ARGUMENTS_LENGTH,
+    
+    // closure
+    OP_CLOSURE,
+    OP_GET_UPVALUE,
+    OP_SET_UPVALUE,
+    OP_CLOSE_UPVALUE,
 
     // debug / sentinel
     OP_HALT

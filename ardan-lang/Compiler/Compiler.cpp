@@ -31,11 +31,12 @@ void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
     auto codegen = make_shared<CodeGen>(module_);
 
     // generate fills module_->chunks and module_->constants
-    auto entryChunk = codegen->generate(ast);
+    // auto entryChunk = codegen->generate(ast);
+    auto entryChunkIndex = codegen->generate(ast);
 
     VM vm(module_);
-    vm.run(entryChunk);
+    // vm.run(entryChunk);
 
     // OR explicitly by chunk index
-    // Value ret = vm.run(module_->chunks[0], {});
+    Value ret = vm.run(module_->chunks[entryChunkIndex], {});
 }
