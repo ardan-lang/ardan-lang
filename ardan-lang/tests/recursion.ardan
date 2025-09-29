@@ -2,9 +2,13 @@ print("=== Recursion ===");
 
 function fact(n) { if (n < 2) return 1; else return n * fact(n-1); }
 print("fact(6)=", fact(6));
+print("fact(3)=", fact(3));
+print("fact(60)=", fact(60));
 
 function fib(n) { if (n <= 1) return n; else return fib(n-1)+fib(n-2); }
 print("fib(6)=", fib(6));
+print("fib(4)=", fib(4));
+print("fib(10)=", fib(10));
 
 // Deep recursion
 function deep(n) { if (n == 0) return "done"; else return deep(n-1); }
