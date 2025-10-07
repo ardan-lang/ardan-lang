@@ -2140,7 +2140,7 @@ R Interpreter::visitNew(NewExpression* expr) {
             
         }
         
-        // create a jsobject from supercalss and assigne to parent_object
+        // create a jsobject from superclass and assign to parent_object
         if (new_class->superClass != nullptr) {
             object->parent_object = createJSObject(new_class->superClass);
             object->parent_class = new_class->superClass;
