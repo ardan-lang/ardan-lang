@@ -45,7 +45,8 @@ enum class ValueType {
     METHOD,
     PROMISE,
     FUNCTION_REF,
-    CLOSURE
+    CLOSURE,
+    CLASS
 };
 
 class Value;
@@ -105,7 +106,13 @@ public:
         v.classValue = klass;
         return v;
     }
-    
+    static Value klass(shared_ptr<JSClass> klass) {
+        Value v;
+        v.type = ValueType::CLASS;
+        v.classValue = klass;
+        return v;
+    }
+
     static Value promise(shared_ptr<JSObject> promise_value) {
         Value v;
         v.type = ValueType::OBJECT;
@@ -117,11 +124,11 @@ public:
         Value v; v.type = ValueType::FUNCTION_REF; v.fnRef = f; return v;
     }
     
-    static Value closure(shared_ptr<Closure> c) {
-        Value v;
-        v.type = ValueType::CLOSURE;
-        v.closureValue = c;
-        return v;
+    static Value closure(shared_ptr<Closure> closure) {
+        Value new_value;
+        new_value.type = ValueType::CLOSURE;
+        new_value.closureValue = closure;
+        return new_value;
     }
     
     Value(int n);
