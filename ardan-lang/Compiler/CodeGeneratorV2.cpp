@@ -89,7 +89,7 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
         if (decl.init) {
             decl.init->accept(*this); // push init value
         } else {
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             int ci = emitConstant(Value::undefined());
             emitUint32(ci);
         }
@@ -192,7 +192,7 @@ R CodeGen::visitReturn(ReturnStatement* stmt) {
         stmt->argument->accept(*this);
     } else {
         int ci = emitConstant(Value::undefined());
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(ci);
     }
     emit(OpCode::OP_RETURN);
@@ -451,7 +451,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
 //                emitUint32(nameIdx);
 //            }
             // push 1
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             // apply
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
@@ -480,7 +480,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
             emit(OpCode::OP_GET_PROPERTY);
             emitUint32(nameIdx); // stack: [obj, value]
             // push 1
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             // apply
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
@@ -507,7 +507,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
 
 R CodeGen::visitLiteral(LiteralExpression* expr) {
     int idx = emitConstant(Value::str(expr->token.lexeme));
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(idx);
     return true;
 }
@@ -515,14 +515,14 @@ R CodeGen::visitLiteral(LiteralExpression* expr) {
 R CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     Value v = toValue(expr->value);
     int idx = emitConstant(v);
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(idx);
     return true;
 }
 
 R CodeGen::visitStringLiteral(StringLiteral* expr) {
     int idx = emitConstant(Value::str(expr->text)); // sets the text to the constant array
-    emit(OpCode::OP_CONSTANT); // bytecode that indicates push constant to the stack.
+    emit(OpCode::LoadConstant); // bytecode that indicates push constant to the stack.
     emitUint32(idx); // the index of the constant in the constants array to push to the stack
     return true;
 }
@@ -583,14 +583,6 @@ R CodeGen::visitMember(MemberExpression* expr) {
     int nameIdx = emitConstant(Value::str(propName));
     emit(OpCode::OP_GET_PROPERTY);
     emitUint32(nameIdx);
-    return true;
-}
-
-R CodeGen::visitNew(NewExpression* expr) {
-    // create new object, push, then call constructor? For now create object and set properties
-    emit(OpCode::OP_NEW_OBJECT);
-    // set up constructor invocation by calling callee with object? Simpler: if args exist, ignore
-    // To support calling constructor I'd have to add OP_INVOKE or convention; skip constructor calls for now.
     return true;
 }
 
@@ -679,7 +671,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
         if (info.isRest) {
             // collect rest arguments as array: arguments.slice(i)
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
-            nested.emit(OpCode::OP_CONSTANT);            // Push i
+            nested.emit(OpCode::LoadConstant);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
             nested.emit(OpCode::OP_SET_LOCAL);
@@ -691,7 +683,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -740,7 +732,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
             }
         }
         if (!is_return_avaialble) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -835,7 +827,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
         if (info.isRest) {
             // collect rest arguments as array: arguments.slice(i)
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
-            nested.emit(OpCode::OP_CONSTANT);            // Push i
+            nested.emit(OpCode::LoadConstant);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
             nested.emit(OpCode::OP_SET_LOCAL);
@@ -848,7 +840,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -896,7 +888,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
         }
         
         if (!is_return_avaialble) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -999,7 +991,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
         if (info.isRest) {
             // Collect rest arguments as array: arguments.slice(i)
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);
             nested.emit(OpCode::OP_SET_LOCAL);
@@ -1009,7 +1001,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -1051,7 +1043,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
             }
         }
         if (!is_return_avaialble) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -1109,7 +1101,7 @@ R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // Simple approach: compute at runtime building string.
     // push empty string
     int emptyIdx = emitConstant(Value::str(""));
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emptyIdx);
 
     size_t qsize = expr->quasis.size();
@@ -1118,7 +1110,7 @@ R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     for (size_t i = 0; i < qsize; ++i) {
         // push quasi
         int qi = emitConstant(Value::str(expr->quasis[i]->text));
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(qi);
         emit(OpCode::OP_ADD);
         // if expression exists
@@ -1135,7 +1127,7 @@ R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
     // Generate: push path string -> call import(path)
     int ci = emitConstant(Value::str(stmt->path.lexeme));
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(ci);
     // callee (import)
     int importName = emitConstant(Value::str("import"));
@@ -1232,7 +1224,7 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
 //            emit(OpCode::OP_GET_GLOBAL);
 //            emitUint32(nameIdx);
 //        }
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::number(1)));
         emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
         if (hasLocal(ident->name)) {
@@ -1261,7 +1253,7 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             member->property->accept(*this);   // [obj, key]
             emit(OpCode::OP_DUP2);             // [obj, key, obj, key]
             emit(OpCode::OP_GET_PROPERTY_DYNAMIC); // [obj, key, value]
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, key, result]
             emit(OpCode::OP_SET_PROPERTY_DYNAMIC); // [result]
@@ -1273,7 +1265,7 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             int nameIdx = emitConstant(Value::str(member->name.lexeme));
             emit(OpCode::OP_GET_PROPERTY);
             emitUint32(nameIdx);           // [obj, value]
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, result]
             emit(OpCode::OP_SET_PROPERTY);
@@ -1285,25 +1277,25 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
 }
 
 R CodeGen::visitFalseKeyword(FalseKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::boolean(false)));
     return true;
 }
 
 R CodeGen::visitTrueKeyword(TrueKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::boolean(true)));
     return true;
 }
 
 R CodeGen::visitNullKeyword(NullKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::nullVal()));
     return true;
 }
 
 R CodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::undefined()));
     return true;
 }
@@ -1348,12 +1340,45 @@ R CodeGen::visitEmpty(EmptyStatement* stmt) {
     return true;
 }
 
+R CodeGen::visitSuper(SuperExpression* stmt) {
+    return true;
+}
+
+// TODO: figure out how to use arguments and call constructor
+R CodeGen::visitNew(NewExpression* expr) {
+    // create new object, push, then call constructor? For now create object and set properties
+    // expr->arguments // vector
+    // expr->callee //
+        
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
+                
+        ident->accept(*this);
+        
+        emit(OpCode::CreateInstance);
+
+        for (auto& arg : expr->arguments) {
+            arg->accept(*this);
+        }
+        
+        emit(OpCode::InvokeConstructor);
+
+        // emit args count
+        emitUint8((uint8_t)expr->arguments.size());
+
+    }
+    
+    // set up constructor invocation by calling callee with object? Simpler: if args exist, ignore
+    // To support calling constructor I'd have to add OP_INVOKE or convention; skip constructor calls for now.
+    return true;
+}
+
 void CodeGen::compileMethod(MethodDefinition& method) {
     // Create a nested CodeGen for the method body (closure)
     CodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
     nested.beginScope();
+    nested.declareLocal("this");
 
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
@@ -1397,7 +1422,7 @@ void CodeGen::compileMethod(MethodDefinition& method) {
         const auto& info = parameterInfos[i];
         if (info.isRest) {
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);
             nested.emit(OpCode::OP_SET_LOCAL);
@@ -1406,7 +1431,7 @@ void CodeGen::compileMethod(MethodDefinition& method) {
         }
         if (info.hasDefault) {
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -1440,7 +1465,7 @@ void CodeGen::compileMethod(MethodDefinition& method) {
             }
         }
         if (!hasReturn) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -1472,16 +1497,54 @@ void CodeGen::compileMethod(MethodDefinition& method) {
 }
 
 R CodeGen::visitClass(ClassDeclaration* stmt) {
+    
+    compiling_klass = true;
+    
     // Evaluate superclass (if any)
     if (stmt->superClass) {
         stmt->superClass->accept(*this); // [superclass]
     } else {
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
     }
 
     // Create the class object (with superclass on stack)
     emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
+
+    // Define fields
+    for (auto& field : stmt->fields) {
+        // Only handle static fields during class definition codegen
+        bool isStatic = false;
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+        // if (!isStatic)
+            // continue;
+
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            for (const auto& decl : varStmt->declarations) {
+                if (decl.init) {
+                    decl.init->accept(*this); // Evaluate initializer
+                } else {
+                    emit(OpCode::LoadConstant);
+                    emitUint32(emitConstant(Value::undefined()));
+                }
+                int nameIdx = emitConstant(Value::str(decl.id));
+                
+                if (isStatic) {
+                    emit(OpCode::OP_SET_STATIC_PROPERTY);
+                } else {
+                    emit(OpCode::OP_SET_PROPERTY);
+                }
+                
+                emitUint32(nameIdx);
+            }
+        }
+    }
 
     // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
@@ -1509,39 +1572,12 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         }
     }
 
-    // Define static fields
-    for (auto& field : stmt->fields) {
-        // Only handle static fields during class definition codegen
-        bool isStatic = false;
-        for (const auto& mod : field->modifiers) {
-            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
-                isStatic = true;
-                break;
-            }
-        }
-        if (!isStatic)
-            continue;
-
-        // Property is always a VariableStatement
-        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
-            for (const auto& decl : varStmt->declarations) {
-                if (decl.init) {
-                    decl.init->accept(*this); // Evaluate initializer
-                } else {
-                    emit(OpCode::OP_CONSTANT);
-                    emitUint32(emitConstant(Value::undefined()));
-                }
-                int nameIdx = emitConstant(Value::str(decl.id));
-                emit(OpCode::OP_SET_STATIC_PROPERTY);
-                emitUint32(nameIdx);
-            }
-        }
-    }
-
     // Bind class in the environment (global)
     int classNameIdx = emitConstant(Value::str(stmt->id));
     emit(OpCode::OP_DEFINE_GLOBAL);
     emitUint32(classNameIdx);
+
+    compiling_klass = false;
 
     return true;
 }
@@ -1552,7 +1588,7 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
 //    if (stmt->superClass) {
 //        stmt->superClass->accept(*this); // [superclass]
 //    } else {
-//        emit(OpCode::OP_CONSTANT);
+//        emit(OpCode::LoadConstant);
 //        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
 //    }
 //
@@ -1590,7 +1626,7 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
 ////            if (field->initializer) {
 ////                field->initializer->accept(*this);
 ////            } else {
-////                emit(OpCode::OP_CONSTANT);
+////                emit(OpCode::LoadConstant);
 ////                emitUint32(emitConstant(Value::undefined()));
 ////            }
 ////            int nameIdx = emitConstant(Value::str(field->key));
@@ -1775,7 +1811,7 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emitUint32(length_slot);
 
     uint32_t idx_slot = makeLocal("__for_in_idx");
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(0)));
     emit(OpCode::OP_SET_LOCAL);
     emitUint32(idx_slot);
@@ -1829,7 +1865,7 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     // Increment idx
     emit(OpCode::OP_GET_LOCAL);
     emitUint32(idx_slot);
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
     emit(OpCode::OP_ADD);
     emit(OpCode::OP_SET_LOCAL);
@@ -1874,7 +1910,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     // emit(OpCode::OP_POP);
 
     size_t idx_slot = makeLocal("__for_of_index");
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value(0)));
     emit(OpCode::OP_SET_LOCAL);
     emitUint32((uint32_t)idx_slot);
@@ -1926,7 +1962,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     // push idx
     emit(OpCode::OP_GET_LOCAL);
     emitUint32((uint32_t)idx_slot);
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
     emit(OpCode::OP_ADD);
     emit(OpCode::OP_SET_LOCAL);
@@ -1948,10 +1984,6 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
 
     return true;
     
-}
-
-R CodeGen::visitSuper(SuperExpression* stmt) {
-    return true;
 }
 
 R CodeGen::visitPublicKeyword(PublicKeyword* expr) {
@@ -2292,7 +2324,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1;
             
             // u32 operands
-        case OpCode::OP_CONSTANT: {
+        case OpCode::LoadConstant: {
             uint32_t index = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " " << index << " (";
             if (index < chunk->constants.size()) {
@@ -2315,6 +2347,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_SET_GLOBAL:
         case OpCode::OP_DEFINE_GLOBAL:
         case OpCode::OP_SET_PROPERTY:
+        case OpCode::OP_SET_STATIC_PROPERTY:
         case OpCode::OP_LOAD_CHUNK_INDEX:
         case OpCode::OP_LOAD_ARGUMENT:
         case OpCode::OP_GET_PROPERTY: {
@@ -2377,6 +2410,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
+        case OpCode::CreateInstance:
             // calls
         case OpCode::OP_CALL: {
             uint8_t argCount = chunk->code[offset + 1];
@@ -2397,10 +2431,9 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_SLICE:
         case OpCode::OP_LOAD_ARGUMENTS_LENGTH:
         case OpCode::OP_CLOSE_UPVALUE:
-            std::cout << opcodeToString(op) << "\n";
-            return offset + 1;
         case OpCode::OP_CLEAR_STACK:
         case OpCode::OP_CLEAR_LOCALS:
+        case OpCode::InvokeConstructor:
             cout << opcodeToString(op) << "\n";
             return offset + 1;
     }

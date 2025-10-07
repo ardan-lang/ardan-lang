@@ -139,6 +139,7 @@ private:
     vector<UpvalueMeta> upvalues;
     int scopeDepth;
     CodeGen* enclosing;
+    bool compiling_klass = false;
     void compileMethod(MethodDefinition& method);
     
     R define(string decl);
