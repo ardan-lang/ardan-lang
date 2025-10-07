@@ -113,17 +113,17 @@ Value VM::peek(int distance) {
 }
 
 uint8_t VM::readByte() {
-    if (ip >= chunk->code.size()) return 0;
-    return chunk->code[ip++];
+    if (frame->ip >= frame->chunk->code.size()) return 0;
+    return frame->chunk->code[frame->ip++];
 }
 
 uint32_t VM::readUint32() {
-    if (ip + 4 > chunk->code.size()) throw std::runtime_error("read past end");
+    if (frame->ip + 4 > frame->chunk->code.size()) throw std::runtime_error("read past end");
     uint32_t v = 0;
-    v |= (uint32_t)chunk->code[ip++];
-    v |= (uint32_t)chunk->code[ip++] << 8;
-    v |= (uint32_t)chunk->code[ip++] << 16;
-    v |= (uint32_t)chunk->code[ip++] << 24;
+    v |= (uint32_t)frame->chunk->code[frame->ip++];
+    v |= (uint32_t)frame->chunk->code[frame->ip++] << 8;
+    v |= (uint32_t)frame->chunk->code[frame->ip++] << 16;
+    v |= (uint32_t)frame->chunk->code[frame->ip++] << 24;
     return v;
 }
 
@@ -216,39 +216,46 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
 }
 
 Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
+    
+    auto closure = make_shared<Closure>();
+
     // prepare a top-level frame that will be executed by runFrame()
-    CallFrame frame;
-    frame.chunk = chunk_;
-    frame.ip = 0;
-    frame.locals.resize(chunk_->maxLocals, Value::undefined());
-    frame.args = args;
+    CallFrame new_frame;
+    new_frame.chunk = chunk_;
+    new_frame.ip = 0;
+    new_frame.locals.resize(chunk_->maxLocals, Value::undefined());
+    new_frame.args = args;
+    new_frame.closure = closure;
     
     uint32_t ncopy = std::min((uint32_t)args.size(), chunk_->maxLocals);
-    for (uint32_t i = 0; i < ncopy; ++i) frame.locals[i] = args[i];
-
-    callStack.push_back(std::move(frame));
-    Value result = runFrame();
+    for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
+    
+    callStack.push_back(std::move(new_frame));
+    Value result = runFrame(callStack.back());
     callStack.pop_back();
     return result;
 }
 
-Value VM::runFrame() {
+Value VM::runFrame(CallFrame &current_frame) {
     
     if (callStack.empty()) return Value::undefined();
-    CallFrame &frame = callStack.back();
+    // CallFrame &frame = callStack.back();
 
     // Save current VM-level chunk/ip/locals to restore after this frame (if they are used elsewhere)
-    auto prevChunk = chunk;
+    //auto prevChunk = chunk;
     // size_t prevIp = ip;
-    auto prevLocals = std::move(locals); // move out current locals (if you rely on them elsewhere)
+    //auto prevLocals = std::move(locals); // move out current locals (if you rely on them elsewhere)
     // We'll restore them at the end.
 
     // Point VM at this frame's chunk/locals
-    chunk = frame.chunk;
-    ip = frame.ip;
-    locals = frame.locals; // copy frame locals into VM locals for existing opcode handlers
+    frame = &current_frame;
+    // chunk = frame.chunk;
+    // ip = frame.ip;
+    
+    // locals = frame.locals; // copy frame locals into VM locals for existing opcode handlers
+    //deque<Value>& locals = frame.locals;
 
-    while (running) {
+    while (true) {
         OpCode op = static_cast<OpCode>(readByte());
         switch (op) {
             case OpCode::OP_NOP:
@@ -257,7 +264,7 @@ Value VM::runFrame() {
                 // pushes the constant to stack
             case OpCode::OP_CONSTANT: {
                 uint32_t ci = readUint32();
-                push(chunk->constants[ci]);
+                push(frame->chunk->constants[ci]);
                 break;
             }
 
@@ -282,27 +289,27 @@ Value VM::runFrame() {
                 
             case OpCode::OP_GET_LOCAL: {
                 uint32_t idx = readUint32();
-                if (idx >= locals.size()) push(Value::undefined());
-                else push(locals[idx]);
+                if (idx >= frame->locals.size()) push(Value::undefined());
+                else push(frame->locals[idx]);
                 break;
             }
 
             case OpCode::OP_SET_LOCAL: {
                 uint32_t idx = readUint32();
                 Value val = pop();
-                if (idx >= locals.size()) {
+                if (idx >= frame->locals.size()) {
                     // grow if needed
-                    locals.resize(idx + 1, Value::undefined());
+                    frame->locals.resize(idx + 1, Value::undefined());
                 }
-                locals[idx] = val;
-                push(val);
+                frame->locals[idx] = val;
+                //push(val);
                 break;
             }
 
                 // pushes the value of the global to stack
             case OpCode::OP_GET_GLOBAL: {
                 uint32_t ci = readUint32();
-                Value nameVal = chunk->constants[ci];
+                Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
                 
 //                if (globals.find(name) != globals.end()) push(globals[name]);
@@ -320,28 +327,28 @@ Value VM::runFrame() {
                 // leaves nothing on stack
             case OpCode::OP_SET_GLOBAL: {
                 uint32_t ci = readUint32();
-                Value nameVal = chunk->constants[ci];
+                Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
                 Value v = pop();
                 
                 // globals[name] = v;
                 env->set_var(name, v);
                 
-                push(v);
+                //push(v);
                 break;
             }
 
                 // leaves nothing on stack
             case OpCode::OP_DEFINE_GLOBAL: {
                 uint32_t ci = readUint32();
-                Value nameVal = chunk->constants[ci];
+                Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
                 Value v = pop();
                 
                 // globals[name] = v;
                 env->set_var(name, v);
                 
-                push(v);
+                //push(v);
                 break;
             }
 
@@ -356,7 +363,7 @@ Value VM::runFrame() {
 
             case OpCode::OP_SET_PROPERTY: {
                 uint32_t ci = readUint32();
-                string prop = chunk->constants[ci].toString();
+                string prop = frame->chunk->constants[ci].toString();
                 Value valueToSet = pop();
                 Value objVal = pop();
                 setProperty(objVal, prop, valueToSet);
@@ -367,7 +374,7 @@ Value VM::runFrame() {
 
             case OpCode::OP_GET_PROPERTY: {
                 uint32_t ci = readUint32();
-                string prop = chunk->constants[ci].toString();
+                string prop = frame->chunk->constants[ci].toString();
                 Value objVal = pop();
                 Value v = getProperty(objVal, prop);
                 push(v);
@@ -436,7 +443,6 @@ Value VM::runFrame() {
                 }
                 // pop obj
                 push(Value::object(obj));
-                // push the properties
                 break;
             }
                 
@@ -695,21 +701,21 @@ Value VM::runFrame() {
             // jumps
             case OpCode::OP_JUMP: {
                 uint32_t offset = readUint32();
-                ip += offset;
+                frame->ip += offset;
                 break;
             }
 
             case OpCode::OP_JUMP_IF_FALSE: {
                 uint32_t offset = readUint32();
                 Value cond = pop();
-                if (!isTruthy(cond)) ip += offset;
+                if (!isTruthy(cond)) frame->ip += offset;
                 break;
             }
 
             case OpCode::OP_LOOP: {
                 uint32_t offset = readUint32();
                 // jump backwards
-                ip -= offset;
+                frame->ip -= offset;
                 break;
             }
                 
@@ -729,10 +735,8 @@ Value VM::runFrame() {
                 // Value callee = peek(argCount); // or adjust as per your calling convention
                 vector<Value> args = popArgs(argCount);
                 Value callee = pop();
-                
                 Value result = callFunction(callee, args);
-                // pop callee and args and push result
-                // pop();
+                // push result
                 
                 push(result);
                 break;
@@ -741,10 +745,10 @@ Value VM::runFrame() {
             case OpCode::OP_LOAD_ARGUMENT: {
                 // Expects next 4 bytes: uint32_t index of argument to load
                 uint32_t argIndex = readUint32();
-                // CallFrame& frame = callStack.back();
+                
                 Value result = Value::undefined();
-                if (argIndex < frame.args.size()) {
-                    result = frame.args[argIndex];
+                if (argIndex < frame->args.size()) {
+                    result = frame->args[argIndex];
                 }
                 push(result);
                 break;
@@ -752,10 +756,9 @@ Value VM::runFrame() {
 
             case OpCode::OP_LOAD_ARGUMENTS: {
                 // Pushes the full arguments array as a JSArray object (or equivalent)
-                //CallFrame& frame = callStack.back();
 
                 auto arr = make_shared<JSArray>();
-                for (const Value& v : frame.args) {
+                for (const Value& v : frame->args) {
                     arr->push({v});
                 }
                 push(Value::array(arr));
@@ -782,8 +785,7 @@ Value VM::runFrame() {
 
             case OpCode::OP_LOAD_ARGUMENTS_LENGTH: {
                 // Pushes the count of arguments passed to the current frame
-                //CallFrame& frame = callStack.back();
-                push(Value((double)frame.args.size()));
+                push(Value((double)frame->args.size()));
                 break;
             }
                 
@@ -791,7 +793,7 @@ Value VM::runFrame() {
                 uint32_t catchOffset = readUint32();   // relative offset from after the two offsets
                 uint32_t finallyOffset = readUint32();
                 // compute absolute IPs
-                int base = (int)ip; // ip now points after the offsets
+                int base = (int)frame->ip; // ip now points after the offsets
                 TryFrame f;
                 f.catchIP = (catchOffset == 0) ? -1 : (base + (int)catchOffset);
                 f.finallyIP = (finallyOffset == 0) ? -1 : (base + (int)finallyOffset);
@@ -805,7 +807,7 @@ Value VM::runFrame() {
             case OpCode::OP_END_TRY: {
                 if (tryStack.empty()) {
                     // runtime error: unmatched END_TRY
-                    running = false;
+                    //running = false;
                     break;
                 }
                 tryStack.pop_back();
@@ -841,7 +843,7 @@ Value VM::runFrame() {
                         resume.ipAfterTry = -1;
                         tryStack.push_back(resume);
                         // jump into finalizer
-                        ip = f.finallyIP;
+                        frame->ip = f.finallyIP;
                         handled = true; // we will handle after finalizer/resume
                         break;
                     }
@@ -849,7 +851,7 @@ Value VM::runFrame() {
                     // If no finally, but there is a catch, jump to catch and push exception
                     if (f.catchIP != -1) {
                         stack.push_back(pending);
-                        ip = f.catchIP;
+                        frame->ip = f.catchIP;
                         handled = true;
                         break;
                     }
@@ -862,7 +864,7 @@ Value VM::runFrame() {
                     // Here: runtime uncaught exception -> abort or print error
                     // For demo, we stop the VM
                     printf("Uncaught exception, halting VM\n");
-                    running = false;
+                    //running = false;
                 }
                 break;
             }
@@ -879,7 +881,7 @@ Value VM::runFrame() {
                         if (resume.catchIP != -1) {
                             // pending exception should be on stack top
                             // jump into catch with exception on stack
-                            ip = resume.catchIP;
+                            frame->ip = resume.catchIP;
                             break;
                         } else {
                             // no catch for the pending exception, continue unwinding:
@@ -904,23 +906,9 @@ Value VM::runFrame() {
                 
             case OpCode::OP_RETURN: {
                 // Close any open upvalues pointing to locals being popped
-                //closeUpvalues(&locals[0]);
+                closeUpvalues(frame->locals.size() > 0 ? &frame->locals[0] : nullptr);
                 Value v = pop();
-                
-                // if v is fuunction ref, duplicate
-//                if (v.type == ValueType::FUNCTION_REF) {
-//                    
-//                    auto fnObj = std::make_shared<FunctionObject>();
-//                    fnObj->chunkIndex = v.fnRef->chunkIndex;
-//                    fnObj->arity = v.fnRef->arity;
-//                    fnObj->name = v.fnRef->name;
-//
-//                    Value fnValue = Value::functionRef(fnObj);
-//                    
-//                    return fnValue;
-//                    
-//                }
-                
+                                
                 return v;
             }
 
@@ -929,35 +917,57 @@ Value VM::runFrame() {
 
             // --- Closure creation ---
             case OpCode::OP_CLOSURE: {
-                uint32_t ci = readUint32();
+                uint32_t ci = readUint8();
                 Value fnVal = module_->constants[ci]; //chunk->constants[ci];
                 auto fnRef = fnVal.fnRef; // Should be FunctionObject*
-                auto closure = std::make_shared<Closure>();
+                auto closure = make_shared<Closure>();
                 closure->fn = fnRef;
                 // Assume upvalue count is stored in fnRef->arity or fnRef->upvalueCount
                 // Here using fnRef->arity as placeholder
-                for (size_t i = 0; i < fnRef->arity; ++i) {
+
+                push(Value::closure(closure));
+
+                for (size_t i = 0; i < fnRef->upvalues_size; ++i) {
                     // Read upvalue info (isLocal, index)
-                    uint8_t isLocal = readUint8();
-                    uint32_t idx = readUint32();
-                    if (isLocal) closure->upvalues.push_back(captureUpvalue(&locals[idx]));
-                    else closure->upvalues.push_back(frame.closure->upvalues[idx]);
+                    uint32_t isLocal = readUint8();
+                    uint32_t idx = readUint8();
+                    if (isLocal) {
+                        closure->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
+                    } else {
+                        closure->upvalues.push_back(frame->closure->upvalues[idx]);
+                    }
                 }
                 // Push a Value wrapping this closure
                 // Assuming you extend Value to support closure type; else push functionRef
-                push(Value::functionRef(fnRef)); // Adjust to push closure Value if implemented
+                // push(Value::closure(closure)); // Adjust to push closure Value if implemented
                 break;
             }
 
             // --- Upvalue access ---
             case OpCode::OP_GET_UPVALUE: {
                 uint32_t idx = readUint32();
-                push(*frame.closure->upvalues[idx]->location);
+                push(*frame->closure->upvalues[idx]->location);
                 break;
             }
             case OpCode::OP_SET_UPVALUE: {
                 uint32_t idx = readUint32();
-                *frame.closure->upvalues[idx]->location = pop();
+                *frame->closure->upvalues[idx]->location = pop();
+                break;
+            }
+                
+            case OpCode::OP_CLOSE_UPVALUE: {
+                closeUpvalues(stack.empty() ? nullptr : &stack.back());
+                pop();
+                break;
+            }
+                
+            case OpCode::OP_CLEAR_LOCALS: {
+                frame->locals.clear();
+                break;
+            }
+                
+            case OpCode::OP_CLEAR_STACK: {
+                stack.clear();
                 break;
             }
 
@@ -976,6 +986,51 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
         return result;
     }
     
+    if (callee.type == ValueType::CLOSURE) {
+
+        // save current frame
+        //CallFrame prev_frame = callStack.back();
+        // prev_frame.chunk = frame->chunk;
+        // prev_frame.ip = frame->ip;
+        // prev_frame.locals = frame->locals;
+        // prev_frame.args = args;
+
+        shared_ptr<Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
+
+        //callee = Value::functionRef(callee.closureValue->fn);
+        
+        // Build new frame
+        CallFrame new_frame;
+        new_frame.chunk = calleeChunk;
+        new_frame.ip = 0;
+        // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
+        new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+        new_frame.args = args;
+        new_frame.closure = callee.closureValue;
+
+        // Set frame.closure if calling a closure
+        // Assuming callee has a closurePtr member for Closure shared_ptr
+        // If you extended Value for closure type, set here:
+        // frame.closure = callee.closurePtr; // may be nullptr if callee is plain functionRef
+        callStack.push_back(std::move(new_frame));
+        auto prev_stack = std::move(stack);
+        stack.clear();
+        // locals.clear();
+
+        Value result = runFrame(callStack.back());
+        
+        callStack.pop_back();
+        frame = &callStack.back();
+        
+//        chunk = prev_frame.chunk;
+//        ip = prev_frame.ip;
+//        locals = std::move(prev_frame.locals);
+        stack = std::move(prev_stack);
+
+        return result;
+        
+    }
+
     if (callee.type == ValueType::NATIVE_FUNCTION) {
         Value result = callee.nativeFunction(args);
         return result;
@@ -1001,56 +1056,59 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     shared_ptr<Chunk> calleeChunk = module_->chunks[fn->chunkIndex];
 
     // Build new frame
-    CallFrame frame;
-    frame.chunk = calleeChunk;
-    frame.ip = 0;
+    CallFrame new_frame;
+    new_frame.chunk = calleeChunk;
+    new_frame.ip = 0;
     // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
-    frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
-    frame.args = args;
+    new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+    new_frame.args = args;
     
     // Set frame.closure if calling a closure
     // Assuming callee has a closurePtr member for Closure shared_ptr
     // If you extended Value for closure type, set here:
-    frame.closure = callee.closurePtr; // may be nullptr if callee is plain functionRef
-    
+    new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
+
     // save current frame
-    CallFrame prev_frame;
-    prev_frame.chunk = chunk;
-    prev_frame.ip = ip;
-    prev_frame.locals = locals;
+    CallFrame prev_frame = callStack.back();
+//    prev_frame.chunk = chunk;
+//    prev_frame.ip = ip;
+//    prev_frame.locals = std::move(locals);
     
     auto prev_stack = std::move(stack);
     stack.clear();
+    
+    //locals.clear();
 
     // copy args into frame.locals[0..]
     uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
-    for (uint32_t i = 0; i < ncopy; ++i) frame.locals[i] = args[i];
+    for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
 
     // push frame and execute it
-    callStack.push_back(std::move(frame));
+    callStack.push_back(std::move(new_frame));
 
-    Env* previous = env;
-    prev_frame.env = previous;
+    // Env* previous = env;
+    //prev_frame.env = previous;
         
 //    if (fn->env) {
 //        env = fn->env;
 //    } else {
-        env = new Env(previous);
+        //env = new Env(previous);
 //    }
 
-    Value result = runFrame();
+    Value result = runFrame(callStack.back());
     
 //    if (result.type == ValueType::FUNCTION_REF && result.fnRef->env == nullptr) {
 //        result.fnRef->env = new Env(env);
 //    }
     
-    env = previous;
+    //env = previous;
 
     callStack.pop_back();
+    frame = &prev_frame;
 
-    chunk = prev_frame.chunk;
-    ip = prev_frame.ip;
-    locals = prev_frame.locals;
+//    chunk = prev_frame.chunk;
+//    ip = prev_frame.ip;
+//    locals = std::move(prev_frame.locals);
     stack = prev_stack;
 
     return result;
@@ -1077,7 +1135,7 @@ vector<Value> VM::popArgs(size_t count) {
 
 void VM::handleRethrow() {
     // simplified: pop pending exception and re-run OP_THROW-like unwinding
-    if (stack.empty()) { running = false; return; }
+    if (stack.empty()) { /*running = false;*/ return; }
     Value pending = pop();
     // Re-run throw loop: same as OP_THROW handling but without recursion here.
     bool handled = false;
@@ -1092,19 +1150,20 @@ void VM::handleRethrow() {
             resume.finallyIP = -1;
             resume.stackDepth = f.stackDepth;
             tryStack.push_back(resume);
-            ip = f.finallyIP;
+            frame->ip = f.finallyIP;
             handled = true;
             break;
         }
         if (f.catchIP != -1) {
             stack.push_back(pending);
-            ip = f.catchIP;
+            frame->ip = f.catchIP;
             handled = true;
             break;
         }
     }
     if (!handled) {
         printf("Uncaught exception after finally, halting VM\n");
-        running = false;
+        //running = false;
     }
 }
+
