@@ -137,3 +137,36 @@ void JSClass::set_let(const string& key, Value value, const vector<string> modif
 void JSClass::set_const(const string& key, Value value, const vector<string> modifiers) {
     const_static_fields[key] = { key, modifiers, value };
 }
+
+Value JSClass::get_vm(const string& key) {
+    
+    auto static_props_value = staticProps.find(key);
+    if (static_props_value != staticProps.end()) {
+        
+        // when found, check if it
+        return static_props_value->second;
+    }
+
+    auto proto_value = protoProps.find(key);
+    if (proto_value != protoProps.end()) {
+        
+        // when found, check if it
+        return proto_value->second;
+    }
+
+    // Walk superclass chain
+    if (superClass) {
+        return superClass->get_vm(key);
+    }
+    
+    throw runtime_error( key + " does not exist as static in this class.");
+
+}
+
+void JSClass::set_proto_vm(const string& key, Value value) {
+    protoProps[key] = value;
+}
+
+void JSClass::set_static_vm(const string& key, Value value) {
+    staticProps[key] = value;
+}

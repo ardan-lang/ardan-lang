@@ -43,7 +43,14 @@ public:
     void set_var(const string& key, Value value, const vector<string> modifiers);
     void set_let(const string& key, Value value, const vector<string> modifiers);
     void set_const(const string& key, Value value, const vector<string> modifiers);
-    
+
+    // simple maps for static and prototype methods
+    unordered_map<string, Value> staticProps;
+    unordered_map<string, Value> protoProps;
+    Value get_vm(const string& key);
+    void set_static_vm(const string& key, Value value);
+    void set_proto_vm(const string& key, Value value);
+
     virtual std::shared_ptr<JSObject> construct() {
         return nullptr;
     }
