@@ -27,7 +27,7 @@ struct FunctionObject {
     uint32_t arity;
     string name;
     uint32_t upvalues_size;
-    Env* env;
+    //Env* env;
 
     // optional: other metadata (source location, flags)
 };
@@ -44,7 +44,8 @@ enum class ValueType {
     FUNCTION,
     METHOD,
     PROMISE,
-    FUNCTION_REF
+    FUNCTION_REF,
+    CLOSURE
 };
 
 class Value;
@@ -52,6 +53,7 @@ class JSObject; // forward declare
 class JSClass;
 class JSArray;
 class Promise;
+struct Closure;
 
 using NativeFn = function<Value(const vector<Value>&)>;
 
@@ -71,9 +73,8 @@ public:
     function<Value(std::vector<Value>)> functionValue;
     shared_ptr<Promise> promiseValue;
     std::shared_ptr<FunctionObject> fnRef; // if FUNCTION_REF
-    
-    shared_ptr<Closure> closurePtr;
-    
+    shared_ptr<Closure> closureValue;
+        
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
     
     static Value number(double n) { Value v; v.type = ValueType::NUMBER; v.numberValue = n; return v; }
@@ -114,6 +115,13 @@ public:
     
     static Value functionRef(std::shared_ptr<FunctionObject> f) {
         Value v; v.type = ValueType::FUNCTION_REF; v.fnRef = f; return v;
+    }
+    
+    static Value closure(shared_ptr<Closure> c) {
+        Value v;
+        v.type = ValueType::CLOSURE;
+        v.closureValue = c;
+        return v;
     }
     
     Value(int n);
