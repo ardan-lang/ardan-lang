@@ -87,6 +87,16 @@ const char* opcodeToString(OpCode op) {
             return "OP_SET_UPVALUE";
         case OpCode::OP_CLOSE_UPVALUE:
             return "OP_CLOSE_UPVALUE";
+        case OpCode::OP_CLEAR_STACK:
+            return "OP_CLEAR_STACK";
+        case OpCode::OP_CLEAR_LOCALS:
+            return "OP_CLEAR_LOCALS";
+        case OpCode::OP_SET_STATIC_PROPERTY:
+            return "OP_SET_STATIC_PROPERTY";
+        case OpCode::CreateInstance:
+            return "CreateInstance";
+        case OpCode::InvokeConstructor:
+            return "InvokeConstructor";
     }
     return "UNKNOWN";
 }

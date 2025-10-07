@@ -16,7 +16,7 @@ enum class OpCode : uint8_t {
     OP_NOP = 0,
 
     // constants & stack
-    OP_CONSTANT,        // u32 constant index -> push constant
+    LoadConstant,        // u32 constant index -> push constant
     OP_POP,             // pop stack
     OP_DUP,             // duplicate top
 
@@ -118,6 +118,10 @@ enum class OpCode : uint8_t {
     
     OP_CLEAR_STACK,
     OP_CLEAR_LOCALS,
+    
+    OP_SET_STATIC_PROPERTY,
+    CreateInstance,
+    InvokeConstructor,
 
     // debug / sentinel
     OP_HALT
