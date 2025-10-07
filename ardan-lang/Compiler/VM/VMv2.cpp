@@ -208,10 +208,10 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
         objVal.arrayValue->set(propName, val);
         return;
     }
-//    if (objVal.type == ValueType::CLASS) {
-//        objVal.classValue->set(propName, val, false);
-//        return;
-//    }
+    if (objVal.type == ValueType::CLASS) {
+        objVal.classValue->set(propName, val, false);
+        return;
+    }
     throw std::runtime_error("Cannot set property on non-object");
 }
 
@@ -360,7 +360,23 @@ Value VM::runFrame(CallFrame &current_frame) {
                 push(v);
                 break;
             }
-
+                
+            case OpCode::OP_NEW_CLASS: {
+                auto superclass = pop();
+                
+                auto js_class = make_shared<JSClass>();
+                
+//                if (isObject(superclass)) {
+//                    klass->prototype->setPrototype(superclass->prototype);
+//                }
+                push(Value::klass(js_class));
+                break;
+            }
+                
+            case OpCode::OP_SET_STATIC_PROPERTY: {
+                break;
+            }
+                
             case OpCode::OP_SET_PROPERTY: {
                 uint32_t ci = readUint32();
                 string prop = frame->chunk->constants[ci].toString();
@@ -920,6 +936,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 uint32_t ci = readUint8();
                 Value fnVal = module_->constants[ci]; //chunk->constants[ci];
                 auto fnRef = fnVal.fnRef; // Should be FunctionObject*
+                fnRef->vm = this;
                 auto closure = make_shared<Closure>();
                 closure->fn = fnRef;
                 // Assume upvalue count is stored in fnRef->arity or fnRef->upvalueCount
@@ -1032,6 +1049,10 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     }
 
     if (callee.type == ValueType::NATIVE_FUNCTION) {
+        args.push_back(Value::function([this](vector<Value> args) -> Value {
+            // this->callFunction(<#Value callee#>, <#vector<Value> &args#>)
+            return Value::nullVal();
+        }));
         Value result = callee.nativeFunction(args);
         return result;
     }

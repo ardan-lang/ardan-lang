@@ -139,7 +139,7 @@ private:
     vector<UpvalueMeta> upvalues;
     int scopeDepth;
     CodeGen* enclosing;
-    
+    void compileMethod(MethodDefinition& method);
     
     R define(string decl);
     int resolveLocal(const std::string& name);

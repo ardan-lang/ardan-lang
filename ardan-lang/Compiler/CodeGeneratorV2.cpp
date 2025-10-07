@@ -758,6 +758,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
     fnObj->name = "<arrow>";
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
@@ -1347,9 +1348,131 @@ R CodeGen::visitEmpty(EmptyStatement* stmt) {
     return true;
 }
 
+void CodeGen::compileMethod(MethodDefinition& method) {
+    // Create a nested CodeGen for the method body (closure)
+    CodeGen nested(module_);
+    nested.enclosing = this;
+    nested.cur = std::make_shared<Chunk>();
+    nested.beginScope();
+
+    std::vector<std::string> paramNames;
+    std::vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (from method.params)
+    for (auto& param : method.params) {
+        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+                    }
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                    paramNames.push_back(ident->name);
+                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+                }
+            }
+        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+            }
+        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+            paramNames.push_back(ident->name);
+            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+        }
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic (rest/default)
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        if (info.isRest) {
+            nested.emit(OpCode::OP_LOAD_ARGUMENTS);
+            nested.emit(OpCode::OP_CONSTANT);
+            nested.emitUint32(nested.emitConstant(Value::number(i)));
+            nested.emit(OpCode::OP_SLICE);
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+            continue;
+        }
+        if (info.hasDefault) {
+            nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
+            nested.emit(OpCode::OP_CONSTANT);
+            nested.emitUint32(nested.emitConstant(Value::number(i)));
+            nested.emit(OpCode::OP_GREATER);
+            int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
+            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emitUint32((uint32_t)i);
+            int setLocalJump = nested.emitJump(OpCode::OP_JUMP);
+            nested.patchJump(useArg);
+            info.defaultExpr->accept(nested);
+            nested.patchJump(setLocalJump);
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+        } else {
+            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emitUint32((uint32_t)i);
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+        }
+    }
+
+    // Compile the method body
+    if (method.methodBody) {
+        method.methodBody->accept(nested);
+        // Ensure OP_RETURN is emitted
+        bool hasReturn = false;
+        if (auto* block = dynamic_cast<BlockStatement*>(method.methodBody.get())) {
+            for (auto& stmt : block->body) {
+                if (dynamic_cast<ReturnStatement*>(stmt.get())) {
+                    hasReturn = true;
+                    break;
+                }
+            }
+        }
+        if (!hasReturn) {
+            nested.emit(OpCode::OP_CONSTANT);
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emitUint32(ud);
+            nested.emit(OpCode::OP_RETURN);
+        }
+    }
+
+    // Register the method function as a constant for this module
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = method.name;
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+    // Emit closure for this function (leaves closure object on stack)
+    emit(OpCode::OP_CLOSURE);
+    emitUint8((uint8_t)ci);
+
+    for (auto& uv : nested.upvalues) {
+        emitUint8(uv.isLocal ? 1 : 0);
+        emitUint8(uv.index);
+    }
+}
+
 R CodeGen::visitClass(ClassDeclaration* stmt) {
-    
-    // Step 1: Evaluate superclass (if any)
+    // Evaluate superclass (if any)
     if (stmt->superClass) {
         stmt->superClass->accept(*this); // [superclass]
     } else {
@@ -1357,57 +1480,133 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
     }
 
-    // Step 2: Create the class object (with superclass on stack)
+    // Create the class object (with superclass on stack)
     emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
 
-    // Step 3: Define methods and fields
-//    for (auto& member : stmt->body) {
-//        if (auto* method = dynamic_cast<MethodDefinition*>(member.get())) {
-//            // Compile method (could be static or instance)
-//            // - Compile as a function object and attach to class
-//            // - Convention: static methods go on class, instance methods go on prototype
-//            if (method->isStatic) {
-//                // Compile function and attach as static property
-//                compileMethod(method); // leaves function object on stack
-//                int nameIdx = emitConstant(Value::str(method->key));
-//                emit(OpCode::OP_SET_STATIC_PROPERTY);
-//                emitUint32(nameIdx); // Pops class and function, sets property on class object
-//            } else {
-//                // Compile as instance method (on prototype)
-//                compileMethod(method); // leaves function on stack
-//                int nameIdx = emitConstant(Value::str(method->key));
-//                emit(OpCode::OP_SET_PROTO_PROPERTY);
-//                emitUint32(nameIdx); // Pops class and function, sets on prototype
-//            }
-//        }
-//        // Handle other member types as needed
-//    }
-    
-    // vector<unique_ptr<PropertyDeclaration>> fields;
-//    for (auto& field : stmt->fields) {
-//        // Instance field: record for constructor
-//        // Static field: evaluate initializer, set property
-//        if (field->isStatic) {
-//            if (field->initializer) {
-//                field->initializer->accept(*this);
-//            } else {
-//                emit(OpCode::OP_CONSTANT);
-//                emitUint32(emitConstant(Value::undefined()));
-//            }
-//            int nameIdx = emitConstant(Value::str(field->key));
-//            emit(OpCode::OP_SET_STATIC_PROPERTY);
-//            emitUint32(nameIdx);
-//        }
-//
-//    }
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : stmt->body) {
+        // Compile the method as a function object
+        compileMethod(*method); // leaves function object on stack
 
-    // Step 4: Define class in environment (global/local)
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        
+        // Check if 'static' modifier is present
+        bool isStatic = false;
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+
+        if (isStatic) {
+            emit(OpCode::OP_SET_STATIC_PROPERTY);
+            emitUint32(nameIdx); // Pops class and function, sets property on class object
+        } else {
+            emit(OpCode::OP_SET_PROPERTY);
+            emitUint32(nameIdx); // Pops class and function, sets on prototype
+        }
+    }
+
+    // Define static fields
+    for (auto& field : stmt->fields) {
+        // Only handle static fields during class definition codegen
+        bool isStatic = false;
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+        if (!isStatic)
+            continue;
+
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            for (const auto& decl : varStmt->declarations) {
+                if (decl.init) {
+                    decl.init->accept(*this); // Evaluate initializer
+                } else {
+                    emit(OpCode::OP_CONSTANT);
+                    emitUint32(emitConstant(Value::undefined()));
+                }
+                int nameIdx = emitConstant(Value::str(decl.id));
+                emit(OpCode::OP_SET_STATIC_PROPERTY);
+                emitUint32(nameIdx);
+            }
+        }
+    }
+
+    // Bind class in the environment (global)
     int classNameIdx = emitConstant(Value::str(stmt->id));
     emit(OpCode::OP_DEFINE_GLOBAL);
     emitUint32(classNameIdx);
 
     return true;
 }
+
+//R CodeGen::visitClass(ClassDeclaration* stmt) {
+//    
+//    // Evaluate superclass (if any)
+//    if (stmt->superClass) {
+//        stmt->superClass->accept(*this); // [superclass]
+//    } else {
+//        emit(OpCode::OP_CONSTANT);
+//        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
+//    }
+//
+//    // Create the class object (with superclass on stack)
+//    emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
+//
+//    // Define methods and fields
+////    for (auto& member : stmt->body) {
+////        if (auto* method = dynamic_cast<MethodDefinition*>(member.get())) {
+////            // Compile method (could be static or instance)
+////            // - Compile as a function object and attach to class
+////            // - Convention: static methods go on class, instance methods go on prototype
+////            if (method->isStatic) {
+////                // Compile function and attach as static property
+////                compileMethod(method); // leaves function object on stack
+////                int nameIdx = emitConstant(Value::str(method->key));
+////                emit(OpCode::OP_SET_STATIC_PROPERTY);
+////                emitUint32(nameIdx); // Pops class and function, sets property on class object
+////            } else {
+////                // Compile as instance method (on prototype)
+////                compileMethod(method); // leaves function on stack
+////                int nameIdx = emitConstant(Value::str(method->key));
+////                emit(OpCode::OP_SET_PROTO_PROPERTY);
+////                emitUint32(nameIdx); // Pops class and function, sets on prototype
+////            }
+////        }
+////        // Handle other member types as needed
+////    }
+//    
+//    // vector<unique_ptr<PropertyDeclaration>> fields;
+////    for (auto& field : stmt->fields) {
+////        // Instance field: record for constructor
+////        // Static field: evaluate initializer, set property
+////        if (field->isStatic) {
+////            if (field->initializer) {
+////                field->initializer->accept(*this);
+////            } else {
+////                emit(OpCode::OP_CONSTANT);
+////                emitUint32(emitConstant(Value::undefined()));
+////            }
+////            int nameIdx = emitConstant(Value::str(field->key));
+////            emit(OpCode::OP_SET_STATIC_PROPERTY);
+////            emitUint32(nameIdx);
+////        }
+////
+////    }
+//
+//    // Define class in environment (global/local)
+//    int classNameIdx = emitConstant(Value::str(stmt->id));
+//    emit(OpCode::OP_DEFINE_GLOBAL);
+//    emitUint32(classNameIdx);
+//
+//    return true;
+//}
 
 R CodeGen::visitMethodDefinition(MethodDefinition* stmt) {
     return true;
