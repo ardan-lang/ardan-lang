@@ -115,6 +115,9 @@ enum class OpCode : uint8_t {
     OP_GET_UPVALUE,
     OP_SET_UPVALUE,
     OP_CLOSE_UPVALUE,
+    
+    OP_CLEAR_STACK,
+    OP_CLEAR_LOCALS,
 
     // debug / sentinel
     OP_HALT

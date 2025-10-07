@@ -79,6 +79,14 @@ const char* opcodeToString(OpCode op) {
         case OpCode::OP_SLICE: return "OP_SLICE";
         case OpCode::OP_LOAD_ARGUMENTS_LENGTH: return "OP_LOAD_ARGUMENTS_LENGTH";
 
+        case OpCode::OP_CLOSURE:
+            return "OP_CLOSURE";
+        case OpCode::OP_GET_UPVALUE:
+            return "OP_GET_UPVALUE";
+        case OpCode::OP_SET_UPVALUE:
+            return "OP_SET_UPVALUE";
+        case OpCode::OP_CLOSE_UPVALUE:
+            return "OP_CLOSE_UPVALUE";
     }
     return "UNKNOWN";
 }
