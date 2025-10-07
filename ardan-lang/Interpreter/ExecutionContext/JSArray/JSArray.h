@@ -24,6 +24,12 @@ class JSArray : public JSObject {
 public:
     JSArray() {
         
+        init_builtins();
+
+    }
+    
+    void init_builtins() {
+        
         // pop removes the first item in the properties
         set("pop", Value::native([this](const std::vector<Value>& args) {
 
@@ -66,7 +72,7 @@ public:
             }
             
             Value callback = args[0];
-            if (callback.type != ValueType::FUNCTION) {
+            if (callback.type != ValueType::FUNCTION || callback.type != ValueType::CLOSURE) {
                 throw std::runtime_error("First argument to reduce must be a function");
             }
             
@@ -92,7 +98,13 @@ public:
                     getIndex(i),
                     Value((double)i)
                 };
-                acc = callback.functionValue(cbArgs);
+                
+                if (callback.type == ValueType::FUNCTION) {
+                    acc = callback.functionValue(cbArgs);
+                } else if (callback.type == ValueType::CLOSURE) {
+                    // TODO: check this out
+                    acc = args[args.size() - 1].functionValue(cbArgs);
+                }
             }
             
             return acc;
