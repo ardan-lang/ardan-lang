@@ -108,7 +108,10 @@ private:
     deque<Value> stack;
     //deque<Value> locals; // locals[0..maxLocals-1]
     CallFrame* frame;
-        
+    
+    void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
+    void invokeConstructor(Value obj_value, vector<Value> args);
+    
     void push(const Value &v) { stack.push_back(v); }
     Value pop();
     Value peek(int distance = 0);
@@ -121,6 +124,7 @@ private:
     bool equals(const Value &a, const Value &b);
     Value getProperty(const Value &objVal, const string &propName);
     void setProperty(const Value &objVal, const string &propName, const Value &val);
+    void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
     Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
     void closeUpvalues(Value* last);

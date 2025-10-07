@@ -8,14 +8,6 @@
 #include "VMv2.hpp"
 
 VM::VM() {
-//    globals["print"] = Value::function([](vector<Value> args) -> Value {
-//        Print::print(args);
-//        return Value::undefined();
-//    });
-//    globals["Math"] = Value::object(make_shared<Math>());
-//    globals["console"] = Value::object(make_shared<Print>());
-//    globals["fs"] = Value::object(make_shared<File>());
-    // globals["Server"] = make_shared<Server>(event_loop);
 
     env = new Env();
     init_builtins();
@@ -23,15 +15,6 @@ VM::VM() {
 }
 
 VM::VM(shared_ptr<Module> module_) : module_(module_) {
-//    globals["print"] = Value::function([](vector<Value> args) -> Value {
-//        Print::print(args);
-//        return Value::undefined();
-//    });
-//    
-//    globals["Math"] = Value::object(make_shared<Math>());
-//    globals["console"] = Value::object(make_shared<Print>());
-//    globals["fs"] = Value::object(make_shared<File>());
-    // globals["Server"] = make_shared<Server>(event_loop);
 
     env = new Env();
     init_builtins();
@@ -192,9 +175,9 @@ Value VM::getProperty(const Value &objVal, const string &propName) {
     if (objVal.type == ValueType::ARRAY) {
         return objVal.arrayValue->get(propName);
     }
-//    if (objVal.type == ValueType::CLASS) {
-//        return objVal.classValue->get(propName, false);
-//    }
+    if (objVal.type == ValueType::CLASS) {
+        return objVal.classValue->get_vm(propName);
+    }
     // primitives -> string -> property? For now, undefined
     return Value::undefined();
 }
@@ -209,10 +192,49 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
         return;
     }
     if (objVal.type == ValueType::CLASS) {
-        objVal.classValue->set(propName, val, false);
+        objVal.classValue->set_proto_vm(propName, val);
         return;
     }
     throw std::runtime_error("Cannot set property on non-object");
+}
+
+void VM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
+    if (objVal.type == ValueType::CLASS) {
+        objVal.classValue->set_static_vm(propName, val);
+        return;
+    }
+    throw std::runtime_error("Cannot set static property on non-class");
+}
+
+void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
+    
+    for (auto& protoProp : klass.classValue->protoProps) {
+                
+        if (protoProp.second.type == ValueType::CLOSURE) {
+            
+            shared_ptr<Closure> new_closure = make_shared<Closure>();
+            new_closure->fn = protoProp.second.closureValue->fn;
+            new_closure->upvalues = protoProp.second.closureValue->upvalues;
+
+            obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
+
+        } else {
+            
+            obj->set(protoProp.first, protoProp.second, "VAR", {});
+
+        }
+
+    }
+    
+}
+
+void VM::invokeConstructor(Value obj_value, vector<Value> args) {
+    
+    if (obj_value.type == ValueType::OBJECT) {
+        Value constructor = obj_value.objectValue->get("constructor");
+        callFunction(constructor, args);
+    }
+    
 }
 
 Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
@@ -262,7 +284,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
 
                 // pushes the constant to stack
-            case OpCode::OP_CONSTANT: {
+            case OpCode::LoadConstant: {
                 uint32_t ci = readUint32();
                 push(frame->chunk->constants[ci]);
                 break;
@@ -348,7 +370,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                 // globals[name] = v;
                 env->set_var(name, v);
                 
-                //push(v);
                 break;
             }
 
@@ -373,7 +394,45 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case OpCode::CreateInstance: {
+                                
+                Value klass = pop();
+                                
+                auto obj = make_shared<JSObject>();
+                // copy fields and methods to obj
+                makeObjectInstance(klass, obj);
+                
+                Value obj_value;
+                obj_value.type = ValueType::OBJECT;
+                obj_value.objectValue = obj;
+
+                push(obj_value);
+
+                break;
+            }
+                
+            case OpCode::InvokeConstructor: {
+
+                vector<Value> args = popArgs(readUint8());
+
+                Value obj_value = pop();
+
+                // call the constructor
+                invokeConstructor(obj_value, args);
+
+                push(obj_value);
+                
+                break;
+            }
+                
             case OpCode::OP_SET_STATIC_PROPERTY: {
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                Value valueToSet = pop();
+                Value objVal = pop();
+                setStaticProperty(objVal, prop, valueToSet);
+                // push object back
+                push(objVal);
                 break;
             }
                 
