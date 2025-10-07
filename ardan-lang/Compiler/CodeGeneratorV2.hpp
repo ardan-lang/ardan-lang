@@ -140,6 +140,8 @@ private:
     int scopeDepth;
     CodeGen* enclosing;
     
+    
+    R define(string decl);
     int resolveLocal(const std::string& name);
     
     // helpers
@@ -177,12 +179,14 @@ private:
     void endScope();
     int addUpvalue(bool isLocal, int index);
     int resolveUpvalue(const string& name);
-
+    size_t disassembleInstruction(const Chunk* chunk, size_t offset);
+    void disassembleChunk(const Chunk* chunk, const std::string& name);
+    
 };
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset);
 
-size_t disassembleInstruction(const Chunk* chunk, size_t offset);
+// size_t disassembleInstruction(const Chunk* chunk, size_t offset);
 
-void disassembleChunk(const Chunk* chunk, const std::string& name);
+// void disassembleChunk(const Chunk* chunk, const std::string& name);
 Token createToken(TokenType type);

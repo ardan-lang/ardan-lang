@@ -49,13 +49,43 @@ R CodeGen::visitBlock(BlockStatement* stmt) {
     return true;
 }
 
+R CodeGen::define(string decl) {
+    
+    // decide local or global
+    if (hasLocal(decl)) {
+        uint32_t idx = getLocal(decl);
+        emit(OpCode::OP_SET_LOCAL);
+        emitUint32(idx);
+    } else {
+
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            emit(OpCode::OP_SET_UPVALUE);
+            emitUint32(upvalue);
+            return R();
+        }
+
+        // top-level/global
+        int nameIdx = emitConstant(Value::str(decl));
+        emit(OpCode::OP_DEFINE_GLOBAL);
+        emitUint32((uint32_t)nameIdx);
+    }
+    
+    return true;
+
+}
+
 R CodeGen::visitVariable(VariableStatement* stmt) {
     
     // var, let and const
     string kind = stmt->kind;
     
     for (auto &decl : stmt->declarations) {
-        
+
+        //if (scopeDepth > 0) {
+            declareLocal(decl.id);
+        //}
+
         if (decl.init) {
             decl.init->accept(*this); // push init value
         } else {
@@ -63,13 +93,22 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
             int ci = emitConstant(Value::undefined());
             emitUint32(ci);
         }
-        
+                
         // decide local or global
         if (hasLocal(decl.id)) {
             uint32_t idx = getLocal(decl.id);
             emit(OpCode::OP_SET_LOCAL);
             emitUint32(idx);
         } else {
+
+            int upvalue = resolveUpvalue(decl.id);
+            if (upvalue != -1) {
+                // emit(OpCode::OP_GET_UPVALUE);
+                emit(OpCode::OP_SET_UPVALUE);
+                emitUint32(upvalue);
+                return R();
+            }
+
             // top-level/global
             int nameIdx = emitConstant(Value::str(decl.id));
             emit(OpCode::OP_DEFINE_GLOBAL);
@@ -287,15 +326,21 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
         if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
             // Evaluate RHS first
             expr->right->accept(*this);
-
-            if (hasLocal(ident->name)) {
-                emit(OpCode::OP_SET_LOCAL);
-                emitUint32(getLocal(ident->name));
-            } else {
-                int nameIdx = emitConstant(Value::str(ident->name));
-                emit(OpCode::OP_SET_GLOBAL);
-                emitUint32(nameIdx);
-            }
+            
+            //ident->accept(*this);
+            define(ident->token.lexeme);
+//            if (hasLocal(ident->name)) {
+//                emit(OpCode::OP_SET_LOCAL);
+//                emitUint32(getLocal(ident->name));
+//            } else if (resolveUpvalue(ident->name) != - 1 ) {
+//                emit(OpCode::OP_SET_UPVALUE);
+//                emitUint32(resolveUpvalue(ident->name));
+//            } else {
+//                int nameIdx = emitConstant(Value::str(ident->name));
+//                emit(OpCode::OP_SET_GLOBAL);
+//                emitUint32(nameIdx);
+//            }
+        
         }
         else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
             // Push object first
@@ -321,14 +366,15 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
     // Compound assignment (+=, etc.)
     // -----------------------------
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
-        if (hasLocal(ident->name)) {
-            emit(OpCode::OP_GET_LOCAL);
-            emitUint32(getLocal(ident->name));
-        } else {
-            int nameIdx = emitConstant(Value::str(ident->name));
-            emit(OpCode::OP_GET_GLOBAL);
-            emitUint32(nameIdx);
-        }
+        ident->accept(*this);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_GET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_GET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
         // Push object, duplicate it for later use
@@ -368,14 +414,16 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
 
     // Store result back
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
-        if (hasLocal(ident->name)) {
-            emit(OpCode::OP_SET_LOCAL);
-            emitUint32(getLocal(ident->name));
-        } else {
-            int nameIdx = emitConstant(Value::str(ident->name));
-            emit(OpCode::OP_SET_GLOBAL);
-            emitUint32(nameIdx);
-        }
+        define(ident->token.lexeme);
+        // ident->accept(*this);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_SET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_SET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
         int nameIdx = emitConstant(Value::str(member->name.lexeme));
@@ -393,29 +441,34 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         // ++x or --x
         if (auto ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
             // load current value
-            if (hasLocal(ident->name)) {
-                emit(OpCode::OP_GET_LOCAL);
-                emitUint32(getLocal(ident->name));
-            } else {
-                int nameIdx = emitConstant(Value::str(ident->name));
-                emit(OpCode::OP_GET_GLOBAL);
-                emitUint32(nameIdx);
-            }
+            ident->accept(*this);
+//            if (hasLocal(ident->name)) {
+//                emit(OpCode::OP_GET_LOCAL);
+//                emitUint32(getLocal(ident->name));
+//            } else {
+//                int nameIdx = emitConstant(Value::str(ident->name));
+//                emit(OpCode::OP_GET_GLOBAL);
+//                emitUint32(nameIdx);
+//            }
             // push 1
             emit(OpCode::OP_CONSTANT);
             emitUint32(emitConstant(Value::number(1)));
             // apply
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+            
             // store back
-            if (hasLocal(ident->name)) {
-                emit(OpCode::OP_SET_LOCAL);
-                emitUint32(getLocal(ident->name));
-            } else {
-                int nameIdx = emitConstant(Value::str(ident->name));
-                emit(OpCode::OP_SET_GLOBAL);
-                emitUint32(nameIdx);
-            }
+            define(ident->token.lexeme);
+//            if (hasLocal(ident->name)) {
+//                emit(OpCode::OP_SET_LOCAL);
+//                emitUint32(getLocal(ident->name));
+//            } else {
+//                int nameIdx = emitConstant(Value::str(ident->name));
+//                emit(OpCode::OP_SET_GLOBAL);
+//                emitUint32(nameIdx);
+//            }
+            
             return true;
+            
         }
 
         if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
@@ -711,11 +764,11 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
     // emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emit(OpCode::OP_CLOSURE);
-    emitUint32((uint32_t)ci);
+    emitUint8((uint8_t)ci);
 
     for (auto& uv : nested.upvalues) {
-        emitUint32(uv.isLocal ? 1 : 0);
-        emitUint32(uv.index);
+        emitUint8(uv.isLocal ? 1 : 0);
+        emitUint8(uv.index);
     }
 
     disassembleChunk(nested.cur.get(), nested.cur->name);
@@ -733,7 +786,9 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
     // Create a nested CodeGen for the function body
     CodeGen nested(module_);
+    nested.enclosing = this;
     nested.cur = make_shared<Chunk>();
+    nested.beginScope();
 
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
@@ -770,7 +825,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     }
 
     // Allocate local slots for parameters
-    // nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
@@ -782,10 +837,10 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
             nested.emit(OpCode::OP_CONSTANT);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
-            // nested.emit(OpCode::OP_SET_LOCAL);
-            // nested.emitUint32(nested.getLocal(info.name));
-            nested.emit(OpCode::OP_DEFINE_GLOBAL);
-            nested.emitUint32(nested.emitConstant(Value::str(info.name)));
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+            // nested.emit(OpCode::OP_DEFINE_GLOBAL);
+            // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
             continue;
         }
         // For parameters with default value
@@ -809,18 +864,18 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
             // Set local either way
             nested.patchJump(setLocalJump);
-            // nested.emit(OpCode::OP_SET_LOCAL);
-            // nested.emitUint32(nested.getLocal(info.name));
-            nested.emit(OpCode::OP_DEFINE_GLOBAL);
-            nested.emitUint32(nested.emitConstant(Value::str(info.name)));
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+            // nested.emit(OpCode::OP_DEFINE_GLOBAL);
+            // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
         } else {
             // Direct: assign argument i to local slot
             nested.emit(OpCode::OP_LOAD_ARGUMENT);
             nested.emitUint32((uint32_t)i);
-            // nested.emit(OpCode::OP_SET_LOCAL);
-            // nested.emitUint32(nested.getLocal(info.name));
-            nested.emit(OpCode::OP_DEFINE_GLOBAL);
-            nested.emitUint32(nested.emitConstant(Value::str(info.name)));
+            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emitUint32(nested.getLocal(info.name));
+            // nested.emit(OpCode::OP_DEFINE_GLOBAL);
+            // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
 
         }
     }
@@ -858,14 +913,34 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
     fnObj->name = expr->token.lexeme; //"<anon>";
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
 
-    emit(OpCode::OP_LOAD_CHUNK_INDEX);
-    emitUint32((uint32_t)ci);
+    // emit(OpCode::OP_LOAD_CHUNK_INDEX);
+    emit(OpCode::OP_CLOSURE);
+    emitUint8((uint8_t)ci);
 
-    disassembleChunk(nested.cur.get(), nested.cur->name);
+    // Emit upvalue descriptors
+    for (auto& uv : nested.upvalues) {
+        emitUint8(uv.isLocal ? 1 : 0);
+        emitUint8(uv.index);
+    }
+    
+    // Bind function to its name in the global environment
+    if (scopeDepth == 0) {
+        // emit(OpCode::OP_DEFINE_GLOBAL);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        // emitUint32(nameIdx);
+    } else {
+        // declareLocal(stmt->id);
+        // emit(OpCode::OP_SET_LOCAL);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        // emitUint32(nameIdx);
+    }
+
+    // disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return true;
 }
@@ -993,28 +1068,37 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
     fnObj->name = stmt->id;
-    //fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
 
     // emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emit(OpCode::OP_CLOSURE);
-    emitUint32((uint32_t)ci);
-
-    // Bind function to its name in the global environment
-    // emit(OpCode::OP_DEFINE_GLOBAL);
-    // int nameIdx = emitConstant(Value::str(stmt->id));
-    // emitUint32(nameIdx);
+    emitUint8((uint8_t)ci);
 
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
-        emitUint32(uv.isLocal ? 1 : 0);
-        emitUint32(uv.index);
+        emitUint8(uv.isLocal ? 1 : 0);
+        emitUint8(uv.index);
+    }
+    
+    // Bind function to its name in the global environment
+    if (scopeDepth == 0) {
+         emit(OpCode::OP_DEFINE_GLOBAL);
+         int nameIdx = emitConstant(Value::str(stmt->id));
+         emitUint32(nameIdx);
+    } else {
+        declareLocal(stmt->id);
+        int slot = paramSlot(stmt->id);
+        emit(OpCode::OP_SET_LOCAL);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        emitUint32(slot);
     }
     
     // disassemble the chunk for debugging
-    disassembleChunk(nested.cur.get(), stmt->id/*nested.cur->name*/);
+    disassembleChunk(nested.cur.get(),
+                     stmt->id/*nested.cur->name*/);
 
     return true;
 }
@@ -1068,14 +1152,15 @@ R CodeGen::visitAssignment(AssignmentExpression* expr) {
 
     // Assign to variable or property
     if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
-        if (hasLocal(ident->name)) {
-            emit(OpCode::OP_SET_LOCAL);
-            emitUint32(getLocal(ident->name));
-        } else {
-            int nameIdx = emitConstant(Value::str(ident->name));
-            emit(OpCode::OP_SET_GLOBAL);
-            emitUint32(nameIdx);
-        }
+        ident->accept(*this);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_SET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_SET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
     } else if (MemberExpression* member = dynamic_cast<MemberExpression*>(expr->left.get())) {
         // obj.prop = value
         // Evaluate object
@@ -1137,14 +1222,15 @@ R CodeGen::visitSequence(SequenceExpression* expr) {
 R CodeGen::visitUpdate(UpdateExpression* expr) {
     // Identifiers: x++
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
-        if (hasLocal(ident->name)) {
-            emit(OpCode::OP_GET_LOCAL);
-            emitUint32(getLocal(ident->name));
-        } else {
-            int nameIdx = emitConstant(Value::str(ident->name));
-            emit(OpCode::OP_GET_GLOBAL);
-            emitUint32(nameIdx);
-        }
+        ident->accept(*this);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_GET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_GET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
         emit(OpCode::OP_CONSTANT);
         emitUint32(emitConstant(Value::number(1)));
         emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
@@ -1152,6 +1238,14 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             emit(OpCode::OP_SET_LOCAL);
             emitUint32(getLocal(ident->name));
         } else {
+            
+            int upvalue = resolveUpvalue(ident->name);
+            if (upvalue != -1) {
+                emit(OpCode::OP_SET_UPVALUE);
+                emitUint32(upvalue);
+                return R();
+            }
+
             int nameIdx = emitConstant(Value::str(ident->name));
             emit(OpCode::OP_SET_GLOBAL);
             emitUint32(nameIdx);
@@ -1467,8 +1561,9 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     uint32_t keys_slot = makeLocal("__for_in_keys");
     emit(OpCode::OP_SET_LOCAL);
     emitUint32(keys_slot);
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
 
+    emit(OpCode::OP_DUP);
     emit(OpCode::OP_GET_OBJ_LENGTH);
     
     uint32_t length_slot = makeLocal("__for_in_length");
@@ -1481,8 +1576,8 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emit(OpCode::OP_SET_LOCAL);
     emitUint32(idx_slot);
     
-    emit(OpCode::OP_POP);
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
     
     size_t loop_start = cur->size();
     beginLoop();
@@ -1499,6 +1594,8 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     int jump_if_false = emitJump(OpCode::OP_JUMP_IF_FALSE);
     
     emit(OpCode::OP_POP);
+
+    emit(OpCode::OP_DUP);
 
     // Get key at idx: keys[idx]
     emit(OpCode::OP_GET_LOCAL);
@@ -1542,7 +1639,7 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emit(OpCode::OP_POP);
     
     endLoop();
-    
+    emit(OpCode::OP_CLEAR_STACK);
     return true;
     
 }
@@ -1554,17 +1651,23 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     // std::unique_ptr<Statement> left; // variable declaration or expression
     // std::unique_ptr<Expression> right; // iterable expression
     // std::unique_ptr<Statement> body;
+    emit(OpCode::OP_CLEAR_STACK);
 
+    // assume, right must directly hold an object literal
     stmt->right->accept(*this);
-    
+        
     emit(OpCode::OP_DUP);
+
+    size_t __for_of_array_slot = makeLocal("__for_of_array");
+    emit(OpCode::OP_SET_LOCAL);
+    emitUint32((uint32_t)__for_of_array_slot);
 
     emit(OpCode::OP_GET_OBJ_LENGTH);
     // get array length
     size_t length_slot = makeLocal("__for_of_length");
     emit(OpCode::OP_SET_LOCAL);
     emitUint32((uint32_t)length_slot);
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
 
     size_t idx_slot = makeLocal("__for_of_index");
     emit(OpCode::OP_CONSTANT);
@@ -1572,7 +1675,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     emit(OpCode::OP_SET_LOCAL);
     emitUint32((uint32_t)idx_slot);
 
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
 
     int loop_start = (int)cur->size();
     
@@ -1590,7 +1693,10 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     
     int jump_if_false = emitJump(OpCode::OP_JUMP_IF_FALSE);
 
-    emit(OpCode::OP_DUP);
+    // emit(OpCode::OP_DUP);
+    emit(OpCode::OP_GET_LOCAL);
+    emitUint32((uint32_t)__for_of_array_slot);
+
     emit(OpCode::OP_GET_LOCAL);
     emitUint32((uint32_t)idx_slot);
     emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
@@ -1610,7 +1716,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
 
     stmt->body->accept(*this);
 
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
     
     // increment idx
     // push idx
@@ -1622,14 +1728,19 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     emit(OpCode::OP_SET_LOCAL);
     emitUint32((uint32_t)idx_slot);
 
-    emit(OpCode::OP_POP);
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
 
     emitLoop((int)cur->size() - loop_start + 4 + 1);
     patchJump(jump_if_false);
-    emit(OpCode::OP_POP);
+    // emit(OpCode::OP_POP);
     
     endLoop();
+    
+    emit(OpCode::OP_CLEAR_STACK);
+    
+    // we need to clear locals.
+    // emit(OpCode::OP_CLEAR_LOCALS);
 
     return true;
     
@@ -1922,14 +2033,14 @@ inline uint32_t readUint32(const Chunk* chunk, size_t offset) {
            ((uint32_t)chunk->code[offset + 3] << 24);
 }
 
-size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
+size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
     std::cout << std::setw(4) << offset << " ";
 
     uint8_t instruction = chunk->code[offset];
     OpCode op = static_cast<OpCode>(instruction);
 
     switch (op) {
-        // no operands
+            // no operands
         case OpCode::OP_NOP:
         case OpCode::OP_POP:
         case OpCode::OP_DUP:
@@ -1972,11 +2083,11 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_DUP2:
         case OpCode::OP_SET_PROPERTY_DYNAMIC:
         case OpCode::OP_GET_PROPERTY_DYNAMIC:
-
+            
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
-
-        // u32 operands
+            
+            // u32 operands
         case OpCode::OP_CONSTANT: {
             uint32_t index = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " " << index << " (";
@@ -1986,14 +2097,16 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             std::cout << ")\n";
             return offset + 1 + 4;
         }
-
+            
         case OpCode::OP_GET_LOCAL:
         case OpCode::OP_SET_LOCAL: {
             uint32_t slot = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " " << slot << "\n";
             return offset + 1 + 4;
         }
-
+            
+        case OpCode::OP_GET_UPVALUE:
+        case OpCode::OP_SET_UPVALUE:
         case OpCode::OP_GET_GLOBAL:
         case OpCode::OP_SET_GLOBAL:
         case OpCode::OP_DEFINE_GLOBAL:
@@ -2009,13 +2122,48 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             std::cout << "\n";
             return offset + 1 + 4;
         }
+            
+        case OpCode::OP_CLOSURE: {
+            //            emit(OpCode::OP_CLOSURE);
+            //            emitUint8((uint8_t)ci);
+            //
+            //            // Emit upvalue descriptors
+            //            for (auto& uv : nested.upvalues) {
+            //                emitUint8(uv.isLocal ? 1 : 0);
+            //                emitUint8(uv.index);
+            //            }
+            
+            cout << opcodeToString(op);
 
+            // index: 8 uint
+            cout << " module-constant-index: [" << (int)chunk->code[offset + 1] << "]";
+
+            if (upvalues.size() > 0) {
+                for (auto& uv : upvalues) {
+                    
+                    // is local:
+                    cout << "isLocal: [" << chunk->code[offset + 1 + 1];
+                    cout << "] ";
+                    // idx
+                    cout << "Index: [" << chunk->code[offset + 1 + 1 + 1] << "]";
+                    
+                }
+            } else {
+                cout << endl;
+                return offset + 2;
+            }
+            cout << endl;
+            
+            return offset + 1 + 1 + 1 + 1;
+            
+        }
+            
         case OpCode::OP_ARRAY_PUSH: {
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
         }
-
-        // jumps
+            
+            // jumps
         case OpCode::OP_JUMP:
         case OpCode::OP_JUMP_IF_FALSE:
         case OpCode::OP_LOOP: {
@@ -2024,8 +2172,8 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             std::cout << opcodeToString(op) << " " << target << "\n";
             return offset + 1 + 4;
         }
-
-        // calls
+            
+            // calls
         case OpCode::OP_CALL: {
             uint8_t argCount = chunk->code[offset + 1];
             std::cout << opcodeToString(op) << " " << (int)argCount << " args\n";
@@ -2044,11 +2192,12 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_LOAD_ARGUMENTS:
         case OpCode::OP_SLICE:
         case OpCode::OP_LOAD_ARGUMENTS_LENGTH:
-        case OpCode::OP_CLOSURE:
-        case OpCode::OP_GET_UPVALUE:
-        case OpCode::OP_SET_UPVALUE:
         case OpCode::OP_CLOSE_UPVALUE:
             std::cout << opcodeToString(op) << "\n";
+            return offset + 1;
+        case OpCode::OP_CLEAR_STACK:
+        case OpCode::OP_CLEAR_LOCALS:
+            cout << opcodeToString(op) << "\n";
             return offset + 1;
     }
 
@@ -2056,7 +2205,7 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
     return offset + 1;
 }
 
-void disassembleChunk(const Chunk* chunk, const std::string& name) {
+void CodeGen::disassembleChunk(const Chunk* chunk, const std::string& name) {
     std::cout << "== " << name << " ==\n";
     for (size_t offset = 0; offset < chunk->code.size();) {
         offset = disassembleInstruction(chunk, offset);
