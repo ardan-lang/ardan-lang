@@ -771,7 +771,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
         emitUint8(uv.index);
     }
 
-    disassembleChunk(nested.cur.get(), nested.cur->name);
+    // disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return true;
     
@@ -1097,8 +1097,8 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     }
     
     // disassemble the chunk for debugging
-    disassembleChunk(nested.cur.get(),
-                     stmt->id/*nested.cur->name*/);
+    //disassembleChunk(nested.cur.get(),
+    //                 stmt->id/*nested.cur->name*/);
 
     return true;
 }
@@ -1338,7 +1338,7 @@ R CodeGen::visitContinue(ContinueStatement* stmt) {
 
 R CodeGen::visitThrow(ThrowStatement* stmt) {
     // Evaluate the exception value
-    // stmt->argument->accept(*this);
+    stmt->argument->accept(*this);
     emit(OpCode::OP_THROW);
     return true;
 }
@@ -1523,11 +1523,16 @@ R CodeGen::visitTry(TryStatement* stmt) {
         // Patch catch offset
         patchTryCatch(tryPos, (int)cur->size());
 
+        beginScope();
+        
         // Bind catch parameter (VM leaves exception value on stack)
         declareLocal(stmt->handler->param);
         emitSetLocal(paramSlot(stmt->handler->param));
 
         stmt->handler->body->accept(*this);
+        
+        endScope();
+        
     }
 
     // Jump over finally if we had a catch
