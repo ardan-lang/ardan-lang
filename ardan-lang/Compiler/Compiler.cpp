@@ -11,20 +11,6 @@ Compiler::Compiler() {}
 
 Compiler::~Compiler() {}
 
-//void Compiler::compile(const vector<unique_ptr<Statement>> &ast) {
-//    auto codegen = std::make_shared<CodeGen>();
-//    Module module_;
-//    // ... codegen fills module.chunks and module.constants ...
-//    VM vm(&module_);
-//    auto bytceodes = codegen->generate(ast);
-//    vm.run(bytceodes);
-//    
-//    //
-//    //    // To call a top-level chunk (entry) with arguments:
-//    //    Value ret = vm.run(module_.chunks[entryIndex], {}); // run will still work if you keep it
-//    
-//}
-
 void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
     shared_ptr<Module> module_ = make_shared<Module>();   // shared Module
@@ -43,9 +29,11 @@ void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
     WriteArdarFile writer(outputFilename,
                           module_.get(),
-                          version,
-                          (uint32_t)entryChunkIndex);
+                          (uint32_t)entryChunkIndex,
+                          version);
+
     writer.writing();
+
     cout << "File written successfully!" << endl;
         
     // load and run

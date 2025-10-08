@@ -23,6 +23,7 @@ size_t CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     disassembleChunk(cur.get(), cur->name);
     
     uint32_t idx = module_->addChunk(cur);
+    module_->entryChunkIndex = idx;
     
     return idx;
 }
