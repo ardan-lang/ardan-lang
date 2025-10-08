@@ -5,7 +5,7 @@
 //  Created by Chidume Nnamdi on 19/09/2025.
 //
 
-#include "CodeGeneratorV2.hpp"
+#include "CodeGenerator.hpp"
 
 CodeGen::CodeGen() : cur(nullptr), nextLocalSlot(0) { }
 

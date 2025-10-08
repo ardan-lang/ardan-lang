@@ -164,6 +164,17 @@ Value JSClass::get_vm(const string& key) {
 }
 
 void JSClass::set_proto_vm(const string& key, Value value) {
+    // if in static props
+    // set in static props
+
+    auto static_props_value = staticProps.find(key);
+    if (static_props_value != staticProps.end()) {
+        
+        // when found, set
+        staticProps[key] = value;
+        return;
+    }
+
     protoProps[key] = value;
 }
 

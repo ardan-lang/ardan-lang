@@ -176,11 +176,12 @@ private:
     int addUpvalue(bool isLocal, int index);
     int resolveUpvalue(const string& name);
 
+    inline uint32_t readUint32(const Chunk* chunk, size_t offset);
+
+    size_t disassembleInstruction(const Chunk* chunk, size_t offset);
+
+    void disassembleChunk(const Chunk* chunk, const std::string& name);
+    Token createToken(TokenType type);
+
 };
 
-inline uint32_t readUint32(const Chunk* chunk, size_t offset);
-
-size_t disassembleInstruction(const Chunk* chunk, size_t offset);
-
-void disassembleChunk(const Chunk* chunk, const std::string& name);
-Token createToken(TokenType type);

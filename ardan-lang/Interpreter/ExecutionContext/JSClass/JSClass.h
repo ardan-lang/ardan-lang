@@ -39,12 +39,13 @@ public:
     void check_privacy(const string& key);
     bool hasModifier(const vector<string>& mods, const string& name);
 
-    // only called in visitClassDeclarartions
+    // only called in visitClassDeclarations
     void set_var(const string& key, Value value, const vector<string> modifiers);
     void set_let(const string& key, Value value, const vector<string> modifiers);
     void set_const(const string& key, Value value, const vector<string> modifiers);
 
-    // simple maps for static and prototype methods
+    // Compiler Use only
+        
     unordered_map<string, Value> staticProps;
     unordered_map<string, Value> protoProps;
     Value get_vm(const string& key);

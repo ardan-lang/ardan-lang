@@ -14,8 +14,8 @@
 #include <vector>
 #include <memory>
 
-#include "../VM/VMv2.hpp"
-#include "../CodeGeneratorV2.hpp"
+#include "../VM/VM.hpp"
+#include "../CodeGenerator.hpp"
 #include "../VM/Module.hpp"
 
 class WriteArdarFile {

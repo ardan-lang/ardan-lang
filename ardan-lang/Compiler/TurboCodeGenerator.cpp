@@ -7,7 +7,7 @@
 
 #include "TurboCodeGenerator.hpp"
 
-TurboCodeGen::CodeGen() : cur(nullptr), nextLocalSlot(0) { }
+TurboCodeGen::TurboCodeGen() : cur(nullptr), nextLocalSlot(0) { }
 
 size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = std::make_shared<Chunk>();
@@ -53,7 +53,7 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
         if (decl.init) {
             decl.init->accept(*this); // push init value
         } else {
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             int ci = emitConstant(Value::undefined());
             emitUint32(ci);
         }
@@ -147,7 +147,7 @@ R TurboCodeGen::visitReturn(ReturnStatement* stmt) {
         stmt->argument->accept(*this);
     } else {
         int ci = emitConstant(Value::undefined());
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(ci);
     }
     emit(OpCode::OP_RETURN);
@@ -396,7 +396,7 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
                 emitUint32(nameIdx);
             }
             // push 1
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             // apply
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
@@ -421,7 +421,7 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
             emit(OpCode::OP_GET_PROPERTY);
             emitUint32(nameIdx); // stack: [obj, value]
             // push 1
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             // apply
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
@@ -448,7 +448,7 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
 
 R TurboCodeGen::visitLiteral(LiteralExpression* expr) {
     int idx = emitConstant(Value::str(expr->token.lexeme));
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(idx);
     return true;
 }
@@ -456,14 +456,14 @@ R TurboCodeGen::visitLiteral(LiteralExpression* expr) {
 R TurboCodeGen::visitNumericLiteral(NumericLiteral* expr) {
     Value v = toValue(expr->value);
     int idx = emitConstant(v);
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(idx);
     return true;
 }
 
 R TurboCodeGen::visitStringLiteral(StringLiteral* expr) {
     int idx = emitConstant(Value::str(expr->text)); // sets the text to the constant array
-    emit(OpCode::OP_CONSTANT); // bytecode that indicates push constant to the stack.
+    emit(OpCode::LoadConstant); // bytecode that indicates push constant to the stack.
     emitUint32(idx); // the index of the constant in the constants array to push to the stack
     return true;
 }
@@ -573,7 +573,7 @@ R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
 R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
     // Create a nested CodeGen for the function body
-    CodeGen nested(module_);
+    TurboCodeGen nested(module_);
     nested.cur = make_shared<Chunk>();
 
     vector<string> paramNames;
@@ -618,7 +618,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         if (info.isRest) {
             // collect rest arguments as array: arguments.slice(i)
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
-            nested.emit(OpCode::OP_CONSTANT);            // Push i
+            nested.emit(OpCode::LoadConstant);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
             // nested.emit(OpCode::OP_SET_LOCAL);
@@ -632,7 +632,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -685,7 +685,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
             }
         }
         if (!is_return_avaialble) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -724,7 +724,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //    bool is_async;
 
     // Create a nested CodeGen for the function body
-    CodeGen nested(module_);
+    TurboCodeGen nested(module_);
     nested.cur = make_shared<Chunk>();
 
     vector<string> paramNames;
@@ -771,7 +771,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
         if (info.isRest) {
             // collect rest arguments as array: arguments.slice(i)
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
-            nested.emit(OpCode::OP_CONSTANT);            // Push i
+            nested.emit(OpCode::LoadConstant);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
             // nested.emit(OpCode::OP_SET_LOCAL);
@@ -784,7 +784,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -832,7 +832,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
         }
         
         if (!is_return_avaialble) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -864,7 +864,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
 R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Create a nested code generator for the function body
-    CodeGen nested(module_);
+    TurboCodeGen nested(module_);
     // nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
     //nested.beginScope();
@@ -915,7 +915,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
         if (info.isRest) {
             // Collect rest arguments as array: arguments.slice(i)
             nested.emit(OpCode::OP_LOAD_ARGUMENTS);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_SLICE);
             // nested.emit(OpCode::OP_SET_LOCAL);
@@ -927,7 +927,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
             nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
             nested.emit(OpCode::OP_GREATER);
             int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -973,7 +973,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
             }
         }
         if (!is_return_avaialble) {
-            nested.emit(OpCode::OP_CONSTANT);
+            nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
             nested.emit(OpCode::OP_RETURN);
@@ -1022,7 +1022,7 @@ R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // Simple approach: compute at runtime building string.
     // push empty string
     int emptyIdx = emitConstant(Value::str(""));
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emptyIdx);
 
     size_t qsize = expr->quasis.size();
@@ -1031,7 +1031,7 @@ R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     for (size_t i = 0; i < qsize; ++i) {
         // push quasi
         int qi = emitConstant(Value::str(expr->quasis[i]->text));
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(qi);
         emit(OpCode::OP_ADD);
         // if expression exists
@@ -1048,7 +1048,7 @@ R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
     // Generate: push path string -> call import(path)
     int ci = emitConstant(Value::str(stmt->path.lexeme));
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(ci);
     // callee (import)
     int importName = emitConstant(Value::str("import"));
@@ -1143,7 +1143,7 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
             emit(OpCode::OP_GET_GLOBAL);
             emitUint32(nameIdx);
         }
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::number(1)));
         emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
         if (hasLocal(ident->name)) {
@@ -1164,7 +1164,7 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
             member->property->accept(*this);   // [obj, key]
             emit(OpCode::OP_DUP2);             // [obj, key, obj, key]
             emit(OpCode::OP_GET_PROPERTY_DYNAMIC); // [obj, key, value]
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, key, result]
             emit(OpCode::OP_SET_PROPERTY_DYNAMIC); // [result]
@@ -1176,7 +1176,7 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
             int nameIdx = emitConstant(Value::str(member->name.lexeme));
             emit(OpCode::OP_GET_PROPERTY);
             emitUint32(nameIdx);           // [obj, value]
-            emit(OpCode::OP_CONSTANT);
+            emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, result]
             emit(OpCode::OP_SET_PROPERTY);
@@ -1188,25 +1188,25 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
 }
 
 R TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::boolean(false)));
     return true;
 }
 
 R TurboCodeGen::visitTrueKeyword(TrueKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::boolean(true)));
     return true;
 }
 
 R TurboCodeGen::visitNullKeyword(NullKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::nullVal()));
     return true;
 }
 
 R TurboCodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::undefined()));
     return true;
 }
@@ -1257,7 +1257,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     if (stmt->superClass) {
         stmt->superClass->accept(*this); // [superclass]
     } else {
-        emit(OpCode::OP_CONSTANT);
+        emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
     }
 
@@ -1295,7 +1295,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
 //            if (field->initializer) {
 //                field->initializer->accept(*this);
 //            } else {
-//                emit(OpCode::OP_CONSTANT);
+//                emit(OpCode::LoadConstant);
 //                emitUint32(emitConstant(Value::undefined()));
 //            }
 //            int nameIdx = emitConstant(Value::str(field->key));
@@ -1474,7 +1474,7 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
     emitUint32(length_slot);
 
     uint32_t idx_slot = makeLocal("__for_in_idx");
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(0)));
     emit(OpCode::OP_SET_LOCAL);
     emitUint32(idx_slot);
@@ -1526,7 +1526,7 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
     // Increment idx
     emit(OpCode::OP_GET_LOCAL);
     emitUint32(idx_slot);
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
     emit(OpCode::OP_ADD);
     emit(OpCode::OP_SET_LOCAL);
@@ -1565,7 +1565,7 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     emit(OpCode::OP_POP);
 
     size_t idx_slot = makeLocal("__for_of_index");
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value(0)));
     emit(OpCode::OP_SET_LOCAL);
     emitUint32((uint32_t)idx_slot);
@@ -1614,7 +1614,7 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     // push idx
     emit(OpCode::OP_GET_LOCAL);
     emitUint32((uint32_t)idx_slot);
-    emit(OpCode::OP_CONSTANT);
+    emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
     emit(OpCode::OP_ADD);
     emit(OpCode::OP_SET_LOCAL);
@@ -1853,14 +1853,14 @@ void TurboCodeGen::endScope() {
     //scopeDepth--;
 }
 
-inline uint32_t readUint32(const Chunk* chunk, size_t offset) {
+inline uint32_t TurboCodeGen::readUint32(const Chunk* chunk, size_t offset) {
     return (uint32_t)chunk->code[offset] |
            ((uint32_t)chunk->code[offset + 1] << 8) |
            ((uint32_t)chunk->code[offset + 2] << 16) |
            ((uint32_t)chunk->code[offset + 3] << 24);
 }
 
-size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
+size_t TurboCodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
     std::cout << std::setw(4) << offset << " ";
 
     uint8_t instruction = chunk->code[offset];
@@ -1915,7 +1915,7 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1;
 
         // u32 operands
-        case OpCode::OP_CONSTANT: {
+        case OpCode::LoadConstant: {
             uint32_t index = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " " << index << " (";
             if (index < chunk->constants.size()) {
@@ -1993,14 +1993,14 @@ size_t disassembleInstruction(const Chunk* chunk, size_t offset) {
     return offset + 1;
 }
 
-void disassembleChunk(const Chunk* chunk, const std::string& name) {
+void TurboCodeGen::disassembleChunk(const Chunk* chunk, const std::string& name) {
     std::cout << "== " << name << " ==\n";
     for (size_t offset = 0; offset < chunk->code.size();) {
         offset = disassembleInstruction(chunk, offset);
     }
 }
 
-Token createToken(TokenType type) {
+Token TurboCodeGen::createToken(TokenType type) {
     Token token;
     token.type = type;
     return token;
