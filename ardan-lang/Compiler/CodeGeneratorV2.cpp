@@ -58,6 +58,16 @@ R CodeGen::define(string decl) {
         emitUint32(idx);
     } else {
 
+        if (classInfo.fields.count(decl)) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            emit(OpCode::SetThisProperty);
+            int nameIdx = emitConstant(Value::str(decl));
+            emitUint32(nameIdx);
+            return R();
+        }
+
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
             emit(OpCode::OP_SET_UPVALUE);
@@ -82,9 +92,7 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
     
     for (auto &decl : stmt->declarations) {
 
-        //if (scopeDepth > 0) {
-            declareLocal(decl.id);
-        //}
+        declareLocal(decl.id);
 
         if (decl.init) {
             decl.init->accept(*this); // push init value
@@ -533,6 +541,15 @@ R CodeGen::visitIdentifier(IdentifierExpression* expr) {
         emit(OpCode::OP_GET_LOCAL);
         emitUint32(getLocal(name));
     } else {
+        
+        if (classInfo.fields.count(name)) {
+            
+            // Rewrite: legs;  ⇒  this.legs;
+            emit(OpCode::GetThisProperty);
+            int nameIdx = emitConstant(Value::str(name));
+            emitUint32(nameIdx);
+            return R();
+        }
         
         int upvalue = resolveUpvalue(expr->name);
         if (upvalue != -1) {
@@ -1190,8 +1207,9 @@ R CodeGen::visitLogical(LogicalExpression* expr) {
 
 R CodeGen::visitThis(ThisExpression* expr) {
     // Assumes 'this' is always local 0 in method frames
-    emit(OpCode::OP_GET_LOCAL);
-    emitUint32(0); // slot 0 reserved for 'this'
+    emit(OpCode::GetThis);
+    // emit(OpCode::OP_GET_LOCAL);
+    // emitUint32(0); // slot 0 reserved for 'this'
     return true;
 }
 
@@ -1341,6 +1359,8 @@ R CodeGen::visitEmpty(EmptyStatement* stmt) {
 }
 
 R CodeGen::visitSuper(SuperExpression* stmt) {
+    // super points to the parent js_object
+    emit(OpCode::GetParentObject);
     return true;
 }
 
@@ -1378,7 +1398,8 @@ void CodeGen::compileMethod(MethodDefinition& method) {
     nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
     nested.beginScope();
-    nested.declareLocal("this");
+    // nested.declareLocal("this");
+    nested.classInfo = classInfo;
 
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
@@ -1494,12 +1515,13 @@ void CodeGen::compileMethod(MethodDefinition& method) {
         emitUint8(uv.isLocal ? 1 : 0);
         emitUint8(uv.index);
     }
+    
+    disassembleChunk(nested.cur.get(), method.name);
+
 }
 
 R CodeGen::visitClass(ClassDeclaration* stmt) {
-    
-    compiling_klass = true;
-    
+        
     // Evaluate superclass (if any)
     if (stmt->superClass) {
         stmt->superClass->accept(*this); // [superclass]
@@ -1527,6 +1549,9 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         // Property is always a VariableStatement
         if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
             for (const auto& decl : varStmt->declarations) {
+                
+                classInfo.fields.insert(decl.id);
+                
                 if (decl.init) {
                     decl.init->accept(*this); // Evaluate initializer
                 } else {
@@ -1544,6 +1569,23 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                 emitUint32(nameIdx);
             }
         }
+    }
+    
+    for (auto& method : stmt->body) {
+        
+        // Check if 'static' modifier is present
+        bool isStatic = false;
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+
+        if (!isStatic) {
+            classInfo.fields.insert(method->name);
+        }
+
     }
 
     // Define methods (attach to class or prototype as appropriate)
@@ -1577,7 +1619,8 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
     emit(OpCode::OP_DEFINE_GLOBAL);
     emitUint32(classNameIdx);
 
-    compiling_klass = false;
+    // clear class info
+    classInfo.fields.clear();
 
     return true;
 }
@@ -2341,6 +2384,8 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
+        case OpCode::GetThisProperty:
+        case OpCode::SetThisProperty:
         case OpCode::OP_GET_UPVALUE:
         case OpCode::OP_SET_UPVALUE:
         case OpCode::OP_GET_GLOBAL:
@@ -2418,6 +2463,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 2;
         }
             
+        case OpCode::GetThis:
         case OpCode::OP_NEW_CLASS:
         case OpCode::OP_TRY:
         case OpCode::OP_END_TRY:

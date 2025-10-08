@@ -122,6 +122,10 @@ enum class OpCode : uint8_t {
     OP_SET_STATIC_PROPERTY,
     CreateInstance,
     InvokeConstructor,
+    GetThisProperty,
+    SetThisProperty,
+    GetThis,
+    GetParentObject,
 
     // debug / sentinel
     OP_HALT

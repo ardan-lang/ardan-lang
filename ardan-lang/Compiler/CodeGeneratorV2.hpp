@@ -8,6 +8,7 @@
 #pragma once
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <stack>
 #include <stdexcept>
 #include <iostream>
@@ -25,6 +26,11 @@
 #include "VM/Module.hpp"
 
 using namespace std;
+
+struct ClassInfo {
+    unordered_set<std::string> fields;
+    // ... other info
+};
 
 struct LoopContext {
     int loopStart;              // address of loop condition start
@@ -139,7 +145,9 @@ private:
     vector<UpvalueMeta> upvalues;
     int scopeDepth;
     CodeGen* enclosing;
-    bool compiling_klass = false;
+    
+    ClassInfo classInfo;
+    
     void compileMethod(MethodDefinition& method);
     
     R define(string decl);

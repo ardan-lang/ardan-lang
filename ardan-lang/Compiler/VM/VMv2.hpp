@@ -53,6 +53,7 @@ struct Upvalue {
 struct Closure {
     shared_ptr<FunctionObject> fn;
     vector<shared_ptr<Upvalue>> upvalues;
+    shared_ptr<JSObject> js_object;
 };
 
 struct CallFrame {
@@ -62,8 +63,8 @@ struct CallFrame {
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
     
     vector<Value> args;  // <-- Store actual call arguments here
-    // Env* env;
     shared_ptr<Closure> closure;
+    shared_ptr<JSObject> js_object;
 };
 
 struct TryFrame {
@@ -95,6 +96,7 @@ private:
     Upvalue* openUpvalues = nullptr;
     // helper to pop N args into a vector (left-to-right order)
     std::vector<Value> popArgs(size_t count);
+    shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     
     // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame(CallFrame &frame);
@@ -111,6 +113,8 @@ private:
     
     void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
     void invokeConstructor(Value obj_value, vector<Value> args);
+    void invokeMethod(Value obj_value, string name, vector<Value> args);
+    Value callMethod(Value callee, vector<Value>& args, Value js_object);
     
     void push(const Value &v) { stack.push_back(v); }
     Value pop();

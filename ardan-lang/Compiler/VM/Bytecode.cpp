@@ -10,7 +10,7 @@
 const char* opcodeToString(OpCode op) {
     switch (op) {
         case OpCode::OP_NOP:            return "NOP";
-        case OpCode::OP_CONSTANT:       return "CONSTANT";
+        case OpCode::LoadConstant:       return "LoadConstant";
         case OpCode::OP_POP:            return "POP";
         case OpCode::OP_DUP:            return "DUP";
         case OpCode::OP_GET_LOCAL:      return "GET_LOCAL";
@@ -97,6 +97,13 @@ const char* opcodeToString(OpCode op) {
             return "CreateInstance";
         case OpCode::InvokeConstructor:
             return "InvokeConstructor";
+        case OpCode::GetThisProperty:
+            return "GetThisProperty";
+        case OpCode::SetThisProperty:
+            return "SetThisProperty";
+        case OpCode::GetThis:
+            return "GetThis";
+
     }
     return "UNKNOWN";
 }

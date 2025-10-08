@@ -206,6 +206,25 @@ void VM::setStaticProperty(const Value &objVal, const string &propName, const Va
     throw std::runtime_error("Cannot set static property on non-class");
 }
 
+shared_ptr<JSObject> VM::createJSObject(shared_ptr<JSClass> klass) {
+    
+    shared_ptr<JSObject> object = make_shared<JSObject>();
+    object->setClass(klass);
+
+    makeObjectInstance(Value::klass(klass), object);
+    
+    // create a jsobject from superclass and assign to parent_object
+    if (klass->superClass != nullptr) {
+        
+        object->parent_object = createJSObject(klass->superClass);
+        object->parent_class = klass->superClass;
+        
+    }
+
+    return object;
+
+}
+
 void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
     for (auto& protoProp : klass.classValue->protoProps) {
@@ -215,6 +234,7 @@ void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             shared_ptr<Closure> new_closure = make_shared<Closure>();
             new_closure->fn = protoProp.second.closureValue->fn;
             new_closure->upvalues = protoProp.second.closureValue->upvalues;
+            new_closure->js_object = obj;
 
             obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
 
@@ -228,11 +248,11 @@ void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
 }
 
-void VM::invokeConstructor(Value obj_value, vector<Value> args) {
+void VM::invokeMethod(Value obj_value, string name, vector<Value> args) {
     
     if (obj_value.type == ValueType::OBJECT) {
-        Value constructor = obj_value.objectValue->get("constructor");
-        callFunction(constructor, args);
+        Value constructor = obj_value.objectValue->get(name);
+        callMethod(constructor, args, obj_value);
     }
     
 }
@@ -383,14 +403,46 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
                 
             case OpCode::OP_NEW_CLASS: {
+                
                 auto superclass = pop();
                 
                 auto js_class = make_shared<JSClass>();
                 
-//                if (isObject(superclass)) {
-//                    klass->prototype->setPrototype(superclass->prototype);
-//                }
+                if (superclass.type == ValueType::CLASS) {
+                    js_class->superClass = superclass.classValue;
+                }
+                                
                 push(Value::klass(js_class));
+                break;
+            }
+                
+            case OpCode::GetThis: {
+                push(Value::object(frame->closure->js_object));
+                break;
+            }
+                
+            case OpCode::SetThisProperty: {
+                // this update the object the current object
+                int index = readUint32();
+                Value v = pop();
+                string prop = frame->chunk->constants[index].toString();
+                setProperty(Value::object(frame->closure->js_object), prop, v);
+
+                break;
+            }
+                
+            case OpCode::GetThisProperty: {
+                
+                int index = readUint32();
+                string prop = frame->chunk->constants[index].toString();
+
+                push(getProperty(Value::object(frame->closure->js_object), prop));
+                
+                break;
+            }
+                
+            case OpCode::GetParentObject: {
+                push(Value::object(frame->closure->js_object->parent_object));
                 break;
             }
                 
@@ -398,9 +450,12 @@ Value VM::runFrame(CallFrame &current_frame) {
                                 
                 Value klass = pop();
                                 
-                auto obj = make_shared<JSObject>();
-                // copy fields and methods to obj
-                makeObjectInstance(klass, obj);
+                // auto obj = make_shared<JSObject>();
+                // obj->setClass(klass.classValue);
+                
+                // TODO: we need to invoke parent constructor
+
+                auto obj = createJSObject(klass.classValue);
                 
                 Value obj_value;
                 obj_value.type = ValueType::OBJECT;
@@ -418,7 +473,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value obj_value = pop();
 
                 // call the constructor
-                invokeConstructor(obj_value, args);
+                invokeMethod(obj_value, "constructor", args);
 
                 push(obj_value);
                 
@@ -1054,6 +1109,40 @@ Value VM::runFrame(CallFrame &current_frame) {
     return Value::undefined();
 }
 
+Value VM::callMethod(Value callee, vector<Value>& args, Value js_object) {
+
+    if (callee.type == ValueType::CLOSURE) {
+
+        shared_ptr<Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
+        
+        // Build new frame
+        CallFrame new_frame;
+        new_frame.chunk = calleeChunk;
+        new_frame.ip = 0;
+        new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+        new_frame.args = args;
+        new_frame.closure = callee.closureValue;
+        new_frame.js_object = js_object.objectValue;
+
+        callStack.push_back(std::move(new_frame));
+        auto prev_stack = std::move(stack);
+        stack.clear();
+
+        Value result = runFrame(callStack.back());
+        
+        callStack.pop_back();
+        frame = &callStack.back();
+        
+        stack = std::move(prev_stack);
+
+        return result;
+        
+    }
+    
+    return Value::undefined();
+
+}
+
 Value VM::callFunction(Value callee, vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
@@ -1083,6 +1172,7 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
         new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
+        new_frame.js_object = callee.closureValue->js_object;
 
         // Set frame.closure if calling a closure
         // Assuming callee has a closurePtr member for Closure shared_ptr
