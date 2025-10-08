@@ -37,6 +37,8 @@
 
 using namespace std;
 
+namespace ArdanTurboVM {
+
 using std::vector;
 using std::unordered_map;
 using std::shared_ptr;
@@ -125,5 +127,7 @@ private:
     //shared_ptr<Upvalue> captureUpvalue(Value* local);
     
 };
+
+}
 
 #endif /* TurboVM_hpp */

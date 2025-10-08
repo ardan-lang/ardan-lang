@@ -7,9 +7,9 @@
 
 #include "TurboCodeGenerator.hpp"
 
-TurboCodeGen::TurboCodeGen() : cur(nullptr), nextLocalSlot(0) { }
+ArdanTurboCodeGen::TurboCodeGen::TurboCodeGen() : cur(nullptr), nextLocalSlot(0) { }
 
-size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
+size_t ArdanTurboCodeGen::TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = std::make_shared<Chunk>();
     cur->name = "BYTECODE";
     locals.clear();
@@ -29,13 +29,13 @@ size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
 
 // ------------------- Statements --------------------
 
-R TurboCodeGen::visitExpression(ExpressionStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitExpression(ExpressionStatement* stmt) {
     stmt->expression->accept(*this);
     emit(OpCode::OP_POP);
     return true;
 }
 
-R TurboCodeGen::visitBlock(BlockStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitBlock(BlockStatement* stmt) {
     // naive: just compile statements in current context (no block-scoped locals handling)
     for (auto& s : stmt->body) {
         s->accept(*this);
@@ -43,7 +43,7 @@ R TurboCodeGen::visitBlock(BlockStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitVariable(VariableStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitVariable(VariableStatement* stmt) {
     
     // var, let and const
     string kind = stmt->kind;
@@ -76,7 +76,7 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
     
 }
 
-R TurboCodeGen::visitIf(IfStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitIf(IfStatement* stmt) {
     stmt->test->accept(*this);
     int elseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
     emit(OpCode::OP_POP); // pop condition
@@ -89,7 +89,7 @@ R TurboCodeGen::visitIf(IfStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitWhile(WhileStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitWhile(WhileStatement* stmt) {
     beginLoop();
     loopStack.back().loopStart = (int)cur->size();
 
@@ -112,7 +112,7 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitFor(ForStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitFor(ForStatement* stmt) {
     
     beginLoop();
     loopStack.back().loopStart = (int)cur->size();
@@ -142,7 +142,7 @@ R TurboCodeGen::visitFor(ForStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitReturn(ReturnStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitReturn(ReturnStatement* stmt) {
     if (stmt->argument) {
         stmt->argument->accept(*this);
     } else {
@@ -156,7 +156,7 @@ R TurboCodeGen::visitReturn(ReturnStatement* stmt) {
 
 // ------------------- Expressions --------------------
 
-R TurboCodeGen::visitBinary(BinaryExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitBinary(BinaryExpression* expr) {
     switch (expr->op.type) {
         case TokenType::ASSIGN:
         case TokenType::ASSIGN_ADD:
@@ -271,7 +271,7 @@ R TurboCodeGen::visitBinary(BinaryExpression* expr) {
 
 }
 
-void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
+void ArdanTurboCodeGen::TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     auto left = expr->left.get();
 
     // --------------------
@@ -381,7 +381,7 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     // emit(OpCode::OP_POP);
 }
 
-R TurboCodeGen::visitUnary(UnaryExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitUnary(UnaryExpression* expr) {
     // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
         // ++x or --x
@@ -446,14 +446,14 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitLiteral(LiteralExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitLiteral(LiteralExpression* expr) {
     int idx = emitConstant(Value::str(expr->token.lexeme));
     emit(OpCode::LoadConstant);
     emitUint32(idx);
     return true;
 }
 
-R TurboCodeGen::visitNumericLiteral(NumericLiteral* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitNumericLiteral(NumericLiteral* expr) {
     Value v = toValue(expr->value);
     int idx = emitConstant(v);
     emit(OpCode::LoadConstant);
@@ -461,14 +461,14 @@ R TurboCodeGen::visitNumericLiteral(NumericLiteral* expr) {
     return true;
 }
 
-R TurboCodeGen::visitStringLiteral(StringLiteral* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitStringLiteral(StringLiteral* expr) {
     int idx = emitConstant(Value::str(expr->text)); // sets the text to the constant array
     emit(OpCode::LoadConstant); // bytecode that indicates push constant to the stack.
     emitUint32(idx); // the index of the constant in the constants array to push to the stack
     return true;
 }
 
-R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
     string name = expr->name;
     if (hasLocal(name)) {
         emit(OpCode::OP_GET_LOCAL);
@@ -492,7 +492,7 @@ R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
     
 }
 
-R TurboCodeGen::visitCall(CallExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitCall(CallExpression* expr) {
     // emit callee, then args left-to-right, then OP_CALL argc
     expr->callee->accept(*this);
     for (auto &arg : expr->arguments) {
@@ -504,7 +504,7 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitMember(MemberExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitMember(MemberExpression* expr) {
     // produce (object) then OP_GET_PROPERTY name
     expr->object->accept(*this);
 
@@ -527,7 +527,7 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitNew(NewExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitNew(NewExpression* expr) {
     // create new object, push, then call constructor? For now create object and set properties
     emit(OpCode::OP_NEW_OBJECT);
     // set up constructor invocation by calling callee with object? Simpler: if args exist, ignore
@@ -535,7 +535,7 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
     emit(OpCode::OP_NEW_ARRAY);
     for (auto &el : expr->elements) {
         el->accept(*this); // push element
@@ -544,7 +544,7 @@ R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
     emit(OpCode::OP_NEW_OBJECT);
     // For each prop: evaluate value, then OP_SET_PROPERTY with name const
     for (auto &prop : expr->props) {
@@ -557,7 +557,7 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitConditional(ConditionalExpression* expr) {
     expr->test->accept(*this);
     int elseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
     // emit(OpCode::OP_POP);
@@ -570,7 +570,7 @@ R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
     // Create a nested CodeGen for the function body
     TurboCodeGen nested(module_);
@@ -716,7 +716,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
 }
 
-R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     
 //    Token token;
 //    vector<unique_ptr<Expression>> params;
@@ -862,7 +862,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Create a nested code generator for the function body
     TurboCodeGen nested(module_);
     // nested.enclosing = this;
@@ -1017,7 +1017,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // produce string by concatenating quasis and evaluated expressions.
     // Simple approach: compute at runtime building string.
     // push empty string
@@ -1043,7 +1043,7 @@ R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     return true;
 }
 
-R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     // Keep simple: perform import at compile time by executing parser+interpreter OR
     // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
     // Generate: push path string -> call import(path)
@@ -1060,7 +1060,7 @@ R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
     // Evaluate right-hand side
     expr->right->accept(*this);
 
@@ -1091,7 +1091,7 @@ R TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitLogical(LogicalExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitLogical(LogicalExpression* expr) {
     expr->left->accept(*this);
     if (expr->op.type == TokenType::LOGICAL_OR) {
         int endJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
@@ -1108,14 +1108,14 @@ R TurboCodeGen::visitLogical(LogicalExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitThis(ThisExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitThis(ThisExpression* expr) {
     // Assumes 'this' is always local 0 in method frames
     emit(OpCode::OP_GET_LOCAL);
     emitUint32(0); // slot 0 reserved for 'this'
     return true;
 }
 
-R TurboCodeGen::visitProperty(PropertyExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitProperty(PropertyExpression* expr) {
 //    expr->object->accept(*this);
 //    int nameIdx = emitConstant(Value::str(expr->name.lexeme));
 //    emit(OpCode::OP_GET_PROPERTY);
@@ -1123,7 +1123,7 @@ R TurboCodeGen::visitProperty(PropertyExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitSequence(SequenceExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitSequence(SequenceExpression* expr) {
     size_t n = expr->expressions.size();
     for (size_t i = 0; i < n; ++i) {
         expr->expressions[i]->accept(*this);
@@ -1132,7 +1132,7 @@ R TurboCodeGen::visitSequence(SequenceExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitUpdate(UpdateExpression* expr) {
     // Identifiers: x++
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
         if (hasLocal(ident->name)) {
@@ -1187,31 +1187,31 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
     throw std::runtime_error("Update target must be identifier or member expression (including computed/array member)");
 }
 
-R TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::boolean(false)));
     return true;
 }
 
-R TurboCodeGen::visitTrueKeyword(TrueKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitTrueKeyword(TrueKeyword* expr) {
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::boolean(true)));
     return true;
 }
 
-R TurboCodeGen::visitNullKeyword(NullKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitNullKeyword(NullKeyword* expr) {
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::nullVal()));
     return true;
 }
 
-R TurboCodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::undefined()));
     return true;
 }
 
-R TurboCodeGen::visitAwaitExpression(AwaitExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitAwaitExpression(AwaitExpression* expr) {
     // Evaluate argument
     //expr->argument->accept(*this);
     // Call a built-in 'await' handler or emit await-specific opcode, e.g.:
@@ -1219,7 +1219,7 @@ R TurboCodeGen::visitAwaitExpression(AwaitExpression* expr) {
     return true;
 }
 
-R TurboCodeGen::visitBreak(BreakStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitBreak(BreakStatement* stmt) {
     if (loopStack.empty()) {
         throw ("Break outside loop");
         return false;
@@ -1230,7 +1230,7 @@ R TurboCodeGen::visitBreak(BreakStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitContinue(ContinueStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitContinue(ContinueStatement* stmt) {
     if (loopStack.empty()) {
         throw ("Continue outside loop");
         return false;
@@ -1240,18 +1240,18 @@ R TurboCodeGen::visitContinue(ContinueStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitThrow(ThrowStatement* stmt) {
     // Evaluate the exception value
     // stmt->argument->accept(*this);
     emit(OpCode::OP_THROW);
     return true;
 }
 
-R TurboCodeGen::visitEmpty(EmptyStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitEmpty(EmptyStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     
     // Step 1: Evaluate superclass (if any)
     if (stmt->superClass) {
@@ -1313,11 +1313,11 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitMethodDefinition(MethodDefinition* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitMethodDefinition(MethodDefinition* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
 
     beginLoop();
     loopStack.back().loopStart = (int)cur->size();
@@ -1347,7 +1347,7 @@ R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
     // Each case's test should have already been checked in visitSwitch
     // Emit the body of this case
     for (auto& s : stmt->consequent) {
@@ -1361,7 +1361,7 @@ R TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
     std::vector<int> caseJumps;
     int defaultJump = -1;
 
@@ -1404,12 +1404,12 @@ R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitCatch(CatchClause* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitCatch(CatchClause* stmt) {
     stmt->body->accept(*this);
     return true;
 }
 
-R TurboCodeGen::visitTry(TryStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitTry(TryStatement* stmt) {
     // Mark start of try
     int tryPos = emitTryPlaceholder();
 
@@ -1450,7 +1450,7 @@ R TurboCodeGen::visitTry(TryStatement* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitForIn(ForInStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitForIn(ForInStatement* stmt) {
     
     // object, body, init
     
@@ -1547,7 +1547,7 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
 
 // TODO: we need to make sure statement leaves nothing on stack
 // TODO: for..of reads starts off by 1
-R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitForOf(ForOfStatement* stmt) {
 
     // std::unique_ptr<Statement> left; // variable declaration or expression
     // std::unique_ptr<Expression> right; // iterable expression
@@ -1633,38 +1633,38 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     
 }
 
-R TurboCodeGen::visitSuper(SuperExpression* stmt) {
+R ArdanTurboCodeGen::TurboCodeGen::visitSuper(SuperExpression* stmt) {
     return true;
 }
 
-R TurboCodeGen::visitPublicKeyword(PublicKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitPublicKeyword(PublicKeyword* expr) {
     
     return true;
 }
 
-R TurboCodeGen::visitPrivateKeyword(PrivateKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitPrivateKeyword(PrivateKeyword* expr) {
     return true;
 }
 
-R TurboCodeGen::visitProtectedKeyword(ProtectedKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitProtectedKeyword(ProtectedKeyword* expr) {
     return true;
 }
 
-R TurboCodeGen::visitStaticKeyword(StaticKeyword* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitStaticKeyword(StaticKeyword* expr) {
     return true;
 }
 
-R TurboCodeGen::visitRestParameter(RestParameter* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitRestParameter(RestParameter* expr) {
     return true;
 }
 
-R TurboCodeGen::visitClassExpression(ClassExpression* expr) {
+R ArdanTurboCodeGen::TurboCodeGen::visitClassExpression(ClassExpression* expr) {
     return true;
 }
 
 // --------------------- Utils ----------------------
 
-void TurboCodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
+void ArdanTurboCodeGen::TurboCodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
     locals.clear();
     nextLocalSlot = 0;
     // reserve param slots as locals 0..paramCount-1
@@ -1676,22 +1676,22 @@ void TurboCodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<stri
     if (cur) cur->maxLocals = nextLocalSlot;
 }
 
-void TurboCodeGen::emit(OpCode op) {
+void ArdanTurboCodeGen::TurboCodeGen::emit(OpCode op) {
     cur->writeByte(static_cast<uint8_t>(op));
 }
 
-void TurboCodeGen::emitUint32(uint32_t v) {
+void ArdanTurboCodeGen::TurboCodeGen::emitUint32(uint32_t v) {
     cur->writeUint32(v);
 }
-void TurboCodeGen::emitUint8(uint8_t v) {
+void ArdanTurboCodeGen::TurboCodeGen::emitUint8(uint8_t v) {
     cur->writeUint8(v);
 }
 
-int TurboCodeGen::emitConstant(const Value &v) {
+int ArdanTurboCodeGen::TurboCodeGen::emitConstant(const Value &v) {
     return cur->addConstant(v);
 }
 
-uint32_t TurboCodeGen::makeLocal(const string &name) {
+uint32_t ArdanTurboCodeGen::TurboCodeGen::makeLocal(const string &name) {
     auto it = locals.find(name);
     if (it != locals.end()) return it->second;
     uint32_t idx = nextLocalSlot++;
@@ -1700,15 +1700,15 @@ uint32_t TurboCodeGen::makeLocal(const string &name) {
     return idx;
 }
 
-bool TurboCodeGen::hasLocal(const string &name) {
+bool ArdanTurboCodeGen::TurboCodeGen::hasLocal(const string &name) {
     return locals.find(name) != locals.end();
 }
 
-uint32_t TurboCodeGen::getLocal(const string &name) {
+uint32_t ArdanTurboCodeGen::TurboCodeGen::getLocal(const string &name) {
     return locals.at(name);
 }
 
-int TurboCodeGen::emitJump(OpCode op) {
+int ArdanTurboCodeGen::TurboCodeGen::emitJump(OpCode op) {
     emit(op);
     // write placeholder uint32
     int pos = (int)cur->size();
@@ -1716,7 +1716,7 @@ int TurboCodeGen::emitJump(OpCode op) {
     return pos;
 }
 
-void TurboCodeGen::patchJump(int jumpPos) {
+void ArdanTurboCodeGen::TurboCodeGen::patchJump(int jumpPos) {
     // write offset from after placeholder to current ip
     uint32_t offset = (uint32_t)(cur->size() - (jumpPos + 4));
     // overwrite bytes at jumpPos with offset (little-endian)
@@ -1726,7 +1726,7 @@ void TurboCodeGen::patchJump(int jumpPos) {
     cur->code[jumpPos + 3] = (offset >> 24) & 0xFF;
 }
 
-void TurboCodeGen::patchJump(int jumpPos, int target) {
+void ArdanTurboCodeGen::TurboCodeGen::patchJump(int jumpPos, int target) {
     uint32_t offset = (uint32_t)(target - (jumpPos + 4));
     cur->code[jumpPos + 0] = (offset >> 0) & 0xFF;
     cur->code[jumpPos + 1] = (offset >> 8) & 0xFF;
@@ -1734,18 +1734,18 @@ void TurboCodeGen::patchJump(int jumpPos, int target) {
     cur->code[jumpPos + 3] = (offset >> 24) & 0xFF;
 }
 
-void TurboCodeGen::emitLoop(uint32_t offset) {
+void ArdanTurboCodeGen::TurboCodeGen::emitLoop(uint32_t offset) {
     emit(OpCode::OP_LOOP);
     emitUint32(offset);
 }
 
-void TurboCodeGen::beginLoop() {
+void ArdanTurboCodeGen::TurboCodeGen::beginLoop() {
     LoopContext ctx;
     ctx.loopStart = (int)cur->size();
     loopStack.push_back(ctx);
 }
 
-void TurboCodeGen::endLoop() {
+void ArdanTurboCodeGen::TurboCodeGen::endLoop() {
     LoopContext ctx = loopStack.back();
     loopStack.pop_back();
 
@@ -1756,7 +1756,7 @@ void TurboCodeGen::endLoop() {
     }
 }
 
-int TurboCodeGen::emitTryPlaceholder() {
+int ArdanTurboCodeGen::TurboCodeGen::emitTryPlaceholder() {
     emit(OpCode::OP_TRY);
 
     // Reserve 8 bytes (two u32: catchOffset, finallyOffset)
@@ -1767,7 +1767,7 @@ int TurboCodeGen::emitTryPlaceholder() {
     return pos; // return position where we wrote the offsets
 }
 
-void TurboCodeGen::patchTryCatch(int tryPos, int target) {
+void ArdanTurboCodeGen::TurboCodeGen::patchTryCatch(int tryPos, int target) {
     uint32_t offset = (uint32_t)(target - (tryPos + 8));
     cur->code[tryPos + 0] = (offset >> 0) & 0xFF;
     cur->code[tryPos + 1] = (offset >> 8) & 0xFF;
@@ -1775,7 +1775,7 @@ void TurboCodeGen::patchTryCatch(int tryPos, int target) {
     cur->code[tryPos + 3] = (offset >> 24) & 0xFF;
 }
 
-void TurboCodeGen::patchTryFinally(int tryPos, int target) {
+void ArdanTurboCodeGen::TurboCodeGen::patchTryFinally(int tryPos, int target) {
     uint32_t offset = (uint32_t)(target - (tryPos + 8));
     cur->code[tryPos + 4] = (offset >> 0) & 0xFF;
     cur->code[tryPos + 5] = (offset >> 8) & 0xFF;
@@ -1783,7 +1783,7 @@ void TurboCodeGen::patchTryFinally(int tryPos, int target) {
     cur->code[tryPos + 7] = (offset >> 24) & 0xFF;
 }
 
-void TurboCodeGen::patchTry(int pos) {
+void ArdanTurboCodeGen::TurboCodeGen::patchTry(int pos) {
     uint32_t offset = (uint32_t)(cur->size() - (pos + 4));
     cur->code[pos + 0] = (offset >> 0) & 0xFF;
     cur->code[pos + 1] = (offset >> 8) & 0xFF;
@@ -1791,22 +1791,22 @@ void TurboCodeGen::patchTry(int pos) {
     cur->code[pos + 3] = (offset >> 24) & 0xFF;
 }
 
-int TurboCodeGen::declareLocal(const string& name) {
+int ArdanTurboCodeGen::TurboCodeGen::declareLocal(const string& name) {
     int slot = nextLocalSlot++;
     locals[name] = slot;
     return slot;
 }
 
-void TurboCodeGen::emitSetLocal(int slot) {
+void ArdanTurboCodeGen::TurboCodeGen::emitSetLocal(int slot) {
     emit(OpCode::OP_SET_LOCAL);
     emitUint32(slot);
 }
 
-int TurboCodeGen::paramSlot(const string& name) {
+int ArdanTurboCodeGen::TurboCodeGen::paramSlot(const string& name) {
     return locals[name];
 }
 
-int TurboCodeGen::addUpvalue(bool isLocal, int index) {
+int ArdanTurboCodeGen::TurboCodeGen::addUpvalue(bool isLocal, int index) {
 //    for (int i = 0; i < (int)upvalues.size(); i++) {
 //        if (upvalues[i].isLocal == isLocal && upvalues[i].index == index) {
 //            return i;
@@ -1818,7 +1818,7 @@ int TurboCodeGen::addUpvalue(bool isLocal, int index) {
 }
 
     // resolve variable
-int TurboCodeGen::resolveUpvalue(const std::string& name) {
+int ArdanTurboCodeGen::TurboCodeGen::resolveUpvalue(const std::string& name) {
 //    if (enclosing) {
 //        int localIndex = enclosing->resolveLocal(name);
 //        if (localIndex != -1) {
@@ -1834,11 +1834,11 @@ int TurboCodeGen::resolveUpvalue(const std::string& name) {
     return -1;
 }
 
-void TurboCodeGen::beginScope() {
+void ArdanTurboCodeGen::TurboCodeGen::beginScope() {
     //scopeDepth++;
 }
 
-void TurboCodeGen::endScope() {
+void ArdanTurboCodeGen::TurboCodeGen::endScope() {
     // Pop locals declared in this scope
 //    while (!locals.empty() && locals.back().depth == scopeDepth) {
 //        if (locals.back().isCaptured) {
@@ -1853,14 +1853,14 @@ void TurboCodeGen::endScope() {
     //scopeDepth--;
 }
 
-inline uint32_t TurboCodeGen::readUint32(const Chunk* chunk, size_t offset) {
+inline uint32_t ArdanTurboCodeGen::TurboCodeGen::readUint32(const Chunk* chunk, size_t offset) {
     return (uint32_t)chunk->code[offset] |
            ((uint32_t)chunk->code[offset + 1] << 8) |
            ((uint32_t)chunk->code[offset + 2] << 16) |
            ((uint32_t)chunk->code[offset + 3] << 24);
 }
 
-size_t TurboCodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
+size_t ArdanTurboCodeGen::TurboCodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
     std::cout << std::setw(4) << offset << " ";
 
     uint8_t instruction = chunk->code[offset];
@@ -1993,14 +1993,14 @@ size_t TurboCodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
     return offset + 1;
 }
 
-void TurboCodeGen::disassembleChunk(const Chunk* chunk, const std::string& name) {
+void ArdanTurboCodeGen::TurboCodeGen::disassembleChunk(const Chunk* chunk, const std::string& name) {
     std::cout << "== " << name << " ==\n";
     for (size_t offset = 0; offset < chunk->code.size();) {
         offset = disassembleInstruction(chunk, offset);
     }
 }
 
-Token TurboCodeGen::createToken(TokenType type) {
+Token ArdanTurboCodeGen::TurboCodeGen::createToken(TokenType type) {
     Token token;
     token.type = type;
     return token;

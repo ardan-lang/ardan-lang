@@ -26,6 +26,8 @@
 
 using namespace std;
 
+namespace ArdanTurboCodeGen {
+
 struct LoopContext {
     int loopStart;              // address of loop condition start
     vector<int> breaks;    // jump addresses that need patching
@@ -69,7 +71,7 @@ public:
     
     // shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
     size_t generate(const vector<unique_ptr<Statement>> &program);
-
+    
     void emitAssignment(BinaryExpression* expr);
     
     R visitExpression(ExpressionStatement* stmt) override;
@@ -96,7 +98,7 @@ public:
     R visitFunctionExpression(FunctionExpression* expr) override;
     R visitTemplateLiteral(TemplateLiteral* expr) override;
     R visitImportDeclaration(ImportDeclaration* stmt) override;
-
+    
     R visitAssignment(AssignmentExpression* expr) override;
     R visitLogical(LogicalExpression* expr) override;
     R visitThis(ThisExpression* expr) override;
@@ -114,7 +116,7 @@ public:
     R visitClassExpression(ClassExpression* expr) override;
     R visitNullKeyword(NullKeyword* expr) override;
     R visitUndefinedKeyword(UndefinedKeyword* expr) override;
-    R visitAwaitExpression(AwaitExpression* expr) override;    
+    R visitAwaitExpression(AwaitExpression* expr) override;
     
     R visitBreak(BreakStatement* stmt) override;
     R visitContinue(ContinueStatement* stmt) override;
@@ -129,7 +131,7 @@ public:
     R visitTry(TryStatement* stmt) override;
     R visitForIn(ForInStatement* stmt) override;
     R visitForOf(ForOfStatement* stmt) override;
-        
+    
 private:
     shared_ptr<Chunk> cur; // current chunk being emitted
     // locals map for current function: name -> slot index
@@ -149,7 +151,7 @@ private:
     bool hasLocal(const string &name);
     uint32_t getLocal(const string &name);
     void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
-
+    
     int emitTryPlaceholder();
     void patchTry(int pos);
     void patchTryFinally(int tryPos, int target);
@@ -175,13 +177,14 @@ private:
     void endScope();
     int addUpvalue(bool isLocal, int index);
     int resolveUpvalue(const string& name);
-
+    
     inline uint32_t readUint32(const Chunk* chunk, size_t offset);
-
+    
     size_t disassembleInstruction(const Chunk* chunk, size_t offset);
-
+    
     void disassembleChunk(const Chunk* chunk, const std::string& name);
     Token createToken(TokenType type);
-
+    
 };
 
+}

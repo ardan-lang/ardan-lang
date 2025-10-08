@@ -7,7 +7,7 @@
 
 #include "TurboVM.hpp"
 
-TurboVM::TurboVM() {
+ArdanTurboVM::TurboVM::TurboVM() {
 //    globals["print"] = Value::function([](vector<Value> args) -> Value {
 //        Print::print(args);
 //        return Value::undefined();
@@ -22,7 +22,7 @@ TurboVM::TurboVM() {
 
 }
 
-TurboVM::TurboVM(shared_ptr<Module> module_) : module_(module_) {
+ArdanTurboVM::TurboVM::TurboVM(shared_ptr<Module> module_) : module_(module_) {
 //    globals["print"] = Value::function([](vector<Value> args) -> Value {
 //        Print::print(args);
 //        return Value::undefined();
@@ -38,13 +38,13 @@ TurboVM::TurboVM(shared_ptr<Module> module_) : module_(module_) {
     
 }
 
-TurboVM::~TurboVM() {
+ArdanTurboVM::TurboVM::~TurboVM() {
     if (env != nullptr) {
         delete env;
     }
 }
 
-void TurboVM::init_builtins() {
+void ArdanTurboVM::TurboVM::init_builtins() {
     
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
@@ -114,24 +114,24 @@ void TurboVM::init_builtins() {
 //    }
 //}
 
-Value TurboVM::pop() {
+Value ArdanTurboVM::TurboVM::pop() {
     if (stack.empty()) return Value::undefined();
     Value v = stack.back();
     stack.pop_back();
     return v;
 }
 
-Value TurboVM::peek(int distance) {
+Value ArdanTurboVM::TurboVM::peek(int distance) {
     if (distance >= (int)stack.size()) return Value::undefined();
     return stack[stack.size() - 1 - distance];
 }
 
-uint8_t TurboVM::readByte() {
+uint8_t ArdanTurboVM::TurboVM::readByte() {
     if (ip >= chunk->code.size()) return 0;
     return chunk->code[ip++];
 }
 
-uint32_t TurboVM::readUint32() {
+uint32_t ArdanTurboVM::TurboVM::readUint32() {
     if (ip + 4 > chunk->code.size()) throw std::runtime_error("read past end");
     uint32_t v = 0;
     v |= (uint32_t)chunk->code[ip++];
@@ -141,18 +141,18 @@ uint32_t TurboVM::readUint32() {
     return v;
 }
 
-uint8_t TurboVM::readUint8() {
+uint8_t ArdanTurboVM::TurboVM::readUint8() {
     return readByte();
 }
 
-Value TurboVM::binaryAdd(const Value &a, const Value &b) {
+Value ArdanTurboVM::TurboVM::binaryAdd(const Value &a, const Value &b) {
     if (a.type == ValueType::STRING || b.type == ValueType::STRING) {
         return Value::str(a.toString() + b.toString());
     }
     return Value(a.numberValue + b.numberValue);
 }
 
-bool TurboVM::isTruthy(const Value &v) {
+bool ArdanTurboVM::TurboVM::isTruthy(const Value &v) {
     if (v.type == ValueType::NULLTYPE) return false;
     if (v.type == ValueType::UNDEFINED) return false;
     if (v.type == ValueType::BOOLEAN) return v.boolValue;
@@ -162,7 +162,7 @@ bool TurboVM::isTruthy(const Value &v) {
     return true;
 }
 
-bool TurboVM::equals(const Value &a, const Value &b) {
+bool ArdanTurboVM::TurboVM::equals(const Value &a, const Value &b) {
     // shallow equality similar to interpreter
     if (a.type != b.type) {
         // try numeric-string comparisons etc is omitted for brevity
@@ -185,7 +185,7 @@ bool TurboVM::equals(const Value &a, const Value &b) {
     }
 }
 
-int TurboVM::getValueLength(Value& v) {
+int ArdanTurboVM::TurboVM::getValueLength(Value& v) {
     
     if (v.type == ValueType::OBJECT) {
         return (int)v.objectValue->get_all_properties().size();
@@ -199,7 +199,7 @@ int TurboVM::getValueLength(Value& v) {
 
 }
 
-Value TurboVM::getProperty(const Value &objVal, const string &propName) {
+Value ArdanTurboVM::TurboVM::getProperty(const Value &objVal, const string &propName) {
     if (objVal.type == ValueType::OBJECT) {
         return objVal.objectValue->get(propName);
     }
@@ -213,7 +213,7 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
     return Value::undefined();
 }
 
-void TurboVM::setProperty(const Value &objVal, const string &propName, const Value &val) {
+void ArdanTurboVM::TurboVM::setProperty(const Value &objVal, const string &propName, const Value &val) {
     if (objVal.type == ValueType::OBJECT) {
         objVal.objectValue->set(propName, val, "VAR", {});
         return;
@@ -229,7 +229,7 @@ void TurboVM::setProperty(const Value &objVal, const string &propName, const Val
     throw std::runtime_error("Cannot set property on non-object");
 }
 
-Value TurboVM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
+Value ArdanTurboVM::TurboVM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
     // prepare a top-level frame that will be executed by runFrame()
     CallFrame frame;
     frame.chunk = chunk_;
@@ -246,7 +246,7 @@ Value TurboVM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
     return result;
 }
 
-Value TurboVM::runFrame() {
+Value ArdanTurboVM::TurboVM::runFrame() {
     
     if (callStack.empty()) return Value::undefined();
     CallFrame &frame = callStack.back();
@@ -982,7 +982,7 @@ Value TurboVM::runFrame() {
     return Value::undefined();
 }
 
-Value TurboVM::callFunction(Value callee, vector<Value>& args) {
+Value ArdanTurboVM::TurboVM::callFunction(Value callee, vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
         // call host function (native or compiled wrapper)
@@ -1071,7 +1071,7 @@ Value TurboVM::callFunction(Value callee, vector<Value>& args) {
     
 }
 
-vector<Value> TurboVM::popArgs(size_t count) {
+vector<Value> ArdanTurboVM::TurboVM::popArgs(size_t count) {
     
     vector<Value> args;
     args.resize(count, Value::undefined());
@@ -1089,7 +1089,7 @@ vector<Value> TurboVM::popArgs(size_t count) {
     return args;
 }
 
-void TurboVM::handleRethrow() {
+void ArdanTurboVM::TurboVM::handleRethrow() {
     // simplified: pop pending exception and re-run OP_THROW-like unwinding
     if (stack.empty()) { running = false; return; }
     Value pending = pop();
