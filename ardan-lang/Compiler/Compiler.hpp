@@ -9,8 +9,8 @@
 #ifndef Compiler_hpp
 #define Compiler_hpp
 
-#include "VM/VMv2.hpp"
-#include "CodeGeneratorV2.hpp"
+#include "VM/VM.hpp"
+#include "CodeGenerator.hpp"
 #include "VM/Module.hpp"
 #include "WriteArdarFile/WriteArdarFile.hpp"
 #include "ArdarFileReader/ArdarFileReader.hpp"

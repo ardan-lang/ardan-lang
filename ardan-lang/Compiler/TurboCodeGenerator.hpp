@@ -1,5 +1,5 @@
 //
-//  CodeGenerator.hpp
+//  TurboCodeGenerator.hpp
 //  ardan-lang
 //
 //  Created by Chidume Nnamdi on 19/09/2025.
@@ -8,7 +8,6 @@
 #pragma once
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
 #include <stack>
 #include <stdexcept>
 #include <iostream>
@@ -19,19 +18,13 @@
 #include "../Statements/Statements.hpp"
 #include "../Expression/Expression.hpp"
 #include "../Interpreter/Utils/Utils.h"
-#include "../Scanner/Scanner.hpp"
-#include "../Parser/Parser.hpp"
 
 #include "VM/Bytecode.hpp"
 #include "VM/Chunk.hpp"
-#include "VM/VMv2.hpp"
+#include "VM/TurboVM.hpp"
 #include "VM/Module.hpp"
 
 using namespace std;
-
-struct ClassInfo {
-    unordered_set<std::string> fields;
-};
 
 struct LoopContext {
     int loopStart;              // address of loop condition start
@@ -68,17 +61,13 @@ using std::unordered_map;
 using std::string;
 using std::vector;
 
-class CodeGen : public ExpressionVisitor, public StatementVisitor {
+class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
 public:
-    CodeGen();
-    CodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
+    TurboCodeGen();
+    TurboCodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
     shared_ptr<Module> module_;
     
-    string resolveImportPath(ImportDeclaration* stmt);
-    bool isModuleLoaded(string importPath);
-    void registerModule(string importPath);
-    vector<string> registered_modules;
-    
+    // shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
     size_t generate(const vector<unique_ptr<Statement>> &program);
 
     void emitAssignment(BinaryExpression* expr);
@@ -144,19 +133,12 @@ public:
 private:
     shared_ptr<Chunk> cur; // current chunk being emitted
     // locals map for current function: name -> slot index
-    // unordered_map<string, uint32_t> locals;
-    vector<Local> locals;
+    unordered_map<string, uint32_t> locals;
+    // unordered_map<string, Local> locals;
     uint32_t nextLocalSlot = 0;
-    vector<UpvalueMeta> upvalues;
-    int scopeDepth;
-    CodeGen* enclosing;
-    
-    ClassInfo classInfo;
-    
-    void compileMethod(MethodDefinition& method);
-    
-    R define(string decl);
-    int resolveLocal(const std::string& name);
+    //vector<UpvalueMeta> upvalues;
+    //int scopeDepth;
+    //CodeGen* enclosing;
     
     // helpers
     void emit(OpCode op);
@@ -173,7 +155,7 @@ private:
     void patchTryFinally(int tryPos, int target);
     void patchTryCatch(int tryPos, int target);
     
-    void declareLocal(const string& name);
+    int declareLocal(const string& name);
     void emitSetLocal(int slot);
     int paramSlot(const string& name);
     
@@ -193,14 +175,12 @@ private:
     void endScope();
     int addUpvalue(bool isLocal, int index);
     int resolveUpvalue(const string& name);
-    size_t disassembleInstruction(const Chunk* chunk, size_t offset);
-    void disassembleChunk(const Chunk* chunk, const std::string& name);
-    
+
 };
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset);
 
-// size_t disassembleInstruction(const Chunk* chunk, size_t offset);
+size_t disassembleInstruction(const Chunk* chunk, size_t offset);
 
-// void disassembleChunk(const Chunk* chunk, const std::string& name);
+void disassembleChunk(const Chunk* chunk, const std::string& name);
 Token createToken(TokenType type);

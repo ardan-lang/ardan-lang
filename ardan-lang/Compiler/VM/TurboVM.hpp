@@ -1,12 +1,12 @@
 //
-//  VM.hpp
+//  TurboVM.hpp
 //  ardan-lang
 //
 //  Created by Chidume Nnamdi on 19/09/2025.
 //
 
-#ifndef VM_hpp
-#define VM_hpp
+#ifndef TurboVM_hpp
+#define TurboVM_hpp
 
 #pragma once
 #include <stdio.h>
@@ -42,29 +42,14 @@ using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
-// --- Closure and Upvalue support ---
-struct Upvalue {
-    Value* location;   // Points to stack slot or closed value
-    Value closed;      // When closed, stores value
-    Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
-    bool isClosed() const { return location == &closed; }
-};
-
-struct Closure {
-    shared_ptr<FunctionObject> fn;
-    vector<shared_ptr<Upvalue>> upvalues;
-    shared_ptr<JSObject> js_object;
-};
-
 struct CallFrame {
     shared_ptr<Chunk> chunk;
     size_t ip = 0;                    // instruction pointer for this frame
-    deque<Value> locals;        // local slots for this frame
+    vector<Value> locals;        // local slots for this frame
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
     
     vector<Value> args;  // <-- Store actual call arguments here
-    shared_ptr<Closure> closure;
-    shared_ptr<JSObject> js_object;
+    Env* env;
 };
 
 struct TryFrame {
@@ -74,9 +59,22 @@ struct TryFrame {
     int ipAfterTry;   // where the linear try block ends (for normal flow)
 };
 
-class VM {
+// --- Closure and Upvalue support ---
+struct Upvalue {
+    Value* location;   // Points to stack slot or closed value
+    Value closed;      // When closed, stores value
+    Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
+    bool isClosed() const { return location == &closed; }
+};
+
+struct Closure {
+    std::shared_ptr<FunctionObject> fn; // FunctionObject (from Value.h)
+    std::vector<std::shared_ptr<Upvalue>> upvalues;
+};
+
+class TurboVM {
 public:
-    VM();
+    TurboVM();
     
     // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<Chunk> chunk, const vector<Value>& args = {});
@@ -85,37 +83,29 @@ public:
     // unordered_map<string, Value> globals;
     Env* env;
     
-    VM(shared_ptr<Module> module_ = nullptr);
-    ~VM();
+    TurboVM(shared_ptr<Module> module_ = nullptr);
+    ~TurboVM();
     Value callFunction(Value callee, vector<Value>& args);
     
 private:
     shared_ptr<Module> module_ = nullptr;               // set at construction or by caller
     
-    vector<CallFrame> callStack;        // call frames stack
-    Upvalue* openUpvalues = nullptr;
+    std::vector<CallFrame> callStack;        // call frames stack
+    
     // helper to pop N args into a vector (left-to-right order)
     std::vector<Value> popArgs(size_t count);
-    shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
-    Value addCtor();
     
     // execute the top-most frame until it returns (OP_RETURN)
-    Value runFrame(CallFrame &frame);
+    Value runFrame();
     void handleRethrow();
-    // bool running = true;
+    bool running = true;
     vector<TryFrame> tryStack;
     
     // execution state for a run
-    //shared_ptr<Chunk> chunk;
-    //size_t ip = 0;
-    deque<Value> stack;
-    //deque<Value> locals; // locals[0..maxLocals-1]
-    CallFrame* frame;
-    
-    void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
-    void invokeConstructor(Value obj_value, vector<Value> args);
-    void invokeMethod(Value obj_value, string name, vector<Value> args);
-    Value callMethod(Value callee, vector<Value>& args, Value js_object);
+    shared_ptr<Chunk> chunk;
+    size_t ip = 0;
+    vector<Value> stack;
+    vector<Value> locals; // locals[0..maxLocals-1]
     
     void push(const Value &v) { stack.push_back(v); }
     Value pop();
@@ -129,12 +119,11 @@ private:
     bool equals(const Value &a, const Value &b);
     Value getProperty(const Value &objVal, const string &propName);
     void setProperty(const Value &objVal, const string &propName, const Value &val);
-    void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
     Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
-    void closeUpvalues(Value* last);
-    shared_ptr<Upvalue> captureUpvalue(Value* local);
+    //void closeUpvalues(Value* last);
+    //shared_ptr<Upvalue> captureUpvalue(Value* local);
     
 };
 
-#endif /* VM_hpp */
+#endif /* TurboVM_hpp */
