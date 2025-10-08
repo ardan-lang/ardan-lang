@@ -781,7 +781,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
     uint32_t chunkIndex = module_->addChunk(fnChunk);
 
-    auto fnObj = std::make_shared<FunctionObject>();
+    auto fnObj = make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
     fnObj->name = "<arrow>";
@@ -1157,20 +1157,80 @@ R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     return true;
 }
 
+//R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
+//    // Keep simple: perform import at compile time by executing parser+interpreter OR
+//    // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
+//    // Generate: push path string -> call import(path)
+//    int ci = emitConstant(Value::str(stmt->path.lexeme));
+//    emit(OpCode::LoadConstant);
+//    emitUint32(ci);
+//    // callee (import)
+//    int importName = emitConstant(Value::str("import"));
+//    emit(OpCode::OP_GET_GLOBAL);
+//    emitUint32(importName);
+//    emit(OpCode::OP_CALL);
+//    emitUint8(1);
+//    emit(OpCode::OP_POP);
+//    return true;
+//}
+
+string CodeGen::resolveImportPath(ImportDeclaration* stmt) {
+    
+    namespace fs = std::filesystem;
+    
+    // dir of the file that contained the import
+    fs::path baseDir = fs::path(stmt->sourceFile).parent_path();
+    
+    string raw = stmt->path.lexeme;
+    if (!raw.empty() && raw.front() == '"' && raw.back() == '"') {
+        raw = raw.substr(1, raw.size() - 2);
+    }
+    
+    fs::path resolved = fs::weakly_canonical(baseDir / raw);
+    
+    return resolved.string();
+    
+}
+
 R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
-    // Keep simple: perform import at compile time by executing parser+interpreter OR
-    // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
-    // Generate: push path string -> call import(path)
-    int ci = emitConstant(Value::str(stmt->path.lexeme));
-    emit(OpCode::LoadConstant);
-    emitUint32(ci);
-    // callee (import)
-    int importName = emitConstant(Value::str("import"));
-    emit(OpCode::OP_GET_GLOBAL);
-    emitUint32(importName);
-    emit(OpCode::OP_CALL);
-    emitUint8(1);
-    emit(OpCode::OP_POP);
+    
+    // Resolve the path (relative or absolute)
+    std::string importPath = resolveImportPath(stmt);
+
+    // Check if module is already loaded (avoid cycles/duplication)
+    if (isModuleLoaded(importPath)) {
+        // Already loaded, nothing to do (or optionally, re-bind exported symbols)
+        return true;
+    }
+
+    std::string source = read_file(importPath);
+
+    // Parse the imported source to AST
+    Scanner scanner(source);
+    auto tokens = scanner.getTokens();
+    
+    // ✅ pass the resolved file path into the parser
+    Parser parser(tokens);
+    parser.sourceFile = importPath;
+    auto ast = parser.parse();
+
+    // Register the imported module BEFORE compiling to handle cycles
+    registerModule(importPath);
+
+    // Compile/generate code for the imported program
+    // CodeGen importGen(module_);
+    // importGen.modulePath = importPath;
+    // importGen.generate(importedProgram->body);
+
+    for (const auto &s : ast) {
+        s->accept(*this);
+    }
+
+    // Optionally, bind imported symbols into the current module's scope
+    // (e.g., handle named imports, 'import * as', etc.)
+    // For simplicity, this is omitted here.
+
+    // No code emission needed (import is compile-time)
     return true;
 }
 
@@ -2259,6 +2319,22 @@ void CodeGen::endScope() {
         locals.pop_back();
     }
     scopeDepth--;
+}
+
+bool CodeGen::isModuleLoaded(string importPath) {
+    
+    for (auto& module_ : registered_modules) {
+        if (module_ == importPath) {
+            return true;
+        }
+    }
+
+    return false;
+
+}
+
+void CodeGen::registerModule(string importPath) {
+    registered_modules.push_back(importPath);
 }
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset) {

@@ -12,6 +12,8 @@
 #include "VM/VMv2.hpp"
 #include "CodeGeneratorV2.hpp"
 #include "VM/Module.hpp"
+#include "WriteArdarFile/WriteArdarFile.hpp"
+#include "ArdarFileReader/ArdarFileReader.hpp"
 
 class Chunk;
 

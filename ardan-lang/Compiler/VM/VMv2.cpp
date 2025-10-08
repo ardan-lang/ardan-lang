@@ -38,17 +38,6 @@ void VM::init_builtins() {
             Print::print(args);
             return Value::nullVal();
         }));
-    
-//    globals["print"] = Value::function([](vector<Value> args) -> Value {
-//        Print::print(args);
-//        return Value::undefined();
-//    });
-//    
-//    globals["Math"] = Value::object(make_shared<Math>());
-//    globals["console"] = Value::object(make_shared<Print>());
-//    globals["fs"] = Value::object(make_shared<File>());
-    // globals["Server"] = make_shared<Server>(event_loop);
-    
 }
 
 // Add members to VM class (assumed in VM.hpp):
@@ -1102,7 +1091,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 uint32_t ci = readUint8();
                 Value fnVal = module_->constants[ci]; //chunk->constants[ci];
                 auto fnRef = fnVal.fnRef; // Should be FunctionObject*
-                fnRef->vm = this;
+                // fnRef->vm = this;
                 auto closure = make_shared<Closure>();
                 closure->fn = fnRef;
                 // Assume upvalue count is stored in fnRef->arity or fnRef->upvalueCount

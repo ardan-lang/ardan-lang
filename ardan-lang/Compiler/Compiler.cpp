@@ -33,10 +33,29 @@ void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
     // generate fills module_->chunks and module_->constants
     // auto entryChunk = codegen->generate(ast);
     auto entryChunkIndex = codegen->generate(ast);
+    module_->entryChunkIndex = (uint32_t)entryChunkIndex;
 
-    VM vm(module_);
+    // VM vm(module_);
     // vm.run(entryChunk);
 
+    std::string outputFilename = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/myprogram.adar";
+    uint32_t version = 1;
+
+    WriteArdarFile writer(outputFilename,
+                          module_.get(),
+                          version,
+                          (uint32_t)entryChunkIndex);
+    writer.writing();
+    cout << "File written successfully!" << endl;
+        
+    // load and run
+    ArdarFileReader reader(outputFilename);
+    shared_ptr<Module> _module_ = reader.readModule();
+
+    // Pass module to VM for execution!
+    VM vm(_module_);
+
     // OR explicitly by chunk index
-    Value ret = vm.run(module_->chunks[entryChunkIndex], {});
+    Value ret = vm.run(_module_->chunks[_module_->entryChunkIndex], {});
+
 }

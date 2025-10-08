@@ -19,6 +19,8 @@
 #include "../Statements/Statements.hpp"
 #include "../Expression/Expression.hpp"
 #include "../Interpreter/Utils/Utils.h"
+#include "../Scanner/Scanner.hpp"
+#include "../Parser/Parser.hpp"
 
 #include "VM/Bytecode.hpp"
 #include "VM/Chunk.hpp"
@@ -29,7 +31,6 @@ using namespace std;
 
 struct ClassInfo {
     unordered_set<std::string> fields;
-    // ... other info
 };
 
 struct LoopContext {
@@ -73,7 +74,11 @@ public:
     CodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
     shared_ptr<Module> module_;
     
-    // shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
+    string resolveImportPath(ImportDeclaration* stmt);
+    bool isModuleLoaded(string importPath);
+    void registerModule(string importPath);
+    vector<string> registered_modules;
+    
     size_t generate(const vector<unique_ptr<Statement>> &program);
 
     void emitAssignment(BinaryExpression* expr);
