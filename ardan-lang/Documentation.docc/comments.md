@@ -258,4 +258,113 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     return true;
 }
 
+//int CodeGen::emitTryPlaceholder() {
+//    emit(OpCode::OP_TRY);
+//    // reserve 4 bytes for jump target (like your emitJump)
+//    int pos = (int)cur->size();
+//    emitUint32(0);
+//    return pos; // position of placeholder
+//}
+
+//R CodeGen::visitTry(TryStatement* stmt) {
+//    // mark start of try
+//    int tryStart = (int)cur->size();
+//
+//    // Reserve handler jump
+//    int handlerJump = emitTryPlaceholder();
+//
+//    // compile try block
+//    stmt->block->accept(*this);
+//
+//    // leave try
+//    emit(OpCode::OP_END_TRY);
+//
+//    int endJump = -1;
+//    if (stmt->handler) {
+//        endJump = emitJump(OpCode::OP_JUMP); // skip catch if no throw
+//    }
+//
+//    // patch handler here
+//    patchTry(handlerJump);
+//
+//    if (stmt->handler) {
+//        // bind catch param (VM leaves exception value on stack)
+//        declareLocal(stmt->handler->param);
+//        emitSetLocal(paramSlot(stmt->handler->param));
+//
+//        stmt->handler->body->accept(*this);
+//    }
+//
+//    if (endJump != -1) patchJump(endJump);
+//
+//    if (stmt->finalizer) {
+//        stmt->finalizer->accept(*this);
+//        emit(OpCode::OP_END_FINALLY);
+//    }
+//
+//    return true;
+//}
+
+//R CodeGen::visitClass(ClassDeclaration* stmt) {
+//    
+//    // Evaluate superclass (if any)
+//    if (stmt->superClass) {
+//        stmt->superClass->accept(*this); // [superclass]
+//    } else {
+//        emit(OpCode::LoadConstant);
+//        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
+//    }
+//
+//    // Create the class object (with superclass on stack)
+//    emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
+//
+//    // Define methods and fields
+////    for (auto& member : stmt->body) {
+////        if (auto* method = dynamic_cast<MethodDefinition*>(member.get())) {
+////            // Compile method (could be static or instance)
+////            // - Compile as a function object and attach to class
+////            // - Convention: static methods go on class, instance methods go on prototype
+////            if (method->isStatic) {
+////                // Compile function and attach as static property
+////                compileMethod(method); // leaves function object on stack
+////                int nameIdx = emitConstant(Value::str(method->key));
+////                emit(OpCode::OP_SET_STATIC_PROPERTY);
+////                emitUint32(nameIdx); // Pops class and function, sets property on class object
+////            } else {
+////                // Compile as instance method (on prototype)
+////                compileMethod(method); // leaves function on stack
+////                int nameIdx = emitConstant(Value::str(method->key));
+////                emit(OpCode::OP_SET_PROTO_PROPERTY);
+////                emitUint32(nameIdx); // Pops class and function, sets on prototype
+////            }
+////        }
+////        // Handle other member types as needed
+////    }
+//    
+//    // vector<unique_ptr<PropertyDeclaration>> fields;
+////    for (auto& field : stmt->fields) {
+////        // Instance field: record for constructor
+////        // Static field: evaluate initializer, set property
+////        if (field->isStatic) {
+////            if (field->initializer) {
+////                field->initializer->accept(*this);
+////            } else {
+////                emit(OpCode::LoadConstant);
+////                emitUint32(emitConstant(Value::undefined()));
+////            }
+////            int nameIdx = emitConstant(Value::str(field->key));
+////            emit(OpCode::OP_SET_STATIC_PROPERTY);
+////            emitUint32(nameIdx);
+////        }
+////
+////    }
+//
+//    // Define class in environment (global/local)
+//    int classNameIdx = emitConstant(Value::str(stmt->id));
+//    emit(OpCode::OP_DEFINE_GLOBAL);
+//    emitUint32(classNameIdx);
+//
+//    return true;
+//}
+
 ```

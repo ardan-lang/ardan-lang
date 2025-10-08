@@ -1625,68 +1625,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
     return true;
 }
 
-//R CodeGen::visitClass(ClassDeclaration* stmt) {
-//    
-//    // Evaluate superclass (if any)
-//    if (stmt->superClass) {
-//        stmt->superClass->accept(*this); // [superclass]
-//    } else {
-//        emit(OpCode::LoadConstant);
-//        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
-//    }
-//
-//    // Create the class object (with superclass on stack)
-//    emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
-//
-//    // Define methods and fields
-////    for (auto& member : stmt->body) {
-////        if (auto* method = dynamic_cast<MethodDefinition*>(member.get())) {
-////            // Compile method (could be static or instance)
-////            // - Compile as a function object and attach to class
-////            // - Convention: static methods go on class, instance methods go on prototype
-////            if (method->isStatic) {
-////                // Compile function and attach as static property
-////                compileMethod(method); // leaves function object on stack
-////                int nameIdx = emitConstant(Value::str(method->key));
-////                emit(OpCode::OP_SET_STATIC_PROPERTY);
-////                emitUint32(nameIdx); // Pops class and function, sets property on class object
-////            } else {
-////                // Compile as instance method (on prototype)
-////                compileMethod(method); // leaves function on stack
-////                int nameIdx = emitConstant(Value::str(method->key));
-////                emit(OpCode::OP_SET_PROTO_PROPERTY);
-////                emitUint32(nameIdx); // Pops class and function, sets on prototype
-////            }
-////        }
-////        // Handle other member types as needed
-////    }
-//    
-//    // vector<unique_ptr<PropertyDeclaration>> fields;
-////    for (auto& field : stmt->fields) {
-////        // Instance field: record for constructor
-////        // Static field: evaluate initializer, set property
-////        if (field->isStatic) {
-////            if (field->initializer) {
-////                field->initializer->accept(*this);
-////            } else {
-////                emit(OpCode::LoadConstant);
-////                emitUint32(emitConstant(Value::undefined()));
-////            }
-////            int nameIdx = emitConstant(Value::str(field->key));
-////            emit(OpCode::OP_SET_STATIC_PROPERTY);
-////            emitUint32(nameIdx);
-////        }
-////
-////    }
-//
-//    // Define class in environment (global/local)
-//    int classNameIdx = emitConstant(Value::str(stmt->id));
-//    emit(OpCode::OP_DEFINE_GLOBAL);
-//    emitUint32(classNameIdx);
-//
-//    return true;
-//}
-
 R CodeGen::visitMethodDefinition(MethodDefinition* stmt) {
     return true;
 }
