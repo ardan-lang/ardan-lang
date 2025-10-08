@@ -97,6 +97,7 @@ private:
     // helper to pop N args into a vector (left-to-right order)
     std::vector<Value> popArgs(size_t count);
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
+    Value addCtor();
     
     // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame(CallFrame &frame);

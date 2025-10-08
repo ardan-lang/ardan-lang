@@ -104,6 +104,10 @@ const char* opcodeToString(OpCode op) {
         case OpCode::GetThis:
             return "GetThis";
 
+        case OpCode::GetParentObject:
+            return "GetParentObject";
+        case OpCode::SuperCall:
+            return "SuperCall";
     }
     return "UNKNOWN";
 }

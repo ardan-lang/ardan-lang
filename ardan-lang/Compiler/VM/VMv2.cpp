@@ -257,6 +257,40 @@ void VM::invokeMethod(Value obj_value, string name, vector<Value> args) {
     
 }
 
+Value VM::addCtor() {
+
+    shared_ptr<Chunk> fnChunk = make_shared<Chunk>();
+    fnChunk->arity = 0;
+
+    fnChunk->writeByte(static_cast<uint8_t>(OpCode::OP_NOP));
+    fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
+    fnChunk->writeUint8((uint8_t)0);
+
+    int constant_index = fnChunk->addConstant(Value::undefined());
+    
+    fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
+    fnChunk->writeUint32(constant_index);
+    fnChunk->writeByte(static_cast<uint8_t>(OpCode::OP_RETURN));
+    
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = "ctor";
+    fnObj->upvalues_size = 0;
+
+    Value fnValue = Value::functionRef(fnObj);
+    // int ci = module_->addConstant(fnValue);
+
+    shared_ptr<Closure> new_closure = make_shared<Closure>();
+    new_closure->fn = fnObj;
+    new_closure->upvalues = {};
+    
+    return Value::closure(new_closure);
+
+}
+
 Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
     
     auto closure = make_shared<Closure>();
@@ -376,7 +410,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                 // globals[name] = v;
                 env->set_var(name, v);
                 
-                //push(v);
                 break;
             }
 
@@ -411,8 +444,27 @@ Value VM::runFrame(CallFrame &current_frame) {
                 if (superclass.type == ValueType::CLASS) {
                     js_class->superClass = superclass.classValue;
                 }
+                
+                Value klass = Value::klass(js_class);
+                
+                // add constructor
+                setProperty(klass, "constructor", addCtor());
                                 
-                push(Value::klass(js_class));
+                push(klass);
+                break;
+            }
+                
+            case OpCode::SuperCall: {
+                
+                vector<Value> args = popArgs(readUint8());
+
+                // there must be an object in the frame.closure
+                // This is because super() must be run inside a constructor.
+                
+                Value obj_value = Value::object(frame->closure->js_object->parent_object);
+                
+                invokeMethod(obj_value, "constructor", args);
+
                 break;
             }
                 

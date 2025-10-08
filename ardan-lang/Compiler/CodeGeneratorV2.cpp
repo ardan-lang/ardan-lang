@@ -570,6 +570,24 @@ R CodeGen::visitIdentifier(IdentifierExpression* expr) {
 
 R CodeGen::visitCall(CallExpression* expr) {
     // emit callee, then args left-to-right, then OP_CALL argc
+    
+    if (classInfo.fields.size() > 0 && classInfo.fields.count("constructor")) {
+        // check if this is a super() call.
+        if (auto ident = dynamic_cast<SuperExpression*>(expr->callee.get())) {
+            
+            for (auto &arg : expr->arguments) {
+                arg->accept(*this);
+            }
+            uint8_t argc = (uint8_t)expr->arguments.size();
+            
+            emit(OpCode::SuperCall);
+            emitUint8(argc);
+            
+            return true;
+            
+        }
+    }
+    
     expr->callee->accept(*this);
     for (auto &arg : expr->arguments) {
         arg->accept(*this);
@@ -2395,6 +2413,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             
         case OpCode::CreateInstance:
             // calls
+        case OpCode::SuperCall:
         case OpCode::OP_CALL: {
             uint8_t argCount = chunk->code[offset + 1];
             std::cout << opcodeToString(op) << " " << (int)argCount << " args\n";
@@ -2418,6 +2437,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_CLEAR_STACK:
         case OpCode::OP_CLEAR_LOCALS:
         case OpCode::InvokeConstructor:
+        case OpCode::GetParentObject:
             cout << opcodeToString(op) << "\n";
             return offset + 1;
     }
