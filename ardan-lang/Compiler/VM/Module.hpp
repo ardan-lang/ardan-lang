@@ -14,6 +14,8 @@
 struct Module {
     vector<shared_ptr<Chunk>> chunks;      // all compiled function chunks (0 reserved? choose convention)
     vector<Value> constants;               // constant pool
+    uint32_t entryChunkIndex;
+    uint32_t version;
     
     // helpers to add a function and return its index
     uint32_t addChunk(shared_ptr<Chunk> c) {
