@@ -613,9 +613,7 @@ int main(int argc, const char * argv[]) {
     for (int i = 1; i < argc; i++) {
 
         string param = argv[i];
-        
-        cout << param << endl;
-                
+                        
         if (param == "--i" || param == "--interpret") {
             interpret = true;
         } else if (param == "--c" || param == "--compile") {
@@ -664,9 +662,7 @@ int main(int argc, const char * argv[]) {
             source = get_entry_file();
             
         }
-        
-        cout << filename << " : " << source;
-        
+                
         auto ast = get_ast(source, filename);
         auto module_ = compiler.compile(ast);
         string outputFilename = "bin.ardar";
