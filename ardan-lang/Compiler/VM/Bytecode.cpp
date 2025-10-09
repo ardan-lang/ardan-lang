@@ -108,6 +108,8 @@ const char* opcodeToString(OpCode op) {
             return "GetParentObject";
         case OpCode::SuperCall:
             return "SuperCall";
+        case OpCode::CreateObjectLiteral:
+            return "CreateObjectLiteral";
     }
     return "UNKNOWN";
 }
