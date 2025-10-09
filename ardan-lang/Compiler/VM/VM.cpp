@@ -276,7 +276,7 @@ Value VM::addCtor() {
     shared_ptr<Chunk> fnChunk = make_shared<Chunk>();
     fnChunk->arity = 0;
 
-    fnChunk->writeByte(static_cast<uint8_t>(OpCode::OP_NOP));
+    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Nop));
     fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
     fnChunk->writeUint8((uint8_t)0);
 
@@ -284,7 +284,7 @@ Value VM::addCtor() {
     
     fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
     fnChunk->writeUint32(constant_index);
-    fnChunk->writeByte(static_cast<uint8_t>(OpCode::OP_RETURN));
+    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Return));
     
     uint32_t chunkIndex = module_->addChunk(fnChunk);
 
@@ -348,7 +348,7 @@ Value VM::runFrame(CallFrame &current_frame) {
     while (true) {
         OpCode op = static_cast<OpCode>(readByte());
         switch (op) {
-            case OpCode::OP_NOP:
+            case OpCode::Nop:
                 break;
 
                 // pushes the constant to stack
@@ -358,18 +358,18 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_POP: {
+            case OpCode::Pop: {
                 pop();
                 break;
             }
 
-            case OpCode::OP_DUP: {
+            case OpCode::Dup: {
                 Value v = peek(0);
                 push(v);
                 break;
             }
                 
-            case OpCode::OP_DUP2: {
+            case OpCode::Dup2: {
                 Value b = stack[stack.size() - 1];
                 Value a = stack[stack.size() - 2];
                 stack.push_back(a);
@@ -377,14 +377,14 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_GET_LOCAL: {
+            case OpCode::LoadLocal: {
                 uint32_t idx = readUint32();
                 if (idx >= frame->locals.size()) push(Value::undefined());
                 else push(frame->locals[idx]);
                 break;
             }
 
-            case OpCode::OP_SET_LOCAL: {
+            case OpCode::StoreLocal: {
                 uint32_t idx = readUint32();
                 Value val = pop();
                 if (idx >= frame->locals.size()) {
@@ -397,7 +397,7 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
                 // pushes the value of the global to stack
-            case OpCode::OP_GET_GLOBAL: {
+            case OpCode::LoadGlobal: {
                 uint32_t ci = readUint32();
                 Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
@@ -415,7 +415,7 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
                 // leaves nothing on stack
-            case OpCode::OP_SET_GLOBAL: {
+            case OpCode::StoreGlobal: {
                 uint32_t ci = readUint32();
                 Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
@@ -428,7 +428,7 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
                 // leaves nothing on stack
-            case OpCode::OP_DEFINE_GLOBAL: {
+            case OpCode::CreateGlobal: {
                 uint32_t ci = readUint32();
                 Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
@@ -440,7 +440,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_NEW_OBJECT: {
+            case OpCode::NewObject: {
                 auto obj = std::make_shared<JSObject>();
                 Value v;
                 v.type = ValueType::OBJECT;
@@ -457,7 +457,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_NEW_CLASS: {
+            case OpCode::NewClass: {
                 
                 auto superclass = pop();
                 
@@ -561,7 +561,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_SET_STATIC_PROPERTY: {
+            case OpCode::SetStaticProperty: {
                 uint32_t ci = readUint32();
                 string prop = frame->chunk->constants[ci].toString();
                 Value valueToSet = pop();
@@ -572,7 +572,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_SET_PROPERTY: {
+            case OpCode::SetProperty: {
                 uint32_t ci = readUint32();
                 string prop = frame->chunk->constants[ci].toString();
                 Value valueToSet = pop();
@@ -583,7 +583,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_GET_PROPERTY: {
+            case OpCode::GetProperty: {
                 uint32_t ci = readUint32();
                 string prop = frame->chunk->constants[ci].toString();
                 Value objVal = pop();
@@ -592,7 +592,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_GET_PROPERTY_DYNAMIC: {
+            case OpCode::GetPropertyDynamic: {
                 // object is on stack
                 // property is on stack
                 Value val = pop();
@@ -602,7 +602,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_GET_INDEX_PROPERTY_DYNAMIC: {
+            case OpCode::GetIndexPropertyDynamic: {
                 Value val = pop();
                 Value objVal = pop();
                 Value v = getProperty(objVal, val.toString());
@@ -610,7 +610,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_GET_OBJ_LENGTH: {
+            case OpCode::GetObjectLength: {
                 
                 // object is in stack
                 Value objVal = pop();
@@ -623,7 +623,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             }
                 
-            case OpCode::OP_SET_PROPERTY_DYNAMIC: {
+            case OpCode::SetPropertyDynamic: {
                 // Stack: ... obj, key, value
                 Value value = stack.back(); stack.pop_back();
                 Value key = stack.back(); stack.pop_back();
@@ -639,7 +639,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_ENUM_KEYS: {
+            case OpCode::EnumKeys: {
                 // object is in stack.
                 Value objVal = pop();
                 
@@ -657,7 +657,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_NEW_ARRAY: {
+            case OpCode::NewArray: {
                 auto arr = std::make_shared<JSArray>();
                 Value v;
                 v.type = ValueType::ARRAY;
@@ -666,7 +666,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_ARRAY_PUSH: {
+            case OpCode::ArrayPush: {
                 Value val = pop();
                 Value arrVal = pop();
                 if (arrVal.type != ValueType::ARRAY)
@@ -677,56 +677,56 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_ADD: {
+            case OpCode::Add: {
                 Value b = pop();
                 Value a = pop();
                 push(binaryAdd(a,b));
                 break;
             }
-            case OpCode::OP_SUB: {
+            case OpCode::Subtract: {
                 Value b = pop();
                 Value a = pop();
                 push(Value(a.numberValue - b.numberValue));
                 break;
             }
-            case OpCode::OP_MUL: {
+            case OpCode::Multiply: {
                 Value b = pop();
                 Value a = pop();
                 push(Value(a.numberValue * b.numberValue));
                 break;
             }
-            case OpCode::OP_DIV: {
+            case OpCode::Divide: {
                 Value b = pop();
                 Value a = pop();
                 push(Value(a.numberValue / b.numberValue));
                 break;
             }
-            case OpCode::OP_MOD: {
+            case OpCode::Modulo: {
                 Value b = pop();
                 Value a = pop();
                 push(Value(fmod(a.numberValue, b.numberValue)));
                 break;
             }
-            case OpCode::OP_POW: {
+            case OpCode::Power: {
                 Value b = pop();
                 Value a = pop();
                 push(Value(pow(a.numberValue, b.numberValue)));
                 break;
             }
 
-            case OpCode::OP_NEGATE: {
+            case OpCode::Negate: {
                 Value a = pop();
                 push(Value(-a.numberValue));
                 break;
             }
 
-            case OpCode::OP_NOT: {
+            case OpCode::LogicalNot: {
                 Value a = pop();
                 push(Value::boolean(!isTruthy(a)));
                 break;
             }
                 
-            case OpCode::OP_INCREMENT: {
+            case OpCode::Increment: {
                 
                 Value a = pop();
                 Value b = pop();
@@ -738,49 +738,49 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_EQUAL: {
+            case OpCode::Equal: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(equals(a,b)));
                 break;
             }
 
-            case OpCode::OP_NOTEQUAL: {
+            case OpCode::NotEqual: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(!equals(a,b)));
                 break;
             }
 
-            case OpCode::OP_LESS: {
+            case OpCode::LessThan: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue < b.numberValue));
                 break;
             }
                 
-            case OpCode::OP_LESSEQUAL: {
+            case OpCode::LessThanOrEqual: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue <= b.numberValue));
                 break;
             }
                 
-            case OpCode::OP_GREATER: {
+            case OpCode::GreaterThan: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue > b.numberValue));
                 break;
             }
                 
-            case OpCode::OP_GREATEREQUAL: {
+            case OpCode::GreaterThanOrEqual: {
                 Value b = pop();
                 Value a = pop();
                 push(Value::boolean(a.numberValue >= b.numberValue));
                 break;
             }
                                 
-            case OpCode::LOGICAL_AND: {
+            case OpCode::LogicalAnd: {
                 Value b = pop();
                 Value a = pop();
                 bool result = isTruthy(a) && isTruthy(b);
@@ -788,7 +788,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::LOGICAL_OR: {
+            case OpCode::LogicalOr: {
                 Value b = pop();
                 Value a = pop();
                 bool result = isTruthy(a) || isTruthy(b);
@@ -796,27 +796,27 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::NULLISH_COALESCING: {
+            case OpCode::NullishCoalescing: {
                 break;
             }
                 
-            case OpCode::REFERENCE_EQUAL: {
+            case OpCode::StrictEqual: {
                 Value b = pop();
                 Value a = pop();
                 bool isEqual = false;
-                // For objects/arrays: compare pointers
+                // For objects/arrays: we compare pointers
                 if (a.type == b.type) {
                     if (a.type == ValueType::OBJECT)
                         isEqual = (a.objectValue == b.objectValue);
                     else if (a.type == ValueType::ARRAY)
                         isEqual = (a.arrayValue == b.arrayValue);
-                    // For other types, could default to pointer or identity check
+                    // For other types, we could default to pointer or identity check
                 }
                 push(Value::boolean(isEqual));
                 break;
             }
                 
-            case OpCode::STRICT_INEQUALITY: {
+            case OpCode::StrictNotEqual: {
                 Value b = pop();
                 Value a = pop();
                 bool notEqual = false;
@@ -844,7 +844,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_DECREMENT: {
+            case OpCode::Decrement: {
                 Value a = pop();
                 Value b = pop();
                 int sum = a.numberValue - b.numberValue;
@@ -853,7 +853,7 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
                 
                 // bitwise
-            case OpCode::OP_BIT_AND: {
+            case OpCode::BitAnd: {
                 Value b = pop();
                 Value a = pop();
                 int result = (int)a.numberValue & (int)b.numberValue;
@@ -861,7 +861,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_BIT_OR: {
+            case OpCode::BitOr: {
                 Value b = pop();
                 Value a = pop();
                 int result = (int)a.numberValue | (int)b.numberValue;
@@ -869,7 +869,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_BIT_XOR: {
+            case OpCode::BitXor: {
                 Value b = pop();
                 Value a = pop();
                 int result = (int)a.numberValue ^ (int)b.numberValue;
@@ -877,7 +877,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_SHL: {
+            case OpCode::ShiftLeft: {
                 Value b = pop(); // shift amount
                 Value a = pop(); // value to shift
                 int result = (int)a.numberValue << (int)b.numberValue;
@@ -885,7 +885,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_SHR: {
+            case OpCode::ShiftRight: {
                 Value b = pop(); // shift amount
                 Value a = pop(); // value to shift
                 int result = (int)a.numberValue >> (int)b.numberValue;
@@ -893,7 +893,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_USHR: {
+            case OpCode::UnsignedShiftRight: {
                 Value b = pop(); // shift amount
                 Value a = pop(); // value to shift
                 unsigned int result = (unsigned int)a.numberValue >> (unsigned int)b.numberValue;
@@ -901,7 +901,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_POSITIVE: {
+            case OpCode::Positive: {
                 Value a = pop();
                 Value b = pop();
                 int result = (int)a.numberValue & (int)b.numberValue;
@@ -910,27 +910,27 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
             // jumps
-            case OpCode::OP_JUMP: {
+            case OpCode::Jump: {
                 uint32_t offset = readUint32();
                 frame->ip += offset;
                 break;
             }
 
-            case OpCode::OP_JUMP_IF_FALSE: {
+            case OpCode::JumpIfFalse: {
                 uint32_t offset = readUint32();
                 Value cond = pop();
                 if (!isTruthy(cond)) frame->ip += offset;
                 break;
             }
 
-            case OpCode::OP_LOOP: {
+            case OpCode::Loop: {
                 uint32_t offset = readUint32();
                 // jump backwards
                 frame->ip -= offset;
                 break;
             }
                 
-            case OpCode::OP_LOAD_CHUNK_INDEX: {
+            case OpCode::LoadChunkIndex: {
                 
                 uint32_t chunkIndex = readUint32();
                 Value ci = module_->constants[chunkIndex];
@@ -940,7 +940,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             }
                 
-            case OpCode::OP_CALL: {
+            case OpCode::Call: {
                 uint32_t argCount = readUint8();
                 // top-of-stack should be the callee value (function ref)
                 // Value callee = peek(argCount); // or adjust as per your calling convention
@@ -953,7 +953,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_LOAD_ARGUMENT: {
+            case OpCode::LoadArgument: {
                 // Expects next 4 bytes: uint32_t index of argument to load
                 uint32_t argIndex = readUint32();
                 
@@ -965,7 +965,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_LOAD_ARGUMENTS: {
+            case OpCode::LoadArguments: {
                 // Pushes the full arguments array as a JSArray object (or equivalent)
 
                 auto arr = make_shared<JSArray>();
@@ -976,7 +976,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_SLICE: {
+            case OpCode::Slice: {
                 // Expects: [array, start] on stack; pops both and pushes array.slice(start)
                 Value startVal = pop();
                 Value arrayVal = pop();
@@ -994,13 +994,13 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_LOAD_ARGUMENTS_LENGTH: {
+            case OpCode::LoadArgumentsLength: {
                 // Pushes the count of arguments passed to the current frame
                 push(Value((double)frame->args.size()));
                 break;
             }
                 
-            case OpCode::OP_TRY: {
+            case OpCode::Try: {
                 uint32_t catchOffset = readUint32();   // relative offset from after the two offsets
                 uint32_t finallyOffset = readUint32();
                 // compute absolute IPs
@@ -1015,7 +1015,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            case OpCode::OP_END_TRY: {
+            case OpCode::EndTry: {
                 if (tryStack.empty()) {
                     // runtime error: unmatched END_TRY
                     //running = false;
@@ -1025,7 +1025,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_THROW: {
+            case OpCode::Throw: {
                 // exception value on top of stack
                 Value exc = pop();
                 // unwind frames until we find a handler (catch or finally)
@@ -1080,7 +1080,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_END_FINALLY: {
+            case OpCode::EndFinally: {
                 // When a finally finishes, we must check whether we have a resume frame that carries a pending throw
                 // Approach: if there is a TryFrame on tryStack whose catchIP != -1 and which we pushed as resume frame,
                 // then either jump into catch or rethrow.
@@ -1115,7 +1115,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-            case OpCode::OP_RETURN: {
+            case OpCode::Return: {
                 // Close any open upvalues pointing to locals being popped
                 closeUpvalues(frame->locals.size() > 0 ? &frame->locals[0] : nullptr);
                 Value v = pop();
@@ -1123,11 +1123,11 @@ Value VM::runFrame(CallFrame &current_frame) {
                 return v;
             }
 
-            case OpCode::OP_HALT:
+            case OpCode::Halt:
                 return Value::undefined();
 
             // --- Closure creation ---
-            case OpCode::OP_CLOSURE: {
+            case OpCode::CreateClosure: {
                 uint32_t ci = readUint8();
                 Value fnVal = module_->constants[ci]; //chunk->constants[ci];
                 auto fnRef = fnVal.fnRef; // Should be FunctionObject*
@@ -1156,29 +1156,29 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
             // --- Upvalue access ---
-            case OpCode::OP_GET_UPVALUE: {
+            case OpCode::GetUpvalue: {
                 uint32_t idx = readUint32();
                 push(*frame->closure->upvalues[idx]->location);
                 break;
             }
-            case OpCode::OP_SET_UPVALUE: {
+            case OpCode::SetUpvalue: {
                 uint32_t idx = readUint32();
                 *frame->closure->upvalues[idx]->location = pop();
                 break;
             }
                 
-            case OpCode::OP_CLOSE_UPVALUE: {
+            case OpCode::CloseUpvalue: {
                 closeUpvalues(stack.empty() ? nullptr : &stack.back());
                 pop();
                 break;
             }
                 
-            case OpCode::OP_CLEAR_LOCALS: {
+            case OpCode::ClearLocals: {
                 frame->locals.clear();
                 break;
             }
                 
-            case OpCode::OP_CLEAR_STACK: {
+            case OpCode::ClearStack: {
                 stack.clear();
                 break;
             }
