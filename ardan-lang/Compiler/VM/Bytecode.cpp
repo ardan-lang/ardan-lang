@@ -9,107 +9,121 @@
 
 const char* opcodeToString(OpCode op) {
     switch (op) {
-        case OpCode::OP_NOP:            return "NOP";
-        case OpCode::LoadConstant:       return "LoadConstant";
-        case OpCode::OP_POP:            return "POP";
-        case OpCode::OP_DUP:            return "DUP";
-        case OpCode::OP_GET_LOCAL:      return "GET_LOCAL";
-        case OpCode::OP_SET_LOCAL:      return "SET_LOCAL";
-        case OpCode::OP_GET_GLOBAL:     return "GET_GLOBAL";
-        case OpCode::OP_SET_GLOBAL:     return "SET_GLOBAL";
-        case OpCode::OP_DEFINE_GLOBAL:  return "DEFINE_GLOBAL";
-        case OpCode::OP_NEW_OBJECT:     return "NEW_OBJECT";
-        case OpCode::OP_SET_PROPERTY:   return "SET_PROPERTY";
-        case OpCode::OP_GET_PROPERTY:   return "GET_PROPERTY";
-        case OpCode::OP_NEW_ARRAY:      return "NEW_ARRAY";
-        case OpCode::OP_ARRAY_PUSH:     return "ARRAY_PUSH";
-        case OpCode::OP_ADD:            return "ADD";
-        case OpCode::OP_SUB:            return "SUB";
-        case OpCode::OP_MUL:            return "MUL";
-        case OpCode::OP_DIV:            return "DIV";
-        case OpCode::OP_MOD:            return "MOD";
-        case OpCode::OP_POW:            return "POW";
-        case OpCode::OP_NEGATE:         return "NEGATE";
-        case OpCode::OP_NOT:            return "NOT";
-        case OpCode::OP_EQUAL:          return "EQUAL";
-        case OpCode::OP_NOTEQUAL:       return "NOTEQUAL";
-        case OpCode::OP_LESS:           return "LESS";
-        case OpCode::OP_LESSEQUAL:      return "LESSEQUAL";
-        case OpCode::OP_GREATER:        return "GREATER";
-        case OpCode::OP_GREATEREQUAL:   return "GREATEREQUAL";
-        case OpCode::OP_JUMP:           return "JUMP";
-        case OpCode::OP_JUMP_IF_FALSE:  return "JUMP_IF_FALSE";
-        case OpCode::OP_LOOP:           return "LOOP";
-        case OpCode::OP_CALL:           return "CALL";
-        case OpCode::OP_RETURN:         return "RETURN";
-        case OpCode::OP_HALT:           return "HALT";
-        case OpCode::OP_INCREMENT:      return "INCREMENT";
-            
-        case OpCode::LOGICAL_AND: return "LOGICAL_AND"; // &&
-        case OpCode::LOGICAL_OR: return "LOGICAL_OR"; // ||
-        case OpCode::NULLISH_COALESCING: return "NULLISH_COALESCING";  // ? :
-        case OpCode::REFERENCE_EQUAL: return "REFERENCE_EQUAL";  // ===
-        case OpCode::STRICT_INEQUALITY: return "STRICT_INEQUALITY";  // !==
-            
-        case OpCode::OP_DECREMENT: return "OP_DECREMENT";
-            
-            // bitwise
-        case OpCode::OP_BIT_AND: return "OP_BIT_AND";
-        case OpCode::OP_BIT_OR: return "OP_BIT_OR";
-        case OpCode::OP_BIT_XOR: return "OP_BIT_XOR";
-        case OpCode::OP_SHL: return "OP_SHL";
-        case OpCode::OP_SHR: return "OP_SHR";
-        case OpCode::OP_USHR: return "OP_USHR";
-        case OpCode::OP_POSITIVE: return "OP_POSITIVE";
-        case OpCode::OP_GET_PROPERTY_DYNAMIC: return "OP_GET_PROPERTY_DYNAMIC";
-        case OpCode::OP_DUP2: return "OP_DUP2";
-        case OpCode::OP_SET_PROPERTY_DYNAMIC: return "OP_SET_PROPERTY_DYNAMIC";
-        case OpCode::OP_NEW_CLASS: return "OP_NEW_CLASS";
-        case OpCode::OP_TRY: return "OP_TRY";
-        case OpCode::OP_END_TRY: return "OP_END_TRY";
-        case OpCode::OP_END_FINALLY: return "OP_END_FINALLY";
-        case OpCode::OP_THROW: return "OP_THROW";
-        case OpCode::OP_ENUM_KEYS: return "OP_ENUM_KEYS";
-        case OpCode::OP_GET_OBJ_LENGTH: return "OP_GET_OBJ_LENGTH";
-        case OpCode::OP_GET_INDEX_PROPERTY_DYNAMIC: return "OP_GET_INDEX_PROPERTY_DYNAMIC";
-        case OpCode::OP_DEBUG: return "OP_DEBUG";
-        case OpCode::OP_LOAD_CHUNK_INDEX: return "OP_LOAD_CHUNK_INDEX";
-        case OpCode::OP_LOAD_ARGUMENT: return "OP_LOAD_ARGUMENT";
-        case OpCode::OP_LOAD_ARGUMENTS: return "OP_LOAD_ARGUMENTS";
-        case OpCode::OP_SLICE: return "OP_SLICE";
-        case OpCode::OP_LOAD_ARGUMENTS_LENGTH: return "OP_LOAD_ARGUMENTS_LENGTH";
+        // === Constants & Stack ===
+        case OpCode::Nop:               return "Nop";
+        case OpCode::LoadConstant:      return "LoadConstant";
+        case OpCode::Pop:               return "Pop";
+        case OpCode::Dup:               return "Dup";
 
-        case OpCode::OP_CLOSURE:
-            return "OP_CLOSURE";
-        case OpCode::OP_GET_UPVALUE:
-            return "OP_GET_UPVALUE";
-        case OpCode::OP_SET_UPVALUE:
-            return "OP_SET_UPVALUE";
-        case OpCode::OP_CLOSE_UPVALUE:
-            return "OP_CLOSE_UPVALUE";
-        case OpCode::OP_CLEAR_STACK:
-            return "OP_CLEAR_STACK";
-        case OpCode::OP_CLEAR_LOCALS:
-            return "OP_CLEAR_LOCALS";
-        case OpCode::OP_SET_STATIC_PROPERTY:
-            return "OP_SET_STATIC_PROPERTY";
-        case OpCode::CreateInstance:
-            return "CreateInstance";
-        case OpCode::InvokeConstructor:
-            return "InvokeConstructor";
-        case OpCode::GetThisProperty:
-            return "GetThisProperty";
-        case OpCode::SetThisProperty:
-            return "SetThisProperty";
-        case OpCode::GetThis:
-            return "GetThis";
+        // === Locals / Globals ===
+        case OpCode::LoadLocal:         return "LoadLocal";
+        case OpCode::StoreLocal:        return "StoreLocal";
+        case OpCode::LoadGlobal:        return "LoadGlobal";
+        case OpCode::StoreGlobal:       return "StoreGlobal";
+        case OpCode::CreateGlobal:      return "CreateGlobal";
 
-        case OpCode::GetParentObject:
-            return "GetParentObject";
-        case OpCode::SuperCall:
-            return "SuperCall";
-        case OpCode::CreateObjectLiteral:
-            return "CreateObjectLiteral";
+        // === Objects / Arrays ===
+        case OpCode::NewObject:         return "NewObject";
+        case OpCode::SetProperty:       return "SetProperty";
+        case OpCode::GetProperty:       return "GetProperty";
+        case OpCode::NewArray:          return "NewArray";
+        case OpCode::ArrayPush:         return "ArrayPush";
+
+        // === Arithmetic / Unary ===
+        case OpCode::Add:               return "Add";
+        case OpCode::Subtract:          return "Subtract";
+        case OpCode::Multiply:          return "Multiply";
+        case OpCode::Divide:            return "Divide";
+        case OpCode::Modulo:            return "Modulo";
+        case OpCode::Power:             return "Power";
+        case OpCode::Negate:            return "Negate";
+        case OpCode::LogicalNot:        return "LogicalNot";
+        case OpCode::Positive:          return "Positive";
+
+        // === Comparisons ===
+        case OpCode::Equal:             return "Equal";
+        case OpCode::NotEqual:          return "NotEqual";
+        case OpCode::LessThan:          return "LessThan";
+        case OpCode::LessThanOrEqual:   return "LessThanOrEqual";
+        case OpCode::GreaterThan:       return "GreaterThan";
+        case OpCode::GreaterThanOrEqual:return "GreaterThanOrEqual";
+        case OpCode::StrictEqual:       return "StrictEqual";
+        case OpCode::StrictNotEqual:    return "StrictNotEqual";
+        case OpCode::LogicalAnd:        return "LogicalAnd";
+        case OpCode::LogicalOr:         return "LogicalOr";
+        case OpCode::NullishCoalescing: return "NullishCoalescing";
+        case OpCode::Increment:         return "Increment";
+        case OpCode::Decrement:         return "Decrement";
+
+        // === Bitwise ===
+        case OpCode::BitAnd:            return "BitAnd";
+        case OpCode::BitOr:             return "BitOr";
+        case OpCode::BitXor:            return "BitXor";
+        case OpCode::ShiftLeft:         return "ShiftLeft";
+        case OpCode::ShiftRight:        return "ShiftRight";
+        case OpCode::UnsignedShiftRight:return "UnsignedShiftRight";
+
+        // === Jumps & Control Flow ===
+        case OpCode::Jump:              return "Jump";
+        case OpCode::JumpIfFalse:       return "JumpIfFalse";
+        case OpCode::Loop:              return "Loop";
+
+        // === Calls & Returns ===
+        case OpCode::Call:              return "Call";
+        case OpCode::Return:            return "Return";
+
+        // === Dynamic Properties ===
+        case OpCode::GetPropertyDynamic:return "GetPropertyDynamic";
+        case OpCode::SetPropertyDynamic:return "SetPropertyDynamic";
+        case OpCode::Dup2:              return "Dup2";
+
+        // === Classes ===
+        case OpCode::NewClass:          return "NewClass";
+
+        // === Try / Catch / Finally ===
+        case OpCode::Try:               return "Try";
+        case OpCode::EndTry:            return "EndTry";
+        case OpCode::EndFinally:        return "EndFinally";
+        case OpCode::Throw:             return "Throw";
+
+        // === Object Utilities ===
+        case OpCode::EnumKeys:          return "EnumKeys";
+        case OpCode::GetObjectLength:   return "GetObjectLength";
+        case OpCode::GetIndexPropertyDynamic: return "GetIndexPropertyDynamic";
+
+        // === Debug ===
+        case OpCode::Debug:             return "Debug";
+
+        // === Chunk & Arguments ===
+        case OpCode::LoadChunkIndex:    return "LoadChunkIndex";
+        case OpCode::LoadArgument:      return "LoadArgument";
+        case OpCode::LoadArguments:     return "LoadArguments";
+        case OpCode::Slice:             return "Slice";
+        case OpCode::LoadArgumentsLength:return "LoadArgumentsLength";
+
+        // === Closures ===
+        case OpCode::Closure:           return "Closure";
+        case OpCode::GetUpvalue:        return "GetUpvalue";
+        case OpCode::SetUpvalue:        return "SetUpvalue";
+        case OpCode::CloseUpvalue:      return "CloseUpvalue";
+
+        // === Stack / Locals ===
+        case OpCode::ClearStack:        return "ClearStack";
+        case OpCode::ClearLocals:       return "ClearLocals";
+
+        // === Class / Instance ===
+        case OpCode::SetStaticProperty: return "SetStaticProperty";
+        case OpCode::CreateInstance:    return "CreateInstance";
+        case OpCode::InvokeConstructor: return "InvokeConstructor";
+        case OpCode::GetThisProperty:   return "GetThisProperty";
+        case OpCode::SetThisProperty:   return "SetThisProperty";
+        case OpCode::GetThis:           return "GetThis";
+        case OpCode::GetParentObject:   return "GetParentObject";
+        case OpCode::SuperCall:         return "SuperCall";
+        case OpCode::CreateObjectLiteral:return "CreateObjectLiteral";
+
+        // === Halt / Sentinel ===
+        case OpCode::Halt:              return "Halt";
     }
-    return "UNKNOWN";
+    return "Unknown";
 }
