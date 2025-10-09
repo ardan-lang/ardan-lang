@@ -231,7 +231,7 @@ enum class OpCode : uint8_t {
     LoadArgumentsLength,
 
     // Closures
-    Closure,
+    CreateClosure,
     GetUpvalue,
     SetUpvalue,
     CloseUpvalue,

@@ -19,7 +19,7 @@ size_t CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
         s->accept(*this);
     }
 
-    emit(OpCode::OP_HALT);
+    emit(OpCode::Halt);
     disassembleChunk(cur.get(), cur->name);
     
     uint32_t idx = module_->addChunk(cur);
@@ -32,7 +32,7 @@ size_t CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
 
 R CodeGen::visitExpression(ExpressionStatement* stmt) {
     stmt->expression->accept(*this);
-    emit(OpCode::OP_POP);
+    emit(OpCode::Pop);
     return true;
 }
 
@@ -55,7 +55,7 @@ R CodeGen::define(string decl) {
     // decide local or global
     if (hasLocal(decl)) {
         uint32_t idx = getLocal(decl);
-        emit(OpCode::OP_SET_LOCAL);
+        emit(OpCode::StoreLocal);
         emitUint32(idx);
     } else {
 
@@ -71,14 +71,14 @@ R CodeGen::define(string decl) {
 
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
-            emit(OpCode::OP_SET_UPVALUE);
+            emit(OpCode::SetUpvalue);
             emitUint32(upvalue);
             return R();
         }
 
         // top-level/global
         int nameIdx = emitConstant(Value::str(decl));
-        emit(OpCode::OP_DEFINE_GLOBAL);
+        emit(OpCode::CreateGlobal);
         emitUint32((uint32_t)nameIdx);
     }
     
@@ -106,21 +106,21 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
         // decide local or global
         if (hasLocal(decl.id)) {
             uint32_t idx = getLocal(decl.id);
-            emit(OpCode::OP_SET_LOCAL);
+            emit(OpCode::StoreLocal);
             emitUint32(idx);
         } else {
 
             int upvalue = resolveUpvalue(decl.id);
             if (upvalue != -1) {
                 // emit(OpCode::OP_GET_UPVALUE);
-                emit(OpCode::OP_SET_UPVALUE);
+                emit(OpCode::SetUpvalue);
                 emitUint32(upvalue);
                 return R();
             }
 
             // top-level/global
             int nameIdx = emitConstant(Value::str(decl.id));
-            emit(OpCode::OP_DEFINE_GLOBAL);
+            emit(OpCode::CreateGlobal);
             emitUint32((uint32_t)nameIdx);
         }
         
@@ -135,12 +135,12 @@ R CodeGen::visitIf(IfStatement* stmt) {
     beginScope();
 
     stmt->test->accept(*this);
-    int elseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-    emit(OpCode::OP_POP); // pop condition
+    int elseJump = emitJump(OpCode::JumpIfFalse);
+    emit(OpCode::Pop); // pop condition
     if (stmt->consequent) stmt->consequent->accept(*this);
-    int endJump = emitJump(OpCode::OP_JUMP);
+    int endJump = emitJump(OpCode::Jump);
     patchJump(elseJump);
-    emit(OpCode::OP_POP); // pop condition (if we branched)
+    emit(OpCode::Pop); // pop condition (if we branched)
     if (stmt->alternate) stmt->alternate->accept(*this);
     patchJump(endJump);
     
@@ -157,8 +157,8 @@ R CodeGen::visitWhile(WhileStatement* stmt) {
     // loop start
     size_t loopStart = cur->size();
     stmt->test->accept(*this);
-    int exitJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-    emit(OpCode::OP_POP);
+    int exitJump = emitJump(OpCode::JumpIfFalse);
+    emit(OpCode::Pop);
     stmt->body->accept(*this);
     // jump back to loop start
     // uint32_t backOffset = (uint32_t)(cur->size() - loopStart + 4 + 1); // estimate; we'll write OP_LOOP with offset
@@ -166,7 +166,7 @@ R CodeGen::visitWhile(WhileStatement* stmt) {
     // but we have OP_LOOP that expects offset to subtract; we'll write offset below:
     emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
     patchJump(exitJump);
-    emit(OpCode::OP_POP);
+    emit(OpCode::Pop);
     
     endScope();
 
@@ -186,14 +186,14 @@ R CodeGen::visitFor(ForStatement* stmt) {
     size_t loopStart = cur->size();
     if (stmt->test) {
         stmt->test->accept(*this);
-        int exitJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-        emit(OpCode::OP_POP);
+        int exitJump = emitJump(OpCode::JumpIfFalse);
+        emit(OpCode::Pop);
         stmt->body->accept(*this);
         if (stmt->update) stmt->update->accept(*this);
         // loop back
         emitLoop((uint32_t)(cur->size() - loopStart ) + 4 + 1);
         patchJump(exitJump);
-        emit(OpCode::OP_POP);
+        emit(OpCode::Pop);
     } else {
         // infinite loop
         stmt->body->accept(*this);
@@ -214,7 +214,7 @@ R CodeGen::visitReturn(ReturnStatement* stmt) {
         emit(OpCode::LoadConstant);
         emitUint32(ci);
     }
-    emit(OpCode::OP_RETURN);
+    emit(OpCode::Return);
     return true;
 }
 
@@ -252,79 +252,79 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
     switch (expr->op.type) {
         // --- Arithmetic ---
         case TokenType::ADD:
-            emit(OpCode::OP_ADD); // stack: left, right -> left+right
+            emit(OpCode::Add); // stack: left, right -> left+right
             break;
         case TokenType::MINUS:
-            emit(OpCode::OP_SUB);
+            emit(OpCode::Subtract);
             break;
         case TokenType::MUL:
-            emit(OpCode::OP_MUL);
+            emit(OpCode::Multiply);
             break;
         case TokenType::DIV:
-            emit(OpCode::OP_DIV);
+            emit(OpCode::Divide);
             break;
         case TokenType::MODULI:
-            emit(OpCode::OP_MOD);
+            emit(OpCode::Modulo);
             break;
         case TokenType::POWER:
-            emit(OpCode::OP_POW);
+            emit(OpCode::Power);
             break;
 
         // --- Comparisons ---
         case TokenType::VALUE_EQUAL:
-            emit(OpCode::OP_EQUAL);
+            emit(OpCode::Equal);
             break;
         case TokenType::REFERENCE_EQUAL:
-            emit(OpCode::REFERENCE_EQUAL);
+            emit(OpCode::StrictEqual);
             break;
         case TokenType::INEQUALITY:
-            emit(OpCode::OP_NOTEQUAL);
+            emit(OpCode::NotEqual);
             break;
         case TokenType::STRICT_INEQUALITY:
-            emit(OpCode::STRICT_INEQUALITY);
+            emit(OpCode::StrictNotEqual);
             break;
         case TokenType::LESS_THAN:
-            emit(OpCode::OP_LESS);
+            emit(OpCode::LessThan);
             break;
         case TokenType::LESS_THAN_EQUAL:
-            emit(OpCode::OP_LESSEQUAL);
+            emit(OpCode::LessThanOrEqual);
             break;
         case TokenType::GREATER_THAN:
-            emit(OpCode::OP_GREATER);
+            emit(OpCode::GreaterThan);
             break;
         case TokenType::GREATER_THAN_EQUAL:
-            emit(OpCode::OP_GREATEREQUAL);
+            emit(OpCode::GreaterThanOrEqual);
             break;
 
         // --- Logical ---
         case TokenType::LOGICAL_AND:
-            emit(OpCode::LOGICAL_AND);
+            emit(OpCode::LogicalAnd);
             break;
         case TokenType::LOGICAL_OR:
-            emit(OpCode::LOGICAL_OR);
+            emit(OpCode::LogicalOr);
             break;
         case TokenType::NULLISH_COALESCING:
-            emit(OpCode::NULLISH_COALESCING);
+            emit(OpCode::NullishCoalescing);
             break;
 
         // --- Bitwise ---
         case TokenType::BITWISE_AND:
-            emit(OpCode::OP_BIT_AND);
+            emit(OpCode::BitAnd);
             break;
         case TokenType::BITWISE_OR:
-            emit(OpCode::OP_BIT_OR);
+            emit(OpCode::BitOr);
             break;
         case TokenType::BITWISE_XOR:
-            emit(OpCode::OP_BIT_XOR);
+            emit(OpCode::BitXor);
             break;
         case TokenType::BITWISE_LEFT_SHIFT:
-            emit(OpCode::OP_SHL);
+            emit(OpCode::ShiftLeft);
             break;
         case TokenType::BITWISE_RIGHT_SHIFT:
-            emit(OpCode::OP_SHR);
+            emit(OpCode::ShiftRight);
             break;
         case TokenType::UNSIGNED_RIGHT_SHIFT:
-            emit(OpCode::OP_USHR);
+            emit(OpCode::UnsignedShiftRight);
             break;
 
         default:
@@ -368,7 +368,7 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
             expr->right->accept(*this);
 
             int nameIdx = emitConstant(Value::str(member->name.lexeme));
-            emit(OpCode::OP_SET_PROPERTY);
+            emit(OpCode::SetProperty);
             emitUint32(nameIdx);
         }
         else {
@@ -398,10 +398,10 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
         // Push object, duplicate it for later use
         member->object->accept(*this);
-        emit(OpCode::OP_DUP);
+        emit(OpCode::Dup);
 
         int nameIdx = emitConstant(Value::str(member->name.lexeme));
-        emit(OpCode::OP_GET_PROPERTY);
+        emit(OpCode::GetProperty);
         emitUint32(nameIdx);
     }
     else {
@@ -413,21 +413,21 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
 
     // Apply compound operation
     switch (expr->op.type) {
-        case TokenType::ASSIGN_ADD: emit(OpCode::OP_ADD); break;
-        case TokenType::ASSIGN_MINUS: emit(OpCode::OP_SUB); break;
-        case TokenType::ASSIGN_MUL: emit(OpCode::OP_MUL); break;
-        case TokenType::ASSIGN_DIV: emit(OpCode::OP_DIV); break;
-        case TokenType::MODULI_ASSIGN: emit(OpCode::OP_MOD); break;
-        case TokenType::POWER_ASSIGN: emit(OpCode::OP_POW); break;
-        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: emit(OpCode::OP_SHL); break;
-        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: emit(OpCode::OP_SHR); break;
-        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: emit(OpCode::OP_USHR); break;
-        case TokenType::BITWISE_AND_ASSIGN: emit(OpCode::OP_BIT_AND); break;
-        case TokenType::BITWISE_OR_ASSIGN: emit(OpCode::OP_BIT_OR); break;
-        case TokenType::BITWISE_XOR_ASSIGN: emit(OpCode::OP_BIT_XOR); break;
-        case TokenType::LOGICAL_AND_ASSIGN: emit(OpCode::LOGICAL_AND); break;
-        case TokenType::LOGICAL_OR_ASSIGN: emit(OpCode::LOGICAL_OR); break;
-        case TokenType::NULLISH_COALESCING_ASSIGN: emit(OpCode::NULLISH_COALESCING); break;
+        case TokenType::ASSIGN_ADD: emit(OpCode::Add); break;
+        case TokenType::ASSIGN_MINUS: emit(OpCode::Subtract); break;
+        case TokenType::ASSIGN_MUL: emit(OpCode::Multiply); break;
+        case TokenType::ASSIGN_DIV: emit(OpCode::Divide); break;
+        case TokenType::MODULI_ASSIGN: emit(OpCode::Modulo); break;
+        case TokenType::POWER_ASSIGN: emit(OpCode::Power); break;
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: emit(OpCode::ShiftLeft); break;
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: emit(OpCode::ShiftRight); break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: emit(OpCode::UnsignedShiftRight); break;
+        case TokenType::BITWISE_AND_ASSIGN: emit(OpCode::BitAnd); break;
+        case TokenType::BITWISE_OR_ASSIGN: emit(OpCode::BitOr); break;
+        case TokenType::BITWISE_XOR_ASSIGN: emit(OpCode::BitXor); break;
+        case TokenType::LOGICAL_AND_ASSIGN: emit(OpCode::LogicalAnd); break;
+        case TokenType::LOGICAL_OR_ASSIGN: emit(OpCode::LogicalOr); break;
+        case TokenType::NULLISH_COALESCING_ASSIGN: emit(OpCode::NullishCoalescing); break;
         default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
     }
 
@@ -446,7 +446,7 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
         int nameIdx = emitConstant(Value::str(member->name.lexeme));
-        emit(OpCode::OP_SET_PROPERTY);
+        emit(OpCode::SetProperty);
         emitUint32(nameIdx);
     }
 
@@ -473,7 +473,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
             emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             // apply
-            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
             
             // store back
             define(ident->token.lexeme);
@@ -493,18 +493,18 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
             // Evaluate object once
             member_expr->object->accept(*this);
-            emit(OpCode::OP_DUP); // [obj, obj]
+            emit(OpCode::Dup); // [obj, obj]
             int nameIdx = emitConstant(Value::str(member_expr->name.lexeme));
             // GET_PROPERTY -> consumes one obj
-            emit(OpCode::OP_GET_PROPERTY);
+            emit(OpCode::GetProperty);
             emitUint32(nameIdx); // stack: [obj, value]
             // push 1
             emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
             // apply
-            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
             // SET_PROPERTY (consumes [obj, value])
-            emit(OpCode::OP_SET_PROPERTY);
+            emit(OpCode::SetProperty);
             emitUint32(nameIdx);
             return true;
         }
@@ -515,10 +515,10 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
     // non-targeted unary ops (prefix) evaluate their operand first
     expr->right->accept(*this);
     switch (expr->op.type) {
-        case TokenType::LOGICAL_NOT: emit(OpCode::OP_NOT); break;
-        case TokenType::MINUS: emit(OpCode::OP_NEGATE); break;
-        case TokenType::BITWISE_NOT: emit(OpCode::OP_NOT); break;
-        case TokenType::ADD: emit(OpCode::OP_POSITIVE); break;
+        case TokenType::LOGICAL_NOT: emit(OpCode::LogicalNot); break;
+        case TokenType::MINUS: emit(OpCode::Negate); break;
+        case TokenType::BITWISE_NOT: emit(OpCode::LogicalNot); break;
+        case TokenType::ADD: emit(OpCode::Positive); break;
         default: throw std::runtime_error("Unsupported unary op in CodeGen");
     }
     return true;
@@ -549,7 +549,7 @@ R CodeGen::visitStringLiteral(StringLiteral* expr) {
 R CodeGen::visitIdentifier(IdentifierExpression* expr) {
     string name = expr->name;
     if (hasLocal(name)) {
-        emit(OpCode::OP_GET_LOCAL);
+        emit(OpCode::LoadLocal);
         emitUint32(getLocal(name));
     } else {
         
@@ -564,13 +564,13 @@ R CodeGen::visitIdentifier(IdentifierExpression* expr) {
         
         int upvalue = resolveUpvalue(expr->name);
         if (upvalue != -1) {
-            emit(OpCode::OP_GET_UPVALUE);
+            emit(OpCode::GetUpvalue);
             emitUint32(upvalue);
             return R();
         }
         
         int nameIdx = emitConstant(Value::str(name));
-        emit(OpCode::OP_GET_GLOBAL);
+        emit(OpCode::LoadGlobal);
         emitUint32(nameIdx);
         
     }
@@ -604,7 +604,7 @@ R CodeGen::visitCall(CallExpression* expr) {
         arg->accept(*this);
     }
     uint8_t argc = (uint8_t)expr->arguments.size();
-    emit(OpCode::OP_CALL);
+    emit(OpCode::Call);
     emitUint8(argc);
     return true;
 }
@@ -617,7 +617,7 @@ R CodeGen::visitMember(MemberExpression* expr) {
     if (expr->computed) {
         // compute property expression now
         expr->property->accept(*this);
-        emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
+        emit(OpCode::GetPropertyDynamic);
         return true;
         // pop the computed property -> evaluate to constant string at runtime not supported here
         // Simplify: only support non-computed for codegen for now
@@ -627,28 +627,28 @@ R CodeGen::visitMember(MemberExpression* expr) {
     }
 
     int nameIdx = emitConstant(Value::str(propName));
-    emit(OpCode::OP_GET_PROPERTY);
+    emit(OpCode::GetProperty);
     emitUint32(nameIdx);
     return true;
 }
 
 R CodeGen::visitArray(ArrayLiteralExpression* expr) {
-    emit(OpCode::OP_NEW_ARRAY);
+    emit(OpCode::NewArray);
     for (auto &el : expr->elements) {
         el->accept(*this); // push element
-        emit(OpCode::OP_ARRAY_PUSH);
+        emit(OpCode::ArrayPush);
     }
     return true;
 }
 
 R CodeGen::visitObject(ObjectLiteralExpression* expr) {
-    emit(OpCode::OP_NEW_OBJECT);
+    emit(OpCode::NewObject);
     // For each prop: evaluate value, then OP_SET_PROPERTY with name const
     for (auto &prop : expr->props) {
         // evaluate value
         prop.second->accept(*this);
         int nameIdx = emitConstant(Value::str(prop.first.lexeme));
-        emit(OpCode::OP_SET_PROPERTY);
+        emit(OpCode::SetProperty);
         emitUint32(nameIdx);
     }
     
@@ -659,10 +659,10 @@ R CodeGen::visitObject(ObjectLiteralExpression* expr) {
 
 R CodeGen::visitConditional(ConditionalExpression* expr) {
     expr->test->accept(*this);
-    int elseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+    int elseJump = emitJump(OpCode::JumpIfFalse);
     // emit(OpCode::OP_POP);
     expr->consequent->accept(*this);
-    int endJump = emitJump(OpCode::OP_JUMP);
+    int endJump = emitJump(OpCode::Jump);
     patchJump(elseJump);
     // emit(OpCode::OP_POP);
     expr->alternate->accept(*this);
@@ -719,11 +719,11 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
         // For rest parameter
         if (info.isRest) {
             // collect rest arguments as array: arguments.slice(i)
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
+            nested.emit(OpCode::LoadArguments);      // Push arguments array
             nested.emit(OpCode::LoadConstant);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::Slice);               // arguments.slice(i)
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
 
             continue;
@@ -731,16 +731,16 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
         // For parameters with default value
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
+            nested.emit(OpCode::LoadArgumentsLength);
             nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_GREATER);
-            int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
+            nested.emit(OpCode::GreaterThan);
+            int useArg = nested.emitJump(OpCode::JumpIfFalse);
 
             // Use argument
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            int setLocalJump = nested.emitJump(OpCode::OP_JUMP);
+            int setLocalJump = nested.emitJump(OpCode::Jump);
 
             // Use default
             nested.patchJump(useArg);
@@ -749,14 +749,14 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
             // Set local either way
             nested.patchJump(setLocalJump);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
 
         } else {
             // Direct: assign argument i to local slot
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
             
         }
@@ -765,7 +765,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     // Compile function body
     if (expr->exprBody) {
         expr->exprBody->accept(nested);
-        nested.emit(OpCode::OP_RETURN);
+        nested.emit(OpCode::Return);
         // we must return the value of the expr
     } else if (expr->stmtBody) {
         
@@ -784,7 +784,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
             nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
-            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::Return);
         }
         
     }
@@ -805,7 +805,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     int ci = module_->addConstant(fnValue);
 
     // emit(OpCode::OP_LOAD_CHUNK_INDEX);
-    emit(OpCode::OP_CLOSURE);
+    emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
     for (auto& uv : nested.upvalues) {
@@ -875,11 +875,11 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
         // For rest parameter
         if (info.isRest) {
             // collect rest arguments as array: arguments.slice(i)
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS);      // Push arguments array
+            nested.emit(OpCode::LoadArguments);      // Push arguments array
             nested.emit(OpCode::LoadConstant);            // Push i
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_SLICE);               // arguments.slice(i)
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::Slice);               // arguments.slice(i)
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
             // nested.emit(OpCode::OP_DEFINE_GLOBAL);
             // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
@@ -888,16 +888,16 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
         // For parameters with default value
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
+            nested.emit(OpCode::LoadArgumentsLength);
             nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_GREATER);
-            int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
+            nested.emit(OpCode::GreaterThan);
+            int useArg = nested.emitJump(OpCode::JumpIfFalse);
 
             // Use argument
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            int setLocalJump = nested.emitJump(OpCode::OP_JUMP);
+            int setLocalJump = nested.emitJump(OpCode::Jump);
 
             // Use default
             nested.patchJump(useArg);
@@ -906,15 +906,15 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
             // Set local either way
             nested.patchJump(setLocalJump);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
             // nested.emit(OpCode::OP_DEFINE_GLOBAL);
             // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
         } else {
             // Direct: assign argument i to local slot
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
             // nested.emit(OpCode::OP_DEFINE_GLOBAL);
             // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
@@ -940,7 +940,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
             nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
-            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::Return);
         }
 
     }
@@ -961,7 +961,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     int ci = module_->addConstant(fnValue);
 
     // emit(OpCode::OP_LOAD_CHUNK_INDEX);
-    emit(OpCode::OP_CLOSURE);
+    emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
     // Emit upvalue descriptors
@@ -1039,26 +1039,26 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
         const auto& info = parameterInfos[i];
         if (info.isRest) {
             // Collect rest arguments as array: arguments.slice(i)
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS);
+            nested.emit(OpCode::LoadArguments);
             nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_SLICE);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::Slice);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
             continue;
         }
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
+            nested.emit(OpCode::LoadArgumentsLength);
             nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_GREATER);
-            int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
+            nested.emit(OpCode::GreaterThan);
+            int useArg = nested.emitJump(OpCode::JumpIfFalse);
 
             // Use argument
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            int setLocalJump = nested.emitJump(OpCode::OP_JUMP);
+            int setLocalJump = nested.emitJump(OpCode::Jump);
 
             // Use default
             nested.patchJump(useArg);
@@ -1066,13 +1066,13 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
 
             // Set local either way
             nested.patchJump(setLocalJump);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
         } else {
             // Direct: assign argument i to local slot
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
 
         }
@@ -1095,7 +1095,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
             nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
-            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::Return);
         }
 
     }
@@ -1116,7 +1116,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     int ci = module_->addConstant(fnValue);
 
     // emit(OpCode::OP_LOAD_CHUNK_INDEX);
-    emit(OpCode::OP_CLOSURE);
+    emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
     // Emit upvalue descriptors
@@ -1127,13 +1127,13 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     
     // Bind function to its name in the global environment
     if (scopeDepth == 0) {
-         emit(OpCode::OP_DEFINE_GLOBAL);
+        emit(OpCode::CreateGlobal);
          int nameIdx = emitConstant(Value::str(stmt->id));
          emitUint32(nameIdx);
     } else {
         declareLocal(stmt->id);
         int slot = paramSlot(stmt->id);
-        emit(OpCode::OP_SET_LOCAL);
+        emit(OpCode::StoreLocal);
         // int nameIdx = emitConstant(Value::str(stmt->id));
         emitUint32(slot);
     }
@@ -1161,11 +1161,11 @@ R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
         int qi = emitConstant(Value::str(expr->quasis[i]->text));
         emit(OpCode::LoadConstant);
         emitUint32(qi);
-        emit(OpCode::OP_ADD);
+        emit(OpCode::Add);
         // if expression exists
         if (i < esize) {
             expr->expressions[i]->accept(*this);
-            emit(OpCode::OP_ADD);
+            emit(OpCode::Add);
         }
     }
     return true;
@@ -1268,11 +1268,11 @@ R CodeGen::visitAssignment(AssignmentExpression* expr) {
         // Evaluate object
         member->object->accept(*this);
         // Swap stack: [value,obj] -> [obj,value]
-        emit(OpCode::OP_DUP);
-        emit(OpCode::OP_POP);
+        emit(OpCode::Dup);
+        emit(OpCode::Pop);
         // Push property name
         int nameIdx = emitConstant(Value::str(member->name.lexeme));
-        emit(OpCode::OP_SET_PROPERTY);
+        emit(OpCode::SetProperty);
         emitUint32(nameIdx);
     } else {
         throw std::runtime_error("Unsupported assignment target in CodeGen");
@@ -1283,12 +1283,12 @@ R CodeGen::visitAssignment(AssignmentExpression* expr) {
 R CodeGen::visitLogical(LogicalExpression* expr) {
     expr->left->accept(*this);
     if (expr->op.type == TokenType::LOGICAL_OR) {
-        int endJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-        emit(OpCode::OP_POP);
+        int endJump = emitJump(OpCode::JumpIfFalse);
+        emit(OpCode::Pop);
         expr->right->accept(*this);
         patchJump(endJump);
     } else if (expr->op.type == TokenType::LOGICAL_AND) {
-        int endJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
+        int endJump = emitJump(OpCode::JumpIfFalse);
         expr->right->accept(*this);
         patchJump(endJump);
     } else {
@@ -1317,7 +1317,7 @@ R CodeGen::visitSequence(SequenceExpression* expr) {
     size_t n = expr->expressions.size();
     for (size_t i = 0; i < n; ++i) {
         expr->expressions[i]->accept(*this);
-        if (i + 1 < n) emit(OpCode::OP_POP);
+        if (i + 1 < n) emit(OpCode::Pop);
     }
     return true;
 }
@@ -1336,21 +1336,21 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
 //        }
         emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::number(1)));
-        emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB);
+        emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
         if (hasLocal(ident->name)) {
-            emit(OpCode::OP_SET_LOCAL);
+            emit(OpCode::StoreLocal);
             emitUint32(getLocal(ident->name));
         } else {
             
             int upvalue = resolveUpvalue(ident->name);
             if (upvalue != -1) {
-                emit(OpCode::OP_SET_UPVALUE);
+                emit(OpCode::SetUpvalue);
                 emitUint32(upvalue);
                 return R();
             }
 
             int nameIdx = emitConstant(Value::str(ident->name));
-            emit(OpCode::OP_SET_GLOBAL);
+            emit(OpCode::StoreGlobal);
             emitUint32(nameIdx);
         }
         return true;
@@ -1361,24 +1361,24 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             // Computed: arr[i]++ or obj[prop]++
             member->object->accept(*this);     // [obj]
             member->property->accept(*this);   // [obj, key]
-            emit(OpCode::OP_DUP2);             // [obj, key, obj, key]
-            emit(OpCode::OP_GET_PROPERTY_DYNAMIC); // [obj, key, value]
+            emit(OpCode::Dup2);             // [obj, key, obj, key]
+            emit(OpCode::GetPropertyDynamic); // [obj, key, value]
             emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
-            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, key, result]
-            emit(OpCode::OP_SET_PROPERTY_DYNAMIC); // [result]
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, key, result]
+            emit(OpCode::SetPropertyDynamic); // [result]
             return true;
         } else {
             // Non-computed: obj.x++
             member->object->accept(*this); // [obj]
-            emit(OpCode::OP_DUP);          // [obj, obj]
+            emit(OpCode::Dup);          // [obj, obj]
             int nameIdx = emitConstant(Value::str(member->name.lexeme));
-            emit(OpCode::OP_GET_PROPERTY);
+            emit(OpCode::GetProperty);
             emitUint32(nameIdx);           // [obj, value]
             emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1)));
-            emit(expr->op.type == TokenType::INCREMENT ? OpCode::OP_ADD : OpCode::OP_SUB); // [obj, result]
-            emit(OpCode::OP_SET_PROPERTY);
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, result]
+            emit(OpCode::SetProperty);
             emitUint32(nameIdx);           // [result]
             return true;
         }
@@ -1424,7 +1424,7 @@ R CodeGen::visitBreak(BreakStatement* stmt) {
         return false;
     }
     // Emit jump with unknown target
-    int jumpAddr = emitJump(OpCode::OP_JUMP);
+    int jumpAddr = emitJump(OpCode::Jump);
     loopStack.back().breaks.push_back(jumpAddr);
     return true;
 }
@@ -1442,7 +1442,7 @@ R CodeGen::visitContinue(ContinueStatement* stmt) {
 R CodeGen::visitThrow(ThrowStatement* stmt) {
     // Evaluate the exception value
     stmt->argument->accept(*this);
-    emit(OpCode::OP_THROW);
+    emit(OpCode::Throw);
     return true;
 }
 
@@ -1534,32 +1534,32 @@ void CodeGen::compileMethod(MethodDefinition& method) {
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
         if (info.isRest) {
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS);
+            nested.emit(OpCode::LoadArguments);
             nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_SLICE);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::Slice);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
             continue;
         }
         if (info.hasDefault) {
-            nested.emit(OpCode::OP_LOAD_ARGUMENTS_LENGTH);
+            nested.emit(OpCode::LoadArgumentsLength);
             nested.emit(OpCode::LoadConstant);
             nested.emitUint32(nested.emitConstant(Value::number(i)));
-            nested.emit(OpCode::OP_GREATER);
-            int useArg = nested.emitJump(OpCode::OP_JUMP_IF_FALSE);
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::GreaterThan);
+            int useArg = nested.emitJump(OpCode::JumpIfFalse);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            int setLocalJump = nested.emitJump(OpCode::OP_JUMP);
+            int setLocalJump = nested.emitJump(OpCode::Jump);
             nested.patchJump(useArg);
             info.defaultExpr->accept(nested);
             nested.patchJump(setLocalJump);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
         } else {
-            nested.emit(OpCode::OP_LOAD_ARGUMENT);
+            nested.emit(OpCode::LoadArgument);
             nested.emitUint32((uint32_t)i);
-            nested.emit(OpCode::OP_SET_LOCAL);
+            nested.emit(OpCode::StoreLocal);
             nested.emitUint32(nested.getLocal(info.name));
         }
     }
@@ -1581,7 +1581,7 @@ void CodeGen::compileMethod(MethodDefinition& method) {
             nested.emit(OpCode::LoadConstant);
             int ud = nested.emitConstant(Value::undefined());
             nested.emitUint32(ud);
-            nested.emit(OpCode::OP_RETURN);
+            nested.emit(OpCode::Return);
         }
     }
 
@@ -1600,7 +1600,7 @@ void CodeGen::compileMethod(MethodDefinition& method) {
     int ci = module_->addConstant(fnValue);
 
     // Emit closure for this function (leaves closure object on stack)
-    emit(OpCode::OP_CLOSURE);
+    emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
     for (auto& uv : nested.upvalues) {
@@ -1623,7 +1623,7 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
     }
 
     // Create the class object (with superclass on stack)
-    emit(OpCode::OP_NEW_CLASS); // pops superclass, pushes new class object
+    emit(OpCode::NewClass); // pops superclass, pushes new class object
 
     // Define fields
     for (auto& field : stmt->fields) {
@@ -1653,9 +1653,9 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                 int nameIdx = emitConstant(Value::str(decl.id));
                 
                 if (isStatic) {
-                    emit(OpCode::OP_SET_STATIC_PROPERTY);
+                    emit(OpCode::SetStaticProperty);
                 } else {
-                    emit(OpCode::OP_SET_PROPERTY);
+                    emit(OpCode::SetProperty);
                 }
                 
                 emitUint32(nameIdx);
@@ -1698,17 +1698,17 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         }
 
         if (isStatic) {
-            emit(OpCode::OP_SET_STATIC_PROPERTY);
+            emit(OpCode::SetStaticProperty);
             emitUint32(nameIdx); // Pops class and function, sets property on class object
         } else {
-            emit(OpCode::OP_SET_PROPERTY);
+            emit(OpCode::SetProperty);
             emitUint32(nameIdx); // Pops class and function, sets on prototype
         }
     }
 
     // Bind class in the environment (global)
     int classNameIdx = emitConstant(Value::str(stmt->id));
-    emit(OpCode::OP_DEFINE_GLOBAL);
+    emit(OpCode::CreateGlobal);
     emitUint32(classNameIdx);
 
     // clear class info
@@ -1737,15 +1737,15 @@ R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
     stmt->condition->accept(*this);
 
     // Jump back to loop start if condition is true
-    int condJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-    emit(OpCode::OP_POP); // pop condition
+    int condJump = emitJump(OpCode::JumpIfFalse);
+    emit(OpCode::Pop); // pop condition
 
     // Emit loop back
     emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
 
     // Patch the jump to after the loop if condition is false
     patchJump(condJump);
-    emit(OpCode::OP_POP); // pop condition
+    emit(OpCode::Pop); // pop condition
     
     endScope();
     endLoop();
@@ -1784,24 +1784,24 @@ R CodeGen::visitSwitch(SwitchStatement* stmt) {
         SwitchCase* scase = stmt->cases[i].get();
         if (scase->test) {
             // Duplicate discriminant for comparison
-            emit(OpCode::OP_DUP);
+            emit(OpCode::Dup);
             scase->test->accept(*this);
-            emit(OpCode::OP_EQUAL);
+            emit(OpCode::Equal);
 
             // If not equal, jump to next
-            int jump = emitJump(OpCode::OP_JUMP_IF_FALSE);
-            emit(OpCode::OP_POP); // pop comparison result
+            int jump = emitJump(OpCode::JumpIfFalse);
+            emit(OpCode::Pop); // pop comparison result
 
             // If equal, pop discriminant, emit case body, and jump to end
-            emit(OpCode::OP_POP);
+            emit(OpCode::Pop);
             scase->accept(*this);
-            caseJumps.push_back(emitJump(OpCode::OP_JUMP));
+            caseJumps.push_back(emitJump(OpCode::Jump));
             patchJump(jump);
         } else {
             // Default case: remember its position
             defaultJump = (int)cur->size();
             // pop discriminant for default
-            emit(OpCode::OP_POP);
+            emit(OpCode::Pop);
             scase->accept(*this);
             // No jump needed after default
         }
@@ -1833,13 +1833,13 @@ R CodeGen::visitTry(TryStatement* stmt) {
     stmt->block->accept(*this);
 
     // End of try
-    emit(OpCode::OP_END_TRY);
+    emit(OpCode::EndTry);
 
     int endJump = -1;
 
     // If there's a catch, emit jump over it for normal completion
     if (stmt->handler) {
-        endJump = emitJump(OpCode::OP_JUMP);
+        endJump = emitJump(OpCode::Jump);
         // Patch catch offset
         patchTryCatch(tryPos, (int)cur->size());
 
@@ -1865,7 +1865,7 @@ R CodeGen::visitTry(TryStatement* stmt) {
         patchTryFinally(tryPos, (int)cur->size());
 
         stmt->finalizer->accept(*this);
-        emit(OpCode::OP_END_FINALLY);
+        emit(OpCode::EndFinally);
     }
     endScope();
 
@@ -1881,25 +1881,25 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     // load object to stack
     stmt->object->accept(*this);
     
-    emit(OpCode::OP_DUP);
+    emit(OpCode::Dup);
     // get keys of object
-    emit(OpCode::OP_ENUM_KEYS);
+    emit(OpCode::EnumKeys);
     uint32_t keys_slot = makeLocal("__for_in_keys");
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32(keys_slot);
     // emit(OpCode::OP_POP);
 
-    emit(OpCode::OP_DUP);
-    emit(OpCode::OP_GET_OBJ_LENGTH);
+    emit(OpCode::Dup);
+    emit(OpCode::GetObjectLength);
     
     uint32_t length_slot = makeLocal("__for_in_length");
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32(length_slot);
 
     uint32_t idx_slot = makeLocal("__for_in_idx");
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(0)));
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32(idx_slot);
     
     // emit(OpCode::OP_POP);
@@ -1910,40 +1910,40 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     loopStack.back().loopStart = (int)loop_start;
 
     // get both len and idx
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32(idx_slot);
 
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32(length_slot);
 
-    emit(OpCode::OP_NOTEQUAL);
-    int jump_if_false = emitJump(OpCode::OP_JUMP_IF_FALSE);
+    emit(OpCode::NotEqual);
+    int jump_if_false = emitJump(OpCode::JumpIfFalse);
     
-    emit(OpCode::OP_POP);
+    emit(OpCode::Pop);
 
-    emit(OpCode::OP_DUP);
+    emit(OpCode::Dup);
 
     // Get key at idx: keys[idx]
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32(keys_slot);
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32(idx_slot);
-    emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
+    emit(OpCode::GetPropertyDynamic);
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
         uint32_t slot = makeLocal(ident->name);
-        emit(OpCode::OP_SET_LOCAL);
+        emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
         uint32_t slot = makeLocal(var_stmt->declarations[0].id);
-        emit(OpCode::OP_SET_LOCAL);
+        emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
             uint32_t slot = makeLocal(ident->name);
-            emit(OpCode::OP_SET_LOCAL);
+            emit(OpCode::StoreLocal);
             emitUint32(slot);
         }
         
@@ -1952,28 +1952,28 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     }
     
     // get size of the keys
-    emit(OpCode::OP_NOP);
+    emit(OpCode::Nop);
     stmt->body->accept(*this);
-    emit(OpCode::OP_NOP);
+    emit(OpCode::Nop);
     
     // Increment idx
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32(idx_slot);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
-    emit(OpCode::OP_ADD);
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::Add);
+    emit(OpCode::StoreLocal);
     emitUint32(idx_slot);
     
     // loop till stack is empty
-    emit(OpCode::OP_LOOP);
+    emit(OpCode::Loop);
     emitUint32((int)cur->size() - (uint32_t)loop_start + 4 + 1);
     
     patchJump(jump_if_false);
-    emit(OpCode::OP_POP);
+    emit(OpCode::Pop);
     endScope();
     endLoop();
-    emit(OpCode::OP_CLEAR_STACK);
+    emit(OpCode::ClearStack);
     return true;
     
 }
@@ -1985,28 +1985,28 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     // std::unique_ptr<Statement> left; // variable declaration or expression
     // std::unique_ptr<Expression> right; // iterable expression
     // std::unique_ptr<Statement> body;
-    emit(OpCode::OP_CLEAR_STACK);
+    emit(OpCode::ClearStack);
     beginScope();
     // assume, right must directly hold an object literal
     stmt->right->accept(*this);
         
-    emit(OpCode::OP_DUP);
+    emit(OpCode::Dup);
 
     size_t __for_of_array_slot = makeLocal("__for_of_array");
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32((uint32_t)__for_of_array_slot);
 
-    emit(OpCode::OP_GET_OBJ_LENGTH);
+    emit(OpCode::GetObjectLength);
     // get array length
     size_t length_slot = makeLocal("__for_of_length");
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32((uint32_t)length_slot);
     // emit(OpCode::OP_POP);
 
     size_t idx_slot = makeLocal("__for_of_index");
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value(0)));
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32((uint32_t)idx_slot);
 
     // emit(OpCode::OP_POP);
@@ -2017,38 +2017,38 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     loopStack.back().loopStart = loop_start;
 
     // get both len and idx
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32((uint32_t)idx_slot);
 
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32((uint32_t)length_slot);
     
-    emit(OpCode::OP_NOTEQUAL);
+    emit(OpCode::NotEqual);
     
-    int jump_if_false = emitJump(OpCode::OP_JUMP_IF_FALSE);
+    int jump_if_false = emitJump(OpCode::JumpIfFalse);
 
     // emit(OpCode::OP_DUP);
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32((uint32_t)__for_of_array_slot);
 
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32((uint32_t)idx_slot);
-    emit(OpCode::OP_GET_PROPERTY_DYNAMIC);
+    emit(OpCode::GetPropertyDynamic);
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
         uint32_t slot = makeLocal(ident->name);
-        emit(OpCode::OP_SET_LOCAL);
+        emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
         uint32_t slot = makeLocal(var_stmt->declarations[0].id);
-        emit(OpCode::OP_SET_LOCAL);
+        emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
             uint32_t slot = makeLocal(ident->name);
-            emit(OpCode::OP_SET_LOCAL);
+            emit(OpCode::StoreLocal);
             emitUint32(slot);
         }
         
@@ -2062,12 +2062,12 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     
     // increment idx
     // push idx
-    emit(OpCode::OP_GET_LOCAL);
+    emit(OpCode::LoadLocal);
     emitUint32((uint32_t)idx_slot);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
-    emit(OpCode::OP_ADD);
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::Add);
+    emit(OpCode::StoreLocal);
     emitUint32((uint32_t)idx_slot);
 
     // emit(OpCode::OP_POP);
@@ -2079,7 +2079,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     endScope();
     endLoop();
     
-    emit(OpCode::OP_CLEAR_STACK);
+    emit(OpCode::ClearStack);
     
     // we need to clear locals.
     // emit(OpCode::OP_CLEAR_LOCALS);
@@ -2223,7 +2223,7 @@ void CodeGen::patchJump(int jumpPos, int target) {
 }
 
 void CodeGen::emitLoop(uint32_t offset) {
-    emit(OpCode::OP_LOOP);
+    emit(OpCode::Loop);
     emitUint32(offset);
 }
 
@@ -2245,7 +2245,7 @@ void CodeGen::endLoop() {
 }
 
 int CodeGen::emitTryPlaceholder() {
-    emit(OpCode::OP_TRY);
+    emit(OpCode::Try);
 
     // Reserve 8 bytes (two u32: catchOffset, finallyOffset)
     int pos = (int)cur->size();
@@ -2301,7 +2301,7 @@ void CodeGen::declareLocal(const string& name) {
 }
 
 void CodeGen::emitSetLocal(int slot) {
-    emit(OpCode::OP_SET_LOCAL);
+    emit(OpCode::StoreLocal);
     emitUint32(slot);
 }
 
@@ -2354,10 +2354,10 @@ void CodeGen::endScope() {
     while (!locals.empty() && locals.back().depth == scopeDepth) {
         if (locals.back().isCaptured) {
             // Local captured by closure → close it
-            emit(OpCode::OP_CLOSE_UPVALUE);
+            emit(OpCode::CloseUpvalue);
         } else {
             // Normal local → just pop
-            emit(OpCode::OP_POP);
+            emit(OpCode::Pop);
         }
         locals.pop_back();
     }
@@ -2395,48 +2395,48 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
 
     switch (op) {
             // no operands
-        case OpCode::OP_NOP:
-        case OpCode::OP_POP:
-        case OpCode::OP_DUP:
-        case OpCode::OP_ADD:
-        case OpCode::OP_SUB:
-        case OpCode::OP_MUL:
-        case OpCode::OP_DIV:
-        case OpCode::OP_MOD:
-        case OpCode::OP_POW:
-        case OpCode::OP_NEGATE:
-        case OpCode::OP_NOT:
-        case OpCode::OP_EQUAL:
-        case OpCode::OP_NOTEQUAL:
-        case OpCode::OP_LESS:
-        case OpCode::OP_LESSEQUAL:
-        case OpCode::OP_GREATER:
-        case OpCode::OP_GREATEREQUAL:
-        case OpCode::OP_NEW_OBJECT:
-        case OpCode::OP_NEW_ARRAY:
-        case OpCode::OP_RETURN:
-        case OpCode::OP_HALT:
+        case OpCode::Nop:
+        case OpCode::Pop:
+        case OpCode::Dup:
+        case OpCode::Add:
+        case OpCode::Subtract:
+        case OpCode::Multiply:
+        case OpCode::Divide:
+        case OpCode::Modulo:
+        case OpCode::Power:
+        case OpCode::Negate:
+        case OpCode::LogicalNot:
+        case OpCode::Equal:
+        case OpCode::NotEqual:
+        case OpCode::LessThan:
+        case OpCode::LessThanOrEqual:
+        case OpCode::GreaterThan:
+        case OpCode::GreaterThanOrEqual:
+        case OpCode::NewObject:
+        case OpCode::NewArray:
+        case OpCode::Return:
+        case OpCode::Halt:
             
-        case OpCode::OP_INCREMENT:
+        case OpCode::Increment:
             
-        case OpCode::LOGICAL_AND:
-        case OpCode::LOGICAL_OR:
-        case OpCode::NULLISH_COALESCING:
-        case OpCode::REFERENCE_EQUAL:
-        case OpCode::STRICT_INEQUALITY:
-        case OpCode::OP_DECREMENT:
+        case OpCode::LogicalAnd:
+        case OpCode::LogicalOr:
+        case OpCode::NullishCoalescing:
+        case OpCode::StrictEqual:
+        case OpCode::StrictNotEqual:
+        case OpCode::Decrement:
             
             // bitwise
-        case OpCode::OP_BIT_AND:
-        case OpCode::OP_BIT_OR:
-        case OpCode::OP_BIT_XOR:
-        case OpCode::OP_SHL:
-        case OpCode::OP_SHR:
-        case OpCode::OP_USHR:
-        case OpCode::OP_POSITIVE:
-        case OpCode::OP_DUP2:
-        case OpCode::OP_SET_PROPERTY_DYNAMIC:
-        case OpCode::OP_GET_PROPERTY_DYNAMIC:
+        case OpCode::BitAnd:
+        case OpCode::BitOr:
+        case OpCode::BitXor:
+        case OpCode::ShiftLeft:
+        case OpCode::ShiftRight:
+        case OpCode::UnsignedShiftRight:
+        case OpCode::Positive:
+        case OpCode::Dup2:
+        case OpCode::SetPropertyDynamic:
+        case OpCode::GetPropertyDynamic:
             
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
@@ -2452,8 +2452,8 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-        case OpCode::OP_GET_LOCAL:
-        case OpCode::OP_SET_LOCAL: {
+        case OpCode::LoadLocal:
+        case OpCode::StoreLocal: {
             uint32_t slot = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " " << slot << "\n";
             return offset + 1 + 4;
@@ -2461,16 +2461,16 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             
         case OpCode::GetThisProperty:
         case OpCode::SetThisProperty:
-        case OpCode::OP_GET_UPVALUE:
-        case OpCode::OP_SET_UPVALUE:
-        case OpCode::OP_GET_GLOBAL:
-        case OpCode::OP_SET_GLOBAL:
-        case OpCode::OP_DEFINE_GLOBAL:
-        case OpCode::OP_SET_PROPERTY:
-        case OpCode::OP_SET_STATIC_PROPERTY:
-        case OpCode::OP_LOAD_CHUNK_INDEX:
-        case OpCode::OP_LOAD_ARGUMENT:
-        case OpCode::OP_GET_PROPERTY: {
+        case OpCode::GetUpvalue:
+        case OpCode::SetUpvalue:
+        case OpCode::LoadGlobal:
+        case OpCode::StoreGlobal:
+        case OpCode::CreateGlobal:
+        case OpCode::SetProperty:
+        case OpCode::SetStaticProperty:
+        case OpCode::LoadChunkIndex:
+        case OpCode::LoadArgument:
+        case OpCode::GetProperty: {
             uint32_t nameIndex = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " constant[" << nameIndex << "]";
             if (nameIndex < chunk->constants.size()) {
@@ -2480,7 +2480,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-        case OpCode::OP_CLOSURE: {
+        case OpCode::CreateClosure: {
             //            emit(OpCode::OP_CLOSURE);
             //            emitUint8((uint8_t)ci);
             //
@@ -2515,17 +2515,17 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             
         }
             
-        case OpCode::OP_ARRAY_PUSH: {
+        case OpCode::ArrayPush: {
             std::cout << opcodeToString(op) << "\n";
             return offset + 1;
         }
             
             // jumps
-        case OpCode::OP_JUMP:
-        case OpCode::OP_JUMP_IF_FALSE:
-        case OpCode::OP_LOOP: {
+        case OpCode::Jump:
+        case OpCode::JumpIfFalse:
+        case OpCode::Loop: {
             uint32_t jump = readUint32(chunk, offset + 1);
-            size_t target = (op == OpCode::OP_LOOP) ? offset - jump : offset + 5 + jump;
+            size_t target = (op == OpCode::Loop) ? offset - jump : offset + 5 + jump;
             std::cout << opcodeToString(op) << " " << target << "\n";
             return offset + 1 + 4;
         }
@@ -2533,28 +2533,28 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::CreateInstance:
             // calls
         case OpCode::SuperCall:
-        case OpCode::OP_CALL: {
+        case OpCode::Call: {
             uint8_t argCount = chunk->code[offset + 1];
             std::cout << opcodeToString(op) << " " << (int)argCount << " args\n";
             return offset + 2;
         }
             
         case OpCode::GetThis:
-        case OpCode::OP_NEW_CLASS:
-        case OpCode::OP_TRY:
-        case OpCode::OP_END_TRY:
-        case OpCode::OP_END_FINALLY:
-        case OpCode::OP_THROW:
-        case OpCode::OP_ENUM_KEYS:
-        case OpCode::OP_GET_OBJ_LENGTH:
-        case OpCode::OP_GET_INDEX_PROPERTY_DYNAMIC:
-        case OpCode::OP_DEBUG:
-        case OpCode::OP_LOAD_ARGUMENTS:
-        case OpCode::OP_SLICE:
-        case OpCode::OP_LOAD_ARGUMENTS_LENGTH:
-        case OpCode::OP_CLOSE_UPVALUE:
-        case OpCode::OP_CLEAR_STACK:
-        case OpCode::OP_CLEAR_LOCALS:
+        case OpCode::NewClass:
+        case OpCode::Try:
+        case OpCode::EndTry:
+        case OpCode::EndFinally:
+        case OpCode::Throw:
+        case OpCode::EnumKeys:
+        case OpCode::GetObjectLength:
+        case OpCode::GetIndexPropertyDynamic:
+        case OpCode::Debug:
+        case OpCode::LoadArguments:
+        case OpCode::Slice:
+        case OpCode::LoadArgumentsLength:
+        case OpCode::CloseUpvalue:
+        case OpCode::ClearStack:
+        case OpCode::ClearLocals:
         case OpCode::InvokeConstructor:
         case OpCode::GetParentObject:
         case OpCode::CreateObjectLiteral:

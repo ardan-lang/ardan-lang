@@ -102,7 +102,7 @@ const char* opcodeToString(OpCode op) {
         case OpCode::LoadArgumentsLength:return "LoadArgumentsLength";
 
         // === Closures ===
-        case OpCode::Closure:           return "Closure";
+        case OpCode::CreateClosure:     return "CreateClosure";
         case OpCode::GetUpvalue:        return "GetUpvalue";
         case OpCode::SetUpvalue:        return "SetUpvalue";
         case OpCode::CloseUpvalue:      return "CloseUpvalue";
