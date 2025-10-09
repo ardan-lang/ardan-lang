@@ -530,13 +530,25 @@ Value VM::runFrame(CallFrame &current_frame) {
             case OpCode::CreateInstance: {
                                 
                 Value klass = pop();
-                                
+
+                if (klass.classValue->is_native == true) {
+                    shared_ptr<JSObject> native_klass = klass.classValue->construct();
+                    
+                    Value obj_value;
+                    obj_value.type = ValueType::OBJECT;
+                    obj_value.objectValue = native_klass;
+
+                    push(obj_value);
+
+                    break;
+                }
+
                 // auto obj = make_shared<JSObject>();
                 // obj->setClass(klass.classValue);
                 
                 // TODO: we need to invoke parent constructor
 
-                auto obj = createJSObject(klass.classValue);
+                shared_ptr<JSObject> obj = createJSObject(klass.classValue);
                 
                 Value obj_value;
                 obj_value.type = ValueType::OBJECT;
@@ -659,6 +671,8 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             case OpCode::NewArray: {
                 auto arr = std::make_shared<JSArray>();
+                arr->vm = this;
+                
                 Value v;
                 v.type = ValueType::ARRAY;
                 v.arrayValue = arr;
@@ -1291,10 +1305,10 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     }
 
     if (callee.type == ValueType::NATIVE_FUNCTION) {
-        args.push_back(Value::function([this](vector<Value> args) -> Value {
-            // this->callFunction(<#Value callee#>, <#vector<Value> &args#>)
-            return Value::nullVal();
-        }));
+//        args.push_back(Value::function([this](vector<Value> args) -> Value {
+//            // this->callFunction(<#Value callee#>, <#vector<Value> &args#>)
+//            return Value::nullVal();
+//        }));
         Value result = callee.nativeFunction(args);
         return result;
     }
