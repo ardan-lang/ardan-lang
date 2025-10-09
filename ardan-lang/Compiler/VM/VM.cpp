@@ -195,6 +195,31 @@ void VM::setStaticProperty(const Value &objVal, const string &propName, const Va
     throw std::runtime_error("Cannot set static property on non-class");
 }
 
+const unordered_map<string, Value> VM::enumerateKeys(Value obj) {
+    
+    if (obj.type == ValueType::OBJECT) {
+        return obj.objectValue->get_all_properties();
+    }
+    
+    if (obj.type == ValueType::ARRAY) {
+        return obj.arrayValue->get_indexed_properties();
+    }
+    
+    return {};
+    
+}
+
+void VM::set_js_object_closure(Value objVal) {
+    if (objVal.type == ValueType::OBJECT) {
+        for(auto& prop : objVal.objectValue->get_all_properties()) {
+            if (prop.second.type == ValueType::CLOSURE) {
+                prop.second.closureValue->js_object = objVal.objectValue;
+                
+            }
+        }
+    }
+}
+
 shared_ptr<JSObject> VM::createJSObject(shared_ptr<JSClass> klass) {
     
     shared_ptr<JSObject> object = make_shared<JSObject>();
@@ -424,6 +449,14 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case OpCode::CreateObjectLiteral: {
+                Value objVal = pop();
+                set_js_object_closure(objVal);
+                push(objVal);
+                
+                break;
+            }
+                
             case OpCode::OP_NEW_CLASS: {
                 
                 auto superclass = pop();
@@ -607,7 +640,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
                 int index = 0;
                 // get the properties
-                auto props = objVal.objectValue->get_all_properties();
+                auto props = enumerateKeys(objVal);
                 for (auto key : props) {
                     obj->set(to_string(index), key.first, "", {});
                     index++;
