@@ -27,9 +27,6 @@ struct FunctionObject {
     uint32_t arity;
     string name;
     uint32_t upvalues_size;
-    //Env* env;
-
-    // optional: other metadata (source location, flags)
 };
 
 enum class ValueType {
@@ -156,16 +153,26 @@ public:
     
     bool operator==(const Value& rhs);
     
-    friend std::ostream& operator<<(std::ostream& os, const Value& v) {
-        switch(v.type) {
-//            case NUMBER: os << v.num; break;
-//            case BOOL: os << (v.b ? "true" : "false"); break;
-//            case STRING: os << v.str; break;
-//            case NIL_: os << "nil"; break;
-//            case OBJECT: os << "[object]"; break;
-        }
-        return os;
-    }
+//    friend std::ostream& operator<<(std::ostream& os, const Value& v) {
+//        switch(v.type) {
+//            case ValueType::NUMBER: os << v.numberValue; break;
+//            case ValueType::STRING: os << '"' << v.stringValue << '"'; break;
+//            case ValueType::BOOLEAN: os << (v.boolValue ? "true" : "false"); break;
+//            case ValueType::OBJECT: os << "[object Object]"; break;
+//            case ValueType::ARRAY: os << "[Array]"; break;
+//            case ValueType::UNDEFINED: os << "undefined"; break;
+//            case ValueType::NULLTYPE: os << "null"; break;
+//            case ValueType::NATIVE_FUNCTION: os << "[native function]"; break;
+//            case ValueType::FUNCTION: os << "[function]"; break;
+//            case ValueType::METHOD: os << "[method]"; break;
+//            case ValueType::PROMISE: os << "[Promise]"; break;
+//            case ValueType::FUNCTION_REF: os << "[FunctionRef]"; break;
+//            case ValueType::CLOSURE: os << "[Closure]"; break;
+//            case ValueType::CLASS: os << "[class]"; break;
+//            default: os << "[Unknown ValueType]"; break;
+//        }
+//        return os;
+//    }
     
 };
 

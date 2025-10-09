@@ -86,6 +86,9 @@ string Value::toString() const {
         case ValueType::METHOD: return "[method]";
         case ValueType::ARRAY: return "[array Array]";
         case ValueType::PROMISE: return "[promise Promise]";
+        case ValueType::FUNCTION_REF: return "fn";
+        case ValueType::CLOSURE: return "closure";
+        case ValueType::CLASS: return "class";
     }
     return "undefined";
 }
@@ -103,6 +106,9 @@ bool Value::isTruthy() const {
         case ValueType::METHOD: return true;
         case ValueType::ARRAY: return true;
         case ValueType::PROMISE: return true;
+        case ValueType::FUNCTION_REF: return true;
+        case ValueType::CLOSURE: return true;
+        case ValueType::CLASS: return true;
     }
     return false;
 }
@@ -124,6 +130,9 @@ int Value::integer() {
         case ValueType::METHOD: return 1;
         case ValueType::ARRAY: return 1;
         case ValueType::PROMISE: return 1;
+        case ValueType::FUNCTION_REF: return 1;
+        case ValueType::CLOSURE: return 1;
+        case ValueType::CLASS: return 1;
     }
     return 0;
 }
@@ -141,6 +150,9 @@ bool Value::boolean() {
         case ValueType::METHOD: return true;
         case ValueType::ARRAY: return true;
         case ValueType::PROMISE: return true;
+        case ValueType::FUNCTION_REF: return true;
+        case ValueType::CLOSURE: return true;
+        case ValueType::CLASS: return true;
     }
     return false;
 }
@@ -159,6 +171,9 @@ bool Value::isNull() {
         case ValueType::METHOD: return false;
         case ValueType::ARRAY: return false;
         case ValueType::PROMISE: return false;
+        case ValueType::FUNCTION_REF: return false;
+        case ValueType::CLOSURE: return false;
+        case ValueType::CLASS: return false;
     }
     return false;
 
