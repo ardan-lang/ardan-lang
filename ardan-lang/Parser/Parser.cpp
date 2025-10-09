@@ -151,7 +151,15 @@ unique_ptr<Statement> Parser::parseForStatement() {
         if (checkKeyword("VAR") || checkKeyword("LET") || checkKeyword("CONST")) {
             init = parseForVariableStatement();
         } else {
-            init = parseExpressionStatement();
+            
+            auto expr = parseExpression();
+            
+            if (peek().type == TokenType::SEMI_COLON) {
+                consume(TokenType::SEMI_COLON, "Expected ';'.");
+            }
+            
+            init = make_unique<ExpressionStatement>(std::move(expr)); // parseExpressionStatement();
+            
         }
     }
     
