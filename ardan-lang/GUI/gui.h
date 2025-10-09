@@ -21,7 +21,10 @@
 extern "C" {
 #endif
 
-void showWindow();
+void gui_init();
+void gui_create_window(const char* title, int x, int y, int w, int h);
+void gui_add_button(const char* label, int x, int y, int w, int h, void (*callback)());
+void gui_run();
 
 #ifdef __cplusplus
 }
