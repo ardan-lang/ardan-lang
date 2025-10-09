@@ -807,13 +807,30 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     // emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
+    
+    ClosureInfo closure_info = {};
+    closure_info.ci = ci;
+    closure_info.upvalues = nested.upvalues;
 
     for (auto& uv : nested.upvalues) {
         emitUint8(uv.isLocal ? 1 : 0);
         emitUint8(uv.index);
     }
 
-    // disassembleChunk(nested.cur.get(), nested.cur->name);
+    // gather createclosure info for dissaemble
+    closure_infos[to_string(ci)] = closure_info;
+    
+    if (scopeDepth == 0) {
+        
+    } else {
+        // declareLocal(stmt->id);
+        // int slot = paramSlot(stmt->id);
+        // emit(OpCode::StoreLocal);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        // emitUint32(slot);
+    }
+    
+    disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return true;
     
@@ -964,6 +981,10 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
+    ClosureInfo closure_info = {};
+    closure_info.ci = ci;
+    closure_info.upvalues = nested.upvalues;
+
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
         emitUint8(uv.isLocal ? 1 : 0);
@@ -972,17 +993,19 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     
     // Bind function to its name in the global environment
     if (scopeDepth == 0) {
-        // emit(OpCode::OP_DEFINE_GLOBAL);
-        // int nameIdx = emitConstant(Value::str(stmt->id));
-        // emitUint32(nameIdx);
+        // emit(OpCode::CreateGlobal);
+         // int nameIdx = emitConstant(Value::str(expr->id));
+         // emitUint32(nameIdx);
     } else {
         // declareLocal(stmt->id);
-        // emit(OpCode::OP_SET_LOCAL);
+        // int slot = paramSlot(stmt->id);
+        // emit(OpCode::StoreLocal);
         // int nameIdx = emitConstant(Value::str(stmt->id));
-        // emitUint32(nameIdx);
+        // emitUint32(slot);
     }
 
-    // disassembleChunk(nested.cur.get(), nested.cur->name);
+    closure_infos[to_string(ci)] = closure_info;
+    disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return true;
 }
@@ -1119,6 +1142,10 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
+    ClosureInfo closure_info = {};
+    closure_info.ci = ci;
+    closure_info.upvalues = upvalues;
+
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
         emitUint8(uv.isLocal ? 1 : 0);
@@ -1138,9 +1165,11 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
         emitUint32(slot);
     }
     
+    closure_infos[to_string(ci)] = closure_info;
+    
     // disassemble the chunk for debugging
-    //disassembleChunk(nested.cur.get(),
-    //                 stmt->id/*nested.cur->name*/);
+    disassembleChunk(nested.cur.get(),
+                     stmt->id/*nested.cur->name*/);
 
     return true;
 }
@@ -2480,39 +2509,67 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-        case OpCode::CreateClosure: {
-            //            emit(OpCode::OP_CLOSURE);
-            //            emitUint8((uint8_t)ci);
-            //
-            //            // Emit upvalue descriptors
-            //            for (auto& uv : nested.upvalues) {
-            //                emitUint8(uv.isLocal ? 1 : 0);
-            //                emitUint8(uv.index);
-            //            }
+//        case OpCode::CreateClosure: {
+//            //            emit(OpCode::OP_CLOSURE);
+//            //            emitUint8((uint8_t)ci);
+//            //
+//            //            // Emit upvalue descriptors
+//            //            for (auto& uv : nested.upvalues) {
+//            //                emitUint8(uv.isLocal ? 1 : 0);
+//            //                emitUint8(uv.index);
+//            //            }
+//            
+//            cout << opcodeToString(op);
+//
+//            // index: 8 uint
+//            uint8_t ci = chunk->code[offset + 1];
+//            
+//            cout << " module-constant-index: [" << (int)chunk->code[offset + 1] << "]";
+//            
+//            auto closure_info = closure_infos[to_string(ci)];
+//
+//            if (closure_info != NULL) {
+//                for (auto& uv : upvalues) {
+//                    
+//                    // is local:
+//                    cout << "isLocal: [" << chunk->code[offset + 1 + 1];
+//                    cout << "] ";
+//                    // idx
+//                    cout << "Index: [" << chunk->code[offset + 1 + 1 + 1] << "]";
+//                    
+//                }
+//            } else {
+//                cout << endl;
+//                return offset + 2;
+//            }
+//            cout << endl;
+//            
+//            return offset + 1 + 1 + 1 + 1;
+//            
+//        }
             
-            cout << opcodeToString(op);
+        case OpCode::CreateClosure: {
+            std::cout << opcodeToString(op);
 
-            // index: 8 uint
-            cout << " module-constant-index: [" << (int)chunk->code[offset + 1] << "]";
+            uint8_t ci = chunk->code[offset + 1];
+            std::cout << " module-constant-index: [" << (int)ci << "]";
 
-            if (upvalues.size() > 0) {
-                for (auto& uv : upvalues) {
-                    
-                    // is local:
-                    cout << "isLocal: [" << chunk->code[offset + 1 + 1];
-                    cout << "] ";
-                    // idx
-                    cout << "Index: [" << chunk->code[offset + 1 + 1 + 1] << "]";
-                    
+            // Lookup closure info by ci (as string)
+            auto it = closure_infos.find(std::to_string(ci));
+            if (it != closure_infos.end()) {
+                const ClosureInfo& info = it->second;
+                for (size_t i = 0; i < info.upvalues.size(); ++i) {
+                    const auto& uv = info.upvalues[i];
+                    std::cout << " upvalue[" << i << "]: isLocal=" << (uv.isLocal ? "true" : "false")
+                              << " index=" << (int)uv.index;
                 }
+                std::cout << "\n";
+                // opcode (1) + ci (1) + 2*upvalue_count
+                return offset + 2 + info.upvalues.size() * 2;
             } else {
-                cout << endl;
+                std::cout << " (closure metadata not found)\n";
                 return offset + 2;
             }
-            cout << endl;
-            
-            return offset + 1 + 1 + 1 + 1;
-            
         }
             
         case OpCode::ArrayPush: {

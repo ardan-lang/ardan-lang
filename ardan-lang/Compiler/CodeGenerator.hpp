@@ -56,6 +56,11 @@ struct UpvalueMeta {
     string name;
 };
 
+struct ClosureInfo {
+    uint8_t ci;
+    vector<UpvalueMeta> upvalues;
+};
+
 struct Local {
     string name;
     int depth;        // scope depth
@@ -80,6 +85,8 @@ public:
     vector<string> registered_modules;
     
     size_t generate(const vector<unique_ptr<Statement>> &program);
+    
+    unordered_map<string, ClosureInfo> closure_infos;
 
     void emitAssignment(BinaryExpression* expr);
     
