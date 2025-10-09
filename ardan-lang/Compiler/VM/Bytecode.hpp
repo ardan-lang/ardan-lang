@@ -127,6 +127,7 @@ enum class OpCode : uint8_t {
     GetThis,
     GetParentObject,
     SuperCall,
+    CreateObjectLiteral,
     
     // debug / sentinel
     OP_HALT
