@@ -21,7 +21,14 @@ class Compiler {
 public:
     Compiler();
     ~Compiler();
-    void compile(const vector<unique_ptr<Statement>> &ast);
+    shared_ptr<Module> compile(const vector<unique_ptr<Statement>> &ast);
+    shared_ptr<Module> read_ardar(string outputFilename);
+    void write_ardar(string outputFilename,
+                               shared_ptr<Module> module_,
+                               uint32_t entryChunkIndex);
+    void run(shared_ptr<Module> module_);
+    void test_compile(const std::vector<std::unique_ptr<Statement>>& ast);
+    
 };
 
 #endif /* Compiler_hpp */

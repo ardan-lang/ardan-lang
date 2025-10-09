@@ -11,8 +11,19 @@ Compiler::Compiler() {}
 
 Compiler::~Compiler() {}
 
-void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
+shared_ptr<Module> Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
+    shared_ptr<Module> module_ = make_shared<Module>();
+    auto codegen = make_shared<CodeGen>(module_);
+
+    auto entryChunkIndex = codegen->generate(ast);
+    module_->entryChunkIndex = (uint32_t)entryChunkIndex;
+    
+    return module_;
+        
+}
+
+void Compiler::test_compile(const std::vector<std::unique_ptr<Statement>>& ast) {
     shared_ptr<Module> module_ = make_shared<Module>();
     auto codegen = make_shared<CodeGen>(module_);
 
@@ -43,5 +54,38 @@ void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
     // OR explicitly by chunk index
     Value ret = vm.run(_module_->chunks[_module_->entryChunkIndex], {});
+}
+
+void Compiler::run(shared_ptr<Module> module_) {
+
+    VM vm(module_);
+
+    Value ret = vm.run(module_->chunks[module_->entryChunkIndex], {});
+
+}
+
+void Compiler::write_ardar(string outputFilename,
+                           shared_ptr<Module> module_,
+                           uint32_t entryChunkIndex) {
+    
+    uint32_t version = 1;
+
+    WriteArdarFile writer(outputFilename,
+                          module_.get(),
+                          (uint32_t)entryChunkIndex,
+                          version);
+
+    writer.writing();
+
+    cout << "File written successfully!" << endl;
+
+}
+
+shared_ptr<Module> Compiler::read_ardar(string outputFilename) {
+
+    ArdarFileReader reader(outputFilename);
+    shared_ptr<Module> _module_ = reader.readModule();
+    
+    return _module_;
 
 }
