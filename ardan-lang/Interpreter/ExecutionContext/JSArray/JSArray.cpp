@@ -6,6 +6,7 @@
 //
 
 #include "JSArray.h"
+#include "../../../Compiler/VM/VM.hpp"
 
 void JSArray::set(const string& key, const Value& val) {
     if (isNumeric(key)) {
@@ -101,11 +102,88 @@ void JSArray::pop() {
     set("length", Value(elements_size));
 }
 
-//bool is_native_name = std::any_of(
-//                             native_names.begin(),
-//                             native_names.end(),
-//                             [&](const std::string &name) {
-//                                 return prop.first.find(name) != std::string::npos;
-//                             }
-//                             );
+void JSArray::init_builtins() {
 
+    // pop removes the first item in the properties
+    set("pop", Value::native([this](const std::vector<Value>& args) {
+
+        pop();
+        
+        return Value::nullVal();
+
+    }));
+    
+    // pushes a vlaue to the properties
+    set("push", Value::native([this](const vector<Value>& args) {
+
+        push(args);
+        
+        return Value::nullVal();
+        
+    }));
+    
+    set("join", Value::native([this](const vector<Value>& args) {
+
+        string concat;
+        string delimiter = args[0].toString();
+        
+        int index = 0;
+        auto indexed_properties = get_indexed_properties();
+        
+        for(auto indexed_property : indexed_properties) {
+            concat += indexed_property.second.toString() + ((index == (indexed_properties.size() - 1)) ? "" : delimiter);
+            index++;
+        }
+
+        return Value(concat);
+        
+    }));
+    
+    set("reduce", Value::native([this](const vector<Value>& args) {
+        
+        if (args.size() < 1) {
+            throw runtime_error("reduce expects at least (callback)");
+        }
+        
+        Value callback = args[0];
+        if (callback.type != ValueType::FUNCTION && callback.type != ValueType::CLOSURE) {
+            throw std::runtime_error("First argument to reduce must be a function");
+        }
+
+        size_t len = elements_size;
+        
+        // Setup accumulator
+        Value acc;
+        size_t start = 0;
+        if (args.size() >= 3) {
+            acc = args[2]; // initial value
+        } else {
+            if (len == 0) {
+                throw runtime_error("reduce of empty array with no initial value");
+            }
+            acc = getIndex(0);
+            start = 1;
+        }
+        
+        for (size_t i = start; i < len; i++) {
+            //vector<Value> cbArgs = { acc, getIndex(i), Value((double)i), this };
+            std::vector<Value> cbArgs = {
+                acc,
+                getIndex(i),
+                Value((double)i)
+            };
+            
+            if (callback.type == ValueType::FUNCTION) {
+                acc = callback.functionValue(cbArgs);
+            } else if (callback.type == ValueType::CLOSURE) {
+                acc = vm->callFunction(callback, cbArgs);
+            }
+        }
+        
+        return acc;
+        
+    }));
+
+    set("length", elements_size);
+
+}
