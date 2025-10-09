@@ -2557,6 +2557,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::OP_CLEAR_LOCALS:
         case OpCode::InvokeConstructor:
         case OpCode::GetParentObject:
+        case OpCode::CreateObjectLiteral:
             cout << opcodeToString(op) << "\n";
             return offset + 1;
     }
