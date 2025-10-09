@@ -22,6 +22,9 @@
 #include "REPL/REPL.hpp"
 #include "JSON/JSON.hpp"
 
+#include "Compiler/CodeGenerator.hpp"
+#include "Compiler/Compiler.hpp"
+
 //#include "GUI/gui.h"
 //#import <Cocoa/Cocoa.h>
 
@@ -419,26 +422,6 @@ void run_interpreter_inline_test() {
 
 }
 
-void run_interpreter(string& filename, string& source) {
-    
-    Scanner scanner(source);
-    
-    auto tokens = scanner.getTokens();
-
-//    for(Token token : tokens) {
-//        cout << token.type << " : " << token.lexeme << " [Line: " << token.line << "]" << endl;
-//    }
-
-    Parser parser(tokens);
-    parser.sourceFile = filename;
-    
-    auto ast = parser.parse();
-
-    Interpreter interpreter;
-    interpreter.execute(std::move(ast));
-
-}
-
 void create_ardan_project() {
     
     std::string projectName;
@@ -499,30 +482,139 @@ fs::path findFileRecursive(const fs::path& root, const std::string& fileName) {
     return {};
 }
 
-int main(int argc, const char * argv[]) {
+string get_entry_file() {
     
-//    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/gui.ardan";
-//        
-//    string source = read_file(entryFileName);
-//    run_interpreter(entryFileName, source);
+    string source;
+    
+    if (fs::exists(fs::current_path() / "ardan.json")) {
+        
+        fs::path projectRoot = fs::current_path();
+        
+        // read ardan.json
+        ifstream file(fs::current_path() / "ardan.json");
+        JSON json;
+        
+        auto data = json.readJson("ardan.json");
+        
+        if (data.empty()) {
+            std::cerr << "No data found in ardan.json\n";
+            throw runtime_error("No data found in ardan.json\n");
+        }
+        
+        string entryFileName;
+        
+        for (const auto& [key, value] : data) {
+            if (key == "main") {
+                entryFileName = value;
+            }
+        }
+        
+        if (entryFileName.empty()) {
+            cerr << "No main start script found.\n";
+            throw runtime_error("No main start script found.\n");
+        }
+        
+        // launch main
+        // read the value from fs
+        
+        // Search for entry file anywhere in the project dir
+        fs::path entryPath = findFileRecursive(projectRoot, entryFileName);
+        if (!entryPath.empty()) {
+            
+            source = read_file(entryPath);
+            // run_interpreter(entryFileName, source);
+            
+        } else {
+            std::cerr << "Could not find " << entryFileName << " in project.\n";
+        }
+        
+        
+    }
+    else {
+        throw runtime_error("Cannot find ardan.json file. Make sure this is an Ardan project.");
+    }
+    
+    return source;
+    
+}
+
+vector<unique_ptr<Statement>> get_ast(string source, string filename) {
+    
+    Scanner scanner(source);
+    
+    auto tokens = scanner.getTokens();
+
+    Parser parser(tokens);
+    parser.sourceFile = filename;
+    
+    auto ast = parser.parse();
+    
+    return ast;
+
+}
+
+void run_interpreter(string& filename, string& source) {
+    
+    auto ast = get_ast(source, filename);
+    
+    Interpreter interpreter;
+    interpreter.execute(std::move(ast));
+
+}
+
+void run_compiler(string& filename, string& source) {
+    
+    auto ast = get_ast(source, filename);
+
+    Compiler compiler;
+    
+    auto module_ = compiler.compile(ast);
+    
+}
+
+void test() {
+    
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/compile.ardan";
+        
+    string source = read_file(entryFileName);
+    auto ast = get_ast(entryFileName, source);
+    
+    Compiler compiler;
+    
+    compiler.test_compile(ast);
+
+    //run_interpreter(entryFileName, source);
     // showWindow();
     //run_interpreter_inline_test();
     
 //    REPL repl;
 //    repl.start_repl();
+        
+    // ArdarFileReader reader("program.adar");
+    // std::unique_ptr<Module> module = reader.readModule();
+    // Pass module to VM for execution!
+
+}
+
+int main(int argc, const char * argv[]) {
     
+//    test();
 //    return 0;
     
     bool interpret = false;
     bool compile = false;
+    bool compile_run = false;
     bool repl_it = false;
     bool new_project = false;
+    string e;
     
     string filename;
 
     for (int i = 1; i < argc; i++) {
 
         string param = argv[i];
+        
+        cout << param << endl;
                 
         if (param == "--i" || param == "--interpret") {
             interpret = true;
@@ -532,6 +624,12 @@ int main(int argc, const char * argv[]) {
             repl_it = true;
         } else if (param == "--new" || param == "--n") {
             new_project = true;
+        } else if (param == "--compile_run" || param == "--cr") {
+            compile_run = true;
+        } if (param.find("--e=") == 0) {
+            e = param.substr(4); // after "--e="
+        } else if (param == "--e" && (i+1 < argc)) {
+            e = argv[++i];
         } else {
             filename = param;
         }
@@ -545,6 +643,60 @@ int main(int argc, const char * argv[]) {
         
     } else if (compile) {
         
+        // find the entry file
+        // then compile to .ardar
+        
+        // ardan --compile
+        // ardan --compile --e=main.ardan
+
+        Compiler compiler;
+        string source;
+
+        if (!e.empty()) {
+            
+            // there is entry file: --e set
+            filename = e;
+            source = read_file(filename);
+
+        } else {
+            
+            // no entry file. figure it out.
+            source = get_entry_file();
+            
+        }
+        
+        cout << filename << " : " << source;
+        
+        auto ast = get_ast(source, filename);
+        auto module_ = compiler.compile(ast);
+        string outputFilename = "bin.ardar";
+        compiler
+            .write_ardar(outputFilename, module_, module_->entryChunkIndex);
+
+    } else if (compile_run) {
+
+        // ardan -compile-and-run
+        // ardan -compile-and-run --e=main.ardan
+
+        Compiler compiler;
+        string source;
+
+        if (!e.empty()) {
+            filename = e;
+            source = read_file(filename);
+        } else {
+            source = get_entry_file();
+        }
+        
+        auto ast = get_ast(source, filename);
+        auto module_ = compiler.compile(ast);
+        string outputFilename = "bin.ardar";
+        compiler
+            .write_ardar(outputFilename, module_, module_->entryChunkIndex);
+        
+        auto module_compiled = compiler.read_ardar(outputFilename);
+        compiler.run(module_compiled);
+
     } else if (new_project) {
         
         create_ardan_project();
@@ -606,7 +758,6 @@ int main(int argc, const char * argv[]) {
             repl.start_repl();
         }
 
-        // run_interpreter_inline_test();
     }
     
     return EXIT_SUCCESS;
