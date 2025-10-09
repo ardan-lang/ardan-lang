@@ -797,6 +797,18 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
                 
             case OpCode::NullishCoalescing: {
+                
+                Value right = pop();  // fallback value
+                Value left = pop();   // main value
+                
+                bool isNullish = left.isNull() || left.isUndefined();
+                
+                if (isNullish) {
+                    push(right);
+                } else {
+                    push(left);
+                }
+                
                 break;
             }
                 
