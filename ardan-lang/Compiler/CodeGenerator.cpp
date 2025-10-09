@@ -131,6 +131,9 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
 }
 
 R CodeGen::visitIf(IfStatement* stmt) {
+
+    beginScope();
+
     stmt->test->accept(*this);
     int elseJump = emitJump(OpCode::OP_JUMP_IF_FALSE);
     emit(OpCode::OP_POP); // pop condition
@@ -140,12 +143,16 @@ R CodeGen::visitIf(IfStatement* stmt) {
     emit(OpCode::OP_POP); // pop condition (if we branched)
     if (stmt->alternate) stmt->alternate->accept(*this);
     patchJump(endJump);
+    
+    endScope();
+
     return true;
 }
 
 R CodeGen::visitWhile(WhileStatement* stmt) {
     beginLoop();
     loopStack.back().loopStart = (int)cur->size();
+    beginScope();
 
     // loop start
     size_t loopStart = cur->size();
@@ -161,6 +168,8 @@ R CodeGen::visitWhile(WhileStatement* stmt) {
     patchJump(exitJump);
     emit(OpCode::OP_POP);
     
+    endScope();
+
     endLoop();
     
     return true;
@@ -170,7 +179,8 @@ R CodeGen::visitFor(ForStatement* stmt) {
     
     beginLoop();
     loopStack.back().loopStart = (int)cur->size();
-
+    beginScope();
+    
     // For simplicity, translate to while:
     if (stmt->init) stmt->init->accept(*this);
     size_t loopStart = cur->size();
@@ -190,7 +200,7 @@ R CodeGen::visitFor(ForStatement* stmt) {
         if (stmt->update) stmt->update->accept(*this);
         emitLoop((uint32_t)(cur->size() - loopStart ) + 4 + 1);
     }
-    
+    endScope();
     endLoop();
     
     return true;
@@ -641,6 +651,9 @@ R CodeGen::visitObject(ObjectLiteralExpression* expr) {
         emit(OpCode::OP_SET_PROPERTY);
         emitUint32(nameIdx);
     }
+    
+    emit(OpCode::CreateObjectLiteral);
+    
     return true;
 }
 
@@ -1711,6 +1724,7 @@ R CodeGen::visitMethodDefinition(MethodDefinition* stmt) {
 R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
 
     beginLoop();
+    beginScope();
     loopStack.back().loopStart = (int)cur->size();
     
     // Mark loop start
@@ -1733,6 +1747,7 @@ R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
     patchJump(condJump);
     emit(OpCode::OP_POP); // pop condition
     
+    endScope();
     endLoop();
 
     return true;
@@ -1741,6 +1756,7 @@ R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
 R CodeGen::visitSwitchCase(SwitchCase* stmt) {
     // Each case's test should have already been checked in visitSwitch
     // Emit the body of this case
+    beginScope();
     for (auto& s : stmt->consequent) {
         if (auto break_stmt = dynamic_cast<BreakStatement*>(s.get())) {
             continue;
@@ -1749,10 +1765,14 @@ R CodeGen::visitSwitchCase(SwitchCase* stmt) {
 
         }
     }
+    endScope();
     return true;
 }
 
 R CodeGen::visitSwitch(SwitchStatement* stmt) {
+    
+    beginScope();
+
     std::vector<int> caseJumps;
     int defaultJump = -1;
 
@@ -1792,15 +1812,20 @@ R CodeGen::visitSwitch(SwitchStatement* stmt) {
         patchJump(jmp);
     }
 
+    endScope();
+
     return true;
 }
 
 R CodeGen::visitCatch(CatchClause* stmt) {
+    beginScope();
     stmt->body->accept(*this);
+    endScope();
     return true;
 }
 
 R CodeGen::visitTry(TryStatement* stmt) {
+    beginScope();
     // Mark start of try
     int tryPos = emitTryPlaceholder();
 
@@ -1842,6 +1867,7 @@ R CodeGen::visitTry(TryStatement* stmt) {
         stmt->finalizer->accept(*this);
         emit(OpCode::OP_END_FINALLY);
     }
+    endScope();
 
     return true;
 }
@@ -1851,7 +1877,7 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     // object, body, init
     
     // loop through the keys of the object
-    
+    beginScope();
     // load object to stack
     stmt->object->accept(*this);
     
@@ -1913,6 +1939,14 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
         uint32_t slot = makeLocal(var_stmt->declarations[0].id);
         emit(OpCode::OP_SET_LOCAL);
         emitUint32(slot);
+    } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
+        
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
+            uint32_t slot = makeLocal(ident->name);
+            emit(OpCode::OP_SET_LOCAL);
+            emitUint32(slot);
+        }
+        
     } else {
         throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
     }
@@ -1937,7 +1971,7 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     
     patchJump(jump_if_false);
     emit(OpCode::OP_POP);
-    
+    endScope();
     endLoop();
     emit(OpCode::OP_CLEAR_STACK);
     return true;
@@ -1952,7 +1986,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     // std::unique_ptr<Expression> right; // iterable expression
     // std::unique_ptr<Statement> body;
     emit(OpCode::OP_CLEAR_STACK);
-
+    beginScope();
     // assume, right must directly hold an object literal
     stmt->right->accept(*this);
         
@@ -2010,6 +2044,14 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
         uint32_t slot = makeLocal(var_stmt->declarations[0].id);
         emit(OpCode::OP_SET_LOCAL);
         emitUint32(slot);
+    } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
+        
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
+            uint32_t slot = makeLocal(ident->name);
+            emit(OpCode::OP_SET_LOCAL);
+            emitUint32(slot);
+        }
+        
     } else {
         throw std::runtime_error("for-of only supports identifier/variable statement loop variables in codegen");
     }
@@ -2034,7 +2076,7 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     emitLoop((int)cur->size() - loop_start + 4 + 1);
     patchJump(jump_if_false);
     // emit(OpCode::OP_POP);
-    
+    endScope();
     endLoop();
     
     emit(OpCode::OP_CLEAR_STACK);
