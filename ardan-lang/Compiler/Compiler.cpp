@@ -13,11 +13,10 @@ Compiler::~Compiler() {}
 
 void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
-    shared_ptr<Module> module_ = make_shared<Module>();   // shared Module
+    shared_ptr<Module> module_ = make_shared<Module>();
     auto codegen = make_shared<CodeGen>(module_);
 
     // generate fills module_->chunks and module_->constants
-    // auto entryChunk = codegen->generate(ast);
     auto entryChunkIndex = codegen->generate(ast);
     module_->entryChunkIndex = (uint32_t)entryChunkIndex;
 
@@ -40,7 +39,6 @@ void Compiler::compile(const std::vector<std::unique_ptr<Statement>>& ast) {
     ArdarFileReader reader(outputFilename);
     shared_ptr<Module> _module_ = reader.readModule();
 
-    // Pass module to VM for execution!
     VM vm(_module_);
 
     // OR explicitly by chunk index
