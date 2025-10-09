@@ -483,9 +483,16 @@ Value VM::runFrame(CallFrame &current_frame) {
                 // there must be an object in the frame.closure
                 // This is because super() must be run inside a constructor.
                 
-                Value obj_value = Value::object(frame->closure->js_object->parent_object);
-                
-                invokeMethod(obj_value, "constructor", args);
+                // if the parent_object is null, do not call
+                // TODO: we need to know if we need to throw error and also if the parent must have a constructor
+                // TODO: learn about constructor calling chain.
+                if (frame->closure->js_object->parent_object != nullptr) {
+                    
+                    Value obj_value = Value::object(frame->closure->js_object->parent_object);
+                    
+                    invokeMethod(obj_value, "constructor", args);
+                    
+                }
 
                 break;
             }
