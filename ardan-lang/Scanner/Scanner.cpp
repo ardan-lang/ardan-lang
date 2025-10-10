@@ -468,13 +468,14 @@ vector<Token>& Scanner::getTokens() {
                     
                     // collect number
                     collectNumber();
-                    
+                    break;
                 }
                 
                 if (isAlpha()) {
                     
                     // collect identifier
                     collectIdentifier();
+                    break;
                     
                 }
                 
@@ -781,6 +782,7 @@ void Scanner::collectNumber() {
             advance();
         }
         addToken(TokenType::NUMBER, num);
+        reverse();
         return;
     }
 
@@ -793,6 +795,7 @@ void Scanner::collectNumber() {
             advance();
         }
         addToken(TokenType::NUMBER, num);
+        reverse();
         return;
     }
 
@@ -805,6 +808,7 @@ void Scanner::collectNumber() {
             advance();
         }
         addToken(TokenType::NUMBER, num);
+        reverse();
         return;
     }
 
