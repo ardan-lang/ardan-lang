@@ -55,6 +55,12 @@ R CodeGen::define(string decl) {
     // decide local or global
     if (hasLocal(decl)) {
         uint32_t idx = getLocal(decl);
+        
+        // auto localIndex = resolveLocal(decl);
+        if (locals[idx].kind == BindingKind::Const) {
+            throw std::runtime_error("Assignment to constant variable.");
+        }
+        
         emit(OpCode::StoreLocal);
         emitUint32(idx);
     } else {
@@ -78,7 +84,8 @@ R CodeGen::define(string decl) {
 
         // top-level/global
         int nameIdx = emitConstant(Value::str(decl));
-        emit(OpCode::CreateGlobal);
+        // emit(OpCode::CreateGlobal);
+        emit(OpCode::StoreGlobal);
         emitUint32((uint32_t)nameIdx);
     }
     
@@ -93,7 +100,12 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
     
     for (auto &decl : stmt->declarations) {
 
-        declareLocal(decl.id);
+        if (kind == "CONST" && decl.init == nullptr) {
+            throw runtime_error("Const variables must be initialized.");
+            return true;
+        }
+
+        declareLocal(decl.id, get_kind(kind));
 
         if (decl.init) {
             decl.init->accept(*this); // push init value
@@ -103,16 +115,22 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
             emitUint32(ci);
         }
                 
+        // define(decl.id);
+        
         // decide local or global
         if (hasLocal(decl.id)) {
             uint32_t idx = getLocal(decl.id);
+            
+            if (locals[idx].kind == BindingKind::Const) {
+                throw std::runtime_error("Assignment to constant variable.");
+            }
+
             emit(OpCode::StoreLocal);
             emitUint32(idx);
         } else {
 
             int upvalue = resolveUpvalue(decl.id);
             if (upvalue != -1) {
-                // emit(OpCode::OP_GET_UPVALUE);
                 emit(OpCode::SetUpvalue);
                 emitUint32(upvalue);
                 return R();
@@ -121,7 +139,9 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
             // top-level/global
             int nameIdx = emitConstant(Value::str(decl.id));
             emit(OpCode::CreateGlobal);
-            emitUint32((uint32_t)nameIdx);
+            emitUint32((uint16_t)nameIdx);
+            emitUint32((uint16_t)get_kind(kind));
+            // TODO: add bits for var, let or const.
         }
         
     }
@@ -338,71 +358,68 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
 void CodeGen::emitAssignment(BinaryExpression* expr) {
     auto left = expr->left.get();
 
-    // --------------------
     // Plain assignment (=)
-    // --------------------
     if (expr->op.type == TokenType::ASSIGN) {
         if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
             // Evaluate RHS first
             expr->right->accept(*this);
-            
-            //ident->accept(*this);
+
+            // Assign to variable (local/global/class field/upvalue)
             define(ident->token.lexeme);
-//            if (hasLocal(ident->name)) {
-//                emit(OpCode::OP_SET_LOCAL);
-//                emitUint32(getLocal(ident->name));
-//            } else if (resolveUpvalue(ident->name) != - 1 ) {
-//                emit(OpCode::OP_SET_UPVALUE);
-//                emitUint32(resolveUpvalue(ident->name));
-//            } else {
-//                int nameIdx = emitConstant(Value::str(ident->name));
-//                emit(OpCode::OP_SET_GLOBAL);
-//                emitUint32(nameIdx);
-//            }
-        
         }
         else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+            // Assignment to property (obj.prop = ...)
+
             // Push object first
             member->object->accept(*this);
-            // Then RHS
-            expr->right->accept(*this);
 
-            int nameIdx = emitConstant(Value::str(member->name.lexeme));
-            emit(OpCode::SetProperty);
-            emitUint32(nameIdx);
+            if (member->computed) {
+                // Computed property: obj[expr] = rhs
+                member->property->accept(*this); // push property key
+
+                // Evaluate RHS
+                expr->right->accept(*this);
+
+                emit(OpCode::SetPropertyDynamic);
+            } else {
+
+                // Evaluate RHS
+                expr->right->accept(*this);
+
+                // Static property name (e.g. obj.x = rhs)
+                int nameIdx = emitConstant(Value::str(member->name.lexeme));
+                emit(OpCode::SetProperty);
+                emitUint32(nameIdx);
+            }
         }
         else {
             throw std::runtime_error("Unsupported assignment target in CodeGen");
         }
 
-        // If assignments are statements only, discard the result:
-        // emit(OpCode::OP_POP);
+        // Assignments as statements typically discard result
+        // emit(OpCode::Pop);
 
         return;
     }
 
-    // -----------------------------
-    // Compound assignment (+=, etc.)
-    // -----------------------------
+    // Compound assignment (+=, -=, etc.)
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        // Load current value
         ident->accept(*this);
-//        if (hasLocal(ident->name)) {
-//            emit(OpCode::OP_GET_LOCAL);
-//            emitUint32(getLocal(ident->name));
-//        } else {
-//            int nameIdx = emitConstant(Value::str(ident->name));
-//            emit(OpCode::OP_GET_GLOBAL);
-//            emitUint32(nameIdx);
-//        }
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
-        // Push object, duplicate it for later use
+        // Load current property value
         member->object->accept(*this);
-        emit(OpCode::Dup);
-
-        int nameIdx = emitConstant(Value::str(member->name.lexeme));
-        emit(OpCode::GetProperty);
-        emitUint32(nameIdx);
+        if (member->computed) {
+            member->property->accept(*this);
+            emit(OpCode::Dup2);
+            emit(OpCode::GetPropertyDynamic);
+        } else {
+            emit(OpCode::Dup); // [obj, obj]
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::GetProperty);
+            emitUint32(nameIdx);
+        }
     }
     else {
         throw std::runtime_error("Unsupported assignment target in CodeGen");
@@ -431,29 +448,25 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
         default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
     }
 
-    // Store result back
+    // Store the result back
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
         define(ident->token.lexeme);
-        // ident->accept(*this);
-//        if (hasLocal(ident->name)) {
-//            emit(OpCode::OP_SET_LOCAL);
-//            emitUint32(getLocal(ident->name));
-//        } else {
-//            int nameIdx = emitConstant(Value::str(ident->name));
-//            emit(OpCode::OP_SET_GLOBAL);
-//            emitUint32(nameIdx);
-//        }
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
-        int nameIdx = emitConstant(Value::str(member->name.lexeme));
-        emit(OpCode::SetProperty);
-        emitUint32(nameIdx);
+        if (member->computed) {
+            emit(OpCode::SetPropertyDynamic);
+        } else {
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::SetProperty);
+            emitUint32(nameIdx);
+        }
     }
 
-    // Optional: if compound assignments are statements, discard result:
-    // emit(OpCode::OP_POP);
+    // Optionally: discard result if assignment is a statement
+    // emit(OpCode::Pop);
 }
 
+// returns new value
 R CodeGen::visitUnary(UnaryExpression* expr) {
     // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
@@ -491,22 +504,33 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         }
 
         if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
-            // Evaluate object once
-            member_expr->object->accept(*this);
-            emit(OpCode::Dup); // [obj, obj]
-            int nameIdx = emitConstant(Value::str(member_expr->name.lexeme));
-            // GET_PROPERTY -> consumes one obj
-            emit(OpCode::GetProperty);
-            emitUint32(nameIdx); // stack: [obj, value]
-            // push 1
-            emit(OpCode::LoadConstant);
-            emitUint32(emitConstant(Value::number(1)));
-            // apply
-            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
-            // SET_PROPERTY (consumes [obj, value])
-            emit(OpCode::SetProperty);
-            emitUint32(nameIdx);
+            
+            if (member_expr->computed) {
+                // Computed: arr[i]++ or obj[prop]++
+                member_expr->object->accept(*this);     // [obj]
+                member_expr->property->accept(*this);   // [obj, key]
+                emit(OpCode::Dup2);             // [obj, key, obj, key]
+                emit(OpCode::GetPropertyDynamic); // [obj, key, value]
+                emit(OpCode::LoadConstant);
+                emitUint32(emitConstant(Value::number(1)));
+                emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, key, result]
+                emit(OpCode::SetPropertyDynamic); // [result]
+            } else {
+                // Non-computed: obj.x++
+                member_expr->object->accept(*this); // [obj]
+                emit(OpCode::Dup);          // [obj, obj]
+                int nameIdx = emitConstant(Value::str(member_expr->name.lexeme));
+                emit(OpCode::GetProperty);
+                emitUint32(nameIdx);           // [obj, value]
+                emit(OpCode::LoadConstant);
+                emitUint32(emitConstant(Value::number(1)));
+                emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, result]
+                emit(OpCode::SetProperty);
+                emitUint32(nameIdx);           // [result]
+            }
+            
             return true;
+
         }
 
         throw std::runtime_error("Unsupported unary increment/decrement target");
@@ -610,26 +634,23 @@ R CodeGen::visitCall(CallExpression* expr) {
 }
 
 R CodeGen::visitMember(MemberExpression* expr) {
-    // produce (object) then OP_GET_PROPERTY name
+    // produce (object) then GetProperty name
     expr->object->accept(*this);
 
-    string propName;
     if (expr->computed) {
         // compute property expression now
         expr->property->accept(*this);
         emit(OpCode::GetPropertyDynamic);
         return true;
-        // pop the computed property -> evaluate to constant string at runtime not supported here
-        // Simplify: only support non-computed for codegen for now
-        // throw std::runtime_error("Computed member expressions not supported by this CodeGen yet.");
     } else {
-        propName = expr->name.lexeme;
+        string propName = expr->name.lexeme;
+        int nameIdx = emitConstant(Value::str(propName));
+        emit(OpCode::GetProperty);
+        emitUint32(nameIdx);
     }
 
-    int nameIdx = emitConstant(Value::str(propName));
-    emit(OpCode::GetProperty);
-    emitUint32(nameIdx);
     return true;
+    
 }
 
 R CodeGen::visitArray(ArrayLiteralExpression* expr) {
@@ -1158,7 +1179,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
          int nameIdx = emitConstant(Value::str(stmt->id));
          emitUint32(nameIdx);
     } else {
-        declareLocal(stmt->id);
+        declareLocal(stmt->id, BindingKind::Var);
         int slot = paramSlot(stmt->id);
         emit(OpCode::StoreLocal);
         // int nameIdx = emitConstant(Value::str(stmt->id));
@@ -1277,6 +1298,8 @@ R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     return true;
 }
 
+// TODO: check to make sure this is never used.
+// It is like assignments is visitBinary.
 R CodeGen::visitAssignment(AssignmentExpression* expr) {
     // Evaluate right-hand side
     expr->right->accept(*this);
@@ -1351,6 +1374,7 @@ R CodeGen::visitSequence(SequenceExpression* expr) {
     return true;
 }
 
+// returns old value
 R CodeGen::visitUpdate(UpdateExpression* expr) {
     // Identifiers: x++
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
@@ -1366,22 +1390,24 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
         emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::number(1)));
         emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
-        if (hasLocal(ident->name)) {
-            emit(OpCode::StoreLocal);
-            emitUint32(getLocal(ident->name));
-        } else {
-            
-            int upvalue = resolveUpvalue(ident->name);
-            if (upvalue != -1) {
-                emit(OpCode::SetUpvalue);
-                emitUint32(upvalue);
-                return R();
-            }
-
-            int nameIdx = emitConstant(Value::str(ident->name));
-            emit(OpCode::StoreGlobal);
-            emitUint32(nameIdx);
-        }
+        define(ident->name);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::StoreLocal);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            
+//            int upvalue = resolveUpvalue(ident->name);
+//            if (upvalue != -1) {
+//                emit(OpCode::SetUpvalue);
+//                emitUint32(upvalue);
+//                return R();
+//            }
+//
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::StoreGlobal);
+//            emitUint32(nameIdx);
+//        }
+        
         return true;
     }
     // Member expressions: obj.x++, arr[i]++, obj[prop]++
@@ -1393,7 +1419,7 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             emit(OpCode::Dup2);             // [obj, key, obj, key]
             emit(OpCode::GetPropertyDynamic); // [obj, key, value]
             emit(OpCode::LoadConstant);
-            emitUint32(emitConstant(Value::number(1)));
+            emitUint32(emitConstant(Value::number(1))); // [obj, key, value, 1]
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, key, result]
             emit(OpCode::SetPropertyDynamic); // [result]
             return true;
@@ -1875,7 +1901,7 @@ R CodeGen::visitTry(TryStatement* stmt) {
         beginScope();
         
         // Bind catch parameter (VM leaves exception value on stack)
-        declareLocal(stmt->handler->param);
+        declareLocal(stmt->handler->param, BindingKind::Var);
         emitSetLocal(paramSlot(stmt->handler->param));
 
         stmt->handler->body->accept(*this);
@@ -1913,7 +1939,7 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emit(OpCode::Dup);
     // get keys of object
     emit(OpCode::EnumKeys);
-    uint32_t keys_slot = makeLocal("__for_in_keys");
+    uint32_t keys_slot = makeLocal("__for_in_keys", BindingKind::Var);
     emit(OpCode::StoreLocal);
     emitUint32(keys_slot);
     // emit(OpCode::OP_POP);
@@ -1921,11 +1947,11 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emit(OpCode::Dup);
     emit(OpCode::GetObjectLength);
     
-    uint32_t length_slot = makeLocal("__for_in_length");
+    uint32_t length_slot = makeLocal("__for_in_length", BindingKind::Var);
     emit(OpCode::StoreLocal);
     emitUint32(length_slot);
 
-    uint32_t idx_slot = makeLocal("__for_in_idx");
+    uint32_t idx_slot = makeLocal("__for_in_idx", BindingKind::Var);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(0)));
     emit(OpCode::StoreLocal);
@@ -1961,17 +1987,18 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
-        uint32_t slot = makeLocal(ident->name);
+        uint32_t slot = makeLocal(ident->name, BindingKind::Var);
         emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
-        uint32_t slot = makeLocal(var_stmt->declarations[0].id);
+        uint32_t slot = makeLocal(var_stmt->declarations[0].id,
+                                  get_kind(var_stmt->kind));
         emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
-            uint32_t slot = makeLocal(ident->name);
+            uint32_t slot = makeLocal(ident->name, BindingKind::Var);
             emit(OpCode::StoreLocal);
             emitUint32(slot);
         }
@@ -2021,18 +2048,18 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
         
     emit(OpCode::Dup);
 
-    size_t __for_of_array_slot = makeLocal("__for_of_array");
+    size_t __for_of_array_slot = makeLocal("__for_of_array", BindingKind::Var);
     emit(OpCode::StoreLocal);
     emitUint32((uint32_t)__for_of_array_slot);
 
     emit(OpCode::GetObjectLength);
     // get array length
-    size_t length_slot = makeLocal("__for_of_length");
+    size_t length_slot = makeLocal("__for_of_length", BindingKind::Var);
     emit(OpCode::StoreLocal);
     emitUint32((uint32_t)length_slot);
     // emit(OpCode::OP_POP);
 
-    size_t idx_slot = makeLocal("__for_of_index");
+    size_t idx_slot = makeLocal("__for_of_index", BindingKind::Var);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value(0)));
     emit(OpCode::StoreLocal);
@@ -2066,17 +2093,17 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
-        uint32_t slot = makeLocal(ident->name);
+        uint32_t slot = makeLocal(ident->name, BindingKind::Var);
         emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
-        uint32_t slot = makeLocal(var_stmt->declarations[0].id);
+        uint32_t slot = makeLocal(var_stmt->declarations[0].id, get_kind(var_stmt->kind));
         emit(OpCode::StoreLocal);
         emitUint32(slot);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
-            uint32_t slot = makeLocal(ident->name);
+            uint32_t slot = makeLocal(ident->name, BindingKind::Var);
             emit(OpCode::StoreLocal);
             emitUint32(slot);
         }
@@ -2192,12 +2219,12 @@ int CodeGen::emitConstant(const Value &v) {
 //    return idx;
 //}
 
-uint32_t CodeGen::makeLocal(const std::string& name) {
+uint32_t CodeGen::makeLocal(const std::string& name, BindingKind kind) {
     for (int i = (int)locals.size() - 1; i >= 0; --i) {
         if (locals[i].name == name) return locals[i].slot_index;
     }
     uint32_t idx = (uint32_t)locals.size();
-    Local local{name, scopeDepth, false, idx};
+    Local local { name, scopeDepth, false, idx, kind };
     locals.push_back(local);
     if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
     return idx;
@@ -2314,7 +2341,7 @@ void CodeGen::patchTry(int pos) {
 //    return slot;
 //}
 
-void CodeGen::declareLocal(const string& name) {
+void CodeGen::declareLocal(const string& name, BindingKind kind) {
     if (scopeDepth == 0) return; // globals aren’t locals
 
     // prevent shadowing in same scope
@@ -2325,7 +2352,7 @@ void CodeGen::declareLocal(const string& name) {
         }
     }
 
-    Local local{ name, scopeDepth, false, (uint32_t)locals.size() };
+    Local local { name, scopeDepth, false, (uint32_t)locals.size(), kind };
     locals.push_back(local);
 }
 
@@ -2407,6 +2434,18 @@ bool CodeGen::isModuleLoaded(string importPath) {
 
 void CodeGen::registerModule(string importPath) {
     registered_modules.push_back(importPath);
+}
+
+BindingKind CodeGen::get_kind(string kind) {
+    if (kind == "CONST") {
+        return BindingKind::Const;
+    }
+    
+    if (kind == "LET") {
+        return BindingKind::Let;
+    }
+    
+    return BindingKind::Var;
 }
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset) {

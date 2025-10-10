@@ -31,6 +31,9 @@ using namespace std;
 
 struct ClassInfo {
     unordered_set<std::string> fields;
+    
+    unordered_set<string> publicFields;
+    unordered_set<string> privateFields;
 };
 
 struct LoopContext {
@@ -61,11 +64,28 @@ struct ClosureInfo {
     vector<UpvalueMeta> upvalues;
 };
 
+struct FieldInfo {
+      string name;
+      enum class Access { Public, Private } access;
+  };
+
+enum class BindingKind {
+    Var,
+    Let,
+    Const,
+};
+
 struct Local {
     string name;
     int depth;        // scope depth
     bool isCaptured;  // true if used by an inner function
     uint32_t slot_index;
+    BindingKind kind;
+};
+
+struct Global {
+    string name;
+    BindingKind kind;
 };
 
 using std::shared_ptr;
@@ -89,7 +109,7 @@ public:
     unordered_map<string, ClosureInfo> closure_infos;
 
     void emitAssignment(BinaryExpression* expr);
-    
+
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
     R visitVariable(VariableStatement* stmt) override;
@@ -153,6 +173,7 @@ private:
     // locals map for current function: name -> slot index
     // unordered_map<string, uint32_t> locals;
     vector<Local> locals;
+    vector<Global> globals;
     uint32_t nextLocalSlot = 0;
     vector<UpvalueMeta> upvalues;
     int scopeDepth;
@@ -170,7 +191,7 @@ private:
     void emitUint32(uint32_t v);
     void emitUint8(uint8_t v);
     int emitConstant(const Value &v);
-    uint32_t makeLocal(const string &name); // allocate a local slot
+    uint32_t makeLocal(const string &name, BindingKind kind); // allocate a local slot
     bool hasLocal(const string &name);
     uint32_t getLocal(const string &name);
     void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
@@ -180,7 +201,7 @@ private:
     void patchTryFinally(int tryPos, int target);
     void patchTryCatch(int tryPos, int target);
     
-    void declareLocal(const string& name);
+    void declareLocal(const string& name, BindingKind kind);
     void emitSetLocal(int slot);
     int paramSlot(const string& name);
     
@@ -202,12 +223,9 @@ private:
     int resolveUpvalue(const string& name);
     size_t disassembleInstruction(const Chunk* chunk, size_t offset);
     void disassembleChunk(const Chunk* chunk, const std::string& name);
+    BindingKind get_kind(string kind);
     
 };
 
 inline uint32_t readUint32(const Chunk* chunk, size_t offset);
-
-// size_t disassembleInstruction(const Chunk* chunk, size_t offset);
-
-// void disassembleChunk(const Chunk* chunk, const std::string& name);
 Token createToken(TokenType type);
