@@ -637,9 +637,9 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             case OpCode::SetPropertyDynamic: {
                 // Stack: ... obj, key, value
-                Value value = stack.back(); stack.pop_back();
-                Value key = stack.back(); stack.pop_back();
-                Value& obj = stack.back();
+                Value value = pop(); //.back(); stack.pop_back();
+                Value key = pop();//stack.back(); stack.pop_back();
+                Value obj = pop();//stack.back();
 
                 // Set property; assuming obj is some kind of associative object
                 // obj.setProperty(key, value);
@@ -647,7 +647,8 @@ Value VM::runFrame(CallFrame &current_frame) {
 
                 // Remove obj from stack, push result if needed (often value or obj)
                 // Here, we keep 'value' on top as result of assignment:
-                stack.back() = value;
+                //stack.back() = value;
+                push(value);
                 break;
             }
                 
