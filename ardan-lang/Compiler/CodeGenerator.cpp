@@ -115,34 +115,34 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
             emitUint32(ci);
         }
                 
-        // define(decl.id);
+        define(decl.id);
         
         // decide local or global
-        if (hasLocal(decl.id)) {
-            uint32_t idx = getLocal(decl.id);
-            
-            if (locals[idx].kind == BindingKind::Const) {
-                throw std::runtime_error("Assignment to constant variable.");
-            }
-
-            emit(OpCode::StoreLocal);
-            emitUint32(idx);
-        } else {
-
-            int upvalue = resolveUpvalue(decl.id);
-            if (upvalue != -1) {
-                emit(OpCode::SetUpvalue);
-                emitUint32(upvalue);
-                return R();
-            }
-
-            // top-level/global
-            int nameIdx = emitConstant(Value::str(decl.id));
-            emit(OpCode::CreateGlobal);
-            emitUint32((uint16_t)nameIdx);
-            emitUint32((uint16_t)get_kind(kind));
-            // TODO: add bits for var, let or const.
-        }
+//        if (hasLocal(decl.id)) {
+//            uint32_t idx = getLocal(decl.id);
+//            
+//            if (locals[idx].kind == BindingKind::Const) {
+//                throw std::runtime_error("Assignment to constant variable.");
+//            }
+//
+//            emit(OpCode::StoreLocal);
+//            emitUint32(idx);
+//        } else {
+//
+//            int upvalue = resolveUpvalue(decl.id);
+//            if (upvalue != -1) {
+//                emit(OpCode::SetUpvalue);
+//                emitUint32(upvalue);
+//                return R();
+//            }
+//
+//            // top-level/global
+//            int nameIdx = emitConstant(Value::str(decl.id));
+//            emit(OpCode::CreateGlobal);
+//            emitUint32((uint16_t)nameIdx);
+//            emitUint32((uint16_t)get_kind(kind));
+//            // TODO: add bits for var, let or const.
+//        }
         
     }
     
@@ -1379,6 +1379,7 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
     // Identifiers: x++
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
         ident->accept(*this);
+        emit(OpCode::Dup); // did this, so we leave the old alue on stack
 //        if (hasLocal(ident->name)) {
 //            emit(OpCode::OP_GET_LOCAL);
 //            emitUint32(getLocal(ident->name));
@@ -1416,25 +1417,38 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
             // Computed: arr[i]++ or obj[prop]++
             member->object->accept(*this);     // [obj]
             member->property->accept(*this);   // [obj, key]
+            emit(OpCode::GetPropertyDynamic); // [value]
+
+            member->object->accept(*this);     // [obj]
+            member->property->accept(*this);   // [obj, key]
             emit(OpCode::Dup2);             // [obj, key, obj, key]
             emit(OpCode::GetPropertyDynamic); // [obj, key, value]
             emit(OpCode::LoadConstant);
             emitUint32(emitConstant(Value::number(1))); // [obj, key, value, 1]
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, key, result]
             emit(OpCode::SetPropertyDynamic); // [result]
+            
+            emit(OpCode::Pop);
+
             return true;
         } else {
             // Non-computed: obj.x++
             member->object->accept(*this); // [obj]
-            emit(OpCode::Dup);          // [obj, obj]
-            int nameIdx = emitConstant(Value::str(member->name.lexeme));
             emit(OpCode::GetProperty);
-            emitUint32(nameIdx);           // [obj, value]
+            emitUint32(emitConstant(Value::str(member->name.lexeme)));           // [old_value]
+
+            member->object->accept(*this); // [old_value, obj]
+            emit(OpCode::Dup);          // [old_value, obj, obj]
+            emit(OpCode::GetProperty);
+            emitUint32(emitConstant(Value::str(member->name.lexeme)));           // [old_value, obj, value]
             emit(OpCode::LoadConstant);
-            emitUint32(emitConstant(Value::number(1)));
-            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [obj, result]
+            emitUint32(emitConstant(Value::number(1))); // [old_value, obj, value, 1]
+            emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract); // [old_value, obj, result]
             emit(OpCode::SetProperty);
-            emitUint32(nameIdx);           // [result]
+            emitUint32(emitConstant(Value::str(member->name.lexeme)));           // [old_value, result]
+            
+            emit(OpCode::Pop); // [old_value]
+
             return true;
         }
     }
