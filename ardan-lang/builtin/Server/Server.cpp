@@ -6,6 +6,7 @@
 //
 
 #include "Server.hpp"
+#include "../../Compiler/VM/VM.hpp"
 
 std::shared_ptr<JSObject> Server::construct() {
     
@@ -47,7 +48,11 @@ std::shared_ptr<JSObject> Server::construct() {
 
         // Call the "listening started" callback (on interpreter thread)
         // httpServer.listen(4201, () => print(`Listening on port ${port}`));
-        listenCallback.functionValue({});
+        if (listenCallback.type == ValueType::FUNCTION) {
+            listenCallback.functionValue({});
+        } else if (listenCallback.type == ValueType::CLOSURE) {
+            obj->vm->callFunction(listenCallback, {});
+        }
 
         // Register server_fd with event loop (onReadable will accept connections)
         event_loop->addSocket(server_fd,
