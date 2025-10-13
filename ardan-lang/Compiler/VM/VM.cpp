@@ -29,15 +29,17 @@ VM::~VM() {
 
 void VM::init_builtins() {
     
-        env->set_var("Math", make_shared<Math>());
-        env->set_var("console", make_shared<Print>());
-        env->set_var("fs", make_shared<File>());
-        //env->set_var("Server", make_shared<Server>(event_loop));
+    event_loop = new EventLoop();
     
-        env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
-            Print::print(args);
-            return Value::nullVal();
-        }));
+    env->set_var("Math", make_shared<Math>());
+    env->set_var("console", make_shared<Print>());
+    env->set_var("fs", make_shared<File>());
+    env->set_var("Server", make_shared<Server>(event_loop));
+    
+    env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
+        Print::print(args);
+        return Value::nullVal();
+    }));
     
 }
 
@@ -628,8 +630,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value key = pop();//stack.back(); stack.pop_back();
                 Value obj = pop();//stack.back();
 
-                // Set property; assuming obj is some kind of associative object
-                // obj.setProperty(key, value);
+                // Set property;
                 setProperty(obj, key.toString(), value);
 
                 // Remove obj from stack, push result if needed (often value or obj)
@@ -672,7 +673,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value val = pop();
                 Value arrVal = pop();
                 if (arrVal.type != ValueType::ARRAY)
-                    throw std::runtime_error("OP_ARRAY_PUSH: target not array");
+                    throw std::runtime_error("ArrayPush: target not array");
                 arrVal.arrayValue->push({val});
                 push(arrVal);
                 break;
@@ -851,7 +852,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                         notEqual = a.objectValue != b.objectValue;
                     else if (a.type == ValueType::ARRAY)
                         notEqual = a.arrayValue != b.arrayValue;
-                    // etc.
+                    // add any types we missed
                 }
                 push(Value::boolean(notEqual));
                 break;
@@ -955,12 +956,9 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             case OpCode::Call: {
                 uint32_t argCount = readUint8();
-                // top-of-stack should be the callee value (function ref)
-                // Value callee = peek(argCount); // or adjust as per your calling convention
                 vector<Value> args = popArgs(argCount);
                 Value callee = pop();
                 Value result = callFunction(callee, args);
-                // push result
                 
                 push(result);
                 break;
@@ -1139,7 +1137,6 @@ Value VM::runFrame(CallFrame &current_frame) {
             case OpCode::Halt:
                 return Value::undefined();
 
-            // --- Closure creation ---
             case OpCode::CreateClosure: {
                 uint32_t ci = readUint8();
                 Value fnVal = module_->constants[ci]; // chunk->constants[ci];
@@ -1147,7 +1144,8 @@ Value VM::runFrame(CallFrame &current_frame) {
                 auto closure = make_shared<Closure>();
                 closure->fn = fnRef;
 
-                push(Value::closure(closure));
+                // Push a Value wrapping this closure
+                push(Value::closure(closure)); // Adjust to push closure Value if implemented
 
                 for (size_t i = 0; i < fnRef->upvalues_size; ++i) {
                     // Read upvalue info (isLocal, index)
@@ -1159,9 +1157,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                         closure->upvalues.push_back(frame->closure->upvalues[idx]);
                     }
                 }
-                // Push a Value wrapping this closure
-                // Assuming you extend Value to support closure type; else push functionRef
-                // push(Value::closure(closure)); // Adjust to push closure Value if implemented
                 break;
             }
 

@@ -75,17 +75,20 @@ struct TryFrame {
 };
 
 class VM {
+
 public:
-    VM();
     
+    VM();
+    VM(shared_ptr<Module> module_ = nullptr);
+    ~VM();
+
     // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<Chunk> chunk, const vector<Value>& args = {});
     
     // Globals
     Env* env;
-    
-    VM(shared_ptr<Module> module_ = nullptr);
-    ~VM();
+    EventLoop* event_loop;
+
     Value callFunction(Value callee, vector<Value>& args);
     
 private:
