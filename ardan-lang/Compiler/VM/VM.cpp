@@ -38,6 +38,7 @@ void VM::init_builtins() {
             Print::print(args);
             return Value::nullVal();
         }));
+    
 }
 
 // Add members to VM class (assumed in VM.hpp):
@@ -329,21 +330,9 @@ Value VM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
 Value VM::runFrame(CallFrame &current_frame) {
     
     if (callStack.empty()) return Value::undefined();
-    // CallFrame &frame = callStack.back();
-
-    // Save current VM-level chunk/ip/locals to restore after this frame (if they are used elsewhere)
-    //auto prevChunk = chunk;
-    // size_t prevIp = ip;
-    //auto prevLocals = std::move(locals); // move out current locals (if you rely on them elsewhere)
-    // We'll restore them at the end.
 
     // Point VM at this frame's chunk/locals
     frame = &current_frame;
-    // chunk = frame.chunk;
-    // ip = frame.ip;
-    
-    // locals = frame.locals; // copy frame locals into VM locals for existing opcode handlers
-    //deque<Value>& locals = frame.locals;
 
     while (true) {
         OpCode op = static_cast<OpCode>(readByte());
@@ -421,7 +410,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                 string name = nameVal.toString();
                 Value v = pop();
                 
-                // globals[name] = v;
                 env->set_var(name, v);
                 
                 break;
@@ -434,7 +422,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                 string name = nameVal.toString();
                 Value v = pop();
                 
-                // globals[name] = v;
                 env->set_var(name, v);
                 
                 break;
@@ -686,7 +673,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value arrVal = pop();
                 if (arrVal.type != ValueType::ARRAY)
                     throw std::runtime_error("OP_ARRAY_PUSH: target not array");
-                // arrVal.arrayValue->push(val);
                 arrVal.arrayValue->push({val});
                 push(arrVal);
                 break;
@@ -1156,13 +1142,10 @@ Value VM::runFrame(CallFrame &current_frame) {
             // --- Closure creation ---
             case OpCode::CreateClosure: {
                 uint32_t ci = readUint8();
-                Value fnVal = module_->constants[ci]; //chunk->constants[ci];
-                auto fnRef = fnVal.fnRef; // Should be FunctionObject*
-                // fnRef->vm = this;
+                Value fnVal = module_->constants[ci]; // chunk->constants[ci];
+                auto fnRef = fnVal.fnRef; // FunctionObject*
                 auto closure = make_shared<Closure>();
                 closure->fn = fnRef;
-                // Assume upvalue count is stored in fnRef->arity or fnRef->upvalueCount
-                // Here using fnRef->arity as placeholder
 
                 push(Value::closure(closure));
 
@@ -1219,36 +1202,8 @@ Value VM::runFrame(CallFrame &current_frame) {
 
 Value VM::callMethod(Value callee, vector<Value>& args, Value js_object) {
 
-    if (callee.type == ValueType::CLOSURE) {
-
-        shared_ptr<Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
-        
-        // Build new frame
-        CallFrame new_frame;
-        new_frame.chunk = calleeChunk;
-        new_frame.ip = 0;
-        new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
-        new_frame.args = args;
-        new_frame.closure = callee.closureValue;
-        new_frame.js_object = js_object.objectValue;
-
-        callStack.push_back(std::move(new_frame));
-        auto prev_stack = std::move(stack);
-        stack.clear();
-
-        Value result = runFrame(callStack.back());
-        
-        callStack.pop_back();
-        frame = &callStack.back();
-        
-        stack = std::move(prev_stack);
-
-        return result;
-        
-    }
+    return callFunction(js_object, args);
     
-    return Value::undefined();
-
 }
 
 Value VM::callFunction(Value callee, vector<Value>& args) {
@@ -1261,16 +1216,7 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     
     if (callee.type == ValueType::CLOSURE) {
 
-        // save current frame
-        //CallFrame prev_frame = callStack.back();
-        // prev_frame.chunk = frame->chunk;
-        // prev_frame.ip = frame->ip;
-        // prev_frame.locals = frame->locals;
-        // prev_frame.args = args;
-
         shared_ptr<Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
-
-        //callee = Value::functionRef(callee.closureValue->fn);
         
         // Build new frame
         CallFrame new_frame;
@@ -1280,25 +1226,20 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
         new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
-        new_frame.js_object = callee.closureValue->js_object;
+        // new_frame.js_object = callee.closureValue->js_object;
 
         // Set frame.closure if calling a closure
         // Assuming callee has a closurePtr member for Closure shared_ptr
         // If you extended Value for closure type, set here:
-        // frame.closure = callee.closurePtr; // may be nullptr if callee is plain functionRef
         callStack.push_back(std::move(new_frame));
         auto prev_stack = std::move(stack);
         stack.clear();
-        // locals.clear();
 
         Value result = runFrame(callStack.back());
         
         callStack.pop_back();
         frame = &callStack.back();
         
-//        chunk = prev_frame.chunk;
-//        ip = prev_frame.ip;
-//        locals = std::move(prev_frame.locals);
         stack = std::move(prev_stack);
 
         return result;
@@ -1306,10 +1247,6 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     }
 
     if (callee.type == ValueType::NATIVE_FUNCTION) {
-//        args.push_back(Value::function([this](vector<Value> args) -> Value {
-//            // this->callFunction(<#Value callee#>, <#vector<Value> &args#>)
-//            return Value::nullVal();
-//        }));
         Value result = callee.nativeFunction(args);
         return result;
     }
@@ -1348,15 +1285,10 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
 
     // save current frame
     CallFrame prev_frame = callStack.back();
-//    prev_frame.chunk = chunk;
-//    prev_frame.ip = ip;
-//    prev_frame.locals = std::move(locals);
     
     auto prev_stack = std::move(stack);
     stack.clear();
     
-    //locals.clear();
-
     // copy args into frame.locals[0..]
     uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
     for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
@@ -1364,29 +1296,11 @@ Value VM::callFunction(Value callee, vector<Value>& args) {
     // push frame and execute it
     callStack.push_back(std::move(new_frame));
 
-    // Env* previous = env;
-    //prev_frame.env = previous;
-        
-//    if (fn->env) {
-//        env = fn->env;
-//    } else {
-        //env = new Env(previous);
-//    }
-
     Value result = runFrame(callStack.back());
     
-//    if (result.type == ValueType::FUNCTION_REF && result.fnRef->env == nullptr) {
-//        result.fnRef->env = new Env(env);
-//    }
-    
-    //env = previous;
-
     callStack.pop_back();
     frame = &prev_frame;
 
-//    chunk = prev_frame.chunk;
-//    ip = prev_frame.ip;
-//    locals = std::move(prev_frame.locals);
     stack = prev_stack;
 
     return result;

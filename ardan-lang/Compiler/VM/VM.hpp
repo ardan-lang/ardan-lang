@@ -64,7 +64,7 @@ struct CallFrame {
     
     vector<Value> args;  // <-- Store actual call arguments here
     shared_ptr<Closure> closure;
-    shared_ptr<JSObject> js_object;
+    // shared_ptr<JSObject> js_object;
 };
 
 struct TryFrame {
@@ -82,7 +82,6 @@ public:
     Value run(shared_ptr<Chunk> chunk, const vector<Value>& args = {});
     
     // Globals
-    // unordered_map<string, Value> globals;
     Env* env;
     
     VM(shared_ptr<Module> module_ = nullptr);
@@ -101,17 +100,13 @@ private:
     const unordered_map<string, Value> enumerateKeys(Value obj);
     void set_js_object_closure(Value objVal);
     
-    // execute the top-most frame until it returns (OP_RETURN)
+    // execute the top-most frame until it returns (Return)
     Value runFrame(CallFrame &frame);
     void handleRethrow();
-    // bool running = true;
     vector<TryFrame> tryStack;
     
     // execution state for a run
-    //shared_ptr<Chunk> chunk;
-    //size_t ip = 0;
     deque<Value> stack;
-    //deque<Value> locals; // locals[0..maxLocals-1]
     CallFrame* frame;
     
     void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
