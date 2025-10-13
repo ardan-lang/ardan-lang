@@ -89,6 +89,10 @@ std::visit([&](auto&& arg) {
         v.type = ValueType::OBJECT;
         v.objectValue = arg;
     }
+    else if constexpr (std::is_same_v<T, std::shared_ptr<JSClass>>) {
+        v.type = ValueType::CLASS;
+        v.classValue = arg;
+    }
     else if constexpr (std::is_same_v<T, std::shared_ptr<JSArray>>) {
         v.type = ValueType::ARRAY;
         v.arrayValue = arg;
