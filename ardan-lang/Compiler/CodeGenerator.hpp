@@ -106,7 +106,7 @@ public:
     
     size_t generate(const vector<unique_ptr<Statement>> &program);
     
-    unordered_map<string, ClosureInfo> closure_infos;
+    unordered_map<string, ClosureInfo> closure_infos = {};
 
     void emitAssignment(BinaryExpression* expr);
 
@@ -224,8 +224,8 @@ private:
     size_t disassembleInstruction(const Chunk* chunk, size_t offset);
     void disassembleChunk(const Chunk* chunk, const std::string& name);
     BindingKind get_kind(string kind);
-    
+    inline uint32_t readUint32(const Chunk* chunk, size_t offset);
+    Token createToken(TokenType type);
+
 };
 
-inline uint32_t readUint32(const Chunk* chunk, size_t offset);
-Token createToken(TokenType type);

@@ -7,6 +7,16 @@
 
 #include "CodeGenerator.hpp"
 
+class StringPool {
+    unordered_map<string, shared_ptr<string>> pool;
+public:
+    shared_ptr<string> intern(const string& s) {
+        auto [it, inserted] = pool.emplace(s, nullptr);
+        if (inserted) it->second = make_shared<string>(s);
+        return it->second;
+    }
+};
+
 CodeGen::CodeGen() : cur(nullptr), nextLocalSlot(0) { }
 
 size_t CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
@@ -37,7 +47,6 @@ R CodeGen::visitExpression(ExpressionStatement* stmt) {
 }
 
 R CodeGen::visitBlock(BlockStatement* stmt) {
-    // naive: just compile statements in current context (no block-scoped locals handling)
     
     beginScope();
     
@@ -1159,13 +1168,12 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
 
-    // emit(OpCode::OP_LOAD_CHUNK_INDEX);
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
     ClosureInfo closure_info = {};
     closure_info.ci = ci;
-    closure_info.upvalues = upvalues;
+    closure_info.upvalues = nested.upvalues;
 
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
@@ -1220,23 +1228,6 @@ R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     }
     return true;
 }
-
-//R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
-//    // Keep simple: perform import at compile time by executing parser+interpreter OR
-//    // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
-//    // Generate: push path string -> call import(path)
-//    int ci = emitConstant(Value::str(stmt->path.lexeme));
-//    emit(OpCode::LoadConstant);
-//    emitUint32(ci);
-//    // callee (import)
-//    int importName = emitConstant(Value::str("import"));
-//    emit(OpCode::OP_GET_GLOBAL);
-//    emitUint32(importName);
-//    emit(OpCode::OP_CALL);
-//    emitUint8(1);
-//    emit(OpCode::OP_POP);
-//    return true;
-//}
 
 string CodeGen::resolveImportPath(ImportDeclaration* stmt) {
     
@@ -1357,6 +1348,7 @@ R CodeGen::visitThis(ThisExpression* expr) {
     return true;
 }
 
+// TODO: check to make sure this is never used.
 R CodeGen::visitProperty(PropertyExpression* expr) {
 //    expr->object->accept(*this);
 //    int nameIdx = emitConstant(Value::str(expr->name.lexeme));
@@ -2180,7 +2172,109 @@ R CodeGen::visitRestParameter(RestParameter* expr) {
 }
 
 R CodeGen::visitClassExpression(ClassExpression* expr) {
+    
+    // Evaluate superclass (if any)
+    if (expr->superClass) {
+        expr->superClass->accept(*this); // [superclass]
+    } else {
+        emit(OpCode::LoadConstant);
+        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
+    }
+
+    // Create the class object (with superclass on stack)
+    emit(OpCode::NewClass); // pops superclass, pushes new class object
+
+    // Define fields
+    for (auto& field : expr->fields) {
+        // Only handle static fields during class definition codegen
+        bool isStatic = false;
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+        // if (!isStatic)
+            // continue;
+
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            for (const auto& decl : varStmt->declarations) {
+                
+                classInfo.fields.insert(decl.id);
+                
+                if (decl.init) {
+                    decl.init->accept(*this); // Evaluate initializer
+                } else {
+                    emit(OpCode::LoadConstant);
+                    emitUint32(emitConstant(Value::undefined()));
+                }
+                int nameIdx = emitConstant(Value::str(decl.id));
+                
+                if (isStatic) {
+                    emit(OpCode::SetStaticProperty);
+                } else {
+                    emit(OpCode::SetProperty);
+                }
+                
+                emitUint32(nameIdx);
+            }
+        }
+    }
+    
+    for (auto& method : expr->body) {
+        
+        // Check if 'static' modifier is present
+        bool isStatic = false;
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+
+        if (!isStatic) {
+            classInfo.fields.insert(method->name);
+        }
+
+    }
+
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : expr->body) {
+        // Compile the method as a function object
+        compileMethod(*method); // leaves function object on stack
+
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        
+        // Check if 'static' modifier is present
+        bool isStatic = false;
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+
+        if (isStatic) {
+            emit(OpCode::SetStaticProperty);
+            emitUint32(nameIdx); // Pops class and function, sets property on class object
+        } else {
+            emit(OpCode::SetProperty);
+            emitUint32(nameIdx); // Pops class and function, sets on prototype
+        }
+    }
+
+    // Bind class in the environment (global)
+    // int classNameIdx = emitConstant(Value::str(expr->id));
+    // emit(OpCode::CreateGlobal);
+    // emitUint32(classNameIdx);
+
+    // clear class info
+    classInfo.fields.clear();
+
     return true;
+    
 }
 
 // --------------------- Utils ----------------------
@@ -2462,7 +2556,7 @@ BindingKind CodeGen::get_kind(string kind) {
     return BindingKind::Var;
 }
 
-inline uint32_t readUint32(const Chunk* chunk, size_t offset) {
+inline uint32_t CodeGen::readUint32(const Chunk* chunk, size_t offset) {
     return (uint32_t)chunk->code[offset] |
            ((uint32_t)chunk->code[offset + 1] << 8) |
            ((uint32_t)chunk->code[offset + 2] << 16) |
@@ -2562,67 +2656,41 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-//        case OpCode::CreateClosure: {
-//            //            emit(OpCode::OP_CLOSURE);
-//            //            emitUint8((uint8_t)ci);
-//            //
-//            //            // Emit upvalue descriptors
-//            //            for (auto& uv : nested.upvalues) {
-//            //                emitUint8(uv.isLocal ? 1 : 0);
-//            //                emitUint8(uv.index);
-//            //            }
-//            
-//            cout << opcodeToString(op);
-//
-//            // index: 8 uint
-//            uint8_t ci = chunk->code[offset + 1];
-//            
-//            cout << " module-constant-index: [" << (int)chunk->code[offset + 1] << "]";
-//            
-//            auto closure_info = closure_infos[to_string(ci)];
-//
-//            if (closure_info != NULL) {
-//                for (auto& uv : upvalues) {
-//                    
-//                    // is local:
-//                    cout << "isLocal: [" << chunk->code[offset + 1 + 1];
-//                    cout << "] ";
-//                    // idx
-//                    cout << "Index: [" << chunk->code[offset + 1 + 1 + 1] << "]";
-//                    
-//                }
-//            } else {
-//                cout << endl;
-//                return offset + 2;
-//            }
-//            cout << endl;
-//            
-//            return offset + 1 + 1 + 1 + 1;
-//            
-//        }
-            
         case OpCode::CreateClosure: {
-            std::cout << opcodeToString(op);
+            
+            cout << opcodeToString(op);
 
-            uint8_t ci = chunk->code[offset + 1];
-            std::cout << " module-constant-index: [" << (int)ci << "]";
+            size_t index = offset;
 
-            // Lookup closure info by ci (as string)
-            auto it = closure_infos.find(std::to_string(ci));
-            if (it != closure_infos.end()) {
-                const ClosureInfo& info = it->second;
-                for (size_t i = 0; i < info.upvalues.size(); ++i) {
-                    const auto& uv = info.upvalues[i];
-                    std::cout << " upvalue[" << i << "]: isLocal=" << (uv.isLocal ? "true" : "false")
-                              << " index=" << (int)uv.index;
+            index++;
+            uint8_t ci = chunk->code[index];
+            
+            cout << " module-constant-index: [" << (int)ci << "]";
+            Value fnVal = module_->constants[ci];
+            auto fnRef = fnVal.fnRef;
+            
+            if (fnRef->upvalues_size > 0) {
+                for (size_t i = 0; i < fnRef->upvalues_size; ++i) {
+                    // Read upvalue info (isLocal, index)
+                    
+                    index++;
+                    uint32_t isLocal = chunk->code[index];
+                    
+                    index++;
+                    uint32_t idx = chunk->code[index];
+                    
+                    cout << " upvalue[" << i << "]: isLocal=" << (isLocal ? "true" : "false") << " index=" << (int)idx;
+                    cout << "\n";
+                    
                 }
-                std::cout << "\n";
-                // opcode (1) + ci (1) + 2*upvalue_count
-                return offset + 2 + info.upvalues.size() * 2;
+                
             } else {
-                std::cout << " (closure metadata not found)\n";
-                return offset + 2;
+                cout << " (closure metadata not found)\n";
+                return index + 1;
             }
+            
+            return index + 1;
+            
         }
             
         case OpCode::ArrayPush: {
@@ -2683,7 +2751,7 @@ void CodeGen::disassembleChunk(const Chunk* chunk, const std::string& name) {
     }
 }
 
-Token createToken(TokenType type) {
+Token CodeGen::createToken(TokenType type) {
     Token token;
     token.type = type;
     return token;
