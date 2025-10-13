@@ -226,6 +226,7 @@ void VM::set_js_object_closure(Value objVal) {
 shared_ptr<JSObject> VM::createJSObject(shared_ptr<JSClass> klass) {
     
     shared_ptr<JSObject> object = make_shared<JSObject>();
+    object->vm = this;
     object->setClass(klass);
 
     makeObjectInstance(Value::klass(klass), object);
@@ -269,7 +270,10 @@ void VM::invokeMethod(Value obj_value, string name, vector<Value> args) {
     
     if (obj_value.type == ValueType::OBJECT) {
         Value constructor = obj_value.objectValue->get(name);
-        callMethod(constructor, args, obj_value);
+        // TODO: check whether to throw error
+        if (constructor.type != ValueType::UNDEFINED) {
+            callMethod(constructor, args, obj_value);
+        }
     }
     
 }
@@ -393,11 +397,17 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
                 
-//                if (globals.find(name) != globals.end()) push(globals[name]);
-//                else push(Value::undefined());
+                // if (globals.find(name) != globals.end()) push(globals[name]);
+                // else push(Value::undefined());
                 
                 try {
-                    push(toValue(env->get(name)));
+                    
+                    R env_value = env->get(name);
+                    
+                    Value env_value_conv = toValue(env_value);
+                    
+                    push(env_value_conv);
+                    
                 } catch(...) {
                     push(Value::undefined());
                 }
@@ -521,11 +531,19 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value klass = pop();
 
                 if (klass.classValue->is_native == true) {
-                    shared_ptr<JSObject> native_klass = klass.classValue->construct();
                     
-                    Value obj_value;
-                    obj_value.type = ValueType::OBJECT;
-                    obj_value.objectValue = native_klass;
+                    // add constructor
+                    setProperty(klass, "constructor", addCtor());
+
+                    shared_ptr<JSObject> native_object = klass.classValue->construct();
+
+                    Value obj_value = Value::object(native_object);
+                    obj_value.objectValue->vm = this;
+
+                    set_js_object_closure(obj_value);
+
+                    // obj_value.type = ValueType::OBJECT;
+                    // obj_value.objectValue = native_klass;
 
                     push(obj_value);
 
@@ -1201,7 +1219,7 @@ Value VM::callMethod(Value callee, vector<Value>& args, Value js_object) {
     
 }
 
-Value VM::callFunction(Value callee, vector<Value>& args) {
+Value VM::callFunction(Value callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
         // call host function (native or compiled wrapper)

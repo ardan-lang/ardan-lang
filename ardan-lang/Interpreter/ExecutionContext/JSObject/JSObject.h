@@ -16,6 +16,8 @@
 
 using namespace std;
 
+class VM;
+
 class JSObject {
 
 protected:
@@ -29,6 +31,8 @@ protected:
     shared_ptr<JSClass> js_class;
 
 public:
+
+    VM* vm;
 
     shared_ptr<JSClass> parent_class;
     shared_ptr<JSObject> parent_object;

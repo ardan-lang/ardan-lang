@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include "JSObject.h"
+#include "../../../Compiler/VM/VM.hpp"
 
 bool JSObject::operator==(const JSObject& other) const {
     return this == &other;

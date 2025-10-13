@@ -25,8 +25,6 @@ class JSArray : public JSObject {
 
 public:
     
-    VM* vm;
-
     JSArray() {
         
         init_builtins();

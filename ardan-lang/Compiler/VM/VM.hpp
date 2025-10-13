@@ -89,8 +89,9 @@ public:
     Env* env;
     EventLoop* event_loop;
 
-    Value callFunction(Value callee, vector<Value>& args);
-    
+    Value callFunction(Value callee, const vector<Value>& args);
+    // Value callFunction(Value callee, const vector<Value>& args);
+
 private:
     shared_ptr<Module> module_ = nullptr;               // set at construction or by caller
     
@@ -130,7 +131,6 @@ private:
     Value getProperty(const Value &objVal, const string &propName);
     void setProperty(const Value &objVal, const string &propName, const Value &val);
     void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
-    Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
