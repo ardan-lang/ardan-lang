@@ -1264,7 +1264,7 @@ R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     Scanner scanner(source);
     auto tokens = scanner.getTokens();
     
-    // ✅ pass the resolved file path into the parser
+    // pass the resolved file path into the parser
     Parser parser(tokens);
     parser.sourceFile = importPath;
     auto ast = parser.parse();
@@ -1272,21 +1272,12 @@ R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     // Register the imported module BEFORE compiling to handle cycles
     registerModule(importPath);
 
-    // Compile/generate code for the imported program
-    // CodeGen importGen(module_);
-    // importGen.modulePath = importPath;
-    // importGen.generate(importedProgram->body);
-
     for (const auto &s : ast) {
         s->accept(*this);
     }
 
-    // Optionally, bind imported symbols into the current module's scope
-    // (e.g., handle named imports, 'import * as', etc.)
-    // For simplicity, this is omitted here.
-
-    // No code emission needed (import is compile-time)
     return true;
+    
 }
 
 // TODO: check to make sure this is never used.

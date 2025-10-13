@@ -31,9 +31,6 @@ void Compiler::test_compile(const std::vector<std::unique_ptr<Statement>>& ast) 
     auto entryChunkIndex = codegen->generate(ast);
     module_->entryChunkIndex = (uint32_t)entryChunkIndex;
 
-    // VM vm(module_);
-    // vm.run(entryChunk);
-
     std::string outputFilename = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/myprogram.adar";
     uint32_t version = 1;
 
