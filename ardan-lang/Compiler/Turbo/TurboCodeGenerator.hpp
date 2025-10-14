@@ -13,20 +13,46 @@
 #include <iostream>
 
 
-#include "../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../Statements/StatementVisitor.hpp"
-#include "../Statements/Statements.hpp"
-#include "../Expression/Expression.hpp"
-#include "../Interpreter/Utils/Utils.h"
+#include "../../ExpressionVisitor/ExpressionVisitor.hpp"
+#include "../../Statements/StatementVisitor.hpp"
+#include "../../Statements/Statements.hpp"
+#include "../../Expression/Expression.hpp"
+#include "../../Interpreter/Utils/Utils.h"
 
-#include "VM/Bytecode.hpp"
-#include "VM/Chunk.hpp"
-#include "VM/TurboVM.hpp"
-#include "VM/Module.hpp"
+#include "./Bytecode.hpp"
+#include "./Chunk.hpp"
+#include "./TurboVM.hpp"
+#include "../VM/Module.hpp"
 
 using namespace std;
 
 namespace ArdanTurboCodeGen {
+
+enum class BindingKind {
+    Var,
+    Let,
+    Const,
+};
+
+struct LocalScope {
+    unordered_map<string, Value> locals;
+    LocalScope* parent = nullptr;
+};
+
+class RegisterAllocator {
+    uint32_t nextReg = 1; // reserve 0 for special uses if needed
+    vector<uint32_t> freeRegs;
+public:
+    uint32_t alloc() {
+        if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
+        return nextReg++;
+    }
+    void free(uint32_t r) {
+        if (r==0) return; // don't free 0
+        freeRegs.push_back(r);
+    }
+    void reset() { nextReg = 1; freeRegs.clear(); }
+};
 
 struct LoopContext {
     int loopStart;              // address of loop condition start
@@ -56,6 +82,12 @@ struct Local {
     int depth;        // scope depth
     bool isCaptured;  // true if used by an inner function
     uint32_t slot_index;
+    BindingKind kind;
+};
+
+struct Global {
+    string name;
+    BindingKind kind;
 };
 
 using std::shared_ptr;
@@ -64,12 +96,81 @@ using std::string;
 using std::vector;
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
+
+private:
+    shared_ptr<Chunk> cur; // current chunk being emitted
+    // locals map for current function: name -> slot index
+    // unordered_map<string, uint32_t> locals;
+    int scopeDepth;
+    TurboCodeGen* enclosing;
+    R create(string decl, uint32_t reg_slot, BindingKind kind);
+    BindingKind get_kind(string kind);
+    
+    // helpers
+    void emit(OpCode op);
+    void emitUint32(uint32_t v);
+    void emitUint8(uint8_t v);
+    int emitConstant(const Value &v);
+    uint32_t makeLocal(const string &name); // allocate a local slot
+    bool hasLocal(const string &name);
+    uint32_t getLocal(const string &name);
+    void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
+    
+    int emitTryPlaceholder();
+    void patchTry(int pos);
+    void patchTryFinally(int tryPos, int target);
+    void patchTryCatch(int tryPos, int target);
+    
+    int declareLocal(const string& name);
+    void emitSetLocal(int slot);
+    int paramSlot(const string& name);
+    int resolveLocal(const string& name);
+    int lookupLocalSlot(const std::string& name);
+    
+    // jump helpers
+    int emitJump(OpCode op, int cond_reg);
+    int emitJump(OpCode op);
+    void patchJump(int jumpPos);
+    void patchJump(int jumpPos, int target);
+    void emitLoop(uint32_t offset);
+    void emit(OpCode op, int a, int b, int c);
+    void emit(OpCode op, int a);
+    void emit(OpCode op, int a, int b);
+    
+    void beginLoop();
+    void endLoop();
+    vector<LoopContext> loopStack;
+    
+    vector<ExceptionHandler> handlerStack;
+    
+    void beginScope();
+    void endScope();
+    int addUpvalue(bool isLocal, int index);
+    int resolveUpvalue(const string& name);
+    
+    // int declareLocal(const std::string& name);
+    
+    inline uint32_t readUint32(const Chunk* chunk, size_t offset);
+    
+    size_t disassembleInstruction(const Chunk* chunk, size_t offset);
+    
+    void disassembleChunk(const Chunk* chunk, const std::string& name);
+    Token createToken(TokenType type);
+
 public:
     TurboCodeGen();
     TurboCodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
     shared_ptr<Module> module_;
+    int nextRegister = 0;
     
-    // shared_ptr<Chunk> generate(const vector<unique_ptr<Statement>> &program);
+    vector<Local> locals;
+    vector<Global> globals;
+    uint32_t nextLocalSlot = 0;
+    vector<UpvalueMeta> upvalues;
+    
+    int allocRegister();
+    void freeRegister();
+    
     size_t generate(const vector<unique_ptr<Statement>> &program);
     
     void emitAssignment(BinaryExpression* expr);
@@ -131,60 +232,7 @@ public:
     R visitTry(TryStatement* stmt) override;
     R visitForIn(ForInStatement* stmt) override;
     R visitForOf(ForOfStatement* stmt) override;
-    
-private:
-    shared_ptr<Chunk> cur; // current chunk being emitted
-    // locals map for current function: name -> slot index
-    unordered_map<string, uint32_t> locals;
-    // unordered_map<string, Local> locals;
-    uint32_t nextLocalSlot = 0;
-    //vector<UpvalueMeta> upvalues;
-    //int scopeDepth;
-    //CodeGen* enclosing;
-    
-    // helpers
-    void emit(OpCode op);
-    void emitUint32(uint32_t v);
-    void emitUint8(uint8_t v);
-    int emitConstant(const Value &v);
-    uint32_t makeLocal(const string &name); // allocate a local slot
-    bool hasLocal(const string &name);
-    uint32_t getLocal(const string &name);
-    void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
-    
-    int emitTryPlaceholder();
-    void patchTry(int pos);
-    void patchTryFinally(int tryPos, int target);
-    void patchTryCatch(int tryPos, int target);
-    
-    int declareLocal(const string& name);
-    void emitSetLocal(int slot);
-    int paramSlot(const string& name);
-    
-    // jump helpers
-    int emitJump(OpCode op);
-    void patchJump(int jumpPos);
-    void patchJump(int jumpPos, int target);
-    void emitLoop(uint32_t offset);
-    
-    void beginLoop();
-    void endLoop();
-    vector<LoopContext> loopStack;
-    
-    vector<ExceptionHandler> handlerStack;
-    
-    void beginScope();
-    void endScope();
-    int addUpvalue(bool isLocal, int index);
-    int resolveUpvalue(const string& name);
-    
-    inline uint32_t readUint32(const Chunk* chunk, size_t offset);
-    
-    size_t disassembleInstruction(const Chunk* chunk, size_t offset);
-    
-    void disassembleChunk(const Chunk* chunk, const std::string& name);
-    Token createToken(TokenType type);
-    
+        
 };
 
 }

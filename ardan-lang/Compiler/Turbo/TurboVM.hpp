@@ -47,11 +47,10 @@ using std::string;
 struct CallFrame {
     shared_ptr<Chunk> chunk;
     size_t ip = 0;                    // instruction pointer for this frame
-    vector<Value> locals;        // local slots for this frame
+    deque<Value> locals;        // local slots for this frame
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
     
     vector<Value> args;  // <-- Store actual call arguments here
-    Env* env;
 };
 
 struct TryFrame {
@@ -70,8 +69,9 @@ struct Upvalue {
 };
 
 struct Closure {
-    std::shared_ptr<FunctionObject> fn; // FunctionObject (from Value.h)
-    std::vector<std::shared_ptr<Upvalue>> upvalues;
+    shared_ptr<FunctionObject> fn;
+    vector<shared_ptr<Upvalue>> upvalues;
+    shared_ptr<JSObject> js_object;
 };
 
 class TurboVM {
@@ -98,18 +98,14 @@ private:
     std::vector<Value> popArgs(size_t count);
     
     // execute the top-most frame until it returns (OP_RETURN)
-    Value runFrame();
+    Value runFrame(CallFrame &current_frame);
     void handleRethrow();
     bool running = true;
     vector<TryFrame> tryStack;
     
     // execution state for a run
-    shared_ptr<Chunk> chunk;
-    size_t ip = 0;
-    vector<Value> stack;
-    vector<Value> locals; // locals[0..maxLocals-1]
+    CallFrame* frame;
     
-    void push(const Value &v) { stack.push_back(v); }
     Value pop();
     Value peek(int distance = 0);
     uint8_t readByte();
