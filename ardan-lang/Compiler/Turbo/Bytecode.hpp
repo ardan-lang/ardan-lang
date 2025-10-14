@@ -28,12 +28,45 @@ enum class OpCode : uint8_t {
 
     Move,
     Add, // dest, lhs, rhs
-    Sub, // dest, lhs, rhs
-    Mul, // dest, lhs, rhs
-    Div, // dest, lhs, rhs
+    Subtract, // dest, lhs, rhs
+    Multiply, // dest, lhs, rhs
+    Divide, // dest, lhs, rhs
+    Modulo,
+    Power,
+    
     Call,
     Return, // src
     
+    Negate,
+    LogicalNot,
+
+    // Comparisons
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    
+    LogicalAnd,
+    LogicalOr,
+    NullishCoalescing,
+    StrictEqual,
+    StrictNotEqual,
+    
+    Increment,
+    Decrement,
+
+    // Bitwise
+    BitAnd,
+    BitOr,
+    BitXor,
+    ShiftLeft,
+    ShiftRight,
+    UnsignedShiftRight,
+    
+    Positive,
+
     Jump,
     JumpIfFalse,
     JumpIfTrue,

@@ -247,17 +247,241 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     return 0;
 }
 
+//R TurboCodeGen::visitBinary(BinaryExpression* expr) {
+//    allocRegister();
+//    uint32_t left =  expr->left->accept(*this);
+//    uint32_t right = allocRegister();
+//    expr->right->accept(*this);
+//    uint32_t result = allocRegister();
+//    //    OpCode op = getBinaryOp(expr->op); // implement op mapping
+//    //    emit(op, result, left, right);
+//    freeRegister();
+//    freeRegister();
+//    return result;
+//}
+
 R TurboCodeGen::visitBinary(BinaryExpression* expr) {
-    uint32_t left = allocRegister();
+    switch (expr->op.type) {
+        case TokenType::ASSIGN:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_MINUS:
+        case TokenType::ASSIGN_MUL:
+        case TokenType::ASSIGN_DIV:
+        case TokenType::MODULI_ASSIGN:
+        case TokenType::POWER_ASSIGN:
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN:
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_AND_ASSIGN:
+        case TokenType::BITWISE_OR_ASSIGN:
+        case TokenType::BITWISE_XOR_ASSIGN:
+        case TokenType::LOGICAL_AND_ASSIGN:
+        case TokenType::LOGICAL_OR_ASSIGN:
+        case TokenType::NULLISH_COALESCING_ASSIGN:
+            emitAssignment(expr);
+            return true;
+        default:
+            break;
+    }
+
+    // For all other operators, existing logic:
     expr->left->accept(*this);
-    uint32_t right = allocRegister();
     expr->right->accept(*this);
-    uint32_t result = allocRegister();
-    //    OpCode op = getBinaryOp(expr->op); // implement op mapping
-    //    emit(op, result, left, right);
-    freeRegister();
-    freeRegister();
-    return result;
+
+    // Emit the appropriate operation instruction
+    switch (expr->op.type) {
+        // --- Arithmetic ---
+        case TokenType::ADD:
+            emit(OpCode::Add); // stack: left, right -> left+right
+            break;
+        case TokenType::MINUS:
+            emit(OpCode::Subtract);
+            break;
+        case TokenType::MUL:
+            emit(OpCode::Multiply);
+            break;
+        case TokenType::DIV:
+            emit(OpCode::Divide);
+            break;
+        case TokenType::MODULI:
+            emit(OpCode::Modulo);
+            break;
+        case TokenType::POWER:
+            emit(OpCode::Power);
+            break;
+
+        // --- Comparisons ---
+        case TokenType::VALUE_EQUAL:
+            emit(OpCode::Equal);
+            break;
+        case TokenType::REFERENCE_EQUAL:
+            emit(OpCode::StrictEqual);
+            break;
+        case TokenType::INEQUALITY:
+            emit(OpCode::NotEqual);
+            break;
+        case TokenType::STRICT_INEQUALITY:
+            emit(OpCode::StrictNotEqual);
+            break;
+        case TokenType::LESS_THAN:
+            emit(OpCode::LessThan);
+            break;
+        case TokenType::LESS_THAN_EQUAL:
+            emit(OpCode::LessThanOrEqual);
+            break;
+        case TokenType::GREATER_THAN:
+            emit(OpCode::GreaterThan);
+            break;
+        case TokenType::GREATER_THAN_EQUAL:
+            emit(OpCode::GreaterThanOrEqual);
+            break;
+
+        // --- Logical ---
+        case TokenType::LOGICAL_AND:
+            emit(OpCode::LogicalAnd);
+            break;
+        case TokenType::LOGICAL_OR:
+            emit(OpCode::LogicalOr);
+            break;
+        case TokenType::NULLISH_COALESCING:
+            emit(OpCode::NullishCoalescing);
+            break;
+
+        // --- Bitwise ---
+        case TokenType::BITWISE_AND:
+            emit(OpCode::BitAnd);
+            break;
+        case TokenType::BITWISE_OR:
+            emit(OpCode::BitOr);
+            break;
+        case TokenType::BITWISE_XOR:
+            emit(OpCode::BitXor);
+            break;
+        case TokenType::BITWISE_LEFT_SHIFT:
+            emit(OpCode::ShiftLeft);
+            break;
+        case TokenType::BITWISE_RIGHT_SHIFT:
+            emit(OpCode::ShiftRight);
+            break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT:
+            emit(OpCode::UnsignedShiftRight);
+            break;
+
+        default:
+            throw std::runtime_error("Unknown binary operator in compiler: " + expr->op.lexeme);
+    }
+    
+    return true;
+
+}
+
+void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
+    auto left = expr->left.get();
+
+    // Plain assignment (=)
+    if (expr->op.type == TokenType::ASSIGN) {
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+            // Evaluate RHS first
+            expr->right->accept(*this);
+
+            // Assign to variable (local/global/class field/upvalue)
+            define(ident->token.lexeme);
+        }
+        else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+            // Assignment to property (obj.prop = ...)
+
+            // Push object first
+            member->object->accept(*this);
+
+            if (member->computed) {
+                // Computed property: obj[expr] = rhs
+                member->property->accept(*this); // push property key
+
+                // Evaluate RHS
+                expr->right->accept(*this);
+
+                emit(OpCode::SetPropertyDynamic);
+            } else {
+
+                // Evaluate RHS
+                expr->right->accept(*this);
+
+                // Static property name (e.g. obj.x = rhs)
+                int nameIdx = emitConstant(Value::str(member->name.lexeme));
+                emit(OpCode::SetProperty);
+                emitUint32(nameIdx);
+            }
+        }
+        else {
+            throw std::runtime_error("Unsupported assignment target in CodeGen");
+        }
+
+        // Assignments as statements typically discard result
+        // emit(OpCode::Pop);
+
+        return;
+    }
+
+    // Compound assignment (+=, -=, etc.)
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        // Load current value
+        ident->accept(*this);
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+        // Load current property value
+        member->object->accept(*this);
+        if (member->computed) {
+            member->property->accept(*this);
+            emit(OpCode::Dup2);
+            emit(OpCode::GetPropertyDynamic);
+        } else {
+            emit(OpCode::Dup); // [obj, obj]
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::GetProperty);
+            emitUint32(nameIdx);
+        }
+    }
+    else {
+        throw std::runtime_error("Unsupported assignment target in CodeGen");
+    }
+
+    // Evaluate RHS
+    expr->right->accept(*this);
+
+    // Apply compound operation
+    switch (expr->op.type) {
+        case TokenType::ASSIGN_ADD: emit(OpCode::Add); break;
+        case TokenType::ASSIGN_MINUS: emit(OpCode::Subtract); break;
+        case TokenType::ASSIGN_MUL: emit(OpCode::Multiply); break;
+        case TokenType::ASSIGN_DIV: emit(OpCode::Divide); break;
+        case TokenType::MODULI_ASSIGN: emit(OpCode::Modulo); break;
+        case TokenType::POWER_ASSIGN: emit(OpCode::Power); break;
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: emit(OpCode::ShiftLeft); break;
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: emit(OpCode::ShiftRight); break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: emit(OpCode::UnsignedShiftRight); break;
+        case TokenType::BITWISE_AND_ASSIGN: emit(OpCode::BitAnd); break;
+        case TokenType::BITWISE_OR_ASSIGN: emit(OpCode::BitOr); break;
+        case TokenType::BITWISE_XOR_ASSIGN: emit(OpCode::BitXor); break;
+        case TokenType::LOGICAL_AND_ASSIGN: emit(OpCode::LogicalAnd); break;
+        case TokenType::LOGICAL_OR_ASSIGN: emit(OpCode::LogicalOr); break;
+        case TokenType::NULLISH_COALESCING_ASSIGN: emit(OpCode::NullishCoalescing); break;
+        default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
+    }
+
+    // Store the result back
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        define(ident->token.lexeme);
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+        if (member->computed) {
+            emit(OpCode::SetPropertyDynamic);
+        } else {
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::SetProperty);
+            emitUint32(nameIdx);
+        }
+    }
+
 }
 
 R TurboCodeGen::visitLiteral(LiteralExpression* expr) {
@@ -338,14 +562,14 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
 
 R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
     uint32_t cond = allocRegister();
-    //    expr->test->accept(*this);
-    //    int elseJump = emitJump(OpCode::JumpIfFalse, cond);
-    //    freeRegister();
-    //    expr->consequent->accept(*this);
-    //    int endJump = emitJump(OpCode::Jump);
-    //    patchJump(elseJump, (int)cur->code.size());
-    //    expr->alternate->accept(*this);
-    //    patchJump(endJump, (int)cur->code.size());
+    expr->test->accept(*this);
+    int elseJump = emitJump(OpCode::JumpIfFalse, cond);
+    freeRegister();
+    expr->consequent->accept(*this);
+    int endJump = emitJump(OpCode::Jump);
+    patchJump(elseJump, (int)cur->code.size());
+    expr->alternate->accept(*this);
+    patchJump(endJump, (int)cur->code.size());
     return 0;
 }
 
