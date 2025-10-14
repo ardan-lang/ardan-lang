@@ -471,11 +471,10 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
         }
     }
 
-    // Optionally: discard result if assignment is a statement
-    // emit(OpCode::Pop);
 }
 
 // returns new value
+// --x, ++x, !x, -x
 R CodeGen::visitUnary(UnaryExpression* expr) {
     // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
