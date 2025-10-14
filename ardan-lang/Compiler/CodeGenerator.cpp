@@ -579,6 +579,7 @@ R CodeGen::visitStringLiteral(StringLiteral* expr) {
     return true;
 }
 
+// Here, we retrieve the identifier from its storage: local, upvalue or global.
 R CodeGen::visitIdentifier(IdentifierExpression* expr) {
     string name = expr->name;
     if (hasLocal(name)) {

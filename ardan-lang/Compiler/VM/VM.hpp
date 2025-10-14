@@ -62,9 +62,8 @@ struct CallFrame {
     deque<Value> locals;        // local slots for this frame
     size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
     
-    vector<Value> args;  // <-- Store actual call arguments here
+    vector<Value> args;  // call arguments are stored here
     shared_ptr<Closure> closure;
-    // shared_ptr<JSObject> js_object;
 };
 
 struct TryFrame {
