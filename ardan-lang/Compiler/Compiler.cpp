@@ -53,6 +53,38 @@ void Compiler::test_compile(const std::vector<std::unique_ptr<Statement>>& ast) 
     Value ret = vm.run(_module_->chunks[_module_->entryChunkIndex], {});
 }
 
+void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>& ast) {
+
+    shared_ptr<TurboModule> module_ = make_shared<TurboModule>();
+    auto codegen = make_shared<ArdanTurboCodeGen::TurboCodeGen>(module_);
+
+    // generate fills module_->chunks and module_->constants
+    auto entryChunkIndex = codegen->generate(ast);
+    module_->entryChunkIndex = (uint32_t)entryChunkIndex;
+
+    std::string outputFilename = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/myprogram.adar";
+    uint32_t version = 1;
+
+//    WriteArdarFile writer(outputFilename,
+//                          module_.get(),
+//                          (uint32_t)entryChunkIndex,
+//                          version);
+//
+//    writer.writing();
+//
+//    cout << "File written successfully!" << endl;
+//        
+//    // load and run
+//    ArdarFileReader reader(outputFilename);
+//    shared_ptr<TurboModule> _module_ = reader.readModule();
+//
+    //    VM vm(_module_);
+    ArdanTurboVM::TurboVM vm(module_);
+
+    // OR explicitly by chunk index
+    Value ret = vm.run(module_->chunks[module_->entryChunkIndex], {});
+}
+
 void Compiler::run(shared_ptr<Module> module_) {
 
     VM vm(module_);

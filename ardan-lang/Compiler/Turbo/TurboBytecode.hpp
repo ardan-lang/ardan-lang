@@ -5,19 +5,20 @@
 //  Created by Chidume Nnamdi on 13/10/2025.
 //
 
-#ifndef Bytecode_hpp
-#define Bytecode_hpp
+#ifndef TurboBytecode_hpp
+#define TurboBytecode_hpp
 
 #include <stdio.h>
 #include <cstdint>
 
-namespace ArdanTurboCodeGen {
-
-enum class OpCode : uint8_t {
+enum class TurboOpCode : uint8_t {
     
     Nop = 0,
-    LoadConst, // dest, const_index. loads from constants
+    LoadConst, // dest, const_index. loads from constants into dest register
     LoadVar,
+    
+    StoreLocal,
+    StoreGlobal,
     
     CreateLocalVar, // creates a new local. moves data inside slot reg into the locals.
     CreateLocalLet,
@@ -76,12 +77,56 @@ enum class OpCode : uint8_t {
     ArrayPush,
     SetProperty,
     GetProperty,
-    Throw,
     
+    // Dynamic property access
+    GetPropertyDynamic,  // pop key, obj; push obj[key]
+    Dup2,                // duplicate top 2 values
+    SetPropertyDynamic,  // pop value, key, obj; set obj[key] = value
+
+    // Classes
+    NewClass,
+
+    // Exception handling
+    Try,
+    EndTry,
+    EndFinally,
+    Throw,
+
+    // Object utilities
+    EnumKeys,
+    GetObjectLength,
+    GetIndexPropertyDynamic,
+    Debug,
+
+    // Chunk / arguments
+    LoadChunkIndex,
+    LoadArgument,
+    LoadArguments,
+    Slice,
+    LoadArgumentsLength,
+
+    // Closures
+    CreateClosure,
+    GetUpvalue,
+    SetUpvalue,
+    CloseUpvalue,
+
+    // Misc
+    ClearStack,
+    ClearLocals,
+
+    SetStaticProperty,
+    CreateInstance,
+    InvokeConstructor,
+    GetThisProperty,
+    SetThisProperty,
+    GetThis,
+    GetParentObject,
+    SuperCall,
+    CreateObjectLiteral,
+
     Halt
     
 };
 
-};
-
-#endif /* Bytecode_hpp */
+#endif /* TurboBytecode_hpp */

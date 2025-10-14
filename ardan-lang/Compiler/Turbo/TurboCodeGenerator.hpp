@@ -19,10 +19,10 @@
 #include "../../Expression/Expression.hpp"
 #include "../../Interpreter/Utils/Utils.h"
 
-#include "./Bytecode.hpp"
-#include "./Chunk.hpp"
+#include "./TurboBytecode.hpp"
+#include "./TurboChunk.hpp"
 #include "./TurboVM.hpp"
-#include "../VM/Module.hpp"
+#include "./TurboModule.hpp"
 
 using namespace std;
 
@@ -98,16 +98,19 @@ using std::vector;
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
 
 private:
-    shared_ptr<Chunk> cur; // current chunk being emitted
+    shared_ptr<TurboChunk> cur; // current chunk being emitted
     // locals map for current function: name -> slot index
     // unordered_map<string, uint32_t> locals;
     int scopeDepth;
     TurboCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
+    R store(string decl, uint32_t reg_slot);
     BindingKind get_kind(string kind);
+    TurboOpCode getBinaryOp(const Token& op);
+    shared_ptr<RegisterAllocator> registerAllocator;
     
     // helpers
-    void emit(OpCode op);
+    void emit(TurboOpCode op);
     void emitUint32(uint32_t v);
     void emitUint8(uint8_t v);
     int emitConstant(const Value &v);
@@ -128,14 +131,14 @@ private:
     int lookupLocalSlot(const std::string& name);
     
     // jump helpers
-    int emitJump(OpCode op, int cond_reg);
-    int emitJump(OpCode op);
+    int emitJump(TurboOpCode op, int cond_reg);
+    int emitJump(TurboOpCode op);
     void patchJump(int jumpPos);
     void patchJump(int jumpPos, int target);
     void emitLoop(uint32_t offset);
-    void emit(OpCode op, int a, int b, int c);
-    void emit(OpCode op, int a);
-    void emit(OpCode op, int a, int b);
+    void emit(TurboOpCode op, int a, int b, int c);
+    void emit(TurboOpCode op, int a);
+    void emit(TurboOpCode op, int a, int b);
     
     void beginLoop();
     void endLoop();
@@ -147,20 +150,21 @@ private:
     void endScope();
     int addUpvalue(bool isLocal, int index);
     int resolveUpvalue(const string& name);
+        
+    inline uint32_t readUint32(const TurboChunk* chunk, size_t offset);
     
-    // int declareLocal(const std::string& name);
+    size_t disassembleInstruction(const TurboChunk* chunk, size_t offset);
     
-    inline uint32_t readUint32(const Chunk* chunk, size_t offset);
-    
-    size_t disassembleInstruction(const Chunk* chunk, size_t offset);
-    
-    void disassembleChunk(const Chunk* chunk, const std::string& name);
+    void disassembleChunk(const TurboChunk* chunk, const std::string& name);
     Token createToken(TokenType type);
 
 public:
     TurboCodeGen();
-    TurboCodeGen(std::shared_ptr<Module> m) : module_(m), cur(nullptr), nextLocalSlot(0) { }
-    shared_ptr<Module> module_;
+    TurboCodeGen(shared_ptr<TurboModule> m) : module_(m), cur(nullptr), nextLocalSlot(0) {
+        registerAllocator = shared_ptr<RegisterAllocator>();
+     }
+    
+    shared_ptr<TurboModule> module_;
     int nextRegister = 0;
     
     vector<Local> locals;
@@ -169,7 +173,7 @@ public:
     vector<UpvalueMeta> upvalues;
     
     int allocRegister();
-    void freeRegister();
+    void freeRegister(uint32_t slot);
     
     size_t generate(const vector<unique_ptr<Statement>> &program);
     

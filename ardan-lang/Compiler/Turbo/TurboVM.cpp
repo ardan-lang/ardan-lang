@@ -10,30 +10,12 @@
 namespace ArdanTurboVM {
 
 TurboVM::TurboVM() {
-//    globals["print"] = Value::function([](vector<Value> args) -> Value {
-//        Print::print(args);
-//        return Value::undefined();
-//    });
-//    globals["Math"] = Value::object(make_shared<Math>());
-//    globals["console"] = Value::object(make_shared<Print>());
-//    globals["fs"] = Value::object(make_shared<File>());
-    // globals["Server"] = make_shared<Server>(event_loop);
-
     env = new Env();
     init_builtins();
 
 }
 
-TurboVM::TurboVM(shared_ptr<Module> module_) : module_(module_) {
-//    globals["print"] = Value::function([](vector<Value> args) -> Value {
-//        Print::print(args);
-//        return Value::undefined();
-//    });
-//    
-//    globals["Math"] = Value::object(make_shared<Math>());
-//    globals["console"] = Value::object(make_shared<Print>());
-//    globals["fs"] = Value::object(make_shared<File>());
-    // globals["Server"] = make_shared<Server>(event_loop);
+TurboVM::TurboVM(shared_ptr<TurboModule> module_) : module_(module_) {
 
     env = new Env();
     init_builtins();
@@ -92,24 +74,25 @@ void TurboVM::init_builtins() {
 //    }
 //}
 
-uint8_t TurboVM::readByte() {
-    if (frame->ip >= frame->chunk->code.size()) return 0;
+Instruction TurboVM::readInstruction() {
+    if (frame->ip >= frame->chunk->code.size())
+        throw runtime_error("Empty instruction.");
     return frame->chunk->code[frame->ip++];
 }
 
 uint32_t ArdanTurboVM::TurboVM::readUint32() {
     if (frame->ip + 4 > frame->chunk->code.size()) throw std::runtime_error("read past end");
     uint32_t v = 0;
-    v |= (uint32_t)chunk->code[ip++];
-    v |= (uint32_t)chunk->code[ip++] << 8;
-    v |= (uint32_t)chunk->code[ip++] << 16;
-    v |= (uint32_t)chunk->code[ip++] << 24;
+//    v |= (uint32_t)chunk->code[ip++];
+//    v |= (uint32_t)chunk->code[ip++] << 8;
+//    v |= (uint32_t)chunk->code[ip++] << 16;
+//    v |= (uint32_t)chunk->code[ip++] << 24;
     return v;
 }
 
-uint8_t ArdanTurboVM::TurboVM::readUint8() {
-    return readByte();
-}
+//uint8_t ArdanTurboVM::TurboVM::readUint8() {
+//    return readByte();
+//}
 
 Value ArdanTurboVM::TurboVM::binaryAdd(const Value &a, const Value &b) {
     if (a.type == ValueType::STRING || b.type == ValueType::STRING) {
@@ -195,7 +178,7 @@ void ArdanTurboVM::TurboVM::setProperty(const Value &objVal, const string &propN
     throw std::runtime_error("Cannot set property on non-object");
 }
 
-Value ArdanTurboVM::TurboVM::run(shared_ptr<Chunk> chunk_, const vector<Value>& args) {
+Value ArdanTurboVM::TurboVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>& args) {
     
     auto closure = make_shared<Closure>();
 
@@ -217,16 +200,58 @@ Value ArdanTurboVM::TurboVM::run(shared_ptr<Chunk> chunk_, const vector<Value>& 
     
 }
 
+//Value ArdanTurboVM::TurboVM::runFrame(CallFrame &current_frame) {
+//    
+//    if (callStack.empty()) return Value::undefined();
+//
+//    // Point VM at this frame's chunk/locals
+//    frame = &current_frame;
+//    
+//}
+
 Value ArdanTurboVM::TurboVM::runFrame(CallFrame &current_frame) {
     
     if (callStack.empty()) return Value::undefined();
-
-    // Point VM at this frame's chunk/locals
+    
     frame = &current_frame;
+
+    while (true) {
+        Instruction instruction = readInstruction();
+
+        switch (instruction.op) {
+            case TurboOpCode::Nop:
+                break;
+
+            case TurboOpCode::LoadConst: {
+                uint8_t dest = instruction.a;
+                uint16_t const_index = instruction.b;
+                Value val = frame->chunk->constants[const_index];
+                registers[dest] = val;
+                break;
+            }
+                
+            case TurboOpCode::Add: {
+                break;
+            }
+                
+            case TurboOpCode::Return: {
+                break;
+            }
+
+            case TurboOpCode::Halt:
+                return Value::undefined();
+                break;
+
+            default:
+                throw std::runtime_error("Unknown opcode in VM");
+        }
+    }
+    
+    return Value::undefined();
     
 }
 
-Value ArdanTurboVM::TurboVM::callFunction(Value callee, vector<Value>& args) {
+Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
         // call host function (native or compiled wrapper)
@@ -234,6 +259,38 @@ Value ArdanTurboVM::TurboVM::callFunction(Value callee, vector<Value>& args) {
         return result;
     }
     
+    if (callee.type == ValueType::CLOSURE) {
+
+        //shared_ptr<ArdanTurboCodeGen::Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
+        
+        // Build new frame
+        CallFrame new_frame;
+        //new_frame.chunk = calleeChunk;
+        new_frame.ip = 0;
+        // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
+        //new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+        new_frame.args = args;
+        //new_frame.closure = callee.closureValue;
+        // new_frame.js_object = callee.closureValue->js_object;
+
+        // Set frame.closure if calling a closure
+        // Assuming callee has a closurePtr member for Closure shared_ptr
+        // If you extended Value for closure type, set here:
+        callStack.push_back(std::move(new_frame));
+        // auto prev_stack = std::move(stack);
+        // stack.clear();
+
+        Value result = runFrame(callStack.back());
+        
+        callStack.pop_back();
+        frame = &callStack.back();
+        
+        // stack = std::move(prev_stack);
+
+        return result;
+        
+    }
+
     if (callee.type == ValueType::NATIVE_FUNCTION) {
         Value result = callee.nativeFunction(args);
         return result;
@@ -256,114 +313,77 @@ Value ArdanTurboVM::TurboVM::callFunction(Value callee, vector<Value>& args) {
         return Value::undefined();
     }
     
-    shared_ptr<Chunk> calleeChunk = module_->chunks[fn->chunkIndex];
+    shared_ptr<TurboChunk> calleeChunk = module_->chunks[fn->chunkIndex];
 
     // Build new frame
-    CallFrame frame;
-    frame.chunk = calleeChunk;
-    frame.ip = 0;
+    CallFrame new_frame;
+    new_frame.chunk = calleeChunk;
+    new_frame.ip = 0;
     // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
-    frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
-    frame.args = args;
+    new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+    new_frame.args = args;
     
     // Set frame.closure if calling a closure
     // Assuming callee has a closurePtr member for Closure shared_ptr
     // If you extended Value for closure type, set here:
-    // frame.closure = callee.closurePtr; // may be nullptr if callee is plain functionRef
-    
-    // save current frame
-    CallFrame prev_frame;
-    prev_frame.chunk = chunk;
-    prev_frame.ip = ip;
-    prev_frame.locals = locals;
-    
-    auto prev_stack = std::move(stack);
-    stack.clear();
+    //new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
 
+    // save current frame
+    CallFrame prev_frame = callStack.back();
+    
+    //auto prev_stack = std::move(stack);
+    //stack.clear();
+    
     // copy args into frame.locals[0..]
     uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
-    for (uint32_t i = 0; i < ncopy; ++i) frame.locals[i] = args[i];
+    for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
 
     // push frame and execute it
-    callStack.push_back(std::move(frame));
+    callStack.push_back(std::move(new_frame));
 
-    Env* previous = env;
-    prev_frame.env = previous;
-        
-//    if (fn->env) {
-//        env = fn->env;
-//    } else {
-//        env = new Env(previous);
-//    }
-
-    Value result = runFrame();
+    Value result = runFrame(callStack.back());
     
-//    if (result.type == ValueType::FUNCTION_REF && result.fnRef->env == nullptr) {
-//        result.fnRef->env = new Env(env);
-//    }
-    
-    env = previous;
-
     callStack.pop_back();
+    frame = &prev_frame;
 
-    chunk = prev_frame.chunk;
-    ip = prev_frame.ip;
-    locals = prev_frame.locals;
-    stack = prev_stack;
+    //stack = prev_stack;
 
     return result;
     
 }
 
-vector<Value> ArdanTurboVM::TurboVM::popArgs(size_t count) {
-    
-    vector<Value> args;
-    args.resize(count, Value::undefined());
-
-    // args were pushed left-to-right, so top of stack is last arg.
-    // pop in reverse to restore original order into args[0..count-1].
-    for (size_t i = 0; i < count; ++i) {
-        if (stack.empty()) {
-            args[count - 1 - i] = Value::undefined();
-        } else {
-            args[count - 1 - i] = stack.back();
-            stack.pop_back();
-        }
-    }
-    return args;
-}
-
 void ArdanTurboVM::TurboVM::handleRethrow() {
-    // simplified: pop pending exception and re-run OP_THROW-like unwinding
-    if (stack.empty()) { running = false; return; }
-    Value pending = pop();
-    // Re-run throw loop: same as OP_THROW handling but without recursion here.
-    bool handled = false;
-    while (!tryStack.empty()) {
-        TryFrame f = tryStack.back();
-        tryStack.pop_back();
-        while ((int)stack.size() > f.stackDepth) stack.pop_back();
-        if (f.finallyIP != -1) {
-            stack.push_back(pending);
-            TryFrame resume;
-            resume.catchIP = f.catchIP;
-            resume.finallyIP = -1;
-            resume.stackDepth = f.stackDepth;
-            tryStack.push_back(resume);
-            ip = f.finallyIP;
-            handled = true;
-            break;
-        }
-        if (f.catchIP != -1) {
-            stack.push_back(pending);
-            ip = f.catchIP;
-            handled = true;
-            break;
-        }
-    }
-    if (!handled) {
-        printf("Uncaught exception after finally, halting VM\n");
-        running = false;
-    }
+//    // simplified: pop pending exception and re-run OP_THROW-like unwinding
+//    if (stack.empty()) { running = false; return; }
+//    Value pending = pop();
+//    // Re-run throw loop: same as OP_THROW handling but without recursion here.
+//    bool handled = false;
+//    while (!tryStack.empty()) {
+//        TryFrame f = tryStack.back();
+//        tryStack.pop_back();
+//        while ((int)stack.size() > f.stackDepth) stack.pop_back();
+//        if (f.finallyIP != -1) {
+//            stack.push_back(pending);
+//            TryFrame resume;
+//            resume.catchIP = f.catchIP;
+//            resume.finallyIP = -1;
+//            resume.stackDepth = f.stackDepth;
+//            tryStack.push_back(resume);
+//            ip = f.finallyIP;
+//            handled = true;
+//            break;
+//        }
+//        if (f.catchIP != -1) {
+//            stack.push_back(pending);
+//            ip = f.catchIP;
+//            handled = true;
+//            break;
+//        }
+//    }
+//    if (!handled) {
+//        printf("Uncaught exception after finally, halting VM\n");
+//        running = false;
+//    }
 }
+
 }

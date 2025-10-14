@@ -15,6 +15,10 @@
 #include "WriteArdarFile/WriteArdarFile.hpp"
 #include "ArdarFileReader/ArdarFileReader.hpp"
 
+#include "Turbo/TurboVM.hpp"
+#include "Turbo/TurboCodeGenerator.hpp"
+#include "Turbo/TurboModule.hpp"
+
 class Chunk;
 
 class Compiler {
@@ -28,6 +32,7 @@ public:
                                uint32_t entryChunkIndex);
     void run(shared_ptr<Module> module_);
     void test_compile(const std::vector<std::unique_ptr<Statement>>& ast);
+    void test_turbo_compile(const std::vector<std::unique_ptr<Statement>>& ast);
     
 };
 
