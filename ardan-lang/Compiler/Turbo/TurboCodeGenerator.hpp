@@ -26,12 +26,25 @@
 
 using namespace std;
 
-//namespace ArdanTurboCodeGen {
-
 using std::shared_ptr;
 using std::unordered_map;
 using std::string;
 using std::vector;
+
+class RegisterAllocator {
+    uint32_t nextReg = 1; // reserve 0 for special uses if needed
+    vector<uint32_t> freeRegs;
+public:
+    uint32_t alloc() {
+        if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
+        return nextReg++;
+    }
+    void free(uint32_t r) {
+        if (r==0) return; // don't free 0
+        freeRegs.push_back(r);
+    }
+    void reset() { nextReg = 1; freeRegs.clear(); }
+};
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
 
@@ -44,21 +57,6 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
     struct LocalScope {
         unordered_map<string, Value> locals;
         LocalScope* parent = nullptr;
-    };
-
-    class RegisterAllocator {
-        uint32_t nextReg = 1; // reserve 0 for special uses if needed
-        vector<uint32_t> freeRegs;
-    public:
-        uint32_t alloc() {
-            if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
-            return nextReg++;
-        }
-        void free(uint32_t r) {
-            if (r==0) return; // don't free 0
-            freeRegs.push_back(r);
-        }
-        void reset() { nextReg = 1; freeRegs.clear(); }
     };
 
     struct LoopContext {
@@ -105,9 +103,11 @@ private:
     TurboCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
     R store(string decl, uint32_t reg_slot);
+    R load(string decl, uint32_t reg_slot);
+
     BindingKind get_kind(string kind);
     TurboOpCode getBinaryOp(const Token& op);
-    shared_ptr<RegisterAllocator> registerAllocator;
+    RegisterAllocator* registerAllocator = new RegisterAllocator();
     
     // helpers
     void emit(TurboOpCode op);
@@ -161,7 +161,7 @@ private:
 public:
     TurboCodeGen();
     TurboCodeGen(shared_ptr<TurboModule> m) : module_(m), cur(nullptr), nextLocalSlot(0) {
-        registerAllocator = shared_ptr<RegisterAllocator>();
+        //registerAllocator = shared_ptr<RegisterAllocator>();
      }
     
     shared_ptr<TurboModule> module_;
@@ -238,5 +238,3 @@ public:
     R visitForOf(ForOfStatement* stmt) override;
         
 };
-
-//}

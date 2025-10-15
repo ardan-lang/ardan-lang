@@ -16,6 +16,8 @@ enum class TurboOpCode : uint8_t {
     Nop = 0,
     LoadConst, // dest, const_index. loads from constants into dest register
     LoadVar,
+    LoadLocalVar,
+    LoadGlobalVar,
     
     StoreLocal,
     StoreGlobal,

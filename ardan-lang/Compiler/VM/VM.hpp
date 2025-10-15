@@ -42,20 +42,6 @@ using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
-// --- Closure and Upvalue support ---
-struct Upvalue {
-    Value* location;   // Points to stack slot or closed value
-    Value closed;      // When closed, stores value
-    Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
-    bool isClosed() const { return location == &closed; }
-};
-
-struct Closure {
-    shared_ptr<FunctionObject> fn;
-    vector<shared_ptr<Upvalue>> upvalues;
-    shared_ptr<JSObject> js_object;
-};
-
 struct CallFrame {
     shared_ptr<Chunk> chunk;
     size_t ip = 0;                    // instruction pointer for this frame

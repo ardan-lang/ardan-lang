@@ -20,6 +20,7 @@ using namespace std;
 struct Chunk;
 class Env;
 struct Closure;
+class JSObject;
 
 // A tiny Function object: holds chunk id/index and arity (and optional name)
 struct FunctionObject {
@@ -180,6 +181,20 @@ struct ValueField {
     string key;
     vector<string> modifiers;
     Value value;
+};
+
+// --- Closure and Upvalue support ---
+struct Upvalue {
+    Value* location;   // Points to stack slot or closed value
+    Value closed;      // When closed, stores value
+    Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
+    bool isClosed() const { return location == &closed; }
+};
+
+struct Closure {
+    shared_ptr<FunctionObject> fn;
+    vector<shared_ptr<Upvalue>> upvalues;
+    shared_ptr<JSObject> js_object;
 };
 
 #endif /* Value_h */

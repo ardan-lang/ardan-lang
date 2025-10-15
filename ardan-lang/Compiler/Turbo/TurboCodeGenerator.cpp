@@ -7,11 +7,9 @@
 
 #include "TurboCodeGenerator.hpp"
 
-//namespace ArdanTurboCodeGen {
-
-TurboCodeGen::TurboCodeGen() {
-    registerAllocator = shared_ptr<RegisterAllocator>();
-}
+//TurboCodeGen::TurboCodeGen() {
+//    registerAllocator = shared_ptr<RegisterAllocator>();
+//}
 
 size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = make_shared<TurboChunk>();
@@ -26,7 +24,7 @@ size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     emit(TurboOpCode::Halt);
     disassembleChunk(cur.get(), cur->name);
     
-    uint32_t idx = 0;//module_->addChunk(cur);
+    uint32_t idx = module_->addChunk(cur);
     module_->entryChunkIndex = idx;
     
     return idx;
@@ -65,30 +63,33 @@ R TurboCodeGen::visitBlock(BlockStatement* stmt) {
 
 R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
     
+    TurboOpCode op;
+
     // decide local or global
     if (hasLocal(decl)) {
         uint32_t idx = getLocal(decl);
         
-        auto localIndex = resolveLocal(decl);
         if (locals[idx].kind == BindingKind::Const) {
             throw std::runtime_error("Assignment to constant variable.");
         }
         
         switch (kind) {
             case BindingKind::Var:
-                emit(TurboOpCode::CreateLocalVar, idx, reg_slot);
+                op = TurboOpCode::CreateLocalVar;
                 break;
             case BindingKind::Let:
-                emit(TurboOpCode::CreateLocalLet, idx, reg_slot);
+                op = TurboOpCode::CreateLocalLet;
                 break;
             case BindingKind::Const:
-                emit(TurboOpCode::CreateLocalConst, idx, reg_slot);
+                op = TurboOpCode::CreateLocalConst;
                 break;
             default:
-                emit(TurboOpCode::CreateLocalVar, idx, reg_slot);
+                op = TurboOpCode::CreateLocalVar;
                 break;
         }
-                
+
+        emit(op, idx, reg_slot);
+
     } else {
         
         //        if (classInfo.fields.count(decl)) {
@@ -112,18 +113,20 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
         int nameIdx = emitConstant(Value::str(decl));
         switch (kind) {
             case BindingKind::Var:
-                emit(TurboOpCode::CreateGlobalVar, (uint32_t)nameIdx, reg_slot);
+                op = TurboOpCode::CreateGlobalVar;
                 break;
             case BindingKind::Let:
-                emit(TurboOpCode::CreateGlobalLet, (uint32_t)nameIdx, reg_slot);
+                op = TurboOpCode::CreateGlobalLet;
                 break;
             case BindingKind::Const:
-                emit(TurboOpCode::CreateGlobalConst, (uint32_t)nameIdx, reg_slot);
+                op = TurboOpCode::CreateGlobalConst;
                 break;
             default:
-                emit(TurboOpCode::CreateGlobalVar, (uint32_t)nameIdx, reg_slot);
+                op = TurboOpCode::CreateGlobalVar;
                 break;
         }
+
+        emit(op, (uint32_t)nameIdx, reg_slot);
                 
     }
     
@@ -131,20 +134,18 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
     
 }
 
+// moves data in reg_slot into local/global
 R TurboCodeGen::store(string decl, uint32_t reg_slot) {
     
     // decide local or global
     if (hasLocal(decl)) {
         uint32_t idx = getLocal(decl);
         
-        auto localIndex = resolveLocal(decl);
         if (locals[idx].kind == BindingKind::Const) {
             throw std::runtime_error("Assignment to constant variable.");
         }
         
         emit(TurboOpCode::StoreLocal, idx, reg_slot);
-        // emitUint32(idx);
-        // emitUint32(reg_slot);
         
     } else {
         
@@ -168,14 +169,29 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
         // top-level/global
         int nameIdx = emitConstant(Value::str(decl));
         emit(TurboOpCode::StoreGlobal, (uint32_t)nameIdx, reg_slot);
-        // emitUint32((uint32_t)nameIdx);
-        // emitUint32(reg_slot);
         
     }
     
     return true;
     
 }
+
+// moves data from local/global into reg_slot
+R TurboCodeGen::load(string decl, uint32_t reg_slot) {
+
+    // decide local or global
+    if (hasLocal(decl)) {
+        uint32_t idx = getLocal(decl);
+        emit(TurboOpCode::LoadLocalVar, reg_slot, idx);
+    } else {
+        int nameIdx = emitConstant(Value::str(decl));
+        emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
+    }
+    
+    return true;
+    
+}
+
 
 R TurboCodeGen::visitVariable(VariableStatement* stmt) {
     
@@ -189,7 +205,7 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
         if (decl.init) {
             int initReg = get<int>(decl.init->accept(*this));
             emit(TurboOpCode::Move, slot, initReg); // move data inside initReg into register slot.
-            // freeRegister();
+            freeRegister(initReg);
         } else {
             emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
         }
@@ -221,7 +237,7 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
 R TurboCodeGen::visitIf(IfStatement* stmt) {
     uint32_t cond = get<int>(stmt->test->accept(*this));
     int elseJump = emitJump(TurboOpCode::JumpIfFalse, cond);
-    //freeRegister();
+    freeRegister(cond);
     stmt->consequent->accept(*this);
     int endJump = -1;
     if (stmt->alternate)
@@ -239,7 +255,7 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
     int loopStart = (int)cur->code.size();
     uint32_t cond = get<int>(stmt->test->accept(*this));
     int exitJump = emitJump(TurboOpCode::JumpIfFalse, cond);
-    //freeRegister();
+    freeRegister(cond);
     stmt->body->accept(*this);
     emit(TurboOpCode::Jump, 0, loopStart - (int)cur->code.size() - 1); // backwards jump
     patchJump(exitJump, (int)cur->code.size());
@@ -457,6 +473,10 @@ R TurboCodeGen::visitBinary(BinaryExpression* expr) {
     
     TurboOpCode op = getBinaryOp(expr->op);
     emit(op, result, left, right);
+
+    freeRegister(left);
+    freeRegister(right);
+
     return result;
     
 }
@@ -579,75 +599,74 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
         int rhsReg = allocRegister();
         int resultReg = get<int>(expr->right->accept(*this));
         
-        // 1. Assignment to a variable (identifier)
+        // Assignment to a variable (identifier)
         if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
             // int destReg = lookupLocalSlot(ident->name);
             // Move/copy result into local/global slot
             // emit(TurboOpCode::Move, destReg, resultReg);
             store(ident->name, resultReg);
         }
-        // 2. Assignment to an object property
+        // Assignment to an object property
         else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
             // Evaluate object to reg
-            int objReg = allocRegister();
-            member->object->accept(*this);
+            // int objReg = allocRegister();
+            // member->object->accept(*this);
             
-            if (member->computed) {
-                int propReg = allocRegister();
-                member->property->accept(*this); // Property key to reg
+            // if (member->computed) {
+            //     int propReg = allocRegister();
+            //     member->property->accept(*this); // Property key to reg
                 
-                // SetPropertyDynamic: objReg, propReg, valueReg
-                emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, resultReg);
-                //freeRegister(); // propReg
-            } else {
-                int nameIdx = emitConstant(Value::str(member->name.lexeme));
-                // SetProperty: objReg, nameIdx, valueReg
-                emit(TurboOpCode::SetProperty, objReg, nameIdx, resultReg);
-            }
+            //     // SetPropertyDynamic: objReg, propReg, valueReg
+            //     emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, resultReg);
+            //     //freeRegister(); // propReg
+            // } else {
+            //     int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            //     // SetProperty: objReg, nameIdx, valueReg
+            //     emit(TurboOpCode::SetProperty, objReg, nameIdx, resultReg);
+            // }
             //freeRegister(); // objReg
         }
         else {
             throw std::runtime_error("Unsupported assignment target in CodeGen");
         }
         
-        //freeRegister(); // rhsReg
+        freeRegister(rhsReg); // rhsReg
+        freeRegister(resultReg);
         return;
     }
     
     // ----------- Compound assignments (+=, -=, etc.) -----------
     // Evaluate LHS (load current value)
+
     int lhsReg = allocRegister();
-    int valueReg = -1;
-    int objReg = -1, propReg = -1, nameIdx = -1;
     
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
-        lhsReg = lookupLocalSlot(ident->name);
-        valueReg = lhsReg; // reuse for dest
+        load(ident->name, lhsReg);
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
-        objReg = allocRegister();
-        member->object->accept(*this);
+        // objReg = allocRegister();
+        // member->object->accept(*this);
         
-        if (member->computed) {
-            propReg = allocRegister();
-            member->property->accept(*this);
-            // Get property value into lhsReg
-            emit(TurboOpCode::GetPropertyDynamic, lhsReg, objReg, propReg);
-        } else {
-            nameIdx = emitConstant(Value::str(member->name.lexeme));
-            emit(TurboOpCode::GetProperty, lhsReg, objReg, nameIdx);
-        }
-        valueReg = allocRegister(); // dest for the result
+        // if (member->computed) {
+        //     propReg = allocRegister();
+        //     member->property->accept(*this);
+        //     // Get property value into lhsReg
+        //     emit(TurboOpCode::GetPropertyDynamic, lhsReg, objReg, propReg);
+        // } else {
+        //     nameIdx = emitConstant(Value::str(member->name.lexeme));
+        //     emit(TurboOpCode::GetProperty, lhsReg, objReg, nameIdx);
+        // }
+        // valueReg = allocRegister(); // dest for the result
     } else {
         throw std::runtime_error("Unsupported assignment target in CodeGen");
     }
     
     // Evaluate RHS into a new register
-    int rhsReg = allocRegister();
-    int rhsVal = get<int>(expr->right->accept(*this));
+    int rhsReg = get<int>(expr->right->accept(*this));
     
     // Compute result of compound operation (e.g., Add, Subtract, etc.)
-    int opResultReg = valueReg; // where to store result (reuse for identifiers)
+    int opResultReg = allocRegister(); // where to store result (reuse for identifiers)
+
     switch (expr->op.type) {
         case TokenType::ASSIGN_ADD: emit(TurboOpCode::Add, opResultReg, lhsReg, rhsReg); break;
         case TokenType::ASSIGN_MINUS: emit(TurboOpCode::Subtract, opResultReg, lhsReg, rhsReg); break;
@@ -669,21 +688,22 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     
     // Store back to LHS
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
-        emit(TurboOpCode::Move, lhsReg, opResultReg);
+        // emit(TurboOpCode::Move, lhsReg, opResultReg);
+        store(ident->name, opResultReg);
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
-        if (member->computed) {
-            emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
-            //freeRegister(); // propReg
-        } else {
-            emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
-        }
+        // if (member->computed) {
+        //     emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+        //     //freeRegister(); // propReg
+        // } else {
+        //     emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+        // }
         //freeRegister(); // objReg
         //freeRegister(); // valueReg if not reused
     }
     
-    //freeRegister(); // rhsReg
-    //freeRegister(); // lhsReg if not reused
+    freeRegister(rhsReg); // rhsReg
+    freeRegister(lhsReg); // lhsReg if not reused
 }
 
 R TurboCodeGen::visitLiteral(LiteralExpression* expr) {
@@ -1071,52 +1091,74 @@ TurboCodeGen::BindingKind TurboCodeGen::get_kind(string kind) {
     return BindingKind::Var;
 }
 
-size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offset) {return 0;
-//    uint8_t op = chunk->code[offset];
-//    std::cout << std::setw(4) << offset << " ";
-//    switch ((ROp)op) {
-//        case ROp::R_LOAD_CONST: {
-//            uint8_t r = chunk->code[offset+1];
-//            uint32_t ci = readUint32(chunk, offset+2);
-//            std::cout << "R_LOAD_CONST r" << (int)r << " const[" << ci << "] \n";
-//            return offset + 1 + 1 + 4;
-//        }
-//        case ROp::R_MOV: {
-//            uint8_t dest = chunk->code[offset+1];
-//            uint8_t src = chunk->code[offset+2];
-//            std::cout << "R_MOV r" << (int)dest << ", r" << (int)src << "\n";
-//            return offset + 3;
-//        }
-//        case ROp::R_ADD: {
-//            uint8_t d = chunk->code[offset+1];
-//            uint8_t a = chunk->code[offset+2];
-//            uint8_t b = chunk->code[offset+3];
-//            std::cout << "R_ADD r" << (int)d << ", r" << (int)a << ", r" << (int)b << "\n";
-//            return offset + 4;
-//        }
-//        case ROp::R_GET_GLOBAL: {
-//            uint8_t dest = chunk->code[offset+1];
-//            uint32_t idx = readUint32(chunk, offset+2);
-//            std::cout << "R_GET_GLOBAL r" << (int)dest << " const[" << idx << "]\n";
-//            return offset + 6;
-//        }
-//        case ROp::R_SET_GLOBAL: {
-//            uint8_t src = chunk->code[offset+1];
-//            uint32_t idx = readUint32(chunk, offset+2);
-//            std::cout << "R_SET_GLOBAL r" << (int)src << " const[" << idx << "]\n";
-//            return offset + 6;
-//        }
-//        case ROp::R_HALT: {
-//            std::cout << "R_HALT\n";
-//            return offset + 1;
-//        }
-//        default:
-//            std::cout << "R_UNKNOWN(" << (int)op << ")\n";
-//            return offset + 1;
-//    }
-    
-}
+size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offset) {
+    if (offset >= chunk->code.size()) return offset + 1;
 
+    const Instruction& instr = chunk->code[offset];
+    std::cout << std::setw(4) << offset << " ";
+
+    // Print opcode name
+    std::string opName;
+    switch (instr.op) {
+        case TurboOpCode::Add: opName = "Add"; break;
+        case TurboOpCode::Subtract: opName = "Subtract"; break;
+        case TurboOpCode::Multiply: opName = "Multiply"; break;
+        case TurboOpCode::Divide: opName = "Divide"; break;
+        case TurboOpCode::Modulo: opName = "Modulo"; break;
+        case TurboOpCode::Power: opName = "Power"; break;
+        case TurboOpCode::Equal: opName = "Equal"; break;
+        case TurboOpCode::StrictEqual: opName = "StrictEqual"; break;
+        case TurboOpCode::NotEqual: opName = "NotEqual"; break;
+        case TurboOpCode::StrictNotEqual: opName = "StrictNotEqual"; break;
+        case TurboOpCode::LessThan: opName = "LessThan"; break;
+        case TurboOpCode::LessThanOrEqual: opName = "LessThanOrEqual"; break;
+        case TurboOpCode::GreaterThan: opName = "GreaterThan"; break;
+        case TurboOpCode::GreaterThanOrEqual: opName = "GreaterThanOrEqual"; break;
+        case TurboOpCode::LogicalAnd: opName = "LogicalAnd"; break;
+        case TurboOpCode::LogicalOr: opName = "LogicalOr"; break;
+        case TurboOpCode::NullishCoalescing: opName = "NullishCoalescing"; break;
+        case TurboOpCode::BitAnd: opName = "BitAnd"; break;
+        case TurboOpCode::BitOr: opName = "BitOr"; break;
+        case TurboOpCode::BitXor: opName = "BitXor"; break;
+        case TurboOpCode::ShiftLeft: opName = "ShiftLeft"; break;
+        case TurboOpCode::ShiftRight: opName = "ShiftRight"; break;
+        case TurboOpCode::UnsignedShiftRight: opName = "UnsignedShiftRight"; break;
+        case TurboOpCode::LoadConst: opName = "LoadConst"; break;
+        case TurboOpCode::Move: opName = "Move"; break;
+        case TurboOpCode::StoreLocal: opName = "StoreLocal"; break;
+        case TurboOpCode::StoreGlobal: opName = "StoreGlobal"; break;
+        case TurboOpCode::LoadLocalVar: opName = "LoadLocalVar"; break;
+        case TurboOpCode::LoadGlobalVar: opName = "LoadGlobalVar"; break;
+        case TurboOpCode::CreateLocalVar: opName = "CreateLocalVar"; break;
+        case TurboOpCode::CreateLocalLet: opName = "CreateLocalLet"; break;
+        case TurboOpCode::CreateLocalConst: opName = "CreateLocalConst"; break;
+        case TurboOpCode::CreateGlobalVar: opName = "CreateGlobalVar"; break;
+        case TurboOpCode::CreateGlobalLet: opName = "CreateGlobalLet"; break;
+        case TurboOpCode::CreateGlobalConst: opName = "CreateGlobalConst"; break;
+        case TurboOpCode::JumpIfFalse: opName = "JumpIfFalse"; break;
+        case TurboOpCode::Jump: opName = "Jump"; break;
+        case TurboOpCode::Return: opName = "Return"; break;
+        case TurboOpCode::Halt: opName = "Halt"; break;
+        case TurboOpCode::Throw: opName = "Throw"; break;
+        // Add more opcodes as needed
+        default: opName = "Unknown"; break;
+    }
+
+    std::cout << std::left << std::setw(20) << opName;
+
+    // Print operands
+    std::cout << " a: " << (int)instr.a
+              << " b: " << (int)instr.b
+              << " c: " << (int)instr.c;
+
+    // For LoadConst, print constant value
+    if (instr.op == TurboOpCode::LoadConst && instr.b < chunk->constants.size()) {
+        std::cout << " [const: " << chunk->constants[instr.b].toString() << "]";
+    }
+
+    std::cout << std::endl;
+    return offset + 1;
+}
 
 void TurboCodeGen::disassembleChunk(const TurboChunk* chunk, const std::string& name) {
     std::cout << "== " << name << " ==\n";
@@ -1125,4 +1167,3 @@ void TurboCodeGen::disassembleChunk(const TurboChunk* chunk, const std::string& 
     }
 }
 
-//}

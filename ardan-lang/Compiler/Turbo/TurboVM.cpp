@@ -7,8 +7,6 @@
 
 #include "TurboVM.hpp"
 
-//namespace ArdanTurboVM {
-
 TurboVM::TurboVM() {
     env = new Env();
     init_builtins();
@@ -217,16 +215,81 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
     while (true) {
         Instruction instruction = readInstruction();
+        TurboOpCode op = instruction.op;
 
-        switch (instruction.op) {
+        switch (op) {
             case TurboOpCode::Nop:
                 break;
 
             case TurboOpCode::LoadConst: {
                 uint8_t dest = instruction.a;
-                uint16_t const_index = instruction.b;
+                uint8_t const_index = instruction.b;
                 Value val = frame->chunk->constants[const_index];
                 registers[dest] = val;
+                break;
+            }
+                
+            case TurboOpCode::Move: {
+                uint8_t src = instruction.b;
+                uint8_t dest = instruction.a;
+                registers[dest] = registers[src];
+                break;
+            }
+                
+            case TurboOpCode::CreateLocalVar: {
+                uint8_t local_index = instruction.a;
+                uint8_t data_reg = instruction.b;
+                frame->locals[local_index] = registers[data_reg];
+                break;
+            }
+                
+            case TurboOpCode::CreateLocalLet:{
+                uint8_t local_index = instruction.a;
+                uint8_t data_reg = instruction.b;
+                frame->locals[local_index] = registers[data_reg];
+                break;
+            }
+                
+            case TurboOpCode::CreateLocalConst:{
+                uint8_t local_index = instruction.a;
+                uint8_t data_reg = instruction.b;
+                frame->locals[local_index] = registers[data_reg];
+                break;
+            }
+                
+            case TurboOpCode::CreateGlobalVar:{
+                uint8_t constant_index = instruction.a;
+                uint8_t data_reg = instruction.b;
+                
+                Value name_val = frame->chunk->constants[constant_index];
+                string name = name_val.stringValue;
+                
+                env->set_var(name, registers[data_reg]);
+                
+                break;
+            }
+                
+            case TurboOpCode::CreateGlobalLet:{
+                uint8_t constant_index = instruction.a;
+                uint8_t data_reg = instruction.b;
+                
+                Value name_val = frame->chunk->constants[constant_index];
+                string name = name_val.stringValue;
+                
+                env->set_let(name, registers[data_reg]);
+                
+                break;
+            }
+                
+            case TurboOpCode::CreateGlobalConst:{
+                uint8_t constant_index = instruction.a;
+                uint8_t data_reg = instruction.b;
+                
+                Value name_val = frame->chunk->constants[constant_index];
+                string name = name_val.stringValue;
+                
+                env->set_const(name, registers[data_reg]);
+                
                 break;
             }
                 
@@ -234,7 +297,40 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case TurboOpCode::Subtract: {
+                break;
+            }
+                
+            case TurboOpCode::Multiply: {
+                break;
+            }
+                
+            case TurboOpCode::Divide: {
+                break;
+            }
+                
+            case TurboOpCode::Modulo: {
+                break;
+            }
+                
+            case TurboOpCode::Power: {
+                break;
+            }
+
             case TurboOpCode::Return: {
+                break;
+            }
+                
+            case TurboOpCode::LoadLocalVar: {
+                // LoadLocalVar, reg_slot, idx
+                uint8_t reg = instruction.a;
+                uint8_t idx = instruction.b;
+                
+                registers[reg] = frame->locals[idx];
+                break;
+            }
+                
+            case TurboOpCode::LoadGlobalVar: {
                 break;
             }
 
@@ -261,17 +357,17 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::CLOSURE) {
 
-        //shared_ptr<ArdanTurboCodeGen::Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
+        shared_ptr<TurboChunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
         
         // Build new frame
         CallFrame new_frame;
-        //new_frame.chunk = calleeChunk;
+        new_frame.chunk = calleeChunk;
         new_frame.ip = 0;
         // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
-        //new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
+        new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
-        //new_frame.closure = callee.closureValue;
-        // new_frame.js_object = callee.closureValue->js_object;
+        new_frame.closure = callee.closureValue;
+        //new_frame.js_object = callee.closureValue->js_object;
 
         // Set frame.closure if calling a closure
         // Assuming callee has a closurePtr member for Closure shared_ptr
@@ -326,7 +422,7 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     // Set frame.closure if calling a closure
     // Assuming callee has a closurePtr member for Closure shared_ptr
     // If you extended Value for closure type, set here:
-    //new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
+    new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
 
     // save current frame
     CallFrame prev_frame = callStack.back();
@@ -386,4 +482,3 @@ void TurboVM::handleRethrow() {
 //    }
 }
 
-//}
