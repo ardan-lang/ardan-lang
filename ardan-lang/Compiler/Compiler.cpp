@@ -56,7 +56,7 @@ void Compiler::test_compile(const std::vector<std::unique_ptr<Statement>>& ast) 
 void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
     shared_ptr<TurboModule> module_ = make_shared<TurboModule>();
-    auto codegen = make_shared<ArdanTurboCodeGen::TurboCodeGen>(module_);
+    auto codegen = make_shared<TurboCodeGen>(module_);
 
     // generate fills module_->chunks and module_->constants
     auto entryChunkIndex = codegen->generate(ast);
@@ -79,7 +79,7 @@ void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>&
 //    shared_ptr<TurboModule> _module_ = reader.readModule();
 //
     //    VM vm(_module_);
-    ArdanTurboVM::TurboVM vm(module_);
+    TurboVM vm(module_);
 
     // OR explicitly by chunk index
     Value ret = vm.run(module_->chunks[module_->entryChunkIndex], {});
