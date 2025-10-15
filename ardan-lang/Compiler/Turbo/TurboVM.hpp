@@ -37,45 +37,47 @@
 
 using namespace std;
 
-namespace ArdanTurboVM {
+//namespace ArdanTurboVM {
 
 using std::vector;
 using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
-// --- Closure and Upvalue support ---
-struct Upvalue {
-    Value* location;   // Points to stack slot or closed value
-    Value closed;      // When closed, stores value
-    Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
-    bool isClosed() const { return location == &closed; }
-};
-
-struct Closure {
-    shared_ptr<FunctionObject> fn;
-    vector<shared_ptr<Upvalue>> upvalues;
-    shared_ptr<JSObject> js_object;
-};
-
-struct CallFrame {
-    shared_ptr<TurboChunk> chunk;
-    size_t ip = 0;                    // instruction pointer for this frame
-    deque<Value> locals;        // local slots for this frame
-    size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
-    
-    vector<Value> args;
-    shared_ptr<Closure> closure;
-};
-
-struct TryFrame {
-    int catchIP;      // -1 if none
-    int finallyIP;    // -1 if none
-    int stackDepth;   // stack size at entry
-    int ipAfterTry;   // where the linear try block ends (for normal flow)
-};
 
 class TurboVM {
+    
+    // --- Closure and Upvalue support ---
+    struct Upvalue {
+        Value* location;   // Points to stack slot or closed value
+        Value closed;      // When closed, stores value
+        Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
+        bool isClosed() const { return location == &closed; }
+    };
+
+    struct Closure {
+        shared_ptr<FunctionObject> fn;
+        vector<shared_ptr<Upvalue>> upvalues;
+        shared_ptr<JSObject> js_object;
+    };
+
+    struct CallFrame {
+        shared_ptr<TurboChunk> chunk;
+        size_t ip = 0;                    // instruction pointer for this frame
+        deque<Value> locals;        // local slots for this frame
+        size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
+        
+        vector<Value> args;
+        shared_ptr<Closure> closure;
+    };
+
+    struct TryFrame {
+        int catchIP;      // -1 if none
+        int finallyIP;    // -1 if none
+        int stackDepth;   // stack size at entry
+        int ipAfterTry;   // where the linear try block ends (for normal flow)
+    };
+
 public:
     TurboVM();
     
@@ -126,6 +128,6 @@ private:
     
 };
 
-}
+//}
 
 #endif /* TurboVM_hpp */

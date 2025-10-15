@@ -26,69 +26,7 @@
 
 using namespace std;
 
-namespace ArdanTurboCodeGen {
-
-enum class BindingKind {
-    Var,
-    Let,
-    Const,
-};
-
-struct LocalScope {
-    unordered_map<string, Value> locals;
-    LocalScope* parent = nullptr;
-};
-
-class RegisterAllocator {
-    uint32_t nextReg = 1; // reserve 0 for special uses if needed
-    vector<uint32_t> freeRegs;
-public:
-    uint32_t alloc() {
-        if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
-        return nextReg++;
-    }
-    void free(uint32_t r) {
-        if (r==0) return; // don't free 0
-        freeRegs.push_back(r);
-    }
-    void reset() { nextReg = 1; freeRegs.clear(); }
-};
-
-struct LoopContext {
-    int loopStart;              // address of loop condition start
-    vector<int> breaks;    // jump addresses that need patching
-};
-
-struct ExceptionHandler {
-    int handlerIP;
-    int stackDepth;
-};
-
-struct ParameterInfo {
-    string name;
-    bool hasDefault;
-    Expression* defaultExpr;
-    bool isRest;
-};
-
-struct UpvalueMeta {
-    bool isLocal;   // True if from parent's locals, false if from parent's upvalues
-    uint32_t index; // Slot or upvalue index
-    string name;
-};
-
-struct Local {
-    string name;
-    int depth;        // scope depth
-    bool isCaptured;  // true if used by an inner function
-    uint32_t slot_index;
-    BindingKind kind;
-};
-
-struct Global {
-    string name;
-    BindingKind kind;
-};
+//namespace ArdanTurboCodeGen {
 
 using std::shared_ptr;
 using std::unordered_map;
@@ -96,6 +34,68 @@ using std::string;
 using std::vector;
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
+
+    enum class BindingKind {
+        Var,
+        Let,
+        Const,
+    };
+
+    struct LocalScope {
+        unordered_map<string, Value> locals;
+        LocalScope* parent = nullptr;
+    };
+
+    class RegisterAllocator {
+        uint32_t nextReg = 1; // reserve 0 for special uses if needed
+        vector<uint32_t> freeRegs;
+    public:
+        uint32_t alloc() {
+            if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
+            return nextReg++;
+        }
+        void free(uint32_t r) {
+            if (r==0) return; // don't free 0
+            freeRegs.push_back(r);
+        }
+        void reset() { nextReg = 1; freeRegs.clear(); }
+    };
+
+    struct LoopContext {
+        int loopStart;              // address of loop condition start
+        vector<int> breaks;    // jump addresses that need patching
+    };
+
+    struct ExceptionHandler {
+        int handlerIP;
+        int stackDepth;
+    };
+
+    struct ParameterInfo {
+        string name;
+        bool hasDefault;
+        Expression* defaultExpr;
+        bool isRest;
+    };
+
+    struct UpvalueMeta {
+        bool isLocal;   // True if from parent's locals, false if from parent's upvalues
+        uint32_t index; // Slot or upvalue index
+        string name;
+    };
+
+    struct Local {
+        string name;
+        int depth;        // scope depth
+        bool isCaptured;  // true if used by an inner function
+        uint32_t slot_index;
+        BindingKind kind;
+    };
+
+    struct Global {
+        string name;
+        BindingKind kind;
+    };
 
 private:
     shared_ptr<TurboChunk> cur; // current chunk being emitted
@@ -111,8 +111,8 @@ private:
     
     // helpers
     void emit(TurboOpCode op);
-    void emitUint32(uint32_t v);
-    void emitUint8(uint8_t v);
+//    void emitUint32(uint32_t v);
+//    void emitUint8(uint8_t v);
     int emitConstant(const Value &v);
     uint32_t makeLocal(const string &name); // allocate a local slot
     bool hasLocal(const string &name);
@@ -239,4 +239,4 @@ public:
         
 };
 
-}
+//}

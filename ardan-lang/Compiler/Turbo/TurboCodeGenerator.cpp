@@ -7,7 +7,7 @@
 
 #include "TurboCodeGenerator.hpp"
 
-namespace ArdanTurboCodeGen {
+//namespace ArdanTurboCodeGen {
 
 TurboCodeGen::TurboCodeGen() {
     registerAllocator = shared_ptr<RegisterAllocator>();
@@ -76,22 +76,19 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
         
         switch (kind) {
             case BindingKind::Var:
-                emit(TurboOpCode::CreateLocalVar);
+                emit(TurboOpCode::CreateLocalVar, idx, reg_slot);
                 break;
             case BindingKind::Let:
-                emit(TurboOpCode::CreateLocalLet);
+                emit(TurboOpCode::CreateLocalLet, idx, reg_slot);
                 break;
             case BindingKind::Const:
-                emit(TurboOpCode::CreateLocalConst);
+                emit(TurboOpCode::CreateLocalConst, idx, reg_slot);
                 break;
             default:
-                emit(TurboOpCode::CreateLocalVar);
+                emit(TurboOpCode::CreateLocalVar, idx, reg_slot);
                 break;
         }
-        
-        emitUint32(idx);
-        emitUint32(reg_slot);
-        
+                
     } else {
         
         //        if (classInfo.fields.count(decl)) {
@@ -115,22 +112,19 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
         int nameIdx = emitConstant(Value::str(decl));
         switch (kind) {
             case BindingKind::Var:
-                emit(TurboOpCode::CreateGlobalVar);
+                emit(TurboOpCode::CreateGlobalVar, (uint32_t)nameIdx, reg_slot);
                 break;
             case BindingKind::Let:
-                emit(TurboOpCode::CreateGlobalLet);
+                emit(TurboOpCode::CreateGlobalLet, (uint32_t)nameIdx, reg_slot);
                 break;
             case BindingKind::Const:
-                emit(TurboOpCode::CreateGlobalConst);
+                emit(TurboOpCode::CreateGlobalConst, (uint32_t)nameIdx, reg_slot);
                 break;
             default:
-                emit(TurboOpCode::CreateGlobalVar);
+                emit(TurboOpCode::CreateGlobalVar, (uint32_t)nameIdx, reg_slot);
                 break;
         }
-        
-        emitUint32((uint32_t)nameIdx);
-        emitUint32(reg_slot);
-        
+                
     }
     
     return true;
@@ -202,7 +196,7 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
         
         declareLocal(decl.id);
         create(decl.id, slot, get_kind(kind));
-        
+        freeRegister(slot);
         // DO NOT freeRegister(slot) here!
         // It must stay alive until endScope() pops it.
     }
@@ -1024,6 +1018,20 @@ int TurboCodeGen::emitConstant(const Value& v) {
     return (int)cur->constants.size() - 1;
 }
 
+bool TurboCodeGen::hasLocal(const std::string& name) {
+    for (int i = (int)locals.size() - 1; i >= 0; --i) {
+        if (locals[i].name == name) return true;
+    }
+    return false;
+}
+
+uint32_t TurboCodeGen::getLocal(const std::string& name) {
+    for (int i = (int)locals.size() - 1; i >= 0; --i) {
+        if (locals[i].name == name) return locals[i].slot_index;
+    }
+    throw std::runtime_error("Local not found: " + name);
+}
+
 int TurboCodeGen::declareLocal(const std::string& name) {
     // Check for duplicate declaration in current scope (optional)
     for (int i = (int)locals.size() - 1; i >= 0; --i) {
@@ -1051,7 +1059,7 @@ void TurboCodeGen::beginLoop() {
     
 }
 
-BindingKind TurboCodeGen::get_kind(string kind) {
+TurboCodeGen::BindingKind TurboCodeGen::get_kind(string kind) {
     if (kind == "CONST") {
         return BindingKind::Const;
     }
@@ -1117,4 +1125,4 @@ void TurboCodeGen::disassembleChunk(const TurboChunk* chunk, const std::string& 
     }
 }
 
-}
+//}
