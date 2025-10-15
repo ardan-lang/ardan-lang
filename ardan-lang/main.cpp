@@ -574,26 +574,23 @@ void run_compiler(string& filename, string& source) {
 
 void test() {
     
-    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/compile.ardan";
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/server.ardan";
         
     string source = read_file(entryFileName);
-    auto ast = get_ast(entryFileName, source);
+    auto ast = get_ast(source, entryFileName);
     
     Compiler compiler;
     
+    // compiler.test_turbo_compile(ast);
     compiler.test_compile(ast);
 
-    //run_interpreter(entryFileName, source);
+    // run_interpreter(entryFileName, source);
     // showWindow();
-    //run_interpreter_inline_test();
+    // run_interpreter_inline_test();
     
-//    REPL repl;
-//    repl.start_repl();
+    // REPL repl;
+    // repl.start_repl();
         
-    // ArdarFileReader reader("program.adar");
-    // std::unique_ptr<Module> module = reader.readModule();
-    // Pass module to VM for execution!
-
 }
 
 int main(int argc, const char * argv[]) {
