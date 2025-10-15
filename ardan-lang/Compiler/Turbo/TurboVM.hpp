@@ -44,20 +44,6 @@ using std::string;
 
 class TurboVM {
     
-//    // --- Closure and Upvalue support ---
-//    struct Upvalue {
-//        Value* location;   // Points to stack slot or closed value
-//        Value closed;      // When closed, stores value
-//        Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
-//        bool isClosed() const { return location == &closed; }
-//    };
-//
-//    struct Closure {
-//        shared_ptr<FunctionObject> fn;
-//        vector<shared_ptr<Upvalue>> upvalues;
-//        shared_ptr<JSObject> js_object;
-//    };
-
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;
         size_t ip = 0;                    // instruction pointer for this frame
@@ -89,9 +75,9 @@ public:
     Value callFunction(Value callee, vector<Value>& args);
     
 private:
-    shared_ptr<TurboModule> module_ = nullptr;               // set at construction or by caller
+    shared_ptr<TurboModule> module_ = nullptr; // set at construction or by caller
     
-    std::vector<CallFrame> callStack;        // call frames stack
+    std::vector<CallFrame> callStack; // call frames stack
     
     // helper to pop N args into a vector (left-to-right order)
     std::vector<Value> popArgs(size_t count);
@@ -120,8 +106,8 @@ private:
     void setProperty(const Value &objVal, const string &propName, const Value &val);
     Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
-    //void closeUpvalues(Value* last);
-    //shared_ptr<Upvalue> captureUpvalue(Value* local);
+    // void closeUpvalues(Value* last);
+    // shared_ptr<Upvalue> captureUpvalue(Value* local);
     
 };
 

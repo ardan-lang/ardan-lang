@@ -7,10 +7,6 @@
 
 #include "TurboCodeGenerator.hpp"
 
-//TurboCodeGen::TurboCodeGen() {
-//    registerAllocator = shared_ptr<RegisterAllocator>();
-//}
-
 size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = make_shared<TurboChunk>();
     cur->name = "BYTECODE";
@@ -725,47 +721,56 @@ R TurboCodeGen::visitStringLiteral(StringLiteral* expr) {
 }
 
 R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
-    return lookupLocalSlot(expr->name);
+    // return lookupLocalSlot(expr->name);
+    int reg = allocRegister();
+    load(expr->name, reg);
+    return reg;
 }
 
 R TurboCodeGen::visitCall(CallExpression* expr) {
-    uint32_t funcReg = allocRegister();
-    expr->callee->accept(*this);
-    std::vector<uint32_t> argRegs;
+    
+    uint32_t funcReg = get<int>(expr->callee->accept(*this));
+    
+    vector<uint32_t> argRegs;
     for (auto& arg : expr->arguments) {
-        uint32_t r = allocRegister();
-        arg->accept(*this);
+        uint32_t r = get<int>(arg->accept(*this));
         argRegs.push_back(r);
     }
-    uint32_t result = allocRegister();
-    //emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
-    for (auto r : argRegs) {//freeRegister();
+    
+    for (auto r : argRegs) {
+        freeRegister(r);
     }
-    //freeRegister(); // funcReg
+    
+    freeRegister(funcReg); // funcReg
+
+    uint32_t result = allocRegister();
+
+    emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
+
     return result;
+    
 }
 
 R TurboCodeGen::visitMember(MemberExpression* expr) {
     uint32_t obj = allocRegister();
     expr->object->accept(*this);
     uint32_t result = allocRegister();
-    //emit(TurboOpCode::GetProperty, result, obj, emitConstant(expr->name.lexeme));
+    emit(TurboOpCode::GetProperty, result, obj, emitConstant(expr->name.lexeme));
     //freeRegister();
     return result;
 }
 
 R TurboCodeGen::visitNew(NewExpression* expr) {
-    // Omitted for brevity; similar pattern as above
     return 0;
 }
 
 R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
     uint32_t arr = allocRegister();
-    //emit(TurboOpCode::NewArray, arr);
+    emit(TurboOpCode::NewArray, arr);
     for (auto& el : expr->elements) {
         uint32_t val = allocRegister();
         el->accept(*this);
-        //emit(TurboOpCode::ArrayPush, arr, val);
+        emit(TurboOpCode::ArrayPush, arr, val);
         //freeRegister();
     }
     return arr;
@@ -773,11 +778,11 @@ R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
 
 R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
     uint32_t obj = allocRegister();
-    //    emit(TurboOpCode::NewObject, obj);
+    emit(TurboOpCode::NewObject, obj);
     for (auto& prop : expr->props) {
         uint32_t val = allocRegister();
         prop.second->accept(*this);
-        //        emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
+        emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
         //freeRegister();
     }
     return obj;
@@ -1154,6 +1159,7 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::JumpIfFalse: opName = "JumpIfFalse"; break;
         case TurboOpCode::Jump: opName = "Jump"; break;
         case TurboOpCode::Return: opName = "Return"; break;
+        case TurboOpCode::Call: opName = "Call"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
         case TurboOpCode::Throw: opName = "Throw"; break;
         // Add more opcodes as needed

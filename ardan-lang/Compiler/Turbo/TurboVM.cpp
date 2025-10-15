@@ -331,14 +331,38 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::LoadGlobalVar: {
+                
+                uint8_t reg = instruction.a;
+                uint8_t idx = instruction.b;
+                string name = frame->chunk->constants[idx].stringValue;
+                
+                registers[reg] = toValue(env->get(name));
+
                 break;
             }
                 
+                // emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
+//            Where:
+//
+//            funcReg → register containing the function (the callable object or closure)
+//            argStart → the index of the first argument register
+//            argCount → how many arguments are being passed
+                
             case TurboOpCode::Call: {
-                uint32_t argCount = readUint8();
-                vector<Value> args = popArgs(argCount);
-                Value callee = pop();
-                Value result = callFunction(callee, args);
+                
+                uint32_t result_reg = instruction.a;
+                Value func = registers[instruction.b]; // R[a] = function
+                uint8_t argCount = instruction.c;     // number of arguments
+                int argStart = instruction.b + 1;
+                
+                vector<Value> args;
+                args.reserve(argCount);
+                for (int i = 0; i < argCount; ++i) {
+                    args.push_back(registers[argStart + i]);
+                }
+                const vector<Value> const_args = args;
+                Value result = callFunction(func, const_args);
+                registers[result_reg] = result;
                 
                 break;
             }

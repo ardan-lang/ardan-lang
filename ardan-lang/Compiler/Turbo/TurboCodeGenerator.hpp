@@ -32,7 +32,7 @@ using std::string;
 using std::vector;
 
 class RegisterAllocator {
-    uint32_t nextReg = 1; // reserve 0 for special uses if needed
+    uint32_t nextReg = 0; // reserve 0 for special uses if needed
     vector<uint32_t> freeRegs;
 public:
     uint32_t alloc() {
