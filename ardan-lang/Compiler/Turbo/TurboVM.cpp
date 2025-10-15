@@ -333,6 +333,15 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::LoadGlobalVar: {
                 break;
             }
+                
+            case TurboOpCode::Call: {
+                uint32_t argCount = readUint8();
+                vector<Value> args = popArgs(argCount);
+                Value callee = pop();
+                Value result = callFunction(callee, args);
+                
+                break;
+            }
 
             case TurboOpCode::Halt:
                 return Value::undefined();

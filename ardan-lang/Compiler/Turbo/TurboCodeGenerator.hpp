@@ -111,8 +111,8 @@ private:
     
     // helpers
     void emit(TurboOpCode op);
-//    void emitUint32(uint32_t v);
-//    void emitUint8(uint8_t v);
+    // void emitUint32(uint32_t v);
+    // void emitUint8(uint8_t v);
     int emitConstant(const Value &v);
     uint32_t makeLocal(const string &name); // allocate a local slot
     bool hasLocal(const string &name);
@@ -124,7 +124,7 @@ private:
     void patchTryFinally(int tryPos, int target);
     void patchTryCatch(int tryPos, int target);
     
-    int declareLocal(const string& name);
+    void declareLocal(const string& name);
     void emitSetLocal(int slot);
     int paramSlot(const string& name);
     int resolveLocal(const string& name);
@@ -160,9 +160,7 @@ private:
 
 public:
     TurboCodeGen();
-    TurboCodeGen(shared_ptr<TurboModule> m) : module_(m), cur(nullptr), nextLocalSlot(0) {
-        //registerAllocator = shared_ptr<RegisterAllocator>();
-     }
+    TurboCodeGen(shared_ptr<TurboModule> m) : module_(m), cur(nullptr), nextLocalSlot(0) {}
     
     shared_ptr<TurboModule> module_;
     int nextRegister = 0;

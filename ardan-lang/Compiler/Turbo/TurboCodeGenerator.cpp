@@ -713,13 +713,13 @@ R TurboCodeGen::visitLiteral(LiteralExpression* expr) {
 }
 
 R TurboCodeGen::visitNumericLiteral(NumericLiteral* expr) {
-    uint32_t reg = allocRegister();
+    int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(toValue(expr->value))); // load from constant into reg register
     return reg;
 }
 
 R TurboCodeGen::visitStringLiteral(StringLiteral* expr) {
-    uint32_t reg = allocRegister();
+    int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value(expr->text)));
     return reg;
 }
@@ -1052,21 +1052,37 @@ uint32_t TurboCodeGen::getLocal(const std::string& name) {
     throw std::runtime_error("Local not found: " + name);
 }
 
-int TurboCodeGen::declareLocal(const std::string& name) {
-    // Check for duplicate declaration in current scope (optional)
-    for (int i = (int)locals.size() - 1; i >= 0; --i) {
-        if (locals[i].depth < scopeDepth)
-            break; // only check current scope
-        if (locals[i].name == name)
-            throw std::runtime_error("Variable already declared in this scope: " + name);
+//int TurboCodeGen::declareLocal(const std::string& name) {
+//    // Check for duplicate declaration in current scope (optional)
+//    for (int i = (int)locals.size() - 1; i >= 0; --i) {
+//        if (locals[i].depth < scopeDepth)
+//            break; // only check current scope
+//        if (locals[i].name == name)
+//            throw std::runtime_error("Variable already declared in this scope: " + name);
+//    }
+//    Local local;
+//    local.name = name;
+//    local.depth = scopeDepth;
+//    local.isCaptured = false;
+//    local.slot_index = nextLocalSlot++;
+//    locals.push_back(local);
+//    return local.slot_index;
+//}
+
+void TurboCodeGen::declareLocal(const string& name) {
+    if (scopeDepth == 0) return; // globals aren’t locals
+
+    // prevent shadowing in same scope
+    for (int i = (int)locals.size() - 1; i >= 0; i--) {
+        if (locals[i].depth != -1 && locals[i].depth < scopeDepth) break;
+        if (locals[i].name == name) {
+            throw runtime_error("Variable already declared in this scope");
+        }
     }
-    Local local;
-    local.name = name;
-    local.depth = scopeDepth;
-    local.isCaptured = false;
-    local.slot_index = nextLocalSlot++;
+
+    Local local { name, scopeDepth, false, (uint32_t)locals.size() };
     locals.push_back(local);
-    return local.slot_index;
+    
 }
 
 void TurboCodeGen::endLoop() {}
