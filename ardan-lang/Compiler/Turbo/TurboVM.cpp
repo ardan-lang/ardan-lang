@@ -340,6 +340,27 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
                 break;
             }
+                //TODO: we need to store via var, let, const
+                //emit(TurboOpCode::StoreLocal, idx, reg_slot);
+            case TurboOpCode::StoreLocal: {
+                
+                uint8_t idx = instruction.a;
+                uint8_t reg_slot = instruction.b;
+                
+                frame->chunk->constants[idx] = registers[reg_slot];
+                
+                break;
+            }
+                
+            case TurboOpCode::StoreGlobal: {
+                
+                uint8_t idx = instruction.a;
+                uint8_t reg_slot = instruction.b;
+                
+                env->set
+
+                break;
+            }
                 
                 // emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
 //            Where:

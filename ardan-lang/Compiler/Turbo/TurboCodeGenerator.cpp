@@ -592,7 +592,7 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     // ----------- Plain assignment (=) -----------
     if (expr->op.type == TokenType::ASSIGN) {
         // Evaluate RHS into a fresh register
-        int rhsReg = allocRegister();
+        // int rhsReg = allocRegister();
         int resultReg = get<int>(expr->right->accept(*this));
         
         // Assignment to a variable (identifier)
@@ -626,7 +626,7 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
             throw std::runtime_error("Unsupported assignment target in CodeGen");
         }
         
-        freeRegister(rhsReg); // rhsReg
+        // freeRegister(rhsReg); // rhsReg
         freeRegister(resultReg);
         return;
     }
