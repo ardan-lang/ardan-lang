@@ -8,6 +8,7 @@
 #pragma once
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <stack>
 #include <stdexcept>
 #include <iostream>
@@ -50,6 +51,13 @@ public:
 };
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
+
+    struct ClassInfo {
+        unordered_set<string> fields;
+        
+        unordered_set<string> publicFields;
+        unordered_set<string> privateFields;
+    };
 
     class RegGuard {
         TurboCodeGen& codegen;
@@ -133,6 +141,14 @@ private:
     
     // helpers
     TurboOpCode getUnaryOp(const Token& op);
+    string resolveImportPath(ImportDeclaration* stmt);
+    bool isModuleLoaded(string importPath);
+    void registerModule(string importPath);
+    vector<string> registered_modules;
+
+    ClassInfo classInfo;
+    
+    void compileMethod(MethodDefinition& method);
 
     void emit(TurboOpCode op);
     // void emitUint32(uint32_t v);

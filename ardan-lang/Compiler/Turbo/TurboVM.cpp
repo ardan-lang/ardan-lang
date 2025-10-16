@@ -700,7 +700,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::Return: {
-                break;
+                Value v = registers[instruction.a];
+                                
+                return v;
             }
 
             case TurboOpCode::Halt:

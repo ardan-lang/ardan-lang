@@ -112,6 +112,8 @@ enum class TurboOpCode : uint8_t {
 
     // Closures
     CreateClosure,
+    SetClosureIsLocal,
+    SetClosureIndex,
     GetUpvalue,
     SetUpvalue,
     CloseUpvalue,
