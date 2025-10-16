@@ -1175,6 +1175,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                         closure->upvalues.push_back(frame->closure->upvalues[idx]);
                     }
                 }
+                
                 break;
             }
 
