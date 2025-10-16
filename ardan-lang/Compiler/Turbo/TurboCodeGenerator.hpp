@@ -19,6 +19,9 @@
 #include "../../Expression/Expression.hpp"
 #include "../../Interpreter/Utils/Utils.h"
 
+#include "../../Scanner/Scanner.hpp"
+#include "../../Parser/Parser.hpp"
+
 #include "./TurboBytecode.hpp"
 #include "./TurboChunk.hpp"
 #include "./TurboVM.hpp"
