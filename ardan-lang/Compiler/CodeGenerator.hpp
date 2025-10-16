@@ -65,9 +65,9 @@ struct ClosureInfo {
 };
 
 struct FieldInfo {
-      string name;
-      enum class Access { Public, Private } access;
-  };
+    string name;
+    enum class Access { Public, Private } access;
+};
 
 enum class BindingKind {
     Var,
