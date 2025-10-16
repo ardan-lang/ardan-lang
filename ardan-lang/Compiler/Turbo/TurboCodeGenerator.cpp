@@ -302,14 +302,20 @@ R TurboCodeGen::visitFor(ForStatement* stmt) {
 }
 
 R TurboCodeGen::visitReturn(ReturnStatement* stmt) {
+    
     uint32_t value = allocRegister();
+    
     if (stmt->argument)
-        stmt->argument->accept(*this);
+        value = get<int>(stmt->argument->accept(*this));
     else
         emit(TurboOpCode::LoadConst, value, emitConstant(Value::undefined()));
+    
     emit(TurboOpCode::Return, value);
-    //freeRegister();
+    
+    freeRegister(value);
+    
     return 0;
+    
 }
 
 TurboOpCode TurboCodeGen::getBinaryOp(const Token& op) {
