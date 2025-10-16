@@ -654,7 +654,60 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 argStack.push_back(registers[argReg]);
                 break;
             }
+                
+                // TurboOpCode::LoadArgument, reg
+            case TurboOpCode::LoadArgument: {
+                // Expects next 4 bytes: uint32_t index of argument to load
+                uint32_t argIndex = registers[instruction.a].numberValue;
+                
+                Value result = Value::undefined();
+                if (argIndex < frame->args.size()) {
+                    result = frame->args[argIndex];
+                }
+                registers[instruction.a] = (result);
+                break;
+            }
 
+            case TurboOpCode::CreateClosure: {
+                
+                int ci = registers[instruction.a].numberValue;
+                
+                Value fnVal = module_->constants[ci];
+                auto fnRef = fnVal.fnRef; // FunctionObject*
+                auto closure = make_shared<Closure>();
+                closure->fn = fnRef;
+
+                registers[instruction.a] = Value::closure(closure);
+
+                break;
+            }
+                
+//                for (size_t i = 0; i < fnRef->upvalues_size; ++i) {
+//                    // Read upvalue info (isLocal, index)
+//                    uint32_t isLocal = readUint8();
+//                    uint32_t idx = readUint8();
+//                    if (isLocal) {
+//                        closure->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
+//                    } else {
+//                        closure->upvalues.push_back(frame->closure->upvalues[idx]);
+//                    }
+//                }
+
+                // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
+            case TurboOpCode::SetClosureIsLocal: {
+                int idx = registers[instruction.a].numberValue;
+                registers[instruction.b].closureValue->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
+                break;
+            }
+                
+                // TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg
+            case TurboOpCode::SetClosureIndex: {
+                int idx = registers[instruction.a].numberValue;
+                registers[instruction.b].closureValue->upvalues.push_back(frame->closure->upvalues[idx]);
+
+                break;
+            }
+                
                 // emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
 //            Where:
 //
