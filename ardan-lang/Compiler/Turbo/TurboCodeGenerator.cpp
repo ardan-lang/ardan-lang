@@ -896,24 +896,93 @@ R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
     return 0;
 }
 
-TurboOpCode TurboCodeGen::getUnaryOp(const Token& op) {
-    switch (op.type) {
-        //case TokenType::NOT:         return TurboOpCode::Not;
-        case TokenType::MINUS:       return TurboOpCode::Negate;
-        //case TokenType::PLUS:        return TurboOpCode::NoOp; // Or handle separately if no-op
-        //case TokenType::BITWISE_NOT: return TurboOpCode::BitwiseNot;
-        default:
-            throw std::runtime_error("Unknown unary operator in compiler: " + op.lexeme);
-    }
-}
-
+// --x, ++x, !x, -x
 R TurboCodeGen::visitUnary(UnaryExpression* expr) {
-    uint32_t operand = get<int>(expr->right->accept(*this));
-    uint32_t result = allocRegister();
-    TurboOpCode op = getUnaryOp(expr->op); // implement unary op mapping
-    emit(op, result, operand);
-    freeRegister(operand);
-    return result;
+    
+    // For prefix unary ops that target identifiers or members, we need special handling.
+    if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
+        // ++x or --x
+        if (auto ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
+            
+            // load ident
+            int lhsReg = allocRegister();
+            load(ident->name, lhsReg);
+            
+            int rhsReg = allocRegister();
+            emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+            
+            int opResultReg = allocRegister();
+            // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+            emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+                 opResultReg,
+                 lhsReg,
+                 rhsReg);
+            
+            freeRegister(lhsReg);
+            freeRegister(rhsReg);
+
+            store(ident->name, opResultReg);
+                        
+            return opResultReg;
+            
+        }
+
+        if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
+            
+            int lhsReg = get<int>(member_expr->accept(*this));
+            int rhsReg = allocRegister();
+            emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+            int opResultReg = allocRegister();
+            // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+            emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+                 opResultReg,
+                 lhsReg,
+                 rhsReg);
+
+            freeRegister(lhsReg);
+            freeRegister(rhsReg);
+
+            // Evaluate object to reg
+            int objReg = get<int>(member_expr->object->accept(*this));
+
+            if (member_expr->computed) {
+                
+                int propReg = get<int>(member_expr->property->accept(*this)); // Property key to reg
+                
+                // SetPropertyDynamic: objReg, propReg, valueReg
+                emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+                freeRegister(propReg); // propReg
+                
+            } else {
+                
+                int nameIdx = emitConstant(Value::str(member_expr->name.lexeme));
+                // SetProperty: objReg, nameIdx, valueReg
+                emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+                
+            }
+            
+            freeRegister(objReg); // objReg
+
+            return opResultReg;
+
+        }
+
+        throw std::runtime_error("Unsupported unary increment/decrement target");
+    }
+
+    // non-targeted unary ops (prefix) evaluate their operand first
+    int reg = get<int>(expr->right->accept(*this));
+    
+    switch (expr->op.type) {
+        case TokenType::LOGICAL_NOT: emit(TurboOpCode::LogicalNot, reg); break;
+        case TokenType::MINUS: emit(TurboOpCode::Negate, reg); break;
+        case TokenType::BITWISE_NOT: emit(TurboOpCode::LogicalNot, reg); break;
+        case TokenType::ADD: emit(TurboOpCode::Positive, reg); break;
+        default: throw std::runtime_error("Unsupported unary op in CodeGen");
+    }
+    
+    return reg;
+
 }
 
 R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
@@ -953,6 +1022,57 @@ R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     return 0;
 }
 
+//string TurboCodeGen::resolveImportPath(ImportDeclaration* stmt) {
+//    
+//    namespace fs = std::filesystem;
+//    
+//    // dir of the file that contained the import
+//    fs::path baseDir = fs::path(stmt->sourceFile).parent_path();
+//    
+//    string raw = stmt->path.lexeme;
+//    if (!raw.empty() && raw.front() == '"' && raw.back() == '"') {
+//        raw = raw.substr(1, raw.size() - 2);
+//    }
+//    
+//    fs::path resolved = fs::weakly_canonical(baseDir / raw);
+//    
+//    return resolved.string();
+//    
+//}
+//
+//R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
+//    
+//    // Resolve the path (relative or absolute)
+//    std::string importPath = resolveImportPath(stmt);
+//
+//    // Check if module is already loaded (avoid cycles/duplication)
+//    if (isModuleLoaded(importPath)) {
+//        // Already loaded, nothing to do (or optionally, re-bind exported symbols)
+//        return true;
+//    }
+//
+//    std::string source = read_file(importPath);
+//
+//    // Parse the imported source to AST
+//    Scanner scanner(source);
+//    auto tokens = scanner.getTokens();
+//    
+//    // pass the resolved file path into the parser
+//    Parser parser(tokens);
+//    parser.sourceFile = importPath;
+//    auto ast = parser.parse();
+//
+//    // Register the imported module BEFORE compiling to handle cycles
+//    registerModule(importPath);
+//
+//    for (const auto &s : ast) {
+//        s->accept(*this);
+//    }
+//
+//    return true;
+//    
+//}
+
 R TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
     uint32_t valueReg = allocRegister();
     expr->right->accept(*this);
@@ -991,12 +1111,75 @@ R TurboCodeGen::visitSequence(SequenceExpression* expr) {
 }
 
 R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
-    uint32_t reg = allocRegister();
-    expr->argument->accept(*this);
-    TurboOpCode op = expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract;
-    emit(op, reg, reg, emitConstant(Value(1)));
-    //freeRegister();
-    return reg;
+    
+    int lhsReg = get<int>(expr->argument->accept(*this));
+    //    TurboOpCode op = expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract;
+    //    emit(op, reg, reg, emitConstant(Value(1)));
+    //    //freeRegister();
+    //    return reg;
+    
+    int returnReg = -1;
+    
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
+        
+        int rhsReg = allocRegister();
+        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+        
+        int opResultReg = allocRegister();
+        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+             opResultReg,
+             lhsReg,
+             rhsReg);
+        
+        freeRegister(lhsReg);
+        freeRegister(rhsReg);
+        
+        store(ident->name, opResultReg);
+        
+        returnReg = opResultReg;
+        
+    }
+    else if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+        
+        int rhsReg = allocRegister();
+        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+        int opResultReg = allocRegister();
+        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+             opResultReg,
+             lhsReg,
+             rhsReg);
+        
+        freeRegister(lhsReg);
+        freeRegister(rhsReg);
+        
+        // Evaluate object to reg
+        int objReg = get<int>(member->object->accept(*this));
+        
+        if (member->computed) {
+            
+            int propReg = get<int>(member->property->accept(*this)); // Property key to reg
+            
+            // SetPropertyDynamic: objReg, propReg, valueReg
+            emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+            freeRegister(propReg); // propReg
+            
+        } else {
+            
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            // SetProperty: objReg, nameIdx, valueReg
+            emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+            
+        }
+        
+        freeRegister(objReg); // objReg
+        
+        returnReg = opResultReg;
+    }
+    
+    return returnReg;
+    
 }
 
 R TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
