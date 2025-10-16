@@ -40,37 +40,36 @@ void TurboVM::init_builtins() {
         
 }
 
-// Add members to VM class (assumed in VM.hpp):
 // Upvalue* openUpvalues = nullptr; // Head of list of open upvalues
 // std::vector<std::shared_ptr<Upvalue>> closureUpvalues; // Optional for management
 
-//std::shared_ptr<Upvalue> TurboVM::captureUpvalue(Value* local) {
-//    Upvalue* prev = nullptr;
-//    Upvalue* up = openUpvalues;
-//    while (up && up->location > local) {
-//        prev = up;
-//        up = up->next;
-//    }
-//    if (up && up->location == local) {
-//        // Return shared_ptr wrapping the existing raw pointer - dangerous if we don't manage lifetime properly
-//        // But for now, assume we keep lifetime with shared_ptr elsewhere
-//        // We'll create a shared_ptr aliasing same pointer
-//        return std::shared_ptr<Upvalue>(up, [](Upvalue*){}); // no-op deleter
-//    }
-//    auto created = std::make_shared<Upvalue>();
-//    created->location = local;
-//    created->next = up;
-//    if (prev) prev->next = created.get(); else openUpvalues = created.get();
-//    return created;
-//}
-//
-//void TurboVM::closeUpvalues(Value* last) {
-//    while (openUpvalues && openUpvalues->location >= last) {
-//        openUpvalues->closed = *openUpvalues->location;
-//        openUpvalues->location = &openUpvalues->closed;
-//        openUpvalues = openUpvalues->next;
-//    }
-//}
+shared_ptr<Upvalue> TurboVM::captureUpvalue(Value* local) {
+    Upvalue* prev = nullptr;
+    Upvalue* up = openUpvalues;
+    while (up && up->location > local) {
+        prev = up;
+        up = up->next;
+    }
+    if (up && up->location == local) {
+        // Return shared_ptr wrapping the existing raw pointer - dangerous if we don't manage lifetime properly
+        // But for now, assume we keep lifetime with shared_ptr elsewhere
+        // We'll create a shared_ptr aliasing same pointer
+        return std::shared_ptr<Upvalue>(up, [](Upvalue*){}); // no-op deleter
+    }
+    auto created = std::make_shared<Upvalue>();
+    created->location = local;
+    created->next = up;
+    if (prev) prev->next = created.get(); else openUpvalues = created.get();
+    return created;
+}
+
+void TurboVM::closeUpvalues(Value* last) {
+    while (openUpvalues && openUpvalues->location >= last) {
+        openUpvalues->closed = *openUpvalues->location;
+        openUpvalues->location = &openUpvalues->closed;
+        openUpvalues = openUpvalues->next;
+    }
+}
 
 Instruction TurboVM::readInstruction() {
     if (frame->ip >= frame->chunk->code.size())
@@ -293,27 +292,110 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
             case TurboOpCode::Add: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                Value result = binaryAdd(lhs, rhs);
+                registers[instruction.a] = result;
                 break;
             }
                 
             case TurboOpCode::Subtract: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(lhs.numberValue - rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::Multiply: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(lhs.numberValue * rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::Divide: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(lhs.numberValue / rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::Modulo: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(fmod(lhs.numberValue, rhs.numberValue));
                 break;
             }
                 
             case TurboOpCode::Power: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(pow(lhs.numberValue, rhs.numberValue));
+                break;
+            }
+                
+            case TurboOpCode::ShiftLeft: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value((int)lhs.numberValue << (int)rhs.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::ShiftRight: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value((int)lhs.numberValue >> (int)rhs.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::UnsignedShiftRight: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value((unsigned int)lhs.numberValue >> (unsigned int)rhs.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::BitAnd: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value((int)lhs.numberValue & (int)rhs.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::BitOr: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value((int)lhs.numberValue | (int)rhs.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::BitXor: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value((int)lhs.numberValue ^ (int)rhs.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::LogicalAnd: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(isTruthy(lhs) && isTruthy(rhs));
+                break;
+            }
+                
+            case TurboOpCode::LogicalOr: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = Value(isTruthy(lhs) || isTruthy(rhs));
+                break;
+            }
+                
+            case TurboOpCode::NullishCoalescing: {
+                Value lhs = registers[instruction.b];
+                Value rhs = registers[instruction.c];
+                registers[instruction.a] = isNullish(lhs) ? rhs : lhs;
                 break;
             }
 
@@ -342,26 +424,123 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 //TODO: we need to store via var, let, const
                 //emit(TurboOpCode::StoreLocal, idx, reg_slot);
-            case TurboOpCode::StoreLocal: {
+            case TurboOpCode::StoreLocalVar: {
                 
                 uint8_t idx = instruction.a;
                 uint8_t reg_slot = instruction.b;
                 
-                frame->chunk->constants[idx] = registers[reg_slot];
-                
-                break;
-            }
-                
-            case TurboOpCode::StoreGlobal: {
-                
-                uint8_t idx = instruction.a;
-                uint8_t reg_slot = instruction.b;
-                
-                env->set
+                frame->locals[idx] = registers[reg_slot];
 
                 break;
             }
                 
+            case TurboOpCode::StoreLocalLet: {
+                
+                uint8_t idx = instruction.a;
+                uint8_t reg_slot = instruction.b;
+                
+                frame->locals[idx] = registers[reg_slot];
+                
+                break;
+            }
+
+            case TurboOpCode::StoreGlobalVar: {
+                
+                uint8_t idx = instruction.a;
+                uint8_t reg_slot = instruction.b;
+                Value val = frame->chunk->constants[idx];
+                string name = val.stringValue;
+                
+                env->set_var(name, registers[reg_slot]);
+
+                break;
+            }
+                
+            case TurboOpCode::StoreGlobalLet: {
+                
+                uint8_t idx = instruction.a;
+                uint8_t reg_slot = instruction.b;
+                Value val = frame->chunk->constants[idx];
+                string name = val.stringValue;
+
+                env->set_let(name, registers[reg_slot]);
+
+                break;
+            }
+                
+                // emit(TurboOpCode::NewArray, arr);
+            case TurboOpCode::NewArray: {
+                auto array = make_shared<JSArray>();
+                registers[instruction.a] = Value::array(array);
+                break;
+            }
+                
+                // emit(TurboOpCode::ArrayPush, arr, val);
+            case TurboOpCode::ArrayPush: {
+                auto array = registers[instruction.a].arrayValue;
+                array->push({registers[instruction.b]});
+                break;
+            }
+
+                // emit(TurboOpCode::NewObject, obj);
+            case TurboOpCode::NewObject: {
+                auto object = make_shared<JSObject>();
+                Value v = Value::object(object);
+
+                registers[instruction.a] = v;
+                break;
+            }
+
+                // emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
+                // SetProperty: objReg, nameIdx, valueReg
+            case TurboOpCode::SetProperty: {
+                auto object = registers[instruction.a];
+                Value val = frame->chunk->constants[instruction.b];
+                string prop_name = val.stringValue;
+                Value obj_val = registers[instruction.c];
+                
+                setProperty(object, prop_name, obj_val);
+                registers[instruction.c] = object;
+
+                break;
+            }
+                
+                // SetPropertyDynamic: objReg, propReg, valueReg
+                // emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, resultReg);
+            case TurboOpCode::SetPropertyDynamic: {
+                auto object = registers[instruction.a];
+                string prop_name = registers[instruction.b].stringValue;
+                setProperty(object, prop_name, registers[instruction.c]);
+                
+                registers[instruction.c] = object;
+
+                break;
+            }
+                
+                // TurboOpCode::GetPropertyDynamic, lhsReg, objReg, propReg
+            case TurboOpCode::GetPropertyDynamic: {
+                auto object = registers[instruction.b];
+                string prop = registers[instruction.c].stringValue;
+                Value val = getProperty(object, prop);
+                registers[instruction.a] = val;
+                break;
+            }
+                
+                // TurboOpCode::GetProperty, lhsReg, objReg, nameIdx
+            case TurboOpCode::GetProperty: {
+                auto object = registers[instruction.b];
+                string prop = frame->chunk->constants[instruction.c].stringValue;
+                Value val = getProperty(object, prop);
+                registers[instruction.a] = val;
+                break;
+            }
+                
+            case TurboOpCode::PushArg: {
+                int argReg = instruction.a;
+                argStack.push_back(registers[argReg]);
+                break;
+            }
+
                 // emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
 //            Where:
 //
@@ -369,25 +548,43 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 //            argStart → the index of the first argument register
 //            argCount → how many arguments are being passed
                 
+//            case TurboOpCode::Call: {
+//                
+//                uint32_t result_reg = instruction.a;
+//                Value func = registers[instruction.b]; // R[a] = function
+//                uint8_t argCount = instruction.c;     // number of arguments
+//                int argStart = instruction.b + 1;
+//                
+//                vector<Value> args;
+//                args.reserve(argCount);
+//                for (int i = 0; i < argCount; ++i) {
+//                    args.push_back(registers[argStart + i]);
+//                }
+//                const vector<Value> const_args = args;
+//                Value result = callFunction(func, const_args);
+//                registers[result_reg] = result;
+//                
+//                break;
+//            }
+                
             case TurboOpCode::Call: {
                 
-                uint32_t result_reg = instruction.a;
-                Value func = registers[instruction.b]; // R[a] = function
-                uint8_t argCount = instruction.c;     // number of arguments
-                int argStart = instruction.b + 1;
+                int resultReg = instruction.a;
+                int funcReg   = instruction.b;
+                int argc      = instruction.c;
                 
-                vector<Value> args;
-                args.reserve(argCount);
-                for (int i = 0; i < argCount; ++i) {
-                    args.push_back(registers[argStart + i]);
-                }
-                const vector<Value> const_args = args;
+                Value func = registers[funcReg];
+                
+                const vector<Value> const_args = {
+                    argStack.begin(),
+                    argStack.end() };
                 Value result = callFunction(func, const_args);
-                registers[result_reg] = result;
-                
+                argStack.clear();
+                registers[resultReg] = result;
+
                 break;
             }
-
+                
             case TurboOpCode::Halt:
                 return Value::undefined();
                 break;

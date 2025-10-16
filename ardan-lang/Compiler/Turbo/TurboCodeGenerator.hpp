@@ -48,6 +48,25 @@ public:
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
 
+    class RegGuard {
+        TurboCodeGen& codegen;
+        int reg;
+        bool active;
+    public:
+        RegGuard(int r, TurboCodeGen& cg, bool autoFree = true)
+            : codegen(cg), reg(r), active(autoFree) {}
+
+        void release() { active = false; }
+
+        ~RegGuard() {
+            if (active) codegen.freeRegister(reg);
+        }
+    };
+
+    inline RegGuard makeRegGuard(int r, TurboCodeGen& cg, bool autoFree = true) {
+        return RegGuard(r, cg, autoFree);
+    }
+
     enum class BindingKind {
         Var,
         Let,
@@ -110,6 +129,8 @@ private:
     RegisterAllocator* registerAllocator = new RegisterAllocator();
     
     // helpers
+    TurboOpCode getUnaryOp(const Token& op);
+
     void emit(TurboOpCode op);
     // void emitUint32(uint32_t v);
     // void emitUint8(uint8_t v);
@@ -129,6 +150,9 @@ private:
     int paramSlot(const string& name);
     int resolveLocal(const string& name);
     int lookupLocalSlot(const std::string& name);
+    
+    void declareGlobal(const string& name, BindingKind kind);
+    int lookupGlobal(const string& name);
     
     // jump helpers
     int emitJump(TurboOpCode op, int cond_reg);

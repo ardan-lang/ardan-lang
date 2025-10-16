@@ -19,9 +19,11 @@ enum class TurboOpCode : uint8_t {
     LoadLocalVar,
     LoadGlobalVar,
     
-    StoreLocal,
-    StoreGlobal,
-    
+    StoreLocalVar,
+    StoreGlobalVar,
+    StoreLocalLet,
+    StoreGlobalLet,
+
     CreateLocalVar, // creates a new local. moves data inside slot reg into the locals.
     CreateLocalLet,
     CreateLocalConst,
@@ -38,6 +40,7 @@ enum class TurboOpCode : uint8_t {
     Power,
     
     Call,
+    PushArg,
     Return, // src
     
     Negate,

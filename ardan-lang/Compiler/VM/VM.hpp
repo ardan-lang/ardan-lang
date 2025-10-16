@@ -75,7 +75,6 @@ public:
     EventLoop* event_loop;
 
     Value callFunction(Value callee, const vector<Value>& args);
-    // Value callFunction(Value callee, const vector<Value>& args);
 
 private:
     shared_ptr<Module> module_ = nullptr;               // set at construction or by caller

@@ -77,20 +77,22 @@ public:
 private:
     shared_ptr<TurboModule> module_ = nullptr; // set at construction or by caller
     
-    std::vector<CallFrame> callStack; // call frames stack
+    vector<CallFrame> callStack; // call frames stack
     
     // helper to pop N args into a vector (left-to-right order)
-    std::vector<Value> popArgs(size_t count);
-    
+    vector<Value> popArgs(size_t count);
+    Upvalue* openUpvalues = nullptr;
+
     // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame(CallFrame &current_frame);
     void handleRethrow();
     bool running = true;
     vector<TryFrame> tryStack;
+    deque<Value> argStack;
     
     // execution state for a run
     CallFrame* frame;
-    Value registers[3];
+    Value registers[256];
     
     Value pop();
     Value peek(int distance = 0);
@@ -106,8 +108,8 @@ private:
     void setProperty(const Value &objVal, const string &propName, const Value &val);
     Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
-    // void closeUpvalues(Value* last);
-    // shared_ptr<Upvalue> captureUpvalue(Value* local);
+    void closeUpvalues(Value* last);
+    shared_ptr<Upvalue> captureUpvalue(Value* local);
     
 };
 
