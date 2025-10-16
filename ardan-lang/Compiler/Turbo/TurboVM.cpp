@@ -685,7 +685,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 int resultReg = instruction.a;
                 int funcReg   = instruction.b;
-                int argc      = instruction.c;
+                // int argc      = instruction.c;
                 
                 Value func = registers[funcReg];
                 
