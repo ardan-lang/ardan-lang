@@ -960,7 +960,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
     disassembleChunk(nested.cur.get(), nested.cur->name);
 
-    return true;
+    return closureChunkIndexReg;
     
 }
 
