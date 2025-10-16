@@ -398,11 +398,125 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 registers[instruction.a] = isNullish(lhs) ? rhs : lhs;
                 break;
             }
-
-            case TurboOpCode::Return: {
+                
+            case TurboOpCode::StrictEqual: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                bool isEqual = false;
+                // For objects/arrays: we compare pointers
+                if (a.type == b.type) {
+                    if (a.type == ValueType::OBJECT)
+                        isEqual = (a.objectValue == b.objectValue);
+                    else if (a.type == ValueType::ARRAY)
+                        isEqual = (a.arrayValue == b.arrayValue);
+                    // For other types, we could default to pointer or identity check
+                }
+                registers[instruction.a] = Value::boolean(isEqual);
                 break;
             }
                 
+            case TurboOpCode::StrictNotEqual: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                bool notEqual = false;
+                // For numbers, strings, booleans, etc
+                if (a.type != b.type) {
+                    notEqual = true;
+                } else {
+                    // For numbers
+                    if (a.type == ValueType::NUMBER)
+                        notEqual = a.numberValue != b.numberValue;
+                    // For strings
+                    else if (a.type == ValueType::STRING)
+                        notEqual = a.stringValue != b.stringValue;
+                    // For booleans
+                    else if (a.type == ValueType::BOOLEAN)
+                        notEqual = a.boolValue != b.boolValue;
+                    // For objects/arrays, compare pointers
+                    else if (a.type == ValueType::OBJECT)
+                        notEqual = a.objectValue != b.objectValue;
+                    else if (a.type == ValueType::ARRAY)
+                        notEqual = a.arrayValue != b.arrayValue;
+                    // add any types we missed
+                }
+                registers[instruction.a] = (Value::boolean(notEqual));
+                break;
+            }
+                
+            case TurboOpCode::Decrement: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                int sum = a.numberValue - b.numberValue;
+                registers[instruction.a] = Value(sum);
+                break;
+            }
+
+            case TurboOpCode::Negate: {
+                Value a = registers[instruction.a];
+                registers[instruction.a] = Value(-a.numberValue);
+                break;
+            }
+
+            case TurboOpCode::LogicalNot: {
+                Value a = registers[instruction.a];
+                registers[instruction.a] = Value::boolean(!isTruthy(a));
+                break;
+            }
+                
+            case TurboOpCode::Increment: {
+                
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                
+                int sum = a.numberValue + b.numberValue;
+                
+                registers[instruction.a] = Value(sum);
+
+                break;
+            }
+
+            case TurboOpCode::Equal: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                registers[instruction.a] =  Value::boolean(equals(a,b));
+                break;
+            }
+
+            case TurboOpCode::NotEqual: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                registers[instruction.a] = Value::boolean(!equals(a,b));
+                break;
+            }
+
+            case TurboOpCode::LessThan: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                registers[instruction.a] = Value::boolean(a.numberValue < b.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::LessThanOrEqual: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                registers[instruction.a] = Value::boolean(a.numberValue <= b.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::GreaterThan: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                registers[instruction.a] = Value::boolean(a.numberValue > b.numberValue);
+                break;
+            }
+                
+            case TurboOpCode::GreaterThanOrEqual: {
+                Value a = registers[instruction.a];
+                Value b = registers[instruction.b];
+                registers[instruction.a] = Value::boolean(a.numberValue >= b.numberValue);
+                break;
+            }
+                                                
             case TurboOpCode::LoadLocalVar: {
                 // LoadLocalVar, reg_slot, idx
                 uint8_t reg = instruction.a;
@@ -585,6 +699,10 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case TurboOpCode::Return: {
+                break;
+            }
+
             case TurboOpCode::Halt:
                 return Value::undefined();
                 break;

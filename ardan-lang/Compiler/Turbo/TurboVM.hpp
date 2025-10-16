@@ -94,8 +94,8 @@ private:
     CallFrame* frame;
     Value registers[256];
     
-    Value pop();
-    Value peek(int distance = 0);
+    //Value pop();
+   // Value peek(int distance = 0);
     uint32_t readByte();
     Instruction readInstruction();
     uint32_t readUint32();
