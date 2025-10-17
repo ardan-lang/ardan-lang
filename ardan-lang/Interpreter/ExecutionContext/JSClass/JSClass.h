@@ -46,11 +46,14 @@ public:
 
     // Compiler Use only
         
-    unordered_map<string, Value> staticProps;
-    unordered_map<string, Value> protoProps;
-    Value get_vm(const string& key);
-    void set_static_vm(const string& key, Value value);
-    void set_proto_vm(const string& key, Value value);
+    // non-static properties
+    unordered_map<string, ValueField> var_proto_props;
+    unordered_map<string, ValueField> const_proto_props;
+
+    Value get_proto_vm(const string& key);
+
+    void set_proto_vm_var(const string& key, Value value, const vector<string> modifiers);
+    void set_proto_vm_const(const string& key, Value value, const vector<string> modifiers);
 
     virtual std::shared_ptr<JSObject> construct() {
         return nullptr;

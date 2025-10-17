@@ -138,46 +138,35 @@ void JSClass::set_const(const string& key, Value value, const vector<string> mod
     const_static_fields[key] = { key, modifiers, value };
 }
 
-Value JSClass::get_vm(const string& key) {
+Value JSClass::get_proto_vm(const string& key) {
     
-    auto static_props_value = staticProps.find(key);
-    if (static_props_value != staticProps.end()) {
+    auto var_proto_props_value = var_proto_props.find(key);
+    if (var_proto_props_value != var_proto_props.end()) {
         
         // when found, check if it
-        return static_props_value->second;
+        return var_proto_props_value->second.value;
     }
 
-    auto proto_value = protoProps.find(key);
-    if (proto_value != protoProps.end()) {
+    auto const_proto_props_value = const_proto_props.find(key);
+    if (const_proto_props_value != const_proto_props.end()) {
         
         // when found, check if it
-        return proto_value->second;
+        return const_proto_props_value->second.value;
     }
 
     // Walk superclass chain
     if (superClass) {
-        return superClass->get_vm(key);
+        return superClass->get_proto_vm(key);
     }
     
-    throw runtime_error( key + " does not exist as static in this class.");
+    throw runtime_error( key + " does not exist in this class.");
 
 }
 
-void JSClass::set_proto_vm(const string& key, Value value) {
-    // if in static props
-    // set in static props
-
-    auto static_props_value = staticProps.find(key);
-    if (static_props_value != staticProps.end()) {
-        
-        // when found, set
-        staticProps[key] = value;
-        return;
-    }
-
-    protoProps[key] = value;
+void JSClass::set_proto_vm_var(const string& key, Value value, const vector<string> modifiers) {
+    var_proto_props[key] = { key, modifiers, value };
 }
 
-void JSClass::set_static_vm(const string& key, Value value) {
-    staticProps[key] = value;
+void JSClass::set_proto_vm_const(const string& key, Value value, const vector<string> modifiers) {
+    const_proto_props[key] = { key, modifiers, value };
 }
