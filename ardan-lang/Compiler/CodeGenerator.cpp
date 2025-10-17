@@ -1679,16 +1679,35 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
 
     // Define fields
     for (auto& field : stmt->fields) {
-        // Only handle static fields during class definition codegen
+        
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : field->modifiers) {
+            
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
                 break;
             }
+            
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+                break;
+            }
+            
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+                break;
+            }
+            
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+                break;
+            }
+            
         }
-        // if (!isStatic)
-            // continue;
 
         // Property is always a VariableStatement
         if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
@@ -1702,6 +1721,7 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                     emit(OpCode::LoadConstant);
                     emitUint32(emitConstant(Value::undefined()));
                 }
+                
                 int nameIdx = emitConstant(Value::str(decl.id));
                 
                 if (isStatic) {
@@ -1740,11 +1760,26 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         // Get name of method
         int nameIdx = emitConstant(Value::str(method->name));
         
-        // Check if 'static' modifier is present
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : method->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
+                break;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+                break;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+                break;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
                 break;
             }
         }
@@ -1756,6 +1791,7 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
             emit(OpCode::SetProperty);
             emitUint32(nameIdx); // Pops class and function, sets on prototype
         }
+        
     }
 
     // Bind class in the environment (global)
