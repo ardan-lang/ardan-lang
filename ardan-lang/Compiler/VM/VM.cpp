@@ -1527,8 +1527,9 @@ Value VM::runFrame(CallFrame &current_frame) {
 
 Value VM::callMethod(Value callee, vector<Value>& args, Value js_object) {
 
-    return callFunction(js_object, args);
-    
+    // return callFunction(js_object, args);
+    return callFunction(callee, args);
+
 }
 
 Value VM::callFunction(Value callee, const vector<Value>& args) {

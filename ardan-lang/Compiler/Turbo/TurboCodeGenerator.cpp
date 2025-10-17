@@ -616,7 +616,11 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
             argRegs.push_back(get<int>(arg->accept(*this)));
         }
         
-        emit(TurboOpCode::InvokeConstructor, reg, argRegs[0], (int)argRegs.size());
+        // TODO: set the arg start to -1 to denote no args
+        emit(TurboOpCode::InvokeConstructor,
+             reg,
+             argRegs.size() == 0 ? -1 : argRegs[0],
+             (int)argRegs.size());
 
         // emit args count
         // emitUint8((uint8_t)expr->arguments.size());

@@ -280,14 +280,19 @@ Value TurboVM::addCtor() {
     fnChunk->arity = 0;
 
 //    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Nop));
+    fnChunk->code.push_back({TurboOpCode::Nop, 0,0,0});
 //    fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
 //    fnChunk->writeUint8((uint8_t)0);
+    fnChunk->code.push_back({TurboOpCode::SuperCall, 0,0,0});
 
     int constant_index = fnChunk->addConstant(Value::undefined());
     
 //    fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
 //    fnChunk->writeUint32(constant_index);
 //    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Return));
+    fnChunk->code
+        .push_back({TurboOpCode::LoadConst, 0, (uint8_t)constant_index});
+    fnChunk->code.push_back({TurboOpCode::Return, 0});
     
     uint32_t chunkIndex = module_->addChunk(fnChunk);
 
@@ -1132,6 +1137,10 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case TurboOpCode::SuperCall: {
+                break;
+            }
+                
             case TurboOpCode::Return: {
                 Value v = registers[instruction.a];
                                 
@@ -1155,7 +1164,7 @@ Value TurboVM::callMethod(Value callee,
                             vector<Value>& args,
                             Value js_object) {
 
-    return callFunction(js_object, args);
+    return callFunction(callee, args);
     
 }
 
