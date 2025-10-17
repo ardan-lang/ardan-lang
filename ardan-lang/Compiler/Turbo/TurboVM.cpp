@@ -175,6 +175,127 @@ void TurboVM::setProperty(const Value &objVal, const string &propName, const Val
     throw std::runtime_error("Cannot set property on non-object");
 }
 
+void TurboVM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
+    if (objVal.type == ValueType::CLASS) {
+        objVal.classValue->set_static_vm(propName, val);
+        return;
+    }
+    throw std::runtime_error("Cannot set static property on non-class");
+}
+
+const unordered_map<string, Value> TurboVM::enumerateKeys(Value obj) {
+    
+    if (obj.type == ValueType::OBJECT) {
+        return obj.objectValue->get_all_properties();
+    }
+    
+    if (obj.type == ValueType::ARRAY) {
+        return obj.arrayValue->get_indexed_properties();
+    }
+    
+    return {};
+    
+}
+
+void TurboVM::set_js_object_closure(Value objVal) {
+    if (objVal.type == ValueType::OBJECT) {
+        for(auto& prop : objVal.objectValue->get_all_properties()) {
+            if (prop.second.type == ValueType::CLOSURE) {
+                prop.second.closureValue->js_object = objVal.objectValue;
+                
+            }
+        }
+    }
+}
+
+shared_ptr<JSObject> TurboVM::createJSObject(shared_ptr<JSClass> klass) {
+    
+    shared_ptr<JSObject> object = make_shared<JSObject>();
+    object->vm = this;
+    object->setClass(klass);
+
+    makeObjectInstance(Value::klass(klass), object);
+    
+    // create a jsobject from superclass and assign to parent_object
+    if (klass->superClass != nullptr) {
+        
+        object->parent_object = createJSObject(klass->superClass);
+        object->parent_class = klass->superClass;
+        
+    }
+
+    return object;
+
+}
+
+void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
+    
+    for (auto& protoProp : klass.classValue->protoProps) {
+                
+        if (protoProp.second.type == ValueType::CLOSURE) {
+            
+            shared_ptr<Closure> new_closure = make_shared<Closure>();
+            new_closure->fn = protoProp.second.closureValue->fn;
+            new_closure->upvalues = protoProp.second.closureValue->upvalues;
+            new_closure->js_object = obj;
+
+            obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
+
+        } else {
+            
+            obj->set(protoProp.first, protoProp.second, "VAR", {});
+
+        }
+
+    }
+    
+}
+
+void TurboVM::invokeMethod(Value obj_value, string name, vector<Value> args) {
+    
+    if (obj_value.type == ValueType::OBJECT) {
+        Value constructor = obj_value.objectValue->get(name);
+        // TODO: check whether to throw error
+        if (constructor.type != ValueType::UNDEFINED) {
+            callMethod(constructor, args, obj_value);
+        }
+    }
+    
+}
+
+Value TurboVM::addCtor() {
+
+    shared_ptr<TurboChunk> fnChunk = make_shared<TurboChunk>();
+    fnChunk->arity = 0;
+
+//    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Nop));
+//    fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
+//    fnChunk->writeUint8((uint8_t)0);
+
+    int constant_index = fnChunk->addConstant(Value::undefined());
+    
+//    fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
+//    fnChunk->writeUint32(constant_index);
+//    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Return));
+    
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = "ctor";
+    fnObj->upvalues_size = 0;
+
+    Value fnValue = Value::functionRef(fnObj);
+
+    shared_ptr<Closure> new_closure = make_shared<Closure>();
+    new_closure->fn = fnObj;
+    new_closure->upvalues = {};
+    
+    return Value::closure(new_closure);
+
+}
+
 Value TurboVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>& args) {
     
     auto closure = make_shared<Closure>();
@@ -196,15 +317,6 @@ Value TurboVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>& args) {
     return result;
     
 }
-
-//Value TurboVM::runFrame(CallFrame &current_frame) {
-//    
-//    if (callStack.empty()) return Value::undefined();
-//
-//    // Point VM at this frame's chunk/locals
-//    frame = &current_frame;
-//    
-//}
 
 Value TurboVM::runFrame(CallFrame &current_frame) {
     
@@ -595,7 +707,229 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 array->push({registers[instruction.b]});
                 break;
             }
+                
+                // TurboOpCode::NewClass, super_class_reg
+            case TurboOpCode::NewClass: {
+                
+                auto superclass = registers[instruction.a];
+                
+                auto js_class = make_shared<JSClass>();
+                
+                if (superclass.type == ValueType::CLASS) {
+                    js_class->superClass = superclass.classValue;
+                }
+                
+                Value klass = Value::klass(js_class);
+                
+                // add constructor
+                setProperty(klass, "constructor", addCtor());
+                                
+                registers[instruction.a] = (klass);
+                break;
+            }
+                
+                // op, super_class_reg, initReg, fieldNameReg
+                
+                // property var
+            case TurboOpCode::CreateClassPrivatePropertyVar: {
 
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+
+                break;
+            }
+                
+            case TurboOpCode::CreateClassPublicPropertyVar: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                break;
+                
+            }
+                
+            case TurboOpCode::CreateClassProtectedPropertyVar: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                break;
+                
+            }
+                
+                // property const
+            case TurboOpCode::CreateClassPrivatePropertyConst: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                break;
+            }
+                
+            case TurboOpCode::CreateClassPublicPropertyConst: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                break;
+            }
+                
+            case TurboOpCode::CreateClassProtectedPropertyConst: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                break;
+            }
+                
+                // static var
+            case TurboOpCode::CreateClassPrivateStaticPropertyVar: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_var(fieldNameValue.stringValue, init, { "private" });
+                break;
+                
+            }
+                
+            case TurboOpCode::CreateClassPublicStaticPropertyVar: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_var(fieldNameValue.stringValue, init, { "public" });
+                break;
+            }
+                
+            case TurboOpCode::CreateClassProtectedStaticPropertyVar: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_var(fieldNameValue.stringValue, init, { "protected" });
+                break;
+            }
+                
+                // static const
+            case TurboOpCode::CreateClassPrivateStaticPropertyConst: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_const(fieldNameValue.stringValue, init, { "private" });
+                break;
+            }
+                
+            case TurboOpCode::CreateClassPublicStaticPropertyConst: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_const(fieldNameValue.stringValue, init, { "public" });
+
+                break;
+            }
+                
+            case TurboOpCode::CreateClassProtectedStaticPropertyConst: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_const(fieldNameValue.stringValue, init, { "protected" });
+                break;
+            }
+                
+                // op, super_class_reg, method_reg, methodNameReg);
+                
+            case TurboOpCode::CreateClassProtectedStaticMethod: {
+                break;
+            }
+            case TurboOpCode::CreateClassPrivateStaticMethod: {
+                break;
+            }
+            case TurboOpCode::CreateClassPublicStaticMethod: {
+                break;
+            }
+            case TurboOpCode::CreateClassProtectedMethod: {
+                break;
+            }
+            case TurboOpCode::CreateClassPrivateMethod: {
+                break;
+            }
+            case TurboOpCode::CreateClassPublicMethod: {
+                break;
+            }
+                
+                // TurboOpCode::CreateInstance, reg
+            case TurboOpCode::CreateInstance: {
+                
+                Value klass = registers[instruction.a];
+                
+                if (klass.classValue->is_native == true) {
+                    
+                    // add constructor
+                    setProperty(klass, "constructor", addCtor());
+
+                    shared_ptr<JSObject> native_object = klass.classValue->construct();
+
+                    Value obj_value = Value::object(native_object);
+                    obj_value.objectValue->vm = this;
+
+                    set_js_object_closure(obj_value);
+
+                    registers[instruction.a] = (obj_value);
+
+                    break;
+                }
+
+                // auto obj = make_shared<JSObject>();
+                // obj->setClass(klass.classValue);
+                
+                // TODO: we need to invoke parent constructor
+
+                shared_ptr<JSObject> obj = createJSObject(klass.classValue);
+                
+                Value obj_value;
+                obj_value.type = ValueType::OBJECT;
+                obj_value.objectValue = obj;
+
+                registers[instruction.a] = (obj_value);
+
+                break;
+            }
+                
+                // TurboOpCode::InvokeConstructor, reg, argRegs[0], (int)argRegs.size());
+            case TurboOpCode::InvokeConstructor: {
+                
+                vector<Value> args;
+                
+                int start = instruction.b;
+                int count = instruction.c;
+                
+                for (int i = 0; i < count; i++) {
+                    int reg = start + i;
+                    args.push_back(registers[reg]);
+                }
+
+                Value obj_value = registers[instruction.a];
+
+                // call the constructor
+                invokeMethod(obj_value, "constructor", args);
+
+                registers[instruction.a] = (obj_value);
+
+                break;
+            }
+                
                 // emit(TurboOpCode::NewObject, obj);
             case TurboOpCode::NewObject: {
                 auto object = make_shared<JSObject>();
@@ -657,8 +991,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // TurboOpCode::LoadArgument, reg
             case TurboOpCode::LoadArgument: {
-                // Expects next 4 bytes: uint32_t index of argument to load
-                uint32_t argIndex = registers[instruction.a].numberValue;
+                int argIndex = registers[instruction.a].numberValue;
                 
                 Value result = Value::undefined();
                 if (argIndex < frame->args.size()) {
@@ -682,17 +1015,6 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-//                for (size_t i = 0; i < fnRef->upvalues_size; ++i) {
-//                    // Read upvalue info (isLocal, index)
-//                    uint32_t isLocal = readUint8();
-//                    uint32_t idx = readUint8();
-//                    if (isLocal) {
-//                        closure->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
-//                    } else {
-//                        closure->upvalues.push_back(frame->closure->upvalues[idx]);
-//                    }
-//                }
-
                 // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
             case TurboOpCode::SetClosureIsLocal: {
                 int idx = registers[instruction.a].numberValue;
@@ -742,11 +1064,10 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 Value func = registers[funcReg];
                 
-                const vector<Value> const_args = {
-                    argStack.begin(),
-                    argStack.end() };
-                Value result = callFunction(func, const_args);
+                const vector<Value> const_args = { argStack.begin(), argStack.end() };
                 argStack.clear();
+
+                Value result = callFunction(func, const_args);
                 registers[resultReg] = result;
 
                 break;

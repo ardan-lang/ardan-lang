@@ -81,6 +81,17 @@ private:
     
     // helper to pop N args into a vector (left-to-right order)
     vector<Value> popArgs(size_t count);
+    shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
+    Value addCtor();
+    const unordered_map<string, Value> enumerateKeys(Value obj);
+    void set_js_object_closure(Value objVal);
+    void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
+    void invokeConstructor(Value obj_value, vector<Value> args);
+    void invokeMethod(Value obj_value, string name, vector<Value> args);
+    Value callMethod(Value callee, vector<Value>& args, Value js_object);
+    void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
+    int getValueLength(Value& v);
+
     Upvalue* openUpvalues = nullptr;
 
     // execute the top-most frame until it returns (OP_RETURN)
