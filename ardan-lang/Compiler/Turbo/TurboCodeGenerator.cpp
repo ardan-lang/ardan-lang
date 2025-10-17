@@ -1685,19 +1685,15 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
         for (const auto& mod : field->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
             }
             if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
                 isPrivate = true;
-                break;
             }
             if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
                 isPublic = true;
-                break;
             }
             if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
                 isProtected = true;
-                break;
             }
         }
 
@@ -1813,19 +1809,15 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
         for (const auto& mod : method->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
             }
             if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
                 isPrivate = true;
-                break;
             }
             if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
                 isPublic = true;
-                break;
             }
             if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
                 isProtected = true;
-                break;
             }
         }
 

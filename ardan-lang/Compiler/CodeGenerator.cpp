@@ -1689,28 +1689,27 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
             
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
             }
             
             if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
                 isPrivate = true;
-                break;
             }
             
             if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
                 isPublic = true;
-                break;
             }
             
             if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
                 isProtected = true;
-                break;
             }
             
         }
 
         // Property is always a VariableStatement
         if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            string kind = varStmt->kind;
+            
             for (const auto& decl : varStmt->declarations) {
                 
                 classInfo.fields.insert(decl.id);
@@ -1724,10 +1723,63 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                 
                 int nameIdx = emitConstant(Value::str(decl.id));
                 
+                OpCode op;
+
                 if (isStatic) {
-                    emit(OpCode::SetStaticProperty);
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicStaticPropertyVar;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivateStaticPropertyVar;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicStaticPropertyConst;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivateStaticPropertyConst;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedStaticPropertyConst;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    
+                    // emit(OpCode::SetStaticProperty);
+                    emit(op);
+
                 } else {
-                    emit(OpCode::SetProperty);
+                    
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicPropertyVar;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivatePropertyVar;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicPropertyConst;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivatePropertyConst;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedPropertyConst;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+
+                    // emit(OpCode::SetProperty);
+                    emit(op);
                 }
                 
                 emitUint32(nameIdx);
@@ -1768,32 +1820,53 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         for (const auto& mod : method->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
             }
             if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
                 isPrivate = true;
-                break;
             }
             if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
                 isPublic = true;
-                break;
             }
             if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
                 isProtected = true;
-                break;
             }
         }
+        
+        OpCode op;
 
         if (isStatic) {
-            emit(OpCode::SetStaticProperty);
+            
+            if (isPublic) {
+                op = OpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = OpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = OpCode::CreateClassProtectedStaticMethod;
+            }
+
+            emit(op);
+            // emit(OpCode::SetStaticProperty);
             emitUint32(nameIdx); // Pops class and function, sets property on class object
+            
         } else {
-            emit(OpCode::SetProperty);
+            
+            if (isPublic) {
+                op = OpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = OpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = OpCode::CreateClassProtectedMethod;
+            }
+
+            emit(op);
+            // emit(OpCode::SetProperty);
             emitUint32(nameIdx); // Pops class and function, sets on prototype
+            
         }
         
     }
 
+    // TODO: need to fix this to store not only in global
     // Bind class in the environment (global)
     int classNameIdx = emitConstant(Value::str(stmt->id));
     emit(OpCode::CreateGlobal);

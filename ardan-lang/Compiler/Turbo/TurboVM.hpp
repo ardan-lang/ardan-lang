@@ -72,7 +72,7 @@ public:
     
     TurboVM(shared_ptr<TurboModule> module_ = nullptr);
     ~TurboVM();
-    Value callFunction(Value callee, vector<Value>& args);
+    Value callFunction(Value callee, const vector<Value>& args);
     
 private:
     shared_ptr<TurboModule> module_ = nullptr; // set at construction or by caller
@@ -90,7 +90,6 @@ private:
     void invokeMethod(Value obj_value, string name, vector<Value> args);
     Value callMethod(Value callee, vector<Value>& args, Value js_object);
     void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
-    int getValueLength(Value& v);
 
     Upvalue* openUpvalues = nullptr;
 
@@ -117,7 +116,7 @@ private:
     bool equals(const Value &a, const Value &b);
     Value getProperty(const Value &objVal, const string &propName);
     void setProperty(const Value &objVal, const string &propName, const Value &val);
-    Value callFunction(Value callee, const vector<Value>& args);
+    //Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);

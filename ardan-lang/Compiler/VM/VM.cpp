@@ -184,7 +184,7 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
         return;
     }
     if (objVal.type == ValueType::CLASS) {
-        objVal.classValue->set_proto_vm(propName, val);
+        //objVal.classValue->set_proto_vm(propName, val);
         return;
     }
     throw std::runtime_error("Cannot set property on non-object");
@@ -192,7 +192,7 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
 
 void VM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
     if (objVal.type == ValueType::CLASS) {
-        objVal.classValue->set_static_vm(propName, val);
+        // objVal.classValue->set_static_vm(propName, val);
         return;
     }
     throw std::runtime_error("Cannot set static property on non-class");
@@ -247,18 +247,18 @@ void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
     for (auto& protoProp : klass.classValue->protoProps) {
                 
-        if (protoProp.second.type == ValueType::CLOSURE) {
+        if (protoProp.second.value.type == ValueType::CLOSURE) {
             
             shared_ptr<Closure> new_closure = make_shared<Closure>();
-            new_closure->fn = protoProp.second.closureValue->fn;
-            new_closure->upvalues = protoProp.second.closureValue->upvalues;
+            new_closure->fn = protoProp.second.value.closureValue->fn;
+            new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
             obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
 
         } else {
             
-            obj->set(protoProp.first, protoProp.second, "VAR", {});
+            obj->set(protoProp.first, protoProp.second.value, "VAR", {});
 
         }
 
@@ -474,6 +474,182 @@ Value VM::runFrame(CallFrame &current_frame) {
                 push(klass);
                 break;
             }
+                
+                // property var
+            case OpCode::CreateClassPrivatePropertyVar: {
+
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+
+                // setStaticProperty(objVal, prop, valueToSet);
+                
+                klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "private" } );
+
+                // push object back
+                push(klassVal);
+                
+                break;
+            }
+                
+            case OpCode::CreateClassPublicPropertyVar: {
+                
+                // klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" } );
+
+                break;
+                
+            }
+                
+            case OpCode::CreateClassProtectedPropertyVar: {
+                
+                // klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "protected" } );
+
+                break;
+                
+            }
+                
+                // property const
+            case OpCode::CreateClassPrivatePropertyConst: {
+                
+                
+                //klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "private" } );
+
+                break;
+            }
+                
+            case OpCode::CreateClassPublicPropertyConst: {
+                
+                //klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "public" } );
+
+                break;
+            }
+                
+            case OpCode::CreateClassProtectedPropertyConst: {
+                
+                //klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "protected" } );
+
+                break;
+            }
+                
+                // static var
+            case OpCode::CreateClassPrivateStaticPropertyVar: {
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_var(prop, valueToSet, { "private" });
+                
+                push(objVal);
+
+                break;
+                
+            }
+                
+            case OpCode::CreateClassPublicStaticPropertyVar: {
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_var(prop, valueToSet, { "public" });
+                
+                push(objVal);
+                
+                break;
+                
+            }
+                
+            case OpCode::CreateClassProtectedStaticPropertyVar: {
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_var(prop, valueToSet, { "protected" });
+                
+                push(objVal);
+                
+                break;
+                
+            }
+                
+                // static const
+            case OpCode::CreateClassPrivateStaticPropertyConst: {
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_const(prop, valueToSet, { "private" });
+                
+                push(objVal);
+                
+                break;
+            }
+                
+            case OpCode::CreateClassPublicStaticPropertyConst: {
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_const(prop, valueToSet, { "public" });
+                
+                push(objVal);
+                
+
+                break;
+            }
+                
+            case OpCode::CreateClassProtectedStaticPropertyConst: {
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_const(prop, valueToSet, { "protected" });
+                
+                push(objVal);
+                
+                break;
+                
+            }
+                
+                // op, super_class_reg, method_reg, methodNameReg);
+                
+            case OpCode::CreateClassProtectedStaticMethod: {
+                break;
+            }
+            case OpCode::CreateClassPrivateStaticMethod: {
+                break;
+            }
+            case OpCode::CreateClassPublicStaticMethod: {
+                break;
+            }
+            case OpCode::CreateClassProtectedMethod: {
+                break;
+            }
+            case OpCode::CreateClassPrivateMethod: {
+                break;
+            }
+            case OpCode::CreateClassPublicMethod: {
+                break;
+            }
+
                 
             case OpCode::SuperCall: {
                 

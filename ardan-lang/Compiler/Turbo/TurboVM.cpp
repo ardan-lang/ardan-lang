@@ -177,7 +177,7 @@ void TurboVM::setProperty(const Value &objVal, const string &propName, const Val
 
 void TurboVM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
     if (objVal.type == ValueType::CLASS) {
-        objVal.classValue->set_static_vm(propName, val);
+        //objVal.classValue->set_static_vm(propName, val);
         return;
     }
     throw std::runtime_error("Cannot set static property on non-class");
@@ -211,7 +211,7 @@ void TurboVM::set_js_object_closure(Value objVal) {
 shared_ptr<JSObject> TurboVM::createJSObject(shared_ptr<JSClass> klass) {
     
     shared_ptr<JSObject> object = make_shared<JSObject>();
-    object->vm = this;
+    //object->vm = this;
     object->setClass(klass);
 
     makeObjectInstance(Value::klass(klass), object);
@@ -232,18 +232,18 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
     for (auto& protoProp : klass.classValue->protoProps) {
                 
-        if (protoProp.second.type == ValueType::CLOSURE) {
+        if (protoProp.second.value.type == ValueType::CLOSURE) {
             
             shared_ptr<Closure> new_closure = make_shared<Closure>();
-            new_closure->fn = protoProp.second.closureValue->fn;
-            new_closure->upvalues = protoProp.second.closureValue->upvalues;
+            new_closure->fn = protoProp.second.value.closureValue->fn;
+            new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
             obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
 
         } else {
             
-            obj->set(protoProp.first, protoProp.second, "VAR", {});
+            obj->set(protoProp.first, protoProp.second.value, "VAR", {});
 
         }
 
@@ -737,7 +737,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value init = registers[instruction.b];
                 Value fieldNameValue = registers[instruction.c];
                 
-
+                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "private" } );
+                
                 break;
             }
                 
@@ -746,7 +747,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value klass = registers[instruction.a];
                 Value init = registers[instruction.b];
                 Value fieldNameValue = registers[instruction.c];
-                
+                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" } );
+
                 break;
                 
             }
@@ -756,7 +758,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value klass = registers[instruction.a];
                 Value init = registers[instruction.b];
                 Value fieldNameValue = registers[instruction.c];
-                
+                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "protected" } );
+
                 break;
                 
             }
@@ -768,6 +771,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value init = registers[instruction.b];
                 Value fieldNameValue = registers[instruction.c];
                 
+                klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "private" } );
+
                 break;
             }
                 
@@ -777,6 +782,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value init = registers[instruction.b];
                 Value fieldNameValue = registers[instruction.c];
                 
+                klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "public" } );
+
                 break;
             }
                 
@@ -785,7 +792,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value klass = registers[instruction.a];
                 Value init = registers[instruction.b];
                 Value fieldNameValue = registers[instruction.c];
-                
+
+                klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "protected" } );
+
                 break;
             }
                 
@@ -882,7 +891,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     shared_ptr<JSObject> native_object = klass.classValue->construct();
 
                     Value obj_value = Value::object(native_object);
-                    obj_value.objectValue->vm = this;
+                    //obj_value.objectValue->vm = this;
 
                     set_js_object_closure(obj_value);
 
@@ -1089,6 +1098,14 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
     }
     
     return Value::undefined();
+    
+}
+
+Value TurboVM::callMethod(Value callee,
+                            vector<Value>& args,
+                            Value js_object) {
+
+    return callFunction(js_object, args);
     
 }
 
