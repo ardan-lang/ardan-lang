@@ -90,6 +90,26 @@ enum class TurboOpCode : uint8_t {
 
     // Classes
     NewClass,
+    CreateClassPrivatePropertyVar,
+    CreateClassPublicPropertyVar,
+    CreateClassProtectedPropertyVar,
+    CreateClassPrivatePropertyConst,
+    CreateClassPublicPropertyConst,
+    CreateClassProtectedPropertyConst,
+
+    CreateClassPrivateStaticPropertyVar,
+    CreateClassPublicStaticPropertyVar,
+    CreateClassProtectedStaticPropertyVar,
+    CreateClassPrivateStaticPropertyConst,
+    CreateClassPublicStaticPropertyConst,
+    CreateClassProtectedStaticPropertyConst,
+
+    CreateClassProtectedStaticMethod,
+    CreateClassPrivateStaticMethod,
+    CreateClassPublicStaticMethod,
+    CreateClassProtectedMethod,
+    CreateClassPrivateMethod,
+    CreateClassPublicMethod,
 
     // Exception handling
     Try,

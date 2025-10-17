@@ -148,7 +148,7 @@ private:
 
     ClassInfo classInfo;
     
-    void compileMethod(MethodDefinition& method);
+    int compileMethod(MethodDefinition& method);
 
     void emit(TurboOpCode op);
     // void emitUint32(uint32_t v);

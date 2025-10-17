@@ -41,23 +41,6 @@ R TurboCodeGen::visitBlock(BlockStatement* stmt) {
     return 0;
 }
 
-//// Allocate register for the variable
-//int slot = allocRegister();
-//
-//// Handle initializer
-//if (decl.init) {
-//    int initReg = ...; // Compile initializer and get result register
-//    emit(TurboOpCode::Move, slot, initReg); // Move to var slot if needed
-//    // freeRegister(initReg) if not slot!
-//} else {
-//    emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
-//}
-//
-//// Register as a local variable
-//locals.push_back({decl.id, scopeDepth, false, slot});
-//
-//// (Do NOT freeRegister(slot) here)
-
 R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
     
     TurboOpCode op;
@@ -231,19 +214,6 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
     return 0;
     
 }
-
-//R TurboCodeGen::_visitVariable(VariableStatement* stmt) {
-//    for (auto& decl : stmt->declarations) {
-//        Reg reg = allocRegister();
-//        if (decl.init)
-//            decl.init->accept(*this);
-//        else
-//            emit(TurboOpCode::LoadConst, reg, emitConstant(Value::undefined()));
-//        declareLocal(decl.id);
-//        freeRegister();
-//    }
-//    return 0;
-//}
 
 R TurboCodeGen::visitIf(IfStatement* stmt) {
     uint32_t cond = get<int>(stmt->test->accept(*this));
@@ -599,31 +569,6 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
     
 }
 
-//R TurboCodeGen::visitMember(MemberExpression* expr) {
-//    
-//    int obj = get<int>(expr->object->accept(*this));
-//    int result = allocRegister();
-//    
-//    if (expr->computed) {
-//        int propReg = get<int>(expr->property->accept(*this));
-//
-//        emit(TurboOpCode::GetPropertyDynamic,
-//             result,
-//             obj,
-//             propReg);
-//        
-//        freeRegister(propReg);
-//        
-//    } else {
-//        emit(TurboOpCode::GetProperty, result, obj, emitConstant(expr->name.lexeme));
-//    }
-//    
-//    freeRegister(obj);
-//    
-//    return result;
-//    
-//}
-
 R TurboCodeGen::visitMember(MemberExpression* expr) {
     // Evaluate the object expression
     int objectReg = get<int>(expr->object->accept(*this));
@@ -651,7 +596,33 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
 }
 
 R TurboCodeGen::visitNew(NewExpression* expr) {
+    
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
+                
+        int reg = get<int>(ident->accept(*this));
+        
+        emit(TurboOpCode::CreateInstance, reg);
+
+        vector<int> argRegs;
+        argRegs.resize(expr->arguments.size());
+        for (auto& arg : expr->arguments) {
+            argRegs.push_back(get<int>(arg->accept(*this)));
+        }
+        
+        emit(TurboOpCode::InvokeConstructor, reg, argRegs[0], (int)argRegs.size());
+
+        // emit args count
+        // emitUint8((uint8_t)expr->arguments.size());
+        for (auto argReg : argRegs) {
+            freeRegister(argReg);
+        }
+        
+        freeRegister(reg);
+
+    }
+    
     return 0;
+    
 }
 
 R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
@@ -1538,56 +1509,56 @@ R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
 
 R TurboCodeGen::visitEmpty(EmptyStatement*) { return 0; }
 
-void TurboCodeGen::compileMethod(MethodDefinition& method) {
+int TurboCodeGen::compileMethod(MethodDefinition& method) {
     // Create a nested CodeGen for the method body (closure)
-//    CodeGen nested(module_);
-//    nested.enclosing = this;
-//    nested.cur = std::make_shared<Chunk>();
-//    nested.beginScope();
-//    // nested.declareLocal("this");
-//    nested.classInfo = classInfo;
-//
-//    std::vector<std::string> paramNames;
-//    std::vector<ParameterInfo> parameterInfos;
-//
-//    // Collect parameter info (from method.params)
-//    for (auto& param : method.params) {
-//        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//                }
-//            }
-//        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-//            paramNames.push_back(rest->token.lexeme);
-//            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
-//            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                paramNames.push_back(ident->name);
-//                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//            }
-//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//        }
-//    }
-//
-//    // Allocate local slots for parameters
-//    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-//
-//    // Emit parameter initialization logic (rest/default)
-//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
-//        const auto& info = parameterInfos[i];
-//        if (info.isRest) {
+    TurboCodeGen nested(module_);
+    nested.enclosing = this;
+    nested.cur = std::make_shared<TurboChunk>();
+    nested.beginScope();
+    // nested.declareLocal("this");
+    nested.classInfo = classInfo;
+
+    std::vector<std::string> paramNames;
+    std::vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (from method.params)
+    for (auto& param : method.params) {
+        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+                    }
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                    paramNames.push_back(ident->name);
+                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+                }
+            }
+        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+            }
+        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+            paramNames.push_back(ident->name);
+            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+        }
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic (rest/default)
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        if (info.isRest) {
 //            nested.emit(OpCode::LoadArguments);
 //            nested.emit(OpCode::LoadConstant);
 //            nested.emitUint32(nested.emitConstant(Value::number(i)));
@@ -1595,8 +1566,8 @@ void TurboCodeGen::compileMethod(MethodDefinition& method) {
 //            nested.emit(OpCode::StoreLocal);
 //            nested.emitUint32(nested.getLocal(info.name));
 //            continue;
-//        }
-//        if (info.hasDefault) {
+        }
+        if (info.hasDefault) {
 //            nested.emit(OpCode::LoadArgumentsLength);
 //            nested.emit(OpCode::LoadConstant);
 //            nested.emitUint32(nested.emitConstant(Value::number(i)));
@@ -1610,163 +1581,304 @@ void TurboCodeGen::compileMethod(MethodDefinition& method) {
 //            nested.patchJump(setLocalJump);
 //            nested.emit(OpCode::StoreLocal);
 //            nested.emitUint32(nested.getLocal(info.name));
-//        } else {
+        } else {
 //            nested.emit(OpCode::LoadArgument);
 //            nested.emitUint32((uint32_t)i);
 //            nested.emit(OpCode::StoreLocal);
 //            nested.emitUint32(nested.getLocal(info.name));
-//        }
-//    }
-//
-//    // Compile the method body
-//    if (method.methodBody) {
-//        method.methodBody->accept(nested);
-//        // Ensure OP_RETURN is emitted
-//        bool hasReturn = false;
-//        if (auto* block = dynamic_cast<BlockStatement*>(method.methodBody.get())) {
-//            for (auto& stmt : block->body) {
-//                if (dynamic_cast<ReturnStatement*>(stmt.get())) {
-//                    hasReturn = true;
-//                    break;
-//                }
-//            }
-//        }
-//        if (!hasReturn) {
-//            nested.emit(OpCode::LoadConstant);
-//            int ud = nested.emitConstant(Value::undefined());
-//            nested.emitUint32(ud);
-//            nested.emit(OpCode::Return);
-//        }
-//    }
-//
-//    // Register the method function as a constant for this module
-//    auto fnChunk = nested.cur;
-//    fnChunk->arity = (uint32_t)paramNames.size();
-//    uint32_t chunkIndex = module_->addChunk(fnChunk);
-//
-//    auto fnObj = std::make_shared<FunctionObject>();
-//    fnObj->chunkIndex = chunkIndex;
-//    fnObj->arity = fnChunk->arity;
-//    fnObj->name = method.name;
-//    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
-//
-//    Value fnValue = Value::functionRef(fnObj);
-//    int ci = module_->addConstant(fnValue);
-//
-//    // Emit closure for this function (leaves closure object on stack)
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+
+        }
+    }
+
+    // Compile the method body
+    if (method.methodBody) {
+        method.methodBody->accept(nested);
+        // Ensure OP_RETURN is emitted
+        bool hasReturn = false;
+        if (auto* block = dynamic_cast<BlockStatement*>(method.methodBody.get())) {
+            for (auto& stmt : block->body) {
+                if (dynamic_cast<ReturnStatement*>(stmt.get())) {
+                    hasReturn = true;
+                    break;
+                }
+            }
+        }
+        if (!hasReturn) {
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+        }
+    }
+
+    // Register the method function as a constant for this module
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = method.name;
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+    // Emit closure for this function (leaves closure object on stack)
 //    emit(OpCode::CreateClosure);
 //    emitUint8((uint8_t)ci);
-//
-//    for (auto& uv : nested.upvalues) {
-//        emitUint8(uv.isLocal ? 1 : 0);
-//        emitUint8(uv.index);
-//    }
-//    
-//    disassembleChunk(nested.cur.get(), method.name);
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+
+    for (auto& uv : nested.upvalues) {
+        //        emitUint8(uv.isLocal ? 1 : 0);
+        //        emitUint8(uv.index);
+        
+        int isLocalReg = allocRegister();
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
+        
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        
+    }
+    
+    disassembleChunk(nested.cur.get(), method.name);
+    
+    return closureChunkIndexReg;
 
 }
 
 R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
         
     // Evaluate superclass (if any)
-//    if (stmt->superClass) {
-//        stmt->superClass->accept(*this); // [superclass]
-//    } else {
-//        emit(OpCode::LoadConstant);
-//        emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
-//    }
-//
-//    // Create the class object (with superclass on stack)
-//    emit(OpCode::NewClass); // pops superclass, pushes new class object
-//
-//    // Define fields
-//    for (auto& field : stmt->fields) {
-//        // Only handle static fields during class definition codegen
-//        bool isStatic = false;
-//        for (const auto& mod : field->modifiers) {
-//            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
-//                isStatic = true;
-//                break;
-//            }
-//        }
-//        // if (!isStatic)
-//            // continue;
-//
-//        // Property is always a VariableStatement
-//        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
-//            for (const auto& decl : varStmt->declarations) {
-//                
-//                classInfo.fields.insert(decl.id);
-//                
-//                if (decl.init) {
-//                    decl.init->accept(*this); // Evaluate initializer
-//                } else {
-//                    emit(OpCode::LoadConstant);
-//                    emitUint32(emitConstant(Value::undefined()));
-//                }
-//                int nameIdx = emitConstant(Value::str(decl.id));
-//                
-//                if (isStatic) {
-//                    emit(OpCode::SetStaticProperty);
-//                } else {
-//                    emit(OpCode::SetProperty);
-//                }
-//                
-//                emitUint32(nameIdx);
-//            }
-//        }
-//    }
-//    
-//    for (auto& method : stmt->body) {
-//        
-//        // Check if 'static' modifier is present
-//        bool isStatic = false;
-//        for (const auto& mod : method->modifiers) {
-//            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
-//                isStatic = true;
-//                break;
-//            }
-//        }
-//
-//        if (!isStatic) {
-//            classInfo.fields.insert(method->name);
-//        }
-//
-//    }
-//
-//    // Define methods (attach to class or prototype as appropriate)
-//    for (auto& method : stmt->body) {
-//        // Compile the method as a function object
-//        compileMethod(*method); // leaves function object on stack
-//
-//        // Get name of method
-//        int nameIdx = emitConstant(Value::str(method->name));
-//        
-//        // Check if 'static' modifier is present
-//        bool isStatic = false;
-//        for (const auto& mod : method->modifiers) {
-//            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
-//                isStatic = true;
-//                break;
-//            }
-//        }
-//
-//        if (isStatic) {
-//            emit(OpCode::SetStaticProperty);
-//            emitUint32(nameIdx); // Pops class and function, sets property on class object
-//        } else {
-//            emit(OpCode::SetProperty);
-//            emitUint32(nameIdx); // Pops class and function, sets on prototype
-//        }
-//    }
-//
-//    // Bind class in the environment (global)
-//    int classNameIdx = emitConstant(Value::str(stmt->id));
-//    emit(OpCode::CreateGlobal);
-//    emitUint32(classNameIdx);
-//
-//    // clear class info
-//    classInfo.fields.clear();
+    int super_class_reg = allocRegister();
+    if (stmt->superClass) {
+        super_class_reg = get<int>(stmt->superClass->accept(*this)); // [superclass]
+    } else {
+        emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
+    }
+
+    // Create the class object (with superclass on stack)
+    emit(TurboOpCode::NewClass, super_class_reg);
+
+    // Define fields
+    // A field can be var, let, const. private, public, protected
+    for (auto& field : stmt->fields) {
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+                break;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+                break;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+                break;
+            }
+        }
+
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            string kind = varStmt->kind;
+            
+            for (const auto& decl : varStmt->declarations) {
+                
+                classInfo.fields.insert(decl.id);
+                
+                int initReg = -1;
+                
+                if (decl.init) {
+                    initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                } else {
+                    emit(TurboOpCode::LoadConst,
+                         initReg,
+                         emitConstant(Value::undefined()));
+                }
+                
+                int nameIdx = emitConstant(Value::str(decl.id));
+                int fieldNameReg = allocRegister();
+                emit(TurboOpCode::LoadConst, fieldNameReg, nameIdx);
+                TurboOpCode op;
+
+                if (isStatic) {
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyConst;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                    
+                } else {
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedPropertyConst;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                }
+                
+            }
+        }
+        
+    }
+    
+    for (auto& method : stmt->body) {
+        
+        // Check if 'static' modifier is present
+        bool isStatic = false;
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+
+        if (!isStatic) {
+            classInfo.fields.insert(method->name);
+        }
+
+    }
+
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : stmt->body) {
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+                break;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+                break;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+                break;
+            }
+        }
+
+        // Compile the method as a function object
+        int method_reg = compileMethod(*method); // leaves function object on reg
+
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        int methodNameReg = allocRegister();
+        emit(TurboOpCode::LoadConst, methodNameReg, nameIdx);
+        TurboOpCode op;
+
+        if (isStatic) {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedStaticMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+        } else {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+        }
+    }
+
+    // Bind class in the environment (global)
+    int classNameIdx = emitConstant(Value::str(stmt->id));
+
+    int class_reg = allocRegister();
+    declareLocal(stmt->id);
+    declareGlobal(stmt->id, BindingKind::Var);
+    
+    create(stmt->id, class_reg, BindingKind::Var);
+
+    // clear class info
+    classInfo.fields.clear();
+    
+    freeRegister(class_reg);
+    freeRegister(super_class_reg);
 
     return true;
 }
@@ -2148,6 +2260,8 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::Jump: opName = "Jump"; break;
         case TurboOpCode::Return: opName = "Return"; break;
         case TurboOpCode::Call: opName = "Call"; break;
+        case TurboOpCode::PushArg: opName = "PushArg"; break;
+        case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
         case TurboOpCode::Throw: opName = "Throw"; break;
         // Add more opcodes as needed
