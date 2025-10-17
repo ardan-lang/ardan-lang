@@ -844,7 +844,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 if (klass.classValue->is_native == true) {
                     
                     // add constructor
-                    setProperty(klass, "constructor", addCtor());
+                    klass.classValue->set_var("constructor", addCtor(), { "public" });
 
                     shared_ptr<JSObject> native_object = klass.classValue->construct();
 

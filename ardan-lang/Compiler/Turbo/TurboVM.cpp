@@ -194,7 +194,7 @@ void TurboVM::set_js_object_closure(Value objVal) {
 shared_ptr<JSObject> TurboVM::createJSObject(shared_ptr<JSClass> klass) {
     
     shared_ptr<JSObject> object = make_shared<JSObject>();
-    //object->vm = this;
+    object->turboVM = this;
     object->setClass(klass);
 
     makeObjectInstance(Value::klass(klass), object);
@@ -946,7 +946,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     shared_ptr<JSObject> native_object = klass.classValue->construct();
 
                     Value obj_value = Value::object(native_object);
-                    //obj_value.objectValue->vm = this;
+                    obj_value.objectValue->turboVM = this;
 
                     set_js_object_closure(obj_value);
 
