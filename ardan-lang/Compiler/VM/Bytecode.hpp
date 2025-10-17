@@ -128,6 +128,31 @@ enum class OpCode : uint8_t {
     GetParentObject,
     SuperCall,
     CreateObjectLiteral,
+    
+    // CreateLocalVar,
+    // CreateLocalLet,
+    // CreateLocalConst,
+    
+    CreateClassPrivatePropertyVar,
+    CreateClassPublicPropertyVar,
+    CreateClassProtectedPropertyVar,
+    CreateClassPrivatePropertyConst,
+    CreateClassPublicPropertyConst,
+    CreateClassProtectedPropertyConst,
+
+    CreateClassPrivateStaticPropertyVar,
+    CreateClassPublicStaticPropertyVar,
+    CreateClassProtectedStaticPropertyVar,
+    CreateClassPrivateStaticPropertyConst,
+    CreateClassPublicStaticPropertyConst,
+    CreateClassProtectedStaticPropertyConst,
+
+    CreateClassProtectedStaticMethod,
+    CreateClassPrivateStaticMethod,
+    CreateClassPublicStaticMethod,
+    CreateClassProtectedMethod,
+    CreateClassPrivateMethod,
+    CreateClassPublicMethod,
 
     // Debug / Sentinel
     Halt

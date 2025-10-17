@@ -43,10 +43,6 @@ void VM::init_builtins() {
     
 }
 
-// Add members to VM class (assumed in VM.hpp):
-// Upvalue* openUpvalues = nullptr; // Head of list of open upvalues
-// std::vector<std::shared_ptr<Upvalue>> closureUpvalues; // Optional for management
-
 std::shared_ptr<Upvalue> VM::captureUpvalue(Value* local) {
     Upvalue* prev = nullptr;
     Upvalue* up = openUpvalues;
@@ -483,8 +479,6 @@ Value VM::runFrame(CallFrame &current_frame) {
 
                 Value valueToSet = pop();
                 Value klassVal = pop();
-
-                // setStaticProperty(objVal, prop, valueToSet);
                 
                 klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "private" } );
 
@@ -496,7 +490,16 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             case OpCode::CreateClassPublicPropertyVar: {
                 
-                // klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" } );
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "public" } );
+
+                // push object back
+                push(klassVal);
 
                 break;
                 
@@ -504,7 +507,16 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             case OpCode::CreateClassProtectedPropertyVar: {
                 
-                // klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "protected" } );
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "protected" } );
+
+                // push object back
+                push(klassVal);
 
                 break;
                 
@@ -513,22 +525,48 @@ Value VM::runFrame(CallFrame &current_frame) {
                 // property const
             case OpCode::CreateClassPrivatePropertyConst: {
                 
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
                 
-                //klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "private" } );
+                klassVal.classValue->set_proto_vm_const(prop, valueToSet, { "private" } );
+
+                // push object back
+                push(klassVal);
 
                 break;
             }
                 
             case OpCode::CreateClassPublicPropertyConst: {
                 
-                //klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "public" } );
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_const(prop, valueToSet, { "public" } );
+
+                // push object back
+                push(klassVal);
 
                 break;
             }
                 
             case OpCode::CreateClassProtectedPropertyConst: {
                 
-                //klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "protected" } );
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_const(prop, valueToSet, { "protected" } );
+
+                // push object back
+                push(klassVal);
 
                 break;
             }
@@ -632,24 +670,90 @@ Value VM::runFrame(CallFrame &current_frame) {
                 // op, super_class_reg, method_reg, methodNameReg);
                 
             case OpCode::CreateClassProtectedStaticMethod: {
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_var(prop, valueToSet, { "protected" });
+                
+                push(objVal);
+                
                 break;
             }
+                
             case OpCode::CreateClassPrivateStaticMethod: {
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_var(prop, valueToSet, { "private" });
+                
+                push(objVal);
                 break;
             }
+                
             case OpCode::CreateClassPublicStaticMethod: {
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+                
+                Value valueToSet = pop();
+                Value objVal = pop();
+                
+                objVal.classValue->set_var(prop, valueToSet, { "public" });
+                
+                push(objVal);
                 break;
             }
+                
             case OpCode::CreateClassProtectedMethod: {
-                break;
-            }
-            case OpCode::CreateClassPrivateMethod: {
-                break;
-            }
-            case OpCode::CreateClassPublicMethod: {
-                break;
-            }
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
 
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "protected" } );
+
+                // push object back
+                push(klassVal);
+                
+                break;
+            }
+                
+            case OpCode::CreateClassPrivateMethod: {
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "private" } );
+
+                // push object back
+                push(klassVal);
+                break;
+            }
+                
+            case OpCode::CreateClassPublicMethod: {
+                
+                uint32_t ci = readUint32();
+                string prop = frame->chunk->constants[ci].toString();
+
+                Value valueToSet = pop();
+                Value klassVal = pop();
+                
+                klassVal.classValue->set_proto_vm_var(prop, valueToSet, { "public" } );
+
+                // push object back
+                push(klassVal);
+                
+                break;
+            }
                 
             case OpCode::SuperCall: {
                 

@@ -40,9 +40,6 @@ void TurboVM::init_builtins() {
         
 }
 
-// Upvalue* openUpvalues = nullptr; // Head of list of open upvalues
-// std::vector<std::shared_ptr<Upvalue>> closureUpvalues; // Optional for management
-
 shared_ptr<Upvalue> TurboVM::captureUpvalue(Value* local) {
     Upvalue* prev = nullptr;
     Upvalue* up = openUpvalues;
@@ -76,20 +73,6 @@ Instruction TurboVM::readInstruction() {
         throw runtime_error("Empty instruction.");
     return frame->chunk->code[frame->ip++];
 }
-
-uint32_t TurboVM::readUint32() {
-    if (frame->ip + 4 > frame->chunk->code.size()) throw std::runtime_error("read past end");
-    uint32_t v = 0;
-//    v |= (uint32_t)chunk->code[ip++];
-//    v |= (uint32_t)chunk->code[ip++] << 8;
-//    v |= (uint32_t)chunk->code[ip++] << 16;
-//    v |= (uint32_t)chunk->code[ip++] << 24;
-    return v;
-}
-
-//uint8_t TurboVM::readUint8() {
-//    return readByte();
-//}
 
 Value TurboVM::binaryAdd(const Value &a, const Value &b) {
     if (a.type == ValueType::STRING || b.type == ValueType::STRING) {
@@ -230,7 +213,7 @@ shared_ptr<JSObject> TurboVM::createJSObject(shared_ptr<JSClass> klass) {
 
 void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
-    for (auto& protoProp : klass.classValue->protoProps) {
+    for (auto& protoProp : klass.classValue->var_proto_props) {
                 
         if (protoProp.second.value.type == ValueType::CLOSURE) {
             
@@ -239,16 +222,44 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
-            obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
+            obj->set(protoProp.first,
+                     Value::closure(new_closure),
+                     "VAR",
+                     protoProp.second.modifiers);
 
         } else {
             
-            obj->set(protoProp.first, protoProp.second.value, "VAR", {});
+            obj->set(protoProp.first,
+                     protoProp.second.value,
+                     "VAR",
+                     protoProp.second.modifiers);
 
         }
 
     }
-    
+
+    for (auto& constProtoProp : klass.classValue->const_proto_props) {
+                
+        if (constProtoProp.second.value.type == ValueType::CLOSURE) {
+            
+            shared_ptr<Closure> new_closure = make_shared<Closure>();
+            new_closure->fn = constProtoProp.second.value.closureValue->fn;
+            new_closure->upvalues = constProtoProp.second.value.closureValue->upvalues;
+            new_closure->js_object = obj;
+
+            obj->set(constProtoProp.first, Value::closure(new_closure), "CONST", {});
+
+        } else {
+            
+            obj->set(constProtoProp.first,
+                     constProtoProp.second.value,
+                     "CONST",
+                     constProtoProp.second.modifiers);
+
+        }
+
+    }
+
 }
 
 void TurboVM::invokeMethod(Value obj_value, string name, vector<Value> args) {

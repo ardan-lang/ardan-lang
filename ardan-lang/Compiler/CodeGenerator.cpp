@@ -1835,35 +1835,20 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         OpCode op;
 
         if (isStatic) {
-            
-            if (isPublic) {
-                op = OpCode::CreateClassPublicStaticMethod;
-            } else if (isPrivate) {
-                op = OpCode::CreateClassPrivateStaticMethod;
-            } else if (isProtected) {
-                op = OpCode::CreateClassProtectedStaticMethod;
-            }
-
-            emit(op);
+            op = isPublic    ? OpCode::CreateClassPublicStaticMethod :
+                     isPrivate   ? OpCode::CreateClassPrivateStaticMethod :
+                                   OpCode::CreateClassProtectedStaticMethod;
             // emit(OpCode::SetStaticProperty);
-            emitUint32(nameIdx); // Pops class and function, sets property on class object
-            
         } else {
-            
-            if (isPublic) {
-                op = OpCode::CreateClassPublicMethod;
-            } else if (isPrivate) {
-                op = OpCode::CreateClassPrivateMethod;
-            } else if (isProtected) {
-                op = OpCode::CreateClassProtectedMethod;
-            }
-
-            emit(op);
+            op = isPublic    ? OpCode::CreateClassPublicMethod :
+                     isPrivate   ? OpCode::CreateClassPrivateMethod :
+                                   OpCode::CreateClassProtectedMethod;
             // emit(OpCode::SetProperty);
-            emitUint32(nameIdx); // Pops class and function, sets on prototype
-            
         }
         
+        emit(op);
+        emitUint32(nameIdx); // Pops class and function, sets on prototype
+
     }
 
     // TODO: need to fix this to store not only in global

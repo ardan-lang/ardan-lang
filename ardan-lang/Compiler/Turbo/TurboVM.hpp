@@ -104,9 +104,6 @@ private:
     CallFrame* frame;
     Value registers[256];
     
-    //Value pop();
-   // Value peek(int distance = 0);
-    uint32_t readByte();
     Instruction readInstruction();
     uint32_t readUint32();
     uint8_t readUint8();
@@ -116,7 +113,6 @@ private:
     bool equals(const Value &a, const Value &b);
     Value getProperty(const Value &objVal, const string &propName);
     void setProperty(const Value &objVal, const string &propName, const Value &val);
-    //Value callFunction(Value callee, const vector<Value>& args);
     int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
