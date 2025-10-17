@@ -368,3 +368,174 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
 //}
 
 ```
+
+```cpp
+void CodeGen::_emitAssignment(BinaryExpression* expr) {
+    auto left = expr->left.get();
+
+    // --------------------
+    // Plain assignment (=)
+    // --------------------
+    if (expr->op.type == TokenType::ASSIGN) {
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+            // Evaluate RHS first
+            expr->right->accept(*this);
+            
+            //ident->accept(*this);
+            define(ident->token.lexeme);
+//            if (hasLocal(ident->name)) {
+//                emit(OpCode::OP_SET_LOCAL);
+//                emitUint32(getLocal(ident->name));
+//            } else if (resolveUpvalue(ident->name) != - 1 ) {
+//                emit(OpCode::OP_SET_UPVALUE);
+//                emitUint32(resolveUpvalue(ident->name));
+//            } else {
+//                int nameIdx = emitConstant(Value::str(ident->name));
+//                emit(OpCode::OP_SET_GLOBAL);
+//                emitUint32(nameIdx);
+//            }
+        
+        }
+        else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+            
+            if (member->computed) {
+            } else {
+                
+            }
+            
+            // TODO: review
+            // Push object first
+            member->object->accept(*this);
+            // Then RHS
+            expr->right->accept(*this);
+
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::SetProperty);
+            emitUint32(nameIdx);
+        }
+        else {
+            throw std::runtime_error("Unsupported assignment target in CodeGen");
+        }
+
+        // If assignments are statements only, discard the result:
+        // emit(OpCode::OP_POP);
+
+        return;
+    }
+
+    // -----------------------------
+    // Compound assignment (+=, etc.)
+    // -----------------------------
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        ident->accept(*this);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_GET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_GET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+        
+        if (member->computed) {
+            member->object->accept(*this);     // [obj]
+            emit(OpCode::Dup);             // [obj, obj]
+            member->property->accept(*this);   // [obj, key]
+            emit(OpCode::GetPropertyDynamic); // [obj, key, value]
+        } else {
+            
+            // Push object, duplicate it for later use
+            member->object->accept(*this);
+            emit(OpCode::Dup);
+            
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::GetProperty);
+            emitUint32(nameIdx);
+        }
+        
+    }
+    else {
+        throw std::runtime_error("Unsupported assignment target in CodeGen");
+    }
+
+    // Evaluate RHS
+    expr->right->accept(*this);
+
+    // Apply compound operation
+    switch (expr->op.type) {
+        case TokenType::ASSIGN_ADD: emit(OpCode::Add); break;
+        case TokenType::ASSIGN_MINUS: emit(OpCode::Subtract); break;
+        case TokenType::ASSIGN_MUL: emit(OpCode::Multiply); break;
+        case TokenType::ASSIGN_DIV: emit(OpCode::Divide); break;
+        case TokenType::MODULI_ASSIGN: emit(OpCode::Modulo); break;
+        case TokenType::POWER_ASSIGN: emit(OpCode::Power); break;
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: emit(OpCode::ShiftLeft); break;
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: emit(OpCode::ShiftRight); break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: emit(OpCode::UnsignedShiftRight); break;
+        case TokenType::BITWISE_AND_ASSIGN: emit(OpCode::BitAnd); break;
+        case TokenType::BITWISE_OR_ASSIGN: emit(OpCode::BitOr); break;
+        case TokenType::BITWISE_XOR_ASSIGN: emit(OpCode::BitXor); break;
+        case TokenType::LOGICAL_AND_ASSIGN: emit(OpCode::LogicalAnd); break;
+        case TokenType::LOGICAL_OR_ASSIGN: emit(OpCode::LogicalOr); break;
+        case TokenType::NULLISH_COALESCING_ASSIGN: emit(OpCode::NullishCoalescing); break;
+        default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
+    }
+
+    // Store result back
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        define(ident->token.lexeme);
+        // ident->accept(*this);
+//        if (hasLocal(ident->name)) {
+//            emit(OpCode::OP_SET_LOCAL);
+//            emitUint32(getLocal(ident->name));
+//        } else {
+//            int nameIdx = emitConstant(Value::str(ident->name));
+//            emit(OpCode::OP_SET_GLOBAL);
+//            emitUint32(nameIdx);
+//        }
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+
+        // TODO: review
+
+        if (member->computed) {
+            emit(OpCode::SetPropertyDynamic);
+        } else {
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::SetProperty);
+            emitUint32(nameIdx);
+        }
+        
+    }
+
+    // Optional: if compound assignments are statements, discard result:
+    // emit(OpCode::OP_POP);
+}
+
+//R CodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
+//    // Keep simple: perform import at compile time by executing parser+interpreter OR
+//    // emit runtime call to some import builtin. For now, call a builtin global "import" if present.
+//    // Generate: push path string -> call import(path)
+//    int ci = emitConstant(Value::str(stmt->path.lexeme));
+//    emit(OpCode::LoadConstant);
+//    emitUint32(ci);
+//    // callee (import)
+//    int importName = emitConstant(Value::str("import"));
+//    emit(OpCode::OP_GET_GLOBAL);
+//    emitUint32(importName);
+//    emit(OpCode::OP_CALL);
+//    emitUint8(1);
+//    emit(OpCode::OP_POP);
+//    return true;
+//}
+
+// Upvalue* openUpvalues = nullptr; // Head of list of open upvalues
+// std::vector<std::shared_ptr<Upvalue>> closureUpvalues; // Optional for management
+
+// Add members to VM class (assumed in VM.hpp):
+// Upvalue* openUpvalues = nullptr; // Head of list of open upvalues
+// std::vector<std::shared_ptr<Upvalue>> closureUpvalues; // Optional for management
+
+```
