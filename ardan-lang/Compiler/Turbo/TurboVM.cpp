@@ -151,10 +151,10 @@ void TurboVM::setProperty(const Value &objVal, const string &propName, const Val
         objVal.arrayValue->set(propName, val);
         return;
     }
-    if (objVal.type == ValueType::CLASS) {
-        objVal.classValue->set(propName, val, false);
-        return;
-    }
+//    if (objVal.type == ValueType::CLASS) {
+//        objVal.classValue->set(propName, val, false);
+//        return;
+//    }
     throw std::runtime_error("Cannot set property on non-object");
 }
 
@@ -642,8 +642,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                                                 
             case TurboOpCode::LoadLocalVar: {
                 // LoadLocalVar, reg_slot, idx
-                uint8_t reg = instruction.a;
-                uint8_t idx = instruction.b;
+                int reg = instruction.a;
+                int idx = instruction.b;
                 
                 registers[reg] = frame->locals[idx];
                 break;
@@ -651,8 +651,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::LoadGlobalVar: {
                 
-                uint8_t reg = instruction.a;
-                uint8_t idx = instruction.b;
+                int reg = instruction.a;
+                int idx = instruction.b;
                 string name = frame->chunk->constants[idx].stringValue;
                 
                 registers[reg] = toValue(env->get(name));
@@ -733,7 +733,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value klass = Value::klass(js_class);
                 
                 // add constructor
-                setProperty(klass, "constructor", addCtor());
+                klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
                                 
                 registers[instruction.a] = (klass);
                 break;
@@ -871,21 +871,60 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // op, super_class_reg, method_reg, methodNameReg);
                 
             case TurboOpCode::CreateClassProtectedStaticMethod: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_var(fieldNameValue.stringValue, init, { "protected" });
+
                 break;
             }
+                
             case TurboOpCode::CreateClassPrivateStaticMethod: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_var(fieldNameValue.stringValue, init, { "private" });
+
                 break;
             }
+                
             case TurboOpCode::CreateClassPublicStaticMethod: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_var(fieldNameValue.stringValue, init, { "public" });
                 break;
             }
+                
             case TurboOpCode::CreateClassProtectedMethod: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "protected" });
                 break;
             }
+                
             case TurboOpCode::CreateClassPrivateMethod: {
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "private" });
                 break;
             }
+                
             case TurboOpCode::CreateClassPublicMethod: {
+                
+                Value klass = registers[instruction.a];
+                Value init = registers[instruction.b];
+                Value fieldNameValue = registers[instruction.c];
+                
+                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" });
                 break;
             }
                 
@@ -897,7 +936,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 if (klass.classValue->is_native == true) {
                     
                     // add constructor
-                    setProperty(klass, "constructor", addCtor());
+                    klass.classValue->set_var("constructor", addCtor(), { "public" } );
 
                     shared_ptr<JSObject> native_object = klass.classValue->construct();
 
@@ -996,7 +1035,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // TurboOpCode::GetProperty, lhsReg, objReg, nameIdx
             case TurboOpCode::GetProperty: {
-                auto object = registers[instruction.b];
+                Value object = registers[instruction.b];
                 string prop = frame->chunk->constants[instruction.c].stringValue;
                 Value val = getProperty(object, prop);
                 registers[instruction.a] = val;

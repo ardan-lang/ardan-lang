@@ -650,7 +650,6 @@ R CodeGen::visitMember(MemberExpression* expr) {
         // compute property expression now
         expr->property->accept(*this);
         emit(OpCode::GetPropertyDynamic);
-        return true;
     } else {
         string propName = expr->name.lexeme;
         int nameIdx = emitConstant(Value::str(propName));

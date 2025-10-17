@@ -570,6 +570,7 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
 }
 
 R TurboCodeGen::visitMember(MemberExpression* expr) {
+    
     // Evaluate the object expression
     int objectReg = get<int>(expr->object->accept(*this));
     auto objectGuard = makeRegGuard(objectReg, *this);
@@ -584,15 +585,21 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
         auto propertyGuard = makeRegGuard(propertyReg, *this);
 
         emit(TurboOpCode::GetPropertyDynamic, targetReg, objectReg, propertyReg);
+        
+        freeRegister(propertyReg);
+        
     } else {
         // obj.name
-        int nameConst = emitConstant(expr->name.lexeme);
+        int nameConst = emitConstant(Value::str(expr->name.lexeme));
         emit(TurboOpCode::GetProperty, targetReg, objectReg, nameConst);
+        
     }
 
     // Free object register after use
     objectGuard.release();
+    
     return targetReg;
+    
 }
 
 R TurboCodeGen::visitNew(NewExpression* expr) {
@@ -750,6 +757,78 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
     
     return reg;
 
+}
+
+R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
+    
+    int lhsReg = get<int>(expr->argument->accept(*this));
+    //    TurboOpCode op = expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract;
+    //    emit(op, reg, reg, emitConstant(Value(1)));
+    //    //freeRegister();
+    //    return reg;
+    
+    int returnReg = -1;
+    
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
+        
+        int rhsReg = allocRegister();
+        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+        
+        int opResultReg = allocRegister();
+        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+             opResultReg,
+             lhsReg,
+             rhsReg);
+        
+        freeRegister(lhsReg);
+        freeRegister(rhsReg);
+        
+        store(ident->name, opResultReg);
+        
+        returnReg = opResultReg;
+        
+    }
+    else if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+        
+        int rhsReg = allocRegister();
+        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+        int opResultReg = allocRegister();
+        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+             opResultReg,
+             lhsReg,
+             rhsReg);
+        
+        freeRegister(lhsReg);
+        freeRegister(rhsReg);
+        
+        // Evaluate object to reg
+        int objReg = get<int>(member->object->accept(*this));
+        
+        if (member->computed) {
+            
+            int propReg = get<int>(member->property->accept(*this)); // Property key to reg
+            
+            // SetPropertyDynamic: objReg, propReg, valueReg
+            emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+            freeRegister(propReg); // propReg
+            
+        } else {
+            
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            // SetProperty: objReg, nameIdx, valueReg
+            emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+            
+        }
+        
+        freeRegister(objReg); // objReg
+        
+        returnReg = opResultReg;
+    }
+    
+    return returnReg;
+    
 }
 
 R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
@@ -1385,78 +1464,6 @@ R TurboCodeGen::visitSequence(SequenceExpression* expr) {
     return 0;
 }
 
-R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
-    
-    int lhsReg = get<int>(expr->argument->accept(*this));
-    //    TurboOpCode op = expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract;
-    //    emit(op, reg, reg, emitConstant(Value(1)));
-    //    //freeRegister();
-    //    return reg;
-    
-    int returnReg = -1;
-    
-    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
-        
-        int rhsReg = allocRegister();
-        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
-        
-        int opResultReg = allocRegister();
-        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
-        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
-             opResultReg,
-             lhsReg,
-             rhsReg);
-        
-        freeRegister(lhsReg);
-        freeRegister(rhsReg);
-        
-        store(ident->name, opResultReg);
-        
-        returnReg = opResultReg;
-        
-    }
-    else if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
-        
-        int rhsReg = allocRegister();
-        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
-        int opResultReg = allocRegister();
-        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
-        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
-             opResultReg,
-             lhsReg,
-             rhsReg);
-        
-        freeRegister(lhsReg);
-        freeRegister(rhsReg);
-        
-        // Evaluate object to reg
-        int objReg = get<int>(member->object->accept(*this));
-        
-        if (member->computed) {
-            
-            int propReg = get<int>(member->property->accept(*this)); // Property key to reg
-            
-            // SetPropertyDynamic: objReg, propReg, valueReg
-            emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
-            freeRegister(propReg); // propReg
-            
-        } else {
-            
-            int nameIdx = emitConstant(Value::str(member->name.lexeme));
-            // SetProperty: objReg, nameIdx, valueReg
-            emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
-            
-        }
-        
-        freeRegister(objReg); // objReg
-        
-        returnReg = opResultReg;
-    }
-    
-    return returnReg;
-    
-}
-
 R TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
     uint32_t reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value(false)));
@@ -1706,7 +1713,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                 
                 classInfo.fields.insert(decl.id);
                 
-                int initReg = -1;
+                int initReg = allocRegister();
                 
                 if (decl.init) {
                     initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
@@ -1776,7 +1783,11 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                     emit(op, super_class_reg, initReg, fieldNameReg);
                 }
                 
+                freeRegister(initReg);
+                freeRegister(fieldNameReg);
+                
             }
+                        
         }
         
     }
@@ -1854,17 +1865,20 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
             
             emit(op, super_class_reg, method_reg, methodNameReg);
             
+            freeRegister(method_reg);
+            freeRegister(methodNameReg);
+            
         }
     }
 
     // Bind class in the environment (global)
-    int classNameIdx = emitConstant(Value::str(stmt->id));
+    // int classNameIdx = emitConstant(Value::str(stmt->id));
 
     int class_reg = allocRegister();
     declareLocal(stmt->id);
     declareGlobal(stmt->id, BindingKind::Var);
     
-    create(stmt->id, class_reg, BindingKind::Var);
+    create(stmt->id, super_class_reg, BindingKind::Var);
 
     // clear class info
     classInfo.fields.clear();
@@ -2254,8 +2268,31 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::Call: opName = "Call"; break;
         case TurboOpCode::PushArg: opName = "PushArg"; break;
         case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
+        case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
         case TurboOpCode::Throw: opName = "Throw"; break;
+
+        case TurboOpCode::CreateClassPrivatePropertyVar: opName = "CreateClassPrivatePropertyVar"; break;
+        case TurboOpCode::CreateClassPublicPropertyVar: opName = "CreateClassPublicPropertyVar"; break;
+        case TurboOpCode::CreateClassProtectedPropertyVar: opName = "CreateClassProtectedPropertyVar"; break;
+        case TurboOpCode::CreateClassPrivatePropertyConst: opName = "CreateClassPrivatePropertyConst"; break;
+        case TurboOpCode::CreateClassPublicPropertyConst: opName = "CreateClassPublicPropertyConst"; break;
+        case TurboOpCode::CreateClassProtectedPropertyConst: opName = "CreateClassProtectedPropertyConst"; break;
+
+        case TurboOpCode::CreateClassPrivateStaticPropertyVar: opName = "CreateClassPrivateStaticPropertyVar"; break;
+        case TurboOpCode::CreateClassPublicStaticPropertyVar: opName = "CreateClassPublicStaticPropertyVar"; break;
+        case TurboOpCode::CreateClassProtectedStaticPropertyVar: opName = "CreateClassProtectedStaticPropertyVar"; break;
+        case TurboOpCode::CreateClassPrivateStaticPropertyConst: opName = "CreateClassPrivateStaticPropertyConst"; break;
+        case TurboOpCode::CreateClassPublicStaticPropertyConst: opName = "CreateClassPublicStaticPropertyConst"; break;
+        case TurboOpCode::CreateClassProtectedStaticPropertyConst: opName = "CreateClassProtectedStaticPropertyConst"; break;
+
+        case TurboOpCode::CreateClassProtectedStaticMethod: opName = "CreateClassProtectedStaticMethod"; break;
+        case TurboOpCode::CreateClassPrivateStaticMethod: opName = "CreateClassPrivateStaticMethod"; break;
+        case TurboOpCode::CreateClassPublicStaticMethod: opName = "CreateClassPublicStaticMethod"; break;
+        case TurboOpCode::CreateClassProtectedMethod: opName = "CreateClassProtectedMethod"; break;
+        case TurboOpCode::CreateClassPrivateMethod: opName = "CreateClassPrivateMethod"; break;
+        case TurboOpCode::CreateClassPublicMethod: opName = "CreateClassPublicMethod"; break;
+
         // Add more opcodes as needed
         default: opName = "Unknown"; break;
     }
@@ -2268,8 +2305,12 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
               << " c: " << (int)instr.c;
 
     // For LoadConst, print constant value
-    if (instr.op == TurboOpCode::LoadConst && instr.b < chunk->constants.size()) {
+    if ((instr.op == TurboOpCode::LoadConst || instr.op == TurboOpCode::LoadGlobalVar || instr.op == TurboOpCode::LoadLocalVar) && instr.b < chunk->constants.size()) {
         std::cout << " [const: " << chunk->constants[instr.b].toString() << "]";
+    }
+    
+    if ((instr.op == TurboOpCode::GetProperty) && instr.c < chunk->constants.size()) {
+        std::cout << " [const: " << chunk->constants[instr.c].toString() << "]";
     }
 
     std::cout << std::endl;

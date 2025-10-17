@@ -164,7 +164,7 @@ Value VM::getProperty(const Value &objVal, const string &propName) {
         return objVal.arrayValue->get(propName);
     }
     if (objVal.type == ValueType::CLASS) {
-        return objVal.classValue->get_vm(propName);
+        return objVal.classValue->get(propName, false);
     }
     // primitives -> string -> property? For now, undefined
     return Value::undefined();
@@ -179,10 +179,10 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
         objVal.arrayValue->set(propName, val);
         return;
     }
-    if (objVal.type == ValueType::CLASS) {
-        //objVal.classValue->set_proto_vm(propName, val);
-        return;
-    }
+//    if (objVal.type == ValueType::CLASS) {
+//        //objVal.classValue->set_proto_vm(propName, val);
+//        return;
+//    }
     throw std::runtime_error("Cannot set property on non-object");
 }
 
@@ -240,8 +240,8 @@ shared_ptr<JSObject> VM::createJSObject(shared_ptr<JSClass> klass) {
 }
 
 void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
-    
-    for (auto& protoProp : klass.classValue->protoProps) {
+    // TODO: check out where var_proto_props and const_proto_props are set.
+    for (auto& protoProp : klass.classValue->var_proto_props) {
                 
         if (protoProp.second.value.type == ValueType::CLOSURE) {
             
@@ -250,16 +250,47 @@ void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
-            obj->set(protoProp.first, Value::closure(new_closure), "VAR", {});
+            obj->set(protoProp.first,
+                     Value::closure(new_closure),
+                     "VAR",
+                     protoProp.second.modifiers);
 
         } else {
             
-            obj->set(protoProp.first, protoProp.second.value, "VAR", {});
+            obj->set(protoProp.first,
+                     protoProp.second.value,
+                     "VAR",
+                     protoProp.second.modifiers);
 
         }
 
     }
     
+    for (auto& protoProp : klass.classValue->const_proto_props) {
+                
+        if (protoProp.second.value.type == ValueType::CLOSURE) {
+            
+            shared_ptr<Closure> new_closure = make_shared<Closure>();
+            new_closure->fn = protoProp.second.value.closureValue->fn;
+            new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
+            new_closure->js_object = obj;
+
+            obj->set(protoProp.first,
+                     Value::closure(new_closure),
+                     "CONST",
+                     protoProp.second.modifiers);
+
+        } else {
+            
+            obj->set(protoProp.first,
+                     protoProp.second.value,
+                     "CONST",
+                     protoProp.second.modifiers);
+
+        }
+
+    }
+
 }
 
 void VM::invokeMethod(Value obj_value, string name, vector<Value> args) {
@@ -465,7 +496,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value klass = Value::klass(js_class);
                 
                 // add constructor
-                setProperty(klass, "constructor", addCtor());
+                klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
                                 
                 push(klass);
                 break;
