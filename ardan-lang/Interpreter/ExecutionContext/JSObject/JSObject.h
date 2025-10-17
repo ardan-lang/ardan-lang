@@ -17,6 +17,7 @@
 using namespace std;
 
 class VM;
+class TurboVM;
 
 class JSObject {
 
@@ -33,6 +34,7 @@ protected:
 public:
 
     VM* vm;
+    TurboVM* turboVM;
 
     shared_ptr<JSClass> parent_class;
     shared_ptr<JSObject> parent_object;

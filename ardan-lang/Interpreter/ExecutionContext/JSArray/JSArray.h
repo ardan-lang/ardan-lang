@@ -18,6 +18,7 @@
 using namespace std;
 
 class VM;
+class TurboVM;
 
 class JSArray : public JSObject {
 

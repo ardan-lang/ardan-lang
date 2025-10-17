@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "JSObject.h"
 #include "../../../Compiler/VM/VM.hpp"
+#include "../../../Compiler/Turbo/TurboVM.hpp"
 
 bool JSObject::operator==(const JSObject& other) const {
     return this == &other;

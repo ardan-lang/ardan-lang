@@ -7,6 +7,7 @@
 
 #include "JSArray.h"
 #include "../../../Compiler/VM/VM.hpp"
+#include "../../../Compiler/Turbo/TurboVM.hpp"
 
 void JSArray::set(const string& key, const Value& val) {
     if (isNumeric(key)) {
@@ -176,7 +177,11 @@ void JSArray::init_builtins() {
             if (callback.type == ValueType::FUNCTION) {
                 acc = callback.functionValue(cbArgs);
             } else if (callback.type == ValueType::CLOSURE) {
-                acc = vm->callFunction(callback, cbArgs);
+                if (vm) {
+                    acc = vm->callFunction(callback, cbArgs);
+                } else if (turboVM) {
+                    acc = turboVM->callFunction(callback, cbArgs);
+                }
             }
         }
         
