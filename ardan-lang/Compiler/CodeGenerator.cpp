@@ -905,7 +905,18 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
                     parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
                 }
             }
-        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+        }
+        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+        }
+        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+            }
+        }
+        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
             paramNames.push_back(ident->name);
             parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
         }
