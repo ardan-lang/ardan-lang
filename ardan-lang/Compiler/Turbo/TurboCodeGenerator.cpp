@@ -612,6 +612,7 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
 
         vector<int> argRegs;
         argRegs.resize(expr->arguments.size());
+        // emit args count
         for (auto& arg : expr->arguments) {
             argRegs.push_back(get<int>(arg->accept(*this)));
         }
@@ -619,20 +620,20 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
         // TODO: set the arg start to -1 to denote no args
         emit(TurboOpCode::InvokeConstructor,
              reg,
-             argRegs.size() == 0 ? -1 : argRegs[0],
+             argRegs.size() == 0 ? 0 : argRegs[0],
              (int)argRegs.size());
 
-        // emit args count
-        // emitUint8((uint8_t)expr->arguments.size());
+        // free args regs
         for (auto argReg : argRegs) {
             freeRegister(argReg);
         }
         
-        freeRegister(reg);
+        // freeRegister(reg);
+        return reg;
 
     }
     
-    return 0;
+    throw runtime_error("New must be called on an exting class.");
     
 }
 
@@ -1742,6 +1743,8 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = TurboOpCode::CreateClassPrivateStaticPropertyVar;
                             } else if (isProtected) {
                                 op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
                             }
                             break;
                         case BindingKind::Const:
@@ -1751,9 +1754,12 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = TurboOpCode::CreateClassPrivateStaticPropertyConst;
                             } else if (isProtected) {
                                 op = TurboOpCode::CreateClassProtectedStaticPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
                             }
                             break;
                         default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
                             break;
                     }
                     
@@ -1769,6 +1775,8 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = TurboOpCode::CreateClassPrivatePropertyVar;
                             } else if (isProtected) {
                                 op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
                             }
                             break;
                         case BindingKind::Const:
@@ -1778,9 +1786,12 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = TurboOpCode::CreateClassPrivatePropertyConst;
                             } else if (isProtected) {
                                 op = TurboOpCode::CreateClassProtectedPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
                             }
                             break;
                         default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
                             break;
                     }
                     
@@ -1853,6 +1864,8 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                 op = TurboOpCode::CreateClassPrivateStaticMethod;
             } else if (isProtected) {
                 op = TurboOpCode::CreateClassProtectedStaticMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
             }
             
             emit(op, super_class_reg, method_reg, methodNameReg);
@@ -1865,6 +1878,8 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                 op = TurboOpCode::CreateClassPrivateMethod;
             } else if (isProtected) {
                 op = TurboOpCode::CreateClassProtectedMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicMethod;
             }
             
             emit(op, super_class_reg, method_reg, methodNameReg);
@@ -2275,6 +2290,9 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
         case TurboOpCode::Throw: opName = "Throw"; break;
+        case TurboOpCode::NewClass: opName = "NewClass"; break;
+        case TurboOpCode::CreateInstance: opName = "CreateInstance"; break;
+        case TurboOpCode::InvokeConstructor: opName = "InvokeConstructor"; break;
 
         case TurboOpCode::CreateClassPrivatePropertyVar: opName = "CreateClassPrivatePropertyVar"; break;
         case TurboOpCode::CreateClassPublicPropertyVar: opName = "CreateClassPublicPropertyVar"; break;

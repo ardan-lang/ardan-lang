@@ -1734,6 +1734,8 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = OpCode::CreateClassPrivateStaticPropertyVar;
                             } else if (isProtected) {
                                 op = OpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = OpCode::CreateClassPublicStaticPropertyVar;
                             }
                             break;
                         case BindingKind::Const:
@@ -1743,9 +1745,12 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = OpCode::CreateClassPrivateStaticPropertyConst;
                             } else if (isProtected) {
                                 op = OpCode::CreateClassProtectedStaticPropertyConst;
+                            } else {
+                                op = OpCode::CreateClassPublicStaticPropertyConst;
                             }
                             break;
                         default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
                             break;
                     }
                     
@@ -1762,6 +1767,8 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = OpCode::CreateClassPrivatePropertyVar;
                             } else if (isProtected) {
                                 op = OpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = OpCode::CreateClassPublicPropertyVar;
                             }
                             break;
                         case BindingKind::Const:
@@ -1771,9 +1778,12 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                                 op = OpCode::CreateClassPrivatePropertyConst;
                             } else if (isProtected) {
                                 op = OpCode::CreateClassProtectedPropertyConst;
+                            } else {
+                                op = OpCode::CreateClassPublicPropertyConst;
                             }
                             break;
                         default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
                             break;
                     }
 
@@ -1834,14 +1844,30 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         OpCode op;
 
         if (isStatic) {
-            op = isPublic    ? OpCode::CreateClassPublicStaticMethod :
-                     isPrivate   ? OpCode::CreateClassPrivateStaticMethod :
-                                   OpCode::CreateClassProtectedStaticMethod;
+            
+            if (isPublic) {
+                op = OpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = OpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = OpCode::CreateClassProtectedStaticMethod;
+            } else {
+                op = OpCode::CreateClassPublicStaticMethod;
+            }
+            
             // emit(OpCode::SetStaticProperty);
         } else {
-            op = isPublic    ? OpCode::CreateClassPublicMethod :
-                     isPrivate   ? OpCode::CreateClassPrivateMethod :
-                                   OpCode::CreateClassProtectedMethod;
+            
+            if (isPublic) {
+                op = OpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = OpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = OpCode::CreateClassProtectedMethod;
+            } else {
+                op = OpCode::CreateClassPublicMethod;
+            }
+            
             // emit(OpCode::SetProperty);
         }
         
