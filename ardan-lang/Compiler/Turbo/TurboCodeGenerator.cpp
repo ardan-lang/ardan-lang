@@ -904,54 +904,43 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         // For parameters with default value
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
-            //            nested.emit(TurboOpCode::LoadArgumentsLength);
-            //            nested.emit(TurboOpCode::LoadConstant);
-            //            nested.emitUint32(nested.emitConstant(Value::number(i)));
-            //            nested.emit(TurboOpCode::GreaterThan);
-            //            int useArg = nested.emitJump(OpCode::JumpIfFalse);
-            //
-            //            // Use argument
-            //            nested.emit(TurboOpCode::LoadArgument);
-            //            nested.emitUint32((uint32_t)i);
-            //            int setLocalJump = nested.emitJump(OpCode::Jump);
-            //
-            //            // Use default
-            //            nested.patchJump(useArg);
-            //            // Evaluate default expression (can reference previous params!)
-            //            info.defaultExpr->accept(nested);
-            //
-            //            // Set local either way
-            //            nested.patchJump(setLocalJump);
-            //            nested.emit(TurboOpCode::StoreLocal);
-            //            nested.emitUint32(nested.getLocal(info.name));
             
+            int store_reg = nested.allocRegister();
+     
             int args_len_reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
-            int constant_reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, constant_reg, nested.emitConstant(Value::number(i)));
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
             
-            nested.emit(TurboOpCode::GreaterThan, args_len_reg, constant_reg);
-            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg);
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
             
             // Use argument
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
             nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
             
             int setLocalJump = nested.emitJump(TurboOpCode::Jump);
             
             // Use default
             nested.patchJump(useArg);
-            // Evaluate default expression (can reference previous params!)
             
+            // Evaluate default expression (can reference previous params!)
             int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
             
             // Set local either way
             nested.patchSingleJump(setLocalJump);
-            //            nested.emit(TurboOpCode::StoreLocal);
-            //            nested.emitUint32(nested.getLocal(info.name));
-            nested.store(info.name, default_expr_reg);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
             
         } else {
             
@@ -963,6 +952,8 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
             nested.emit(TurboOpCode::LoadArgument, reg);
             
             nested.store(info.name, reg);
+            
+            nested.freeRegister(reg);
             
         }
     }
@@ -1061,314 +1052,426 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //    bool is_async;
 
     // Create a nested CodeGen for the function body
-//    CodeGen nested(module_);
-//    nested.enclosing = this;
-//    nested.cur = make_shared<Chunk>();
-//    nested.beginScope();
-//
-//    vector<string> paramNames;
-//    vector<ParameterInfo> parameterInfos;
-//
-//    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
-//    for (auto& param : expr->params) {
-//        
-//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    // ...rest
-//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos
-//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//                    //}
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    // b = 90 or c = b
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    // Simple arg
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//                }
-//            }
-//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//        }
-//        
-//    }
-//
-//    // Allocate local slots for parameters
-//    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-//
-//    // Emit parameter initialization logic
-//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
-//        const auto& info = parameterInfos[i];
-//        // For rest parameter
-//        if (info.isRest) {
-//            // collect rest arguments as array: arguments.slice(i)
-//            nested.emit(OpCode::LoadArguments);      // Push arguments array
-//            nested.emit(OpCode::LoadConstant);            // Push i
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(OpCode::Slice);               // arguments.slice(i)
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//            // nested.emit(OpCode::OP_DEFINE_GLOBAL);
-//            // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
-//            continue;
-//        }
-//        // For parameters with default value
-//        if (info.hasDefault) {
-//            // if (arguments.length > i) use argument; else use default expr
-//            nested.emit(OpCode::LoadArgumentsLength);
-//            nested.emit(OpCode::LoadConstant);
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(OpCode::GreaterThan);
-//            int useArg = nested.emitJump(OpCode::JumpIfFalse);
-//
-//            // Use argument
-//            nested.emit(OpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            int setLocalJump = nested.emitJump(OpCode::Jump);
-//
-//            // Use default
-//            nested.patchJump(useArg);
-//            // Evaluate default expression (can reference previous params!)
-//            info.defaultExpr->accept(nested);
-//
-//            // Set local either way
-//            nested.patchJump(setLocalJump);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//            // nested.emit(OpCode::OP_DEFINE_GLOBAL);
-//            // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
-//        } else {
-//            // Direct: assign argument i to local slot
-//            nested.emit(OpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//            // nested.emit(OpCode::OP_DEFINE_GLOBAL);
-//            // nested.emitUint32(nested.emitConstant(Value::str(info.name)));
-//
-//        }
-//    }
-//
-//    // Compile function body
-//    if (expr->body) {
-//        expr->body->accept(nested);
-//        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
-//        // TODO: we need to check if return is the last statement.
-//        bool is_return_avaialble = false;
-//        if (BlockStatement* block = dynamic_cast<BlockStatement*>(expr->body.get())) {
-//            for (auto& body : block->body) {
-//                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
-//                    is_return_avaialble = true;
-//                }
-//            }
-//        }
-//        
-//        if (!is_return_avaialble) {
+    TurboCodeGen nested(module_);
+    nested.enclosing = this;
+    nested.cur = make_shared<TurboChunk>();
+    nested.beginScope();
+
+    vector<string> paramNames;
+    vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
+    for (auto& param : expr->params) {
+        
+        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                    // ...rest
+                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos
+                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+                    //}
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    // b = 90 or c = b
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+                    }
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                    // Simple arg
+                    paramNames.push_back(ident->name);
+                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+                }
+            }
+        }
+        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+        }
+        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+            }
+        }
+        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+            paramNames.push_back(ident->name);
+            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+        }
+        
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
+        } else {
+            
+            // Direct: assign argument i to local slot
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+            nested.freeRegister(reg);
+            
+        }
+    }
+
+    // Compile function body
+    if (expr->body) {
+        expr->body->accept(nested);
+        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(expr->body.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        
+        if (!is_return_avaialble) {
 //            nested.emit(OpCode::LoadConstant);
 //            int ud = nested.emitConstant(Value::undefined());
 //            nested.emitUint32(ud);
 //            nested.emit(OpCode::Return);
-//        }
-//
-//    }
-//
-//    // Register chunk & emit as constant
-//    auto fnChunk = nested.cur;
-//    fnChunk->arity = (uint32_t)paramNames.size();
-//
-//    uint32_t chunkIndex = module_->addChunk(fnChunk);
-//
-//    auto fnObj = std::make_shared<FunctionObject>();
-//    fnObj->chunkIndex = chunkIndex;
-//    fnObj->arity = fnChunk->arity;
-//    fnObj->name = expr->token.lexeme; //"<anon>";
-//    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
-//
-//    Value fnValue = Value::functionRef(fnObj);
-//    int ci = module_->addConstant(fnValue);
-//
-//    // emit(OpCode::OP_LOAD_CHUNK_INDEX);
+            
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+
+        }
+
+    }
+
+    // Register chunk & emit as constant
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = expr->token.lexeme; //"<anon>";
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+
 //    emit(OpCode::CreateClosure);
 //    emitUint8((uint8_t)ci);
-//
+
 //    ClosureInfo closure_info = {};
 //    closure_info.ci = ci;
 //    closure_info.upvalues = nested.upvalues;
-//
-//    // Emit upvalue descriptors
-//    for (auto& uv : nested.upvalues) {
+
+    // Emit upvalue descriptors
+    for (auto& uv : nested.upvalues) {
 //        emitUint8(uv.isLocal ? 1 : 0);
 //        emitUint8(uv.index);
-//    }
-//    
-//    // Bind function to its name in the global environment
-//    if (scopeDepth == 0) {
-//        // emit(OpCode::CreateGlobal);
-//         // int nameIdx = emitConstant(Value::str(expr->id));
-//         // emitUint32(nameIdx);
-//    } else {
-//        // declareLocal(stmt->id);
-//        // int slot = paramSlot(stmt->id);
-//        // emit(OpCode::StoreLocal);
-//        // int nameIdx = emitConstant(Value::str(stmt->id));
-//        // emitUint32(slot);
-//    }
-//
-//    closure_infos[to_string(ci)] = closure_info;
-//    disassembleChunk(nested.cur.get(), nested.cur->name);
 
-    return true;
+        int isLocalReg = allocRegister();
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
+        
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        
+    }
+    
+    // Bind function to its name in the global environment
+    if (scopeDepth == 0) {
+        // emit(OpCode::CreateGlobal);
+         // int nameIdx = emitConstant(Value::str(expr->id));
+         // emitUint32(nameIdx);
+    } else {
+        // declareLocal(stmt->id);
+        // int slot = paramSlot(stmt->id);
+        // emit(OpCode::StoreLocal);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        // emitUint32(slot);
+    }
+
+    // closure_infos[to_string(ci)] = closure_info;
+    disassembleChunk(nested.cur.get(), nested.cur->name);
+
+    return closureChunkIndexReg;
 }
 
 R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Create a nested code generator for the function body
-//    CodeGen nested(module_);
-//    nested.enclosing = this;
-//    nested.cur = std::make_shared<Chunk>();
-//    nested.beginScope();
-//    
-//    std::vector<std::string> paramNames;
-//    std::vector<ParameterInfo> parameterInfos;
-//
-//    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
-//    for (auto& param : stmt->params) {
-//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
-//                }
-//            }
-//        }
-//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-//            paramNames.push_back(rest->token.lexeme);
-//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-//        }
-//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
-//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-//                paramNames.push_back(ident->name);
-//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-//            }
-//        }
-//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.emplace_back(ident->name, false, nullptr, false);
-//        }
-//    }
-//
-//    // Allocate local slots for parameters
-//    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-//
-//    // Emit parameter initialization logic
-//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
-//        const auto& info = parameterInfos[i];
-//        if (info.isRest) {
-//            // Collect rest arguments as array: arguments.slice(i)
-//            nested.emit(OpCode::LoadArguments);
-//            nested.emit(OpCode::LoadConstant);
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(OpCode::Slice);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//            continue;
-//        }
-//        if (info.hasDefault) {
-//            // if (arguments.length > i) use argument; else use default expr
-//            nested.emit(OpCode::LoadArgumentsLength);
-//            nested.emit(OpCode::LoadConstant);
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(OpCode::GreaterThan);
-//            int useArg = nested.emitJump(OpCode::JumpIfFalse);
-//
-//            // Use argument
-//            nested.emit(OpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            int setLocalJump = nested.emitJump(OpCode::Jump);
-//
-//            // Use default
-//            nested.patchJump(useArg);
-//            info.defaultExpr->accept(nested);
-//
-//            // Set local either way
-//            nested.patchJump(setLocalJump);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//        } else {
-//            // Direct: assign argument i to local slot
-//            nested.emit(OpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//
-//        }
-//    }
-//
-//    // Compile function body
-//    if (stmt->body) {
-//        stmt->body->accept(nested);
-//        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
-//        // TODO: we need to check if return is the last statement.
-//        bool is_return_avaialble = false;
-//        if (BlockStatement* block = dynamic_cast<BlockStatement*>(stmt->body.get())) {
-//            for (auto& body : block->body) {
-//                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
-//                    is_return_avaialble = true;
-//                }
-//            }
-//        }
-//        if (!is_return_avaialble) {
+    TurboCodeGen nested(module_);
+    nested.enclosing = this;
+    nested.cur = make_shared<TurboChunk>();
+    nested.beginScope();
+    
+    std::vector<std::string> paramNames;
+    std::vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
+    for (auto& param : stmt->params) {
+        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
+                    }
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                    paramNames.push_back(ident->name);
+                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
+                }
+            }
+        }
+        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+        }
+        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+            }
+        }
+        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+            paramNames.push_back(ident->name);
+            parameterInfos.emplace_back(ident->name, false, nullptr, false);
+        }
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
+        } else {
+            
+            // Direct: assign argument i to local slot
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+            nested.freeRegister(reg);
+            
+        }
+    }
+
+    // Compile function body
+    if (stmt->body) {
+        stmt->body->accept(nested);
+        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(stmt->body.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        if (!is_return_avaialble) {
 //            nested.emit(OpCode::LoadConstant);
 //            int ud = nested.emitConstant(Value::undefined());
 //            nested.emitUint32(ud);
 //            nested.emit(OpCode::Return);
-//        }
-//
-//    }
-//
-//    // Register chunk & emit as constant
-//    auto fnChunk = nested.cur;
-//    fnChunk->arity = (uint32_t)paramNames.size();
-//
-//    uint32_t chunkIndex = module_->addChunk(fnChunk);
-//
-//    auto fnObj = std::make_shared<FunctionObject>();
-//    fnObj->chunkIndex = chunkIndex;
-//    fnObj->arity = fnChunk->arity;
-//    fnObj->name = stmt->id;
-//    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
-//
-//    Value fnValue = Value::functionRef(fnObj);
-//    int ci = module_->addConstant(fnValue);
-//
+            
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+
+        }
+
+    }
+
+    // Register chunk & emit as constant
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = stmt->id;
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
 //    emit(OpCode::CreateClosure);
 //    emitUint8((uint8_t)ci);
 //
 //    ClosureInfo closure_info = {};
 //    closure_info.ci = ci;
 //    closure_info.upvalues = nested.upvalues;
-//
-//    // Emit upvalue descriptors
-//    for (auto& uv : nested.upvalues) {
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+
+    // Emit upvalue descriptors
+    for (auto& uv : nested.upvalues) {
 //        emitUint8(uv.isLocal ? 1 : 0);
 //        emitUint8(uv.index);
-//    }
-//    
-//    // Bind function to its name in the global environment
+        
+        int isLocalReg = allocRegister();
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
+        
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+
+    }
+    
+    // Bind function to its name in the global environment
 //    if (scopeDepth == 0) {
 //        emit(OpCode::CreateGlobal);
 //         int nameIdx = emitConstant(Value::str(stmt->id));
@@ -1380,12 +1483,18 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
 //        // int nameIdx = emitConstant(Value::str(stmt->id));
 //        emitUint32(slot);
 //    }
-//    
-//    closure_infos[to_string(ci)] = closure_info;
-//    
-//    // disassemble the chunk for debugging
-//    disassembleChunk(nested.cur.get(),
-//                     stmt->id/*nested.cur->name*/);
+    
+    // closure_infos[to_string(ci)] = closure_info;
+
+    declareLocal(stmt->id);
+    declareGlobal(stmt->id, BindingKind::Var);
+    
+    create(stmt->id, closureChunkIndexReg, BindingKind::Var);
+
+    // disassemble the chunk for debugging
+    disassembleChunk(nested.cur.get(), stmt->id/*nested.cur->name*/);
+    
+    freeRegister(closureChunkIndexReg);
 
     return true;
 }
@@ -1598,34 +1707,70 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
     // Emit parameter initialization logic (rest/default)
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
+        // For rest parameter
         if (info.isRest) {
-//            nested.emit(OpCode::LoadArguments);
-//            nested.emit(OpCode::LoadConstant);
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(OpCode::Slice);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-//            continue;
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
         }
+        // For parameters with default value
         if (info.hasDefault) {
-//            nested.emit(OpCode::LoadArgumentsLength);
-//            nested.emit(OpCode::LoadConstant);
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(OpCode::GreaterThan);
-//            int useArg = nested.emitJump(OpCode::JumpIfFalse);
-//            nested.emit(OpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            int setLocalJump = nested.emitJump(OpCode::Jump);
-//            nested.patchJump(useArg);
-//            info.defaultExpr->accept(nested);
-//            nested.patchJump(setLocalJump);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
         } else {
-//            nested.emit(OpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            nested.emit(OpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
+            
+            // Direct: assign argument i to local slot
             
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
@@ -1633,7 +1778,9 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
             nested.emit(TurboOpCode::LoadArgument, reg);
             
             nested.store(info.name, reg);
-
+            
+            nested.freeRegister(reg);
+            
         }
     }
 
@@ -2123,12 +2270,12 @@ void TurboCodeGen::patchJump(int jumpPos, int target) {
 }
 
 void TurboCodeGen::patchJump(int jumpPos) {
-    int offset = (int)cur->code.size() - (jumpPos);
+    int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].b = (uint8_t)offset;
 }
 
 void TurboCodeGen::patchSingleJump(int jumpPos) {
-    int offset = (int)cur->code.size() - (jumpPos);
+    int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].a = (uint8_t)offset;
 }
 
@@ -2284,6 +2431,7 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
     // Print opcode name
     std::string opName;
     switch (instr.op) {
+        case TurboOpCode::Nop: opName = "Nop"; break;
         case TurboOpCode::Add: opName = "Add"; break;
         case TurboOpCode::Subtract: opName = "Subtract"; break;
         case TurboOpCode::Multiply: opName = "Multiply"; break;
