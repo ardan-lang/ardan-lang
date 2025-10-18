@@ -644,7 +644,22 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 registers[instruction.a] = Value::boolean(a.numberValue >= b.numberValue);
                 break;
             }
-                                                
+                
+                // jumps
+            case TurboOpCode::Jump: {
+                uint32_t offset = registers[instruction.a].numberValue; // readUint32();
+                
+                frame->ip += offset;
+                break;
+            }
+
+            case TurboOpCode::JumpIfFalse: {
+                uint32_t offset =  registers[instruction.b].numberValue;// readUint32();
+                Value cond = registers[instruction.a].numberValue; // pop();
+                if (!isTruthy(cond)) frame->ip += offset;
+                break;
+            }
+
             case TurboOpCode::LoadLocalVar: {
                 // LoadLocalVar, reg_slot, idx
                 int reg = instruction.a;
@@ -1062,6 +1077,47 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     result = frame->args[argIndex];
                 }
                 registers[instruction.a] = (result);
+                break;
+            }
+                
+                // LoadArguments, arg_array_reg
+            case TurboOpCode::LoadArguments: {
+                // Pushes the full arguments array as a JSArray object (or equivalent)
+
+                auto arr = make_shared<JSArray>();
+                for (const Value& v : frame->args) {
+                    arr->push({v});
+                }
+                registers[instruction.a] = Value::array(arr);
+                break;
+            }
+
+                // TurboOpCode::Slice, arg_array_reg, i_reg
+            case TurboOpCode::Slice: {
+                // Expects: [array, start] on stack; pops both and pushes array.slice(start)
+                Value startVal = registers[instruction.b];
+                Value arrayVal = registers[instruction.a];
+
+                int start = (int)startVal.numberValue;
+                shared_ptr<JSArray> inputArr = arrayVal.arrayValue;
+                auto arr = make_shared<JSArray>();
+
+                if (inputArr && start < (int)inputArr->length()) {
+                    for (int i = start; i < (int)inputArr->length(); ++i) {
+                        arr->push({ inputArr->get(to_string(i)) });
+                    }
+                }
+                
+                // push(Value::array(arr));
+                registers[instruction.a] = Value::array(arr);
+
+                break;
+                
+            }
+
+            case TurboOpCode::LoadArgumentsLength: {
+                // Pushes the count of arguments passed to the current frame
+                registers[instruction.a] = Value((double)frame->args.size());
                 break;
             }
 

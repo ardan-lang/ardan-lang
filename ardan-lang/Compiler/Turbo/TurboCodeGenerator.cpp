@@ -251,10 +251,9 @@ R TurboCodeGen::visitFor(ForStatement* stmt) {
     beginLoop();
     int loopStart = (int)cur->code.size();
     if (stmt->test) {
-        uint32_t testReg = allocRegister();
-        stmt->test->accept(*this);
+        uint32_t testReg = get<int>(stmt->test->accept(*this));
         int exitJump = emitJump(TurboOpCode::JumpIfFalse, testReg);
-        //freeRegister();
+        freeRegister(testReg);
         stmt->body->accept(*this);
         if (stmt->update)
             stmt->update->accept(*this);
@@ -884,50 +883,79 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         const auto& info = parameterInfos[i];
         // For rest parameter
         if (info.isRest) {
+            
             // collect rest arguments as array: arguments.slice(i)
-//            nested
-//                .emit(TurboOpCode::LoadArguments);      // Push arguments array
-//            
-//            nested.emit(TurboOpCode::LoadConstant);            // Push i
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(TurboOpCode::Slice);               // arguments.slice(i)
-//            
-//            nested.emit(TurboOpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
             continue;
         }
         // For parameters with default value
         if (info.hasDefault) {
             // if (arguments.length > i) use argument; else use default expr
-//            nested.emit(TurboOpCode::LoadArgumentsLength);
-//            nested.emit(TurboOpCode::LoadConstant);
-//            nested.emitUint32(nested.emitConstant(Value::number(i)));
-//            nested.emit(TurboOpCode::GreaterThan);
-//            int useArg = nested.emitJump(OpCode::JumpIfFalse);
-//
-//            // Use argument
-//            nested.emit(TurboOpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            int setLocalJump = nested.emitJump(OpCode::Jump);
-//
-//            // Use default
-//            nested.patchJump(useArg);
-//            // Evaluate default expression (can reference previous params!)
-//            info.defaultExpr->accept(nested);
-//
-//            // Set local either way
-//            nested.patchJump(setLocalJump);
-//            nested.emit(TurboOpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
-
+            //            nested.emit(TurboOpCode::LoadArgumentsLength);
+            //            nested.emit(TurboOpCode::LoadConstant);
+            //            nested.emitUint32(nested.emitConstant(Value::number(i)));
+            //            nested.emit(TurboOpCode::GreaterThan);
+            //            int useArg = nested.emitJump(OpCode::JumpIfFalse);
+            //
+            //            // Use argument
+            //            nested.emit(TurboOpCode::LoadArgument);
+            //            nested.emitUint32((uint32_t)i);
+            //            int setLocalJump = nested.emitJump(OpCode::Jump);
+            //
+            //            // Use default
+            //            nested.patchJump(useArg);
+            //            // Evaluate default expression (can reference previous params!)
+            //            info.defaultExpr->accept(nested);
+            //
+            //            // Set local either way
+            //            nested.patchJump(setLocalJump);
+            //            nested.emit(TurboOpCode::StoreLocal);
+            //            nested.emitUint32(nested.getLocal(info.name));
+            
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int constant_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, constant_reg, nested.emitConstant(Value::number(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, constant_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg);
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            // Evaluate default expression (can reference previous params!)
+            
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+            //            nested.emit(TurboOpCode::StoreLocal);
+            //            nested.emitUint32(nested.getLocal(info.name));
+            nested.store(info.name, default_expr_reg);
+            
         } else {
+            
             // Direct: assign argument i to local slot
-//            nested.emit(TurboOpCode::LoadArgument);
-//            nested.emitUint32((uint32_t)i);
-//            
-//            nested.emit(TurboOpCode::StoreLocal);
-//            nested.emitUint32(nested.getLocal(info.name));
             
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
@@ -2083,9 +2111,25 @@ int TurboCodeGen::emitJump(TurboOpCode op, int cond_reg = 0) {
     return (int)cur->code.size() - 1; // Return index of this jump instruction
 }
 
+int TurboCodeGen::emitJump(TurboOpCode op) {
+    Instruction instr(op, 0, 0, 0); // a is offset placeholder
+    cur->code.push_back(instr);
+    return (int)cur->code.size() - 1; // Return index of this jump instruction
+}
+
 void TurboCodeGen::patchJump(int jumpPos, int target) {
-    int offset = target - (jumpPos + 1); // Offset is relative to the next instruction
-    cur->code[jumpPos].b = (uint8_t)offset; // If you need bigger jumps, use a different format
+    int offset = target - (jumpPos + 1);
+    cur->code[jumpPos].b = (uint8_t)offset;
+}
+
+void TurboCodeGen::patchJump(int jumpPos) {
+    int offset = (int)cur->code.size() - (jumpPos);
+    cur->code[jumpPos].b = (uint8_t)offset;
+}
+
+void TurboCodeGen::patchSingleJump(int jumpPos) {
+    int offset = (int)cur->code.size() - (jumpPos);
+    cur->code[jumpPos].a = (uint8_t)offset;
 }
 
 // Lookup helpers
@@ -2199,10 +2243,6 @@ int TurboCodeGen::lookupGlobal(const string& name) {
 
 void TurboCodeGen::endLoop() {}
 
-int TurboCodeGen::emitJump(TurboOpCode op) {
-    return 0;
-}
-
 void TurboCodeGen::beginLoop() {
     
 }
@@ -2290,6 +2330,10 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
         case TurboOpCode::Throw: opName = "Throw"; break;
+        case TurboOpCode::LoadArgumentsLength: opName = "LoadArgumentsLength"; break;
+        case TurboOpCode::LoadArguments: opName = "LoadArguments"; break;
+        case TurboOpCode::LoadArgument: opName = "LoadArgument"; break;
+
         case TurboOpCode::NewClass: opName = "NewClass"; break;
         case TurboOpCode::CreateInstance: opName = "CreateInstance"; break;
         case TurboOpCode::InvokeConstructor: opName = "InvokeConstructor"; break;

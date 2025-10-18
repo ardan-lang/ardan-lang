@@ -176,6 +176,7 @@ private:
     // jump helpers
     int emitJump(TurboOpCode op, int cond_reg);
     int emitJump(TurboOpCode op);
+    void patchSingleJump(int jumpPos);
     void patchJump(int jumpPos);
     void patchJump(int jumpPos, int target);
     void emitLoop(uint32_t offset);
