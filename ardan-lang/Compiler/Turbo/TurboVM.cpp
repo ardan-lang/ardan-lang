@@ -647,15 +647,16 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // jumps
             case TurboOpCode::Jump: {
-                uint32_t offset = registers[instruction.a].numberValue; // readUint32();
+                
+                uint32_t offset = /*registers[*/instruction.a;//].numberValue;
                 
                 frame->ip += offset;
                 break;
             }
 
             case TurboOpCode::JumpIfFalse: {
-                uint32_t offset =  registers[instruction.b].numberValue;// readUint32();
-                Value cond = registers[instruction.a].numberValue; // pop();
+                uint32_t offset =  /*registers[*/instruction.b;//].numberValue;
+                Value cond = registers[instruction.a]; // pop();
                 if (!isTruthy(cond)) frame->ip += offset;
                 break;
             }
