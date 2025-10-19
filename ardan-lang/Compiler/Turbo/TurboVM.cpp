@@ -346,6 +346,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
         switch (op) {
             case TurboOpCode::Nop:
+                
                 break;
 
             case TurboOpCode::LoadConst: {
@@ -618,8 +619,11 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
 
             case TurboOpCode::LessThan: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                // result register is a.
+                // left reg is b
+                // right register is c
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 registers[instruction.a] = Value::boolean(a.numberValue < b.numberValue);
                 break;
             }
@@ -648,16 +652,25 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // jumps
             case TurboOpCode::Jump: {
                 
-                uint32_t offset = /*registers[*/instruction.a;//].numberValue;
+                uint32_t offset = instruction.a;
                 
                 frame->ip += offset;
                 break;
             }
 
             case TurboOpCode::JumpIfFalse: {
-                uint32_t offset =  /*registers[*/instruction.b;//].numberValue;
-                Value cond = registers[instruction.a]; // pop();
+                uint32_t offset = instruction.b;
+                Value cond = registers[instruction.a];
                 if (!isTruthy(cond)) frame->ip += offset;
+                break;
+            }
+                
+            case TurboOpCode::Loop: {
+                
+                uint32_t offset = instruction.a;
+                
+                frame->ip -= offset;
+
                 break;
             }
 
@@ -680,8 +693,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
                 break;
             }
-                //TODO: we need to store via var, let, const
-                //emit(TurboOpCode::StoreLocal, idx, reg_slot);
+                
+                // TODO: we need to store via var, let, const
+                // emit(TurboOpCode::StoreLocal, idx, reg_slot);
             case TurboOpCode::StoreLocalVar: {
                 
                 uint8_t idx = instruction.a;

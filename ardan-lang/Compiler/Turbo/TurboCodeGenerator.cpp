@@ -246,25 +246,39 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
 
 R TurboCodeGen::visitFor(ForStatement* stmt) {
     beginScope();
-    if (stmt->init)
-        stmt->init->accept(*this);
     beginLoop();
+
+    if (stmt->init)
+        (stmt->init->accept(*this));
+    else throw runtime_error("For loop must have an initializer.");
+    
     int loopStart = (int)cur->code.size();
+    
     if (stmt->test) {
+        
         uint32_t testReg = get<int>(stmt->test->accept(*this));
         int exitJump = emitJump(TurboOpCode::JumpIfFalse, testReg);
-        freeRegister(testReg);
+        // freeRegister(testReg);
+
         stmt->body->accept(*this);
-        if (stmt->update)
+
+        if (stmt->update) {
             stmt->update->accept(*this);
-        emit(TurboOpCode::Jump, 0, loopStart - (int)cur->code.size() - 1);
+        }
+        
+        // move up to test
+        // emit(TurboOpCode::Loop, ((int)cur->code.size() - loopStart) + 1);
+        emitLoop(loopStart);
+
         patchJump(exitJump, (int)cur->code.size());
+        
     } else {
         stmt->body->accept(*this);
         if (stmt->update)
             stmt->update->accept(*this);
-        emit(TurboOpCode::Jump, 0, loopStart - (int)cur->code.size() - 1);
+        emit(TurboOpCode::Loop, (int)cur->code.size() - loopStart);
     }
+    
     endLoop();
     endScope();
     return 0;
@@ -508,7 +522,6 @@ R TurboCodeGen::visitStringLiteral(StringLiteral* expr) {
 }
 
 R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
-    // return lookupLocalSlot(expr->name);
     int reg = allocRegister();
     load(expr->name, reg);
     return reg;
@@ -2248,6 +2261,10 @@ void TurboCodeGen::freeRegister(uint32_t slot) {
 }
 
 // Jump helpers
+void TurboCodeGen::emitLoop(uint32_t loopStart) {
+    emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
+}
+
 int TurboCodeGen::emitJump(TurboOpCode op, int cond_reg = 0) {
     // Reserve space, return jump location to patch
     // Implementation depends on code buffer layout
@@ -2359,9 +2376,13 @@ void TurboCodeGen::declareLocal(const string& name) {
         }
     }
 
+    uint32_t idx = (uint32_t)locals.size();
+
     Local local { name, scopeDepth, false, (uint32_t)locals.size() };
     locals.push_back(local);
     
+    if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
+
 }
 
 void TurboCodeGen::declareGlobal(const string& name, BindingKind kind) {

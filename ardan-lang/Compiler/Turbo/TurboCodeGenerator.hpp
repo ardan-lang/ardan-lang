@@ -151,9 +151,8 @@ private:
     int compileMethod(MethodDefinition& method);
 
     void emit(TurboOpCode op);
-    // void emitUint32(uint32_t v);
-    // void emitUint8(uint8_t v);
     int emitConstant(const Value &v);
+    void emitLoop(uint32_t loopStart);
     uint32_t makeLocal(const string &name); // allocate a local slot
     bool hasLocal(const string &name);
     uint32_t getLocal(const string &name);
@@ -179,7 +178,6 @@ private:
     void patchSingleJump(int jumpPos);
     void patchJump(int jumpPos);
     void patchJump(int jumpPos, int target);
-    void emitLoop(uint32_t offset);
     void emit(TurboOpCode op, int a, int b, int c);
     void emit(TurboOpCode op, int a);
     void emit(TurboOpCode op, int a, int b);
