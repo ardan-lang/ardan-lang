@@ -605,8 +605,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
 
             case TurboOpCode::Equal: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 registers[instruction.a] =  Value::boolean(equals(a,b));
                 break;
             }

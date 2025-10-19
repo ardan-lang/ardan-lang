@@ -215,19 +215,30 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
     
 }
 
+// TODO: fix this to work
 R TurboCodeGen::visitIf(IfStatement* stmt) {
+    
     uint32_t cond = get<int>(stmt->test->accept(*this));
     int elseJump = emitJump(TurboOpCode::JumpIfFalse, cond);
     freeRegister(cond);
+    
+    beginScope();
+    
     stmt->consequent->accept(*this);
+    
     int endJump = -1;
     if (stmt->alternate)
         endJump = emitJump(TurboOpCode::Jump);
-    patchJump(elseJump, (int)cur->code.size());
+    
+    patchJump(elseJump);
+    
     if (stmt->alternate) {
         stmt->alternate->accept(*this);
         patchJump(endJump, (int)cur->code.size());
     }
+    
+    endScope();
+    
     return 0;
 }
 
@@ -245,8 +256,10 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
 }
 
 R TurboCodeGen::visitFor(ForStatement* stmt) {
+    
     beginScope();
     beginLoop();
+    loopStack.back().loopStart = (int)cur->size();
 
     if (stmt->init)
         (stmt->init->accept(*this));
@@ -258,7 +271,7 @@ R TurboCodeGen::visitFor(ForStatement* stmt) {
         
         uint32_t testReg = get<int>(stmt->test->accept(*this));
         int exitJump = emitJump(TurboOpCode::JumpIfFalse, testReg);
-        // freeRegister(testReg);
+        freeRegister(testReg);
 
         stmt->body->accept(*this);
 
@@ -267,7 +280,6 @@ R TurboCodeGen::visitFor(ForStatement* stmt) {
         }
         
         // move up to test
-        // emit(TurboOpCode::Loop, ((int)cur->code.size() - loopStart) + 1);
         emitLoop(loopStart);
 
         patchJump(exitJump, (int)cur->code.size());
@@ -1655,12 +1667,27 @@ R TurboCodeGen::visitAwaitExpression(AwaitExpression*) { return 0; }
 
 R TurboCodeGen::visitBreak(BreakStatement*) {
     // Usually: emit a jump to end of current loop
-    return 0;
+    if (loopStack.empty()) {
+        throw ("Break outside loop");
+        return false;
+    }
+    // Emit jump with unknown target
+    emit(TurboOpCode::Nop);
+    int jumpAddr = emitJump(TurboOpCode::Jump);
+    emit(TurboOpCode::Nop);
+    loopStack.back().breaks.push_back(jumpAddr);
+    return true;
 }
 
 R TurboCodeGen::visitContinue(ContinueStatement*) {
     // Usually: emit a jump to loop start
-    return 0;
+    if (loopStack.empty()) {
+        throw ("Continue outside loop");
+        return false;
+    }
+    int loopStart = loopStack.back().loopStart;
+    emitLoop(loopStart); // emit a backwards jump
+    return true;
 }
 
 R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
@@ -2254,7 +2281,9 @@ void TurboCodeGen::emit(TurboOpCode op) {
     emit(op, 0, 0, 0);
 }
 
-int TurboCodeGen::allocRegister() { return registerAllocator->alloc(); }
+int TurboCodeGen::allocRegister() {
+    return registerAllocator->alloc();
+}
 
 void TurboCodeGen::freeRegister(uint32_t slot) {
     registerAllocator->free(slot);
@@ -2281,16 +2310,20 @@ int TurboCodeGen::emitJump(TurboOpCode op) {
     return (int)cur->code.size() - 1; // Return index of this jump instruction
 }
 
+// for TurboCode::JumpIfFalse
 void TurboCodeGen::patchJump(int jumpPos, int target) {
-    int offset = target - (jumpPos + 1);
+    // int offset = target - (jumpPos + 1);
+    int offset = (target - 1) - (jumpPos);
     cur->code[jumpPos].b = (uint8_t)offset;
 }
 
+// for TurboCode::JumpIfFalse
 void TurboCodeGen::patchJump(int jumpPos) {
     int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].b = (uint8_t)offset;
 }
 
+// for TurboCode::Jump
 void TurboCodeGen::patchSingleJump(int jumpPos) {
     int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].a = (uint8_t)offset;
@@ -2409,10 +2442,22 @@ int TurboCodeGen::lookupGlobal(const string& name) {
     return -1;
 }
 
-void TurboCodeGen::endLoop() {}
+void TurboCodeGen::endLoop() {
+    LoopContext ctx = loopStack.back();
+    loopStack.pop_back();
+
+    // Patch all breaks to jump here
+    // int end = (int)cur->code.size() - 1;
+    for (int breakAddr : ctx.breaks) {
+        //patchJump(breakAddr, end);
+        patchSingleJump(breakAddr);
+    }
+}
 
 void TurboCodeGen::beginLoop() {
-    
+    LoopContext ctx;
+    ctx.loopStart = (int)cur->code.size();
+    loopStack.push_back(ctx);
 }
 
 TurboCodeGen::BindingKind TurboCodeGen::get_kind(string kind) {
@@ -2499,6 +2544,8 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
         case TurboOpCode::Throw: opName = "Throw"; break;
+        case TurboOpCode::Loop: opName = "Loop"; break;
+
         case TurboOpCode::LoadArgumentsLength: opName = "LoadArgumentsLength"; break;
         case TurboOpCode::LoadArguments: opName = "LoadArguments"; break;
         case TurboOpCode::LoadArgument: opName = "LoadArgument"; break;

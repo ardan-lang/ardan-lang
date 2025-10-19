@@ -90,7 +90,7 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
     struct LoopContext {
-        int loopStart;              // address of loop condition start
+        int loopStart;         // address of loop condition start
         vector<int> breaks;    // jump addresses that need patching
     };
 
