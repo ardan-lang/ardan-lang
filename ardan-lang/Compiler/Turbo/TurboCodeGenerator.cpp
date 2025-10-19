@@ -544,30 +544,6 @@ R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
     return reg;
 }
 
-//R TurboCodeGen::visitCall(CallExpression* expr) {
-//    
-//    int funcReg = get<int>(expr->callee->accept(*this));
-//    
-//    vector<int> argRegs;
-//    for (auto& arg : expr->arguments) {
-//        int r = get<int>(arg->accept(*this));
-//        argRegs.push_back(r);
-//    }
-//    
-//    int result = argRegs.size() > 0 ? argRegs.at(0) : allocRegister();
-//
-//    emit(TurboOpCode::Call, result, funcReg, argRegs.at(argRegs.size() - 1));
-//
-//    for (auto r : argRegs) {
-//        freeRegister(r);
-//    }
-//    
-//    freeRegister(funcReg); // funcReg
-//
-//    return result;
-//    
-//}
-
 R TurboCodeGen::visitCall(CallExpression* expr) {
 
     int funcReg = get<int>(expr->callee->accept(*this));
@@ -1654,8 +1630,6 @@ R TurboCodeGen::visitProtectedKeyword(ProtectedKeyword*) { return 0; }
 R TurboCodeGen::visitStaticKeyword(StaticKeyword*) { return 0; }
 R TurboCodeGen::visitRestParameter(RestParameter*) { return 0; }
 
-R TurboCodeGen::visitClassExpression(ClassExpression*) { return 0; }
-
 R TurboCodeGen::visitNullKeyword(NullKeyword*) {
     uint32_t reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::nullVal()));
@@ -1696,8 +1670,8 @@ R TurboCodeGen::visitContinue(ContinueStatement*) {
 }
 
 R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
-    // stmt->argument->accept(*this);
-    emit(TurboOpCode::Throw);
+    int arg_reg = get<int>(stmt->argument->accept(*this));
+    emit(TurboOpCode::Throw, arg_reg);
     return 0;
 }
 
@@ -2128,13 +2102,328 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     return true;
 }
 
+R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
+    
+    // Evaluate superclass (if any)
+    int super_class_reg = allocRegister();
+    if (stmt->superClass) {
+        super_class_reg = get<int>(stmt->superClass->accept(*this)); // [superclass]
+    } else {
+        emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
+    }
+
+    // Create the class object (with superclass on stack)
+    emit(TurboOpCode::NewClass, super_class_reg);
+
+    // Define fields
+    // A field can be var, let, const. private, public, protected
+    for (auto& field : stmt->fields) {
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            string kind = varStmt->kind;
+            
+            for (const auto& decl : varStmt->declarations) {
+                
+                classInfo.fields.insert(decl.id);
+                
+                int initReg = allocRegister();
+                
+                if (decl.init) {
+                    initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                } else {
+                    emit(TurboOpCode::LoadConst,
+                         initReg,
+                         emitConstant(Value::undefined()));
+                }
+                
+                int nameIdx = emitConstant(Value::str(decl.id));
+                int fieldNameReg = allocRegister();
+                emit(TurboOpCode::LoadConst, fieldNameReg, nameIdx);
+                TurboOpCode op;
+
+                if (isStatic) {
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                    
+                } else {
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                }
+                
+                freeRegister(initReg);
+                freeRegister(fieldNameReg);
+                
+            }
+                        
+        }
+        
+    }
+    
+    for (auto& method : stmt->body) {
+        
+        // Check if 'static' modifier is present
+        bool isStatic = false;
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+                break;
+            }
+        }
+
+        if (!isStatic) {
+            classInfo.fields.insert(method->name);
+        }
+
+    }
+
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : stmt->body) {
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+
+        // Compile the method as a function object
+        int method_reg = compileMethod(*method); // leaves function object on reg
+
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        int methodNameReg = allocRegister();
+        emit(TurboOpCode::LoadConst, methodNameReg, nameIdx);
+        TurboOpCode op;
+
+        if (isStatic) {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedStaticMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+        } else {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+            freeRegister(method_reg);
+            freeRegister(methodNameReg);
+            
+        }
+    }
+    
+    return super_class_reg;
+
+}
+
 R TurboCodeGen::visitMethodDefinition(MethodDefinition*) { return 0; }
 
-R TurboCodeGen::visitDoWhile(DoWhileStatement*) { return 0; }
+// TODO: fix to work
+R TurboCodeGen::visitDoWhile(DoWhileStatement*) {
+    
+    beginLoop();
+    beginScope();
+    loopStack.back().loopStart = (int)cur->size();
+    
+    // Mark loop start
+    size_t loopStart = cur->size();
+    
+    // Compile loop body
+    stmt->body->accept(*this);
 
-R TurboCodeGen::visitSwitchCase(SwitchCase*) { return 0; }
+    // Compile the condition
+    stmt->condition->accept(*this);
 
-R TurboCodeGen::visitSwitch(SwitchStatement*) { return 0; }
+    // Jump back to loop start if condition is true
+    int condJump = emitJump(OpCode::JumpIfFalse);
+    emit(OpCode::Pop); // pop condition
+
+    // Emit loop back
+    emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
+
+    // Patch the jump to after the loop if condition is false
+    patchJump(condJump);
+    emit(OpCode::Pop); // pop condition
+    
+    endScope();
+    endLoop();
+
+    return true;
+
+}
+
+// TODO: fix to work
+R TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
+    // Each case's test should have already been checked in visitSwitch
+    // Emit the body of this case
+    beginScope();
+    for (auto& s : stmt->consequent) {
+        if (auto break_stmt = dynamic_cast<BreakStatement*>(s.get())) {
+            continue;
+        } else {
+            s->accept(*this);
+
+        }
+    }
+    endScope();
+    return true;
+}
+
+// TODO: fix to work
+R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
+    
+    beginScope();
+
+    std::vector<int> caseJumps;
+    int defaultJump = -1;
+
+    // Evaluate the discriminant and leave on stack
+    stmt->discriminant->accept(*this);
+
+    // Emit checks for each case
+    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+        SwitchCase* scase = stmt->cases[i].get();
+        if (scase->test) {
+            // Duplicate discriminant for comparison
+            emit(OpCode::Dup);
+            scase->test->accept(*this);
+            emit(OpCode::Equal);
+
+            // If not equal, jump to next
+            int jump = emitJump(OpCode::JumpIfFalse);
+            emit(OpCode::Pop); // pop comparison result
+
+            // If equal, pop discriminant, emit case body, and jump to end
+            emit(OpCode::Pop);
+            scase->accept(*this);
+            caseJumps.push_back(emitJump(OpCode::Jump));
+            patchJump(jump);
+        } else {
+            // Default case: remember its position
+            defaultJump = (int)cur->size();
+            // pop discriminant for default
+            emit(OpCode::Pop);
+            scase->accept(*this);
+            // No jump needed after default
+        }
+    }
+
+    // Patch all jumps to here (after switch body)
+    for (int jmp : caseJumps) {
+        patchJump(jmp);
+    }
+
+    endScope();
+
+    return true;
+}
 
 R TurboCodeGen::visitCatch(CatchClause*) { return 0; }
 
