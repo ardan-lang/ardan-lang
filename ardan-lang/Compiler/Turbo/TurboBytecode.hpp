@@ -76,6 +76,7 @@ enum class TurboOpCode : uint8_t {
     Jump,
     JumpIfFalse,
     JumpIfTrue,
+    Loop,
     
     NewArray,
     NewObject,
