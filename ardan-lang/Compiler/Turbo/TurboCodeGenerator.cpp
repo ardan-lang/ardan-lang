@@ -215,16 +215,17 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
     
 }
 
-// TODO: fix this to work
 R TurboCodeGen::visitIf(IfStatement* stmt) {
-    
+
+    beginScope();
+
     uint32_t cond = get<int>(stmt->test->accept(*this));
     int elseJump = emitJump(TurboOpCode::JumpIfFalse, cond);
     freeRegister(cond);
-    
-    beginScope();
-    
+        
     stmt->consequent->accept(*this);
+    
+    int finalEndJump = emitJump(TurboOpCode::Jump);
     
     int endJump = -1;
     if (stmt->alternate)
@@ -233,15 +234,19 @@ R TurboCodeGen::visitIf(IfStatement* stmt) {
     patchJump(elseJump);
     
     if (stmt->alternate) {
+        scopeDepth--;
         stmt->alternate->accept(*this);
         patchJump(endJump, (int)cur->code.size());
     }
+    
+    patchSingleJump(finalEndJump);
     
     endScope();
     
     return 0;
 }
 
+// TODO: fix to work
 R TurboCodeGen::visitWhile(WhileStatement* stmt) {
     beginLoop();
     int loopStart = (int)cur->code.size();
