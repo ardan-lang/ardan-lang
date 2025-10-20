@@ -529,8 +529,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::StrictEqual: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 bool isEqual = false;
                 // For objects/arrays: we compare pointers
                 if (a.type == b.type) {
@@ -545,8 +545,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::StrictNotEqual: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 bool notEqual = false;
                 // For numbers, strings, booleans, etc
                 if (a.type != b.type) {
@@ -612,8 +612,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
 
             case TurboOpCode::NotEqual: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 registers[instruction.a] = Value::boolean(!equals(a,b));
                 break;
             }
@@ -629,22 +629,22 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::LessThanOrEqual: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 registers[instruction.a] = Value::boolean(a.numberValue <= b.numberValue);
                 break;
             }
                 
             case TurboOpCode::GreaterThan: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 registers[instruction.a] = Value::boolean(a.numberValue > b.numberValue);
                 break;
             }
                 
             case TurboOpCode::GreaterThanOrEqual: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = registers[instruction.b];
+                Value b = registers[instruction.c];
                 registers[instruction.a] = Value::boolean(a.numberValue >= b.numberValue);
                 break;
             }
