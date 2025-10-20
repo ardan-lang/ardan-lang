@@ -346,7 +346,6 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
         switch (op) {
             case TurboOpCode::Nop:
-                
                 break;
 
             case TurboOpCode::LoadConst: {

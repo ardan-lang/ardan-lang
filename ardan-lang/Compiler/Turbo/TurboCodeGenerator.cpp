@@ -246,17 +246,25 @@ R TurboCodeGen::visitIf(IfStatement* stmt) {
     return 0;
 }
 
-// TODO: fix to work
 R TurboCodeGen::visitWhile(WhileStatement* stmt) {
+    
+    beginScope();
     beginLoop();
+    
     int loopStart = (int)cur->code.size();
+    
     uint32_t cond = get<int>(stmt->test->accept(*this));
     int exitJump = emitJump(TurboOpCode::JumpIfFalse, cond);
     freeRegister(cond);
+    
     stmt->body->accept(*this);
-    emit(TurboOpCode::Jump, 0, loopStart - (int)cur->code.size() - 1); // backwards jump
+    
+    emitLoop(loopStart); // backwards jump
     patchJump(exitJump, (int)cur->code.size());
+    
     endLoop();
+    endScope();
+    
     return 0;
 }
 
@@ -669,15 +677,29 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
 }
 
 R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
-    uint32_t cond = get<int>(expr->test->accept(*this));
+    
+    int finally_reg = allocRegister();
+    
+    int cond = get<int>(expr->test->accept(*this));
     int elseJump = emitJump(TurboOpCode::JumpIfFalse, cond);
     freeRegister(cond);
-    expr->consequent->accept(*this);
+    
+    int consq_reg = get<int>(expr->consequent->accept(*this));
+    emit(TurboOpCode::Move, finally_reg, consq_reg);
+    
     int endJump = emitJump(TurboOpCode::Jump);
     patchJump(elseJump, (int)cur->code.size());
-    expr->alternate->accept(*this);
-    patchJump(endJump, (int)cur->code.size());
-    return 0;
+    
+    int alternate_reg = get<int>(expr->alternate->accept(*this));
+    emit(TurboOpCode::Move, finally_reg, alternate_reg);
+    
+    patchSingleJump(endJump);
+    
+    freeRegister(consq_reg);
+    freeRegister(alternate_reg);
+    
+    return finally_reg;
+    
 }
 
 // --x, ++x, !x, -x
@@ -1508,7 +1530,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
 R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // Concatenate all pieces
     uint32_t reg = allocRegister();
-        emit(TurboOpCode::LoadConst, reg, emitConstant(Value("")));
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value("")));
     for (size_t i = 0; i < expr->quasis.size(); ++i) {
         uint32_t strReg = allocRegister();
         emit(TurboOpCode::LoadConst, strReg, emitConstant(expr->quasis[i]->text));
@@ -1576,8 +1598,7 @@ R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
 }
 
 R TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
-    uint32_t valueReg = allocRegister();
-    expr->right->accept(*this);
+    uint32_t valueReg = get<int>(expr->right->accept(*this));
     // handle assign to variable or property
     //freeRegister();
     return valueReg;
@@ -1592,7 +1613,8 @@ R TurboCodeGen::visitLogical(LogicalExpression* expr) {
 }
 
 R TurboCodeGen::visitThis(ThisExpression* expr) {
-    return lookupLocalSlot("this");
+    emit(TurboOpCode::GetThis);
+    return true;
 }
 
 R TurboCodeGen::visitSuper(SuperExpression* expr) {
@@ -1613,14 +1635,14 @@ R TurboCodeGen::visitSequence(SequenceExpression* expr) {
 }
 
 R TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
-    uint32_t reg = allocRegister();
-    emit(TurboOpCode::LoadConst, reg, emitConstant(Value(false)));
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::boolean(false)));
     return reg;
 }
 
 R TurboCodeGen::visitTrueKeyword(TrueKeyword* expr) {
-    uint32_t reg = allocRegister();
-    emit(TurboOpCode::LoadConst, reg, emitConstant(Value(true)));
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::boolean(true)));
     return reg;
 }
 
@@ -1631,13 +1653,13 @@ R TurboCodeGen::visitStaticKeyword(StaticKeyword*) { return 0; }
 R TurboCodeGen::visitRestParameter(RestParameter*) { return 0; }
 
 R TurboCodeGen::visitNullKeyword(NullKeyword*) {
-    uint32_t reg = allocRegister();
+    int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::nullVal()));
     return reg;
 }
 
 R TurboCodeGen::visitUndefinedKeyword(UndefinedKeyword*) {
-    uint32_t reg = allocRegister();
+    int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::undefined()));
     return reg;
 }
@@ -1665,12 +1687,6 @@ R TurboCodeGen::visitContinue(ContinueStatement*) {
     int loopStart = loopStack.back().loopStart;
     emitLoop(loopStart); // emit a backwards jump
     return true;
-}
-
-R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
-    int arg_reg = get<int>(stmt->argument->accept(*this));
-    emit(TurboOpCode::Throw, arg_reg);
-    return 0;
 }
 
 R TurboCodeGen::visitEmpty(EmptyStatement*) { return 0; }
@@ -2408,6 +2424,12 @@ R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
     endScope();
 
     return true;
+}
+
+R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
+    int arg_reg = get<int>(stmt->argument->accept(*this));
+    emit(TurboOpCode::Throw, arg_reg);
+    return 0;
 }
 
 R TurboCodeGen::visitCatch(CatchClause*) { return 0; }
