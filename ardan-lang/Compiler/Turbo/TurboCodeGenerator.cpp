@@ -2325,32 +2325,29 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
 
 R TurboCodeGen::visitMethodDefinition(MethodDefinition*) { return 0; }
 
-// TODO: fix to work
-R TurboCodeGen::visitDoWhile(DoWhileStatement*) {
+R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
     
     beginLoop();
     beginScope();
     loopStack.back().loopStart = (int)cur->size();
     
     // Mark loop start
-    size_t loopStart = cur->size();
+    size_t loopStart = cur->code.size();
     
     // Compile loop body
     stmt->body->accept(*this);
 
     // Compile the condition
-    stmt->condition->accept(*this);
+    int cond_reg = get<int>(stmt->condition->accept(*this));
 
     // Jump back to loop start if condition is true
-    int condJump = emitJump(OpCode::JumpIfFalse);
-    emit(OpCode::Pop); // pop condition
+    int condJump = emitJump(TurboOpCode::JumpIfFalse, cond_reg);
 
     // Emit loop back
-    emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
+    emitLoop((int)loopStart);
 
     // Patch the jump to after the loop if condition is false
     patchJump(condJump);
-    emit(OpCode::Pop); // pop condition
     
     endScope();
     endLoop();
@@ -2378,49 +2375,49 @@ R TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
 
 // TODO: fix to work
 R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
-    
-    beginScope();
-
-    std::vector<int> caseJumps;
-    int defaultJump = -1;
-
-    // Evaluate the discriminant and leave on stack
-    stmt->discriminant->accept(*this);
-
-    // Emit checks for each case
-    for (size_t i = 0; i < stmt->cases.size(); ++i) {
-        SwitchCase* scase = stmt->cases[i].get();
-        if (scase->test) {
-            // Duplicate discriminant for comparison
-            emit(OpCode::Dup);
-            scase->test->accept(*this);
-            emit(OpCode::Equal);
-
-            // If not equal, jump to next
-            int jump = emitJump(OpCode::JumpIfFalse);
-            emit(OpCode::Pop); // pop comparison result
-
-            // If equal, pop discriminant, emit case body, and jump to end
-            emit(OpCode::Pop);
-            scase->accept(*this);
-            caseJumps.push_back(emitJump(OpCode::Jump));
-            patchJump(jump);
-        } else {
-            // Default case: remember its position
-            defaultJump = (int)cur->size();
-            // pop discriminant for default
-            emit(OpCode::Pop);
-            scase->accept(*this);
-            // No jump needed after default
-        }
-    }
-
-    // Patch all jumps to here (after switch body)
-    for (int jmp : caseJumps) {
-        patchJump(jmp);
-    }
-
-    endScope();
+//    
+//    beginScope();
+//
+//    std::vector<int> caseJumps;
+//    int defaultJump = -1;
+//
+//    // Evaluate the discriminant and leave on stack
+//    stmt->discriminant->accept(*this);
+//
+//    // Emit checks for each case
+//    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+//        SwitchCase* scase = stmt->cases[i].get();
+//        if (scase->test) {
+//            // Duplicate discriminant for comparison
+//            emit(OpCode::Dup);
+//            scase->test->accept(*this);
+//            emit(OpCode::Equal);
+//
+//            // If not equal, jump to next
+//            int jump = emitJump(OpCode::JumpIfFalse);
+//            emit(OpCode::Pop); // pop comparison result
+//
+//            // If equal, pop discriminant, emit case body, and jump to end
+//            emit(OpCode::Pop);
+//            scase->accept(*this);
+//            caseJumps.push_back(emitJump(OpCode::Jump));
+//            patchJump(jump);
+//        } else {
+//            // Default case: remember its position
+//            defaultJump = (int)cur->size();
+//            // pop discriminant for default
+//            emit(OpCode::Pop);
+//            scase->accept(*this);
+//            // No jump needed after default
+//        }
+//    }
+//
+//    // Patch all jumps to here (after switch body)
+//    for (int jmp : caseJumps) {
+//        patchJump(jmp);
+//    }
+//
+//    endScope();
 
     return true;
 }
