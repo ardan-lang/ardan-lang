@@ -1651,9 +1651,7 @@ R TurboCodeGen::visitBreak(BreakStatement*) {
         return false;
     }
     // Emit jump with unknown target
-    emit(TurboOpCode::Nop);
     int jumpAddr = emitJump(TurboOpCode::Jump);
-    emit(TurboOpCode::Nop);
     loopStack.back().breaks.push_back(jumpAddr);
     return true;
 }
@@ -2356,68 +2354,58 @@ R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
 
 }
 
-// TODO: fix to work
 R TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
     // Each case's test should have already been checked in visitSwitch
     // Emit the body of this case
-    beginScope();
     for (auto& s : stmt->consequent) {
-        if (auto break_stmt = dynamic_cast<BreakStatement*>(s.get())) {
-            continue;
-        } else {
-            s->accept(*this);
-
-        }
+        s->accept(*this);
     }
-    endScope();
     return true;
 }
 
-// TODO: fix to work
 R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
-//    
-//    beginScope();
-//
-//    std::vector<int> caseJumps;
-//    int defaultJump = -1;
-//
-//    // Evaluate the discriminant and leave on stack
-//    stmt->discriminant->accept(*this);
-//
-//    // Emit checks for each case
-//    for (size_t i = 0; i < stmt->cases.size(); ++i) {
-//        SwitchCase* scase = stmt->cases[i].get();
-//        if (scase->test) {
-//            // Duplicate discriminant for comparison
-//            emit(OpCode::Dup);
-//            scase->test->accept(*this);
-//            emit(OpCode::Equal);
-//
-//            // If not equal, jump to next
-//            int jump = emitJump(OpCode::JumpIfFalse);
-//            emit(OpCode::Pop); // pop comparison result
-//
-//            // If equal, pop discriminant, emit case body, and jump to end
-//            emit(OpCode::Pop);
-//            scase->accept(*this);
-//            caseJumps.push_back(emitJump(OpCode::Jump));
-//            patchJump(jump);
-//        } else {
-//            // Default case: remember its position
-//            defaultJump = (int)cur->size();
-//            // pop discriminant for default
-//            emit(OpCode::Pop);
-//            scase->accept(*this);
-//            // No jump needed after default
-//        }
-//    }
-//
-//    // Patch all jumps to here (after switch body)
-//    for (int jmp : caseJumps) {
-//        patchJump(jmp);
-//    }
-//
-//    endScope();
+    
+    beginScope();
+    beginLoop();
+    
+    vector<int> caseJumps;
+    int defaultJump = -1;
+
+    // Evaluate the discriminant and leave on register
+    int discriminant_reg = get<int>(stmt->discriminant->accept(*this));
+
+    // Emit checks for each case
+    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+        SwitchCase* scase = stmt->cases[i].get();
+        if (scase->test) {
+            // Duplicate discriminant for comparison
+            int test_reg = get<int>(scase->test->accept(*this));
+            emit(TurboOpCode::Equal, test_reg, test_reg, discriminant_reg);
+
+            // If not equal, jump to next
+            int jump = emitJump(TurboOpCode::JumpIfFalse, test_reg);
+
+            // If equal, emit case body, and jump to end
+            scase->accept(*this);
+            caseJumps.push_back(emitJump(TurboOpCode::Jump));
+            
+            patchJump(jump);
+            
+        } else {
+            // Default case: remember its position
+            defaultJump = (int)cur->size();
+            scase->accept(*this);
+            // No jump needed after default
+        }
+    }
+
+    // Patch all jumps to here (after switch body)
+    for (int jmp : caseJumps) {
+        patchSingleJump(jmp);
+    }
+
+    endLoop();
+    endScope();
 
     return true;
 }
@@ -2427,6 +2415,12 @@ R TurboCodeGen::visitCatch(CatchClause*) { return 0; }
 R TurboCodeGen::visitTry(TryStatement*) { return 0; }
 
 R TurboCodeGen::visitForIn(ForInStatement* stmt) {
+
+    beginScope();
+    beginLoop();
+
+    stmt->init->accept(*this);
+    
     // Evaluate the object to iterate
     int objReg = get<int>(stmt->object->accept(*this));
     int keysReg = allocRegister();
@@ -2468,16 +2462,18 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
         throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
     }
     
-    freeRegister(keyReg);
-
     // Loop body
     stmt->body->accept(*this);
 
+    freeRegister(keyReg);
+
     // idx++
-    emit(TurboOpCode::Add, idxReg, idxReg, emitConstant(Value(1)));
+    int incr_const_reg = allocRegister();
+    emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
+    emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
 
     // Jump to loop start
-    emit(TurboOpCode::Jump, 0, loopStart - (int)cur->code.size() - 1);
+    emitLoop(loopStart);
 
     // Patch break
     patchJump(breakJump, (int)cur->code.size());
@@ -2488,11 +2484,21 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
     freeRegister(idxReg);
     freeRegister(lenReg);
     freeRegister(condReg);
+    freeRegister(incr_const_reg);
+    
+    endLoop();
+    endScope();
 
     return 0;
 }
 
 R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
+    
+    beginScope();
+    beginLoop();
+    
+    // let k
+    stmt->left->accept(*this);
     
     // Evaluate the iterable
     int arrReg = get<int>(stmt->right->accept(*this));
@@ -2532,16 +2538,18 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
         throw std::runtime_error("for-of only supports identifier/variable statement loop variables in codegen");
     }
     
-    freeRegister(elemReg);
-
     // Loop body
     stmt->body->accept(*this);
 
+    freeRegister(elemReg);
+
     // idx++
-    emit(TurboOpCode::Add, idxReg, idxReg, emitConstant(Value(1)));
+    int incr_const_reg = allocRegister();
+    emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
+    emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
 
     // Jump back
-    emit(TurboOpCode::Jump, 0, loopStart - (int)cur->code.size() - 1);
+    emitLoop(loopStart);
 
     // Patch break
     patchJump(breakJump, (int)cur->code.size());
@@ -2551,6 +2559,10 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     freeRegister(lenReg);
     freeRegister(idxReg);
     freeRegister(condReg);
+    freeRegister(incr_const_reg);
+    
+    endScope();
+    endLoop();
 
     return 0;
 }

@@ -618,13 +618,14 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
+                // b < c
             case TurboOpCode::LessThan: {
                 // result register is a.
                 // left reg is b
                 // right register is c
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
-                registers[instruction.a] = Value::boolean(a.numberValue < b.numberValue);
+                Value b = registers[instruction.b];
+                Value c = registers[instruction.c];
+                registers[instruction.a] = Value::boolean(b.numberValue < c.numberValue);
                 break;
             }
                 
@@ -1062,7 +1063,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // TurboOpCode::GetPropertyDynamic, lhsReg, objReg, propReg
             case TurboOpCode::GetPropertyDynamic: {
                 auto object = registers[instruction.b];
-                string prop = registers[instruction.c].stringValue;
+                string prop = registers[instruction.c].toString();
                 Value val = getProperty(object, prop);
                 registers[instruction.a] = val;
                 break;
@@ -1074,6 +1075,33 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 string prop = frame->chunk->constants[instruction.c].stringValue;
                 Value val = getProperty(object, prop);
                 registers[instruction.a] = val;
+                break;
+            }
+                
+                // TurboOpCode::GetObjectLength, lenReg, arrReg
+            case TurboOpCode::GetObjectLength: {
+                auto array = registers[instruction.b];
+                registers[instruction.a] = getValueLength(array);
+                break;
+            }
+                
+                // keysReg, objReg
+            case TurboOpCode::EnumKeys: {
+                // object is in stack.
+                Value objVal = registers[instruction.b];
+                
+                auto obj = make_shared<JSObject>();
+                
+                int index = 0;
+                // get the properties
+                auto props = enumerateKeys(objVal);
+                for (auto key : props) {
+                    obj->set(to_string(index), key.first, "", {});
+                    index++;
+                }
+                // pop obj
+                registers[instruction.a] = (Value::object(obj));
+
                 break;
             }
                 
