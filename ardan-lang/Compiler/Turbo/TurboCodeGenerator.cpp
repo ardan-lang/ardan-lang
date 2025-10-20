@@ -72,22 +72,22 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
 
     } else {
         
-        //        if (classInfo.fields.count(decl)) {
-        //
-        //            // Rewrite: legs = one;  ⇒  this.legs = one;
-        //            // Rewrite: legs;  ⇒  this.legs;
-        //            emit(TurboOpCode::SetThisProperty);
-        //            int nameIdx = emitConstant(Value::str(decl));
-        //            emitUint32(nameIdx);
-        //            return R();
-        //        }
+        if (classInfo.fields.count(decl)) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            emit(TurboOpCode::SetThisProperty);
+//            int nameIdx = emitConstant(Value::str(decl));
+//            emitUint32(nameIdx);
+            return R();
+        }
         
-        //        int upvalue = resolveUpvalue(decl);
-        //        if (upvalue != -1) {
-        //            emit(TurboOpCode::SetUpvalue);
-        //            emitUint32(upvalue);
-        //            return R();
-        //        }
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+//            emit(TurboOpCode::SetUpvalue);
+//            emitUint32(upvalue);
+            return R();
+        }
         
         // top-level/global
         int nameIdx = emitConstant(Value::str(decl));
@@ -136,22 +136,22 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
         
     } else {
         
-        //        if (classInfo.fields.count(decl)) {
-        //
-        //            // Rewrite: legs = one;  ⇒  this.legs = one;
-        //            // Rewrite: legs;  ⇒  this.legs;
-        //            emit(OpCode::SetThisProperty);
-        //            int nameIdx = emitConstant(Value::str(decl));
-        //            emitUint32(nameIdx);
-        //            return R();
-        //        }
+        if (classInfo.fields.count(decl)) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            emit(TurboOpCode::SetThisProperty);
+//            int nameIdx = emitConstant(Value::str(decl));
+//            emitUint32(nameIdx);
+            return R();
+        }
         
-        //        int upvalue = resolveUpvalue(decl);
-        //        if (upvalue != -1) {
-        //            emit(OpCode::SetUpvalue);
-        //            emitUint32(upvalue);
-        //            return R();
-        //        }
+                int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            emit(TurboOpCode::SetUpvalue);
+//            emitUint32(upvalue);
+            return R();
+        }
         
         // top-level/global
         int nameIdx = emitConstant(Value::str(decl));
@@ -177,8 +177,27 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
         uint32_t idx = getLocal(decl);
         emit(TurboOpCode::LoadLocalVar, reg_slot, idx);
     } else {
+        
+        if (classInfo.fields.count(decl)) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            emit(TurboOpCode::SetThisProperty);
+//            int nameIdx = emitConstant(Value::str(decl));
+//            emitUint32(nameIdx);
+            return R();
+        }
+        
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            emit(TurboOpCode::SetUpvalue);
+//            emitUint32(upvalue);
+            return R();
+        }
+        
         int nameIdx = emitConstant(Value::str(decl));
         emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
+        
     }
     
     return true;
@@ -617,6 +636,10 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
 
 R TurboCodeGen::visitNew(NewExpression* expr) {
     
+    if (expr->arguments.size() > 255) {
+        throw runtime_error("Arguments to constructor must not exceed 255.");
+    }
+    
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
                 
         int reg = get<int>(ident->accept(*this));
@@ -641,7 +664,6 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
             freeRegister(argReg);
         }
         
-        // freeRegister(reg);
         return reg;
 
     }
@@ -1618,12 +1640,12 @@ R TurboCodeGen::visitThis(ThisExpression* expr) {
 }
 
 R TurboCodeGen::visitSuper(SuperExpression* expr) {
-    // Omitted; implement according to your semantics
+    emit(TurboOpCode::GetParentObject);
     return 0;
 }
 
 R TurboCodeGen::visitProperty(PropertyExpression* expr) {
-    // Omitted; see Member visitor
+    // see Member visitor
     return 0;
 }
 
@@ -2429,12 +2451,69 @@ R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
 R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
     int arg_reg = get<int>(stmt->argument->accept(*this));
     emit(TurboOpCode::Throw, arg_reg);
+    freeRegister(arg_reg);
     return 0;
 }
 
-R TurboCodeGen::visitCatch(CatchClause*) { return 0; }
+R TurboCodeGen::visitCatch(CatchClause* stmt) {
+    beginScope();
+    stmt->body->accept(*this);
+    endScope();
+    return true;
+}
 
-R TurboCodeGen::visitTry(TryStatement*) { return 0; }
+R TurboCodeGen::visitTry(TryStatement* stmt) {
+    
+    beginScope();
+
+    // Mark start of try
+    int tryPos = emitTryPlaceholder();
+
+    // Compile try block
+    stmt->block->accept(*this);
+
+    // End of try
+    emit(TurboOpCode::EndTry);
+
+    int endJump = -1;
+
+    // If there's a catch, emit jump over it for normal completion
+    if (stmt->handler) {
+        endJump = emitJump(TurboOpCode::Jump);
+        // Patch catch offset
+        patchTryCatch(tryPos, (int)cur->code.size() - 1);
+
+        beginScope();
+        
+        // Bind catch parameter
+        declareLocal(stmt->handler->param);
+        // emitSetLocal(paramSlot(stmt->handler->param));
+        // store(stmt->handler->param, <#uint32_t reg_slot#>);
+
+        stmt->handler->body->accept(*this);
+        
+        endScope();
+        
+    }
+
+    // Jump over finally if we had a catch
+    if (endJump != -1) {
+        patchSingleJump(endJump);
+    }
+
+    // If there's a finally, patch and emit it
+    if (stmt->finalizer) {
+        patchTryFinally(tryPos, (int)cur->code.size() - 1);
+
+        stmt->finalizer->accept(*this);
+        emit(TurboOpCode::EndFinally);
+    }
+    
+    endScope();
+
+    return true;
+    
+}
 
 R TurboCodeGen::visitForIn(ForInStatement* stmt) {
 
@@ -2589,6 +2668,36 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
+// Try: catchOffset, finallyOffset
+int TurboCodeGen::emitTryPlaceholder() {
+    emit(TurboOpCode::Try);
+
+    int pos = (int)cur->size() - 1;
+
+    return pos; // return position where we wrote the offsets
+    
+}
+
+void TurboCodeGen::patchTryCatch(int tryPos, int target) {
+    
+    cur->code[tryPos].a = target;
+        
+}
+
+void TurboCodeGen::patchTryFinally(int tryPos, int target) {
+    
+    cur->code[tryPos].b = target;
+    
+}
+
+//void TurboCodeGen::patchTry(int pos) {
+//    uint32_t offset = (uint32_t)(cur->size() - (pos + 4));
+////    cur->code[pos + 0] = (offset >> 0) & 0xFF;
+////    cur->code[pos + 1] = (offset >> 8) & 0xFF;
+////    cur->code[pos + 2] = (offset >> 16) & 0xFF;
+////    cur->code[pos + 3] = (offset >> 24) & 0xFF;
+//}
+
 void TurboCodeGen::emit(TurboOpCode op, int a, int b = 0, int c = 0) {
     if (!cur) throw std::runtime_error("No active chunk for code generation.");
     cur->code.push_back({op, (uint8_t)a, (uint8_t)b, (uint8_t)c});
@@ -2664,17 +2773,17 @@ void TurboCodeGen::beginScope() {
 }
 
 void TurboCodeGen::endScope() {
-    //     Pop locals declared in this scope
-    //    while (!locals.empty() && locals.back().depth == scopeDepth) {
-    //        if (locals.back().isCaptured) {
-    //            // Local captured by closure → close it
-    //            emit(TurboOpCode::OP_CLOSE_UPVALUE);
-    //        } else {
-    //            // Normal local → just pop
-    //            emit(TurboOpCode::OP_POP);
-    //        }
-    //        locals.pop_back();
-    //    }
+    // Pop locals declared in this scope
+    while (!locals.empty() && locals.back().depth == scopeDepth) {
+        if (locals.back().isCaptured) {
+            // Local captured by closure → close it
+            // emit(TurboOpCode::OP_CLOSE_UPVALUE);
+        } else {
+            // Normal local → just pop
+            // emit(TurboOpCode::OP_POP);
+        }
+        locals.pop_back();
+    }
     scopeDepth--;
 }
 
@@ -2701,6 +2810,40 @@ bool TurboCodeGen::hasLocal(const std::string& name) {
         if (locals[i].name == name) return true;
     }
     return false;
+}
+
+int TurboCodeGen::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
+    for (int i = 0; i < (int)upvalues.size(); i++) {
+        if (upvalues[i].isLocal == isLocal && upvalues[i].index == index) {
+            return i;
+        }
+    }
+    upvalues.push_back({isLocal, (uint32_t)index, name, kind});
+    return (int)upvalues.size() - 1;
+}
+
+// resolve variable
+int TurboCodeGen::resolveUpvalue(const string& name) {
+    if (enclosing) {
+        int localIndex = enclosing->resolveLocal(name);
+        if (localIndex != -1) {
+            enclosing->locals[localIndex].isCaptured = true;
+            return addUpvalue(true,
+                              localIndex,
+                              name,
+                              enclosing->locals[localIndex].kind);
+        }
+        
+        int upIndex = enclosing->resolveUpvalue(name);
+        if (upIndex != -1) {
+            
+            return addUpvalue(false,
+                              upIndex,
+                              enclosing->upvalues[upIndex].name,
+                              enclosing->upvalues[upIndex].kind);
+        }
+    }
+    return -1;
 }
 
 uint32_t TurboCodeGen::getLocal(const std::string& name) {
@@ -2868,7 +3011,12 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
+            
         case TurboOpCode::Throw: opName = "Throw"; break;
+        case TurboOpCode::Try: opName = "Try"; break;
+        case TurboOpCode::EndTry: opName = "EndTry"; break;
+        case TurboOpCode::EndFinally: opName = "EndFinally"; break;
+
         case TurboOpCode::Loop: opName = "Loop"; break;
 
         case TurboOpCode::LoadArgumentsLength: opName = "LoadArgumentsLength"; break;

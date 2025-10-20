@@ -110,6 +110,7 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
         bool isLocal;   // True if from parent's locals, false if from parent's upvalues
         uint32_t index; // Slot or upvalue index
         string name;
+        BindingKind kind;
     };
 
     struct Local {
@@ -190,7 +191,7 @@ private:
     
     void beginScope();
     void endScope();
-    int addUpvalue(bool isLocal, int index);
+    int addUpvalue(bool isLocal, int index, string name, BindingKind kind);
     int resolveUpvalue(const string& name);
         
     inline uint32_t readUint32(const TurboChunk* chunk, size_t offset);

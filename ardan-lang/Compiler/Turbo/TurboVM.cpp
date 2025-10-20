@@ -1032,6 +1032,36 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 registers[instruction.a] = v;
                 break;
             }
+                
+            case TurboOpCode::GetThis: {
+//                push(Value::object(frame->closure->js_object));
+                break;
+            }
+                
+            case TurboOpCode::SetThisProperty: {
+                // this update the object the current object
+//                int index = readUint32();
+//                Value v = pop();
+//                string prop = frame->chunk->constants[index].toString();
+//                setProperty(Value::object(frame->closure->js_object), prop, v);
+
+                break;
+            }
+                
+            case TurboOpCode::GetThisProperty: {
+                
+//                int index = readUint32();
+//                string prop = frame->chunk->constants[index].toString();
+
+                // push(getProperty(Value::object(frame->closure->js_object), prop));
+                
+                break;
+            }
+                
+            case TurboOpCode::GetParentObject: {
+                // push(Value::object(frame->closure->js_object->parent_object));
+                break;
+            }
 
                 // emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
                 // SetProperty: objReg, nameIdx, valueReg
@@ -1104,6 +1134,121 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case TurboOpCode::Try: {
+                uint32_t catchOffset = instruction.a;
+                uint32_t finallyOffset = instruction.b;
+                // compute absolute IPs
+                int base = (int)frame->ip; // ip now points after the offsets
+                TryFrame f;
+                f.catchIP = (catchOffset == 0) ? -1 : (base + (int)catchOffset);
+                f.finallyIP = (finallyOffset == 0) ? -1 : (base + (int)finallyOffset);
+                // f.stackDepth = (int)stack.size();
+                // ipAfterTry can be filled later by codegen if you want; keep -1 if unused
+                f.ipAfterTry = -1;
+                tryStack.push_back(f);
+                break;
+            }
+
+            case TurboOpCode::EndTry: {
+                if (tryStack.empty()) {
+                    // runtime error: unmatched END_TRY
+                    //running = false;
+                    break;
+                }
+                tryStack.pop_back();
+                break;
+            }
+                
+            case TurboOpCode::Throw: {
+                // exception value on top of stack
+                Value exc = registers[instruction.a].toString();
+                // unwind frames until we find a handler (catch or finally)
+                bool handled = false;
+                // Store a 'pending exception' to know we are unwinding due to throw
+                Value pending = exc;
+                
+                while (!tryStack.empty()) {
+                    TryFrame f = tryStack.back();
+                    tryStack.pop_back();
+                    
+                    // first, unwind the value stack to the depth at try entry
+                    // while ((int)stack.size() > f.stackDepth) stack.pop_back();
+                    
+                    // If there is a finally, run it first.
+                    if (f.finallyIP != -1) {
+                        // push pending exception so finalizer can see it if needed
+                        // stack.push_back(pending);
+                        
+                        // Record a special marker frame to indicate we are resuming a throw after finally
+                        // We'll push a synthetic TryFrame with catchIP = original catchIP, finallyIP = -1
+                        TryFrame resume;
+                        resume.catchIP = f.catchIP;
+                        resume.finallyIP = -1; // don't re-run finalizer
+                        resume.stackDepth = f.stackDepth; // after finally resumes, stack depth should be this
+                        resume.ipAfterTry = -1;
+                        tryStack.push_back(resume);
+                        // jump into finalizer
+                        frame->ip = f.finallyIP;
+                        handled = true; // we will handle after finalizer/resume
+                        break;
+                    }
+                    
+                    // If no finally, but there is a catch, jump to catch and push exception
+                    if (f.catchIP != -1) {
+                        // stack.push_back(pending);
+                        frame->ip = f.catchIP;
+                        handled = true;
+                        break;
+                    }
+                    
+                    // else continue unwinding to outer try frame
+                }
+                
+                if (!handled) {
+                    // uncaught
+                    // Here: runtime uncaught exception -> abort or print error
+                    // For demo, we stop the VM
+                    printf("Uncaught exception, halting VM\n");
+                    //running = false;
+                }
+                break;
+            }
+                
+            case TurboOpCode::EndFinally: {
+                // When a finally finishes, we must check whether we have a resume frame that carries a pending throw
+                // Approach: if there is a TryFrame on tryStack whose catchIP != -1 and which we pushed as resume frame,
+                // then either jump into catch or rethrow.
+                if (!tryStack.empty()) {
+                    TryFrame resume = tryStack.back();
+                    // If resume.finallyIP == -1, we treat this as the resume frame we pushed earlier
+                    if (resume.finallyIP == -1) {
+                        tryStack.pop_back();
+                        if (resume.catchIP != -1) {
+                            // pending exception should be on stack top
+                            // jump into catch with exception on stack
+                            frame->ip = resume.catchIP;
+                            break;
+                        } else {
+                            // no catch for the pending exception, continue unwinding:
+                            // emulate throwing again: pop pending exception and re-run OP_THROW logic
+                            // Value pending = pop();
+                            // continue throw loop by re-inserting pending on stack and handling next frame
+                            // simplest approach: directly re-run THROW handling by pushing pending and continuing
+                            // For clarity, we will set a special behaviour: re-insert pending and emulate OP_THROW
+                            // stack.push_back(pending);
+                            // simulate OP_THROW logic by jumping back one step: decrement ip so we re-execute OP_THROW
+                            // But cleaner: call a helper to handle rethrow. For brevity we perform a manual loop here.
+                            // (In production you would share the throw-handling code.)
+                            // For now: we'll call a helper:
+                            handleRethrow();
+                            break;
+                        }
+                    }
+                }
+                // Normal end finally with no pending throw resume -> continue execution
+                break;
+            }
+
             case TurboOpCode::PushArg: {
                 int argReg = instruction.a;
                 argStack.push_back(registers[argReg]);
@@ -1177,6 +1322,25 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // --- Upvalue access ---
+                case TurboOpCode::GetUpvalue: {
+//                    uint32_t idx = readUint32();
+//                    push(*frame->closure->upvalues[idx]->location);
+                    break;
+                }
+                case TurboOpCode::SetUpvalue: {
+//                    uint32_t idx = readUint32();
+//                    *frame->closure->upvalues[idx]->location = pop();
+                    break;
+                }
+                    
+                case TurboOpCode::CloseUpvalue: {
+//                    closeUpvalues(stack.empty() ? nullptr : &stack.back());
+//                    pop();
+                    break;
+                }
+
+                
                 // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
             case TurboOpCode::SetClosureIsLocal: {
                 int idx = registers[instruction.a].numberValue;
@@ -1199,24 +1363,6 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 //            argStart → the index of the first argument register
 //            argCount → how many arguments are being passed
                 
-//            case TurboOpCode::Call: {
-//                
-//                uint32_t result_reg = instruction.a;
-//                Value func = registers[instruction.b]; // R[a] = function
-//                uint8_t argCount = instruction.c;     // number of arguments
-//                int argStart = instruction.b + 1;
-//                
-//                vector<Value> args;
-//                args.reserve(argCount);
-//                for (int i = 0; i < argCount; ++i) {
-//                    args.push_back(registers[argStart + i]);
-//                }
-//                const vector<Value> const_args = args;
-//                Value result = callFunction(func, const_args);
-//                registers[result_reg] = result;
-//                
-//                break;
-//            }
                 
             case TurboOpCode::Call: {
                 
@@ -1368,36 +1514,35 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
 }
 
 void TurboVM::handleRethrow() {
-//    // simplified: pop pending exception and re-run OP_THROW-like unwinding
-//    if (stack.empty()) { running = false; return; }
+    // simplified: pop pending exception and re-run OP_THROW-like unwinding
+//    if (stack.empty()) { /*running = false;*/ return; }
 //    Value pending = pop();
-//    // Re-run throw loop: same as OP_THROW handling but without recursion here.
-//    bool handled = false;
-//    while (!tryStack.empty()) {
-//        TryFrame f = tryStack.back();
-//        tryStack.pop_back();
-//        while ((int)stack.size() > f.stackDepth) stack.pop_back();
-//        if (f.finallyIP != -1) {
-//            stack.push_back(pending);
-//            TryFrame resume;
-//            resume.catchIP = f.catchIP;
-//            resume.finallyIP = -1;
-//            resume.stackDepth = f.stackDepth;
-//            tryStack.push_back(resume);
-//            ip = f.finallyIP;
-//            handled = true;
-//            break;
-//        }
-//        if (f.catchIP != -1) {
-//            stack.push_back(pending);
-//            ip = f.catchIP;
-//            handled = true;
-//            break;
-//        }
-//    }
-//    if (!handled) {
-//        printf("Uncaught exception after finally, halting VM\n");
-//        running = false;
-//    }
+    // Re-run throw loop: same as OP_THROW handling but without recursion here.
+    bool handled = false;
+    while (!tryStack.empty()) {
+        TryFrame f = tryStack.back();
+        tryStack.pop_back();
+        //while ((int)stack.size() > f.stackDepth) stack.pop_back();
+        if (f.finallyIP != -1) {
+            //stack.push_back(pending);
+            TryFrame resume;
+            resume.catchIP = f.catchIP;
+            resume.finallyIP = -1;
+            resume.stackDepth = f.stackDepth;
+            tryStack.push_back(resume);
+            frame->ip = f.finallyIP;
+            handled = true;
+            break;
+        }
+        if (f.catchIP != -1) {
+            //stack.push_back(pending);
+            frame->ip = f.catchIP;
+            handled = true;
+            break;
+        }
+    }
+    if (!handled) {
+        printf("Uncaught exception after finally, halting VM\n");
+        //running = false;
+    }
 }
-

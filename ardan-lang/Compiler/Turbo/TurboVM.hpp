@@ -105,8 +105,6 @@ private:
     Value registers[256];
     
     Instruction readInstruction();
-    uint32_t readUint32();
-    uint8_t readUint8();
     void init_builtins();
     Value binaryAdd(const Value &a, const Value &b);
     bool isTruthy(const Value &v);
