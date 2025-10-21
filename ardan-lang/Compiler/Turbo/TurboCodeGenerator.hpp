@@ -51,12 +51,23 @@ public:
 };
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
+    
+    enum class BindingKind {
+        Var,
+        Let,
+        Const,
+    };
+
+    enum class Visibility { Public, Protected, Private };
+    
+    struct PropertyMeta {
+        Visibility visibility;
+        BindingKind kind;
+        bool isStatic;
+    };
 
     struct ClassInfo {
-        unordered_set<string> fields;
-        
-        unordered_set<string> publicFields;
-        unordered_set<string> privateFields;
+        unordered_map<string, PropertyMeta> fields;
     };
 
     class RegGuard {
@@ -77,12 +88,6 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
     inline RegGuard makeRegGuard(int r, TurboCodeGen& cg, bool autoFree = true) {
         return RegGuard(r, cg, autoFree);
     }
-
-    enum class BindingKind {
-        Var,
-        Let,
-        Const,
-    };
 
     struct LocalScope {
         unordered_map<string, Value> locals;

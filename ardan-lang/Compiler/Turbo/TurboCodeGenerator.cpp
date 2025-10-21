@@ -620,6 +620,7 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
     
 }
 
+// object.property access
 R TurboCodeGen::visitMember(MemberExpression* expr) {
     
     // Evaluate the object expression
@@ -1901,16 +1902,16 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
     int ci = module_->addConstant(fnValue);
 
     // Emit closure for this function (leaves closure object on stack)
-//    emit(OpCode::CreateClosure);
-//    emitUint8((uint8_t)ci);
+    // emit(OpCode::CreateClosure);
+    // emitUint8((uint8_t)ci);
     int closureChunkIndexReg = allocRegister();
     emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
 
     for (auto& uv : nested.upvalues) {
-        //        emitUint8(uv.isLocal ? 1 : 0);
-        //        emitUint8(uv.index);
+        // emitUint8(uv.isLocal ? 1 : 0);
+        // emitUint8(uv.index);
         
         int isLocalReg = allocRegister();
         emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
@@ -1975,8 +1976,14 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
             
             for (const auto& decl : varStmt->declarations) {
                 
-                classInfo.fields.insert(decl.id);
+                // ************ Collect property meta ****************
+                auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+                auto binding = get_kind(kind);
                 
+                PropertyMeta prop_meta = { visibility, binding, isStatic };
+                classInfo.fields[decl.id] = prop_meta;
+                // ****************************
+
                 int initReg = allocRegister();
                 
                 if (decl.init) {
@@ -2068,18 +2075,33 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     
     for (auto& method : stmt->body) {
         
-        // Check if 'static' modifier is present
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : method->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
             }
         }
 
-        if (!isStatic) {
-            classInfo.fields.insert(method->name);
-        }
+        // ************* Collecting properrty meta ***************
+        auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+        
+        PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
+        
+        classInfo.fields[method->name] = prop_meta;
+        // ****************************
 
     }
 
@@ -2209,9 +2231,15 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
             string kind = varStmt->kind;
             
             for (const auto& decl : varStmt->declarations) {
+
+                // ************ Collect property meta ****************
+                auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+                auto binding = get_kind(kind);
                 
-                classInfo.fields.insert(decl.id);
-                
+                PropertyMeta prop_meta = { visibility, binding, isStatic };
+                classInfo.fields[decl.id] = prop_meta;
+                // ****************************
+
                 int initReg = allocRegister();
                 
                 if (decl.init) {
@@ -2303,18 +2331,34 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
     
     for (auto& method : stmt->body) {
         
-        // Check if 'static' modifier is present
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : method->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
             }
         }
 
-        if (!isStatic) {
-            classInfo.fields.insert(method->name);
-        }
+        // ************* Collecting properrty meta ***************
+        auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+        
+        PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
+        
+        classInfo.fields[method->name] = prop_meta;
+        // ****************************
+
 
     }
 
