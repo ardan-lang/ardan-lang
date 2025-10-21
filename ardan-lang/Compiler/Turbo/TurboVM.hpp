@@ -59,6 +59,7 @@ class TurboVM {
         int finallyIP;    // -1 if none
         int stackDepth;   // stack size at entry
         int ipAfterTry;   // where the linear try block ends (for normal flow)
+        uint8_t regCatch;   // register index to store the thrown value
     };
 
 public:

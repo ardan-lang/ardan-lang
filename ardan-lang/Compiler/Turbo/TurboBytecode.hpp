@@ -117,6 +117,7 @@ enum class TurboOpCode : uint8_t {
     EndTry,
     EndFinally,
     Throw,
+    LoadExceptionValue,
 
     // Object utilities
     EnumKeys,

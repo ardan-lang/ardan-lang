@@ -1145,6 +1145,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // f.stackDepth = (int)stack.size();
                 // ipAfterTry can be filled later by codegen if you want; keep -1 if unused
                 f.ipAfterTry = -1;
+                f.regCatch = instruction.c;
                 tryStack.push_back(f);
                 break;
             }
@@ -1152,7 +1153,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::EndTry: {
                 if (tryStack.empty()) {
                     // runtime error: unmatched END_TRY
-                    //running = false;
+                    // running = false;
                     break;
                 }
                 tryStack.pop_back();
@@ -1175,28 +1176,33 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     // while ((int)stack.size() > f.stackDepth) stack.pop_back();
                     
                     // If there is a finally, run it first.
-                    if (f.finallyIP != -1) {
+                    if (f.catchIP != -1) {
                         // push pending exception so finalizer can see it if needed
                         // stack.push_back(pending);
                         
                         // Record a special marker frame to indicate we are resuming a throw after finally
                         // We'll push a synthetic TryFrame with catchIP = original catchIP, finallyIP = -1
                         TryFrame resume;
-                        resume.catchIP = f.catchIP;
-                        resume.finallyIP = -1; // don't re-run finalizer
-                        resume.stackDepth = f.stackDepth; // after finally resumes, stack depth should be this
+                        resume.catchIP = -1;
+                        resume.finallyIP = f.finallyIP;
+                        // resume.stackDepth = f.stackDepth; // after finally resumes, stack depth should be this
                         resume.ipAfterTry = -1;
+                        
+                        registers[f.regCatch] = exc;
+                        
                         tryStack.push_back(resume);
+                        
                         // jump into finalizer
-                        frame->ip = f.finallyIP;
+                        frame->ip = f.catchIP;
+                        
                         handled = true; // we will handle after finalizer/resume
                         break;
                     }
                     
                     // If no finally, but there is a catch, jump to catch and push exception
-                    if (f.catchIP != -1) {
+                    if (f.finallyIP != -1) {
                         // stack.push_back(pending);
-                        frame->ip = f.catchIP;
+                        frame->ip = f.finallyIP;
                         handled = true;
                         break;
                     }
@@ -1209,7 +1215,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     // Here: runtime uncaught exception -> abort or print error
                     // For demo, we stop the VM
                     printf("Uncaught exception, halting VM\n");
-                    //running = false;
+                    // running = false;
                 }
                 break;
             }
@@ -1223,10 +1229,10 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     // If resume.finallyIP == -1, we treat this as the resume frame we pushed earlier
                     if (resume.finallyIP == -1) {
                         tryStack.pop_back();
-                        if (resume.catchIP != -1) {
+                        if (resume.finallyIP != -1) {
                             // pending exception should be on stack top
                             // jump into catch with exception on stack
-                            frame->ip = resume.catchIP;
+                            frame->ip = resume.finallyIP;
                             break;
                         } else {
                             // no catch for the pending exception, continue unwinding:
@@ -1246,6 +1252,20 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     }
                 }
                 // Normal end finally with no pending throw resume -> continue execution
+                break;
+            }
+                
+                // TurboOpCode::LoadExceptionValue, ex_val_reg, idx
+            case TurboOpCode::LoadExceptionValue: {
+                
+                int exception_value_register = instruction.a;
+                int exception_value_index = instruction.b;
+                
+                Value throw_value = registers[exception_value_register];
+                
+                // load above into local index
+                frame->locals[exception_value_index] = throw_value;
+                
                 break;
             }
 
@@ -1523,23 +1543,30 @@ void TurboVM::handleRethrow() {
         TryFrame f = tryStack.back();
         tryStack.pop_back();
         //while ((int)stack.size() > f.stackDepth) stack.pop_back();
+        
+        if (f.catchIP != -1) {
+            
+            //stack.push_back(pending);
+            
+            TryFrame resume;
+            resume.catchIP = -1;
+            resume.finallyIP = f.finallyIP;
+            // resume.stackDepth = f.stackDepth;
+            tryStack.push_back(resume);
+            
+            frame->ip = f.catchIP;
+            
+            handled = true;
+            break;
+        }
+        
         if (f.finallyIP != -1) {
             //stack.push_back(pending);
-            TryFrame resume;
-            resume.catchIP = f.catchIP;
-            resume.finallyIP = -1;
-            resume.stackDepth = f.stackDepth;
-            tryStack.push_back(resume);
             frame->ip = f.finallyIP;
             handled = true;
             break;
         }
-        if (f.catchIP != -1) {
-            //stack.push_back(pending);
-            frame->ip = f.catchIP;
-            handled = true;
-            break;
-        }
+        
     }
     if (!handled) {
         printf("Uncaught exception after finally, halting VM\n");
