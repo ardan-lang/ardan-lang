@@ -52,6 +52,7 @@ class TurboVM {
         
         vector<Value> args;
         shared_ptr<Closure> closure;
+        Value registers[256];
     };
 
     struct TryFrame {
@@ -103,7 +104,6 @@ private:
     
     // execution state for a run
     CallFrame* frame;
-    Value registers[256];
     
     Instruction readInstruction();
     void init_builtins();

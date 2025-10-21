@@ -129,13 +129,56 @@ int TurboVM::getValueLength(Value& v) {
 }
 
 Value TurboVM::getProperty(const Value &objVal, const string &propName) {
+    
     if (objVal.type == ValueType::OBJECT) {
+        // perform privacy check
+        // if we have do not have js_object in closuure.
+        
+        // get the prop modifiers.
+        // if its private, check if the js_object in closure is not nullptr
+        // if closure.js_object is not nullptr
+        
+        vector<string> modifiers = objVal.objectValue->get_modifiers(propName);
+        bool isPrivate = false;
+        for (auto modifier : modifiers) {
+            if (modifier == "private") {
+                isPrivate = true;
+            }
+        }
+        
+        if (isPrivate) {
+            if (frame->closure->js_object == nullptr) {
+                throw runtime_error("Can't access a private property outside its class.");
+            }
+        }
+        
         return objVal.objectValue->get(propName);
     }
     if (objVal.type == ValueType::ARRAY) {
         return objVal.arrayValue->get(propName);
     }
     if (objVal.type == ValueType::CLASS) {
+        
+        // perform privacy check
+        // if we have do not have js_object in closuure.
+        
+        // get the prop modifiers.
+        // if its private, check if the js_object in closure is not nullptr
+        
+        vector<string> modifiers = objVal.classValue->get_static_modifiers(propName);
+        bool isPrivate = false;
+        for (auto modifier : modifiers) {
+            if (modifier == "private") {
+                isPrivate = true;
+            }
+        }
+
+        if (isPrivate) {
+            if (frame->closure->js_object == nullptr) {
+                throw runtime_error("Can't access a private static property outside its class.");
+            }
+        }
+
         return objVal.classValue->get(propName, false);
     }
     // primitives -> string -> property? For now, undefined
@@ -352,35 +395,35 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 uint8_t dest = instruction.a;
                 uint8_t const_index = instruction.b;
                 Value val = frame->chunk->constants[const_index];
-                registers[dest] = val;
+                frame->registers[dest] = val;
                 break;
             }
                 
             case TurboOpCode::Move: {
                 uint8_t src = instruction.b;
                 uint8_t dest = instruction.a;
-                registers[dest] = registers[src];
+                frame->registers[dest] = frame->registers[src];
                 break;
             }
                 
             case TurboOpCode::CreateLocalVar: {
                 uint8_t local_index = instruction.a;
                 uint8_t data_reg = instruction.b;
-                frame->locals[local_index] = registers[data_reg];
+                frame->locals[local_index] = frame->registers[data_reg];
                 break;
             }
                 
             case TurboOpCode::CreateLocalLet:{
                 uint8_t local_index = instruction.a;
                 uint8_t data_reg = instruction.b;
-                frame->locals[local_index] = registers[data_reg];
+                frame->locals[local_index] = frame->registers[data_reg];
                 break;
             }
                 
             case TurboOpCode::CreateLocalConst:{
                 uint8_t local_index = instruction.a;
                 uint8_t data_reg = instruction.b;
-                frame->locals[local_index] = registers[data_reg];
+                frame->locals[local_index] = frame->registers[data_reg];
                 break;
             }
                 
@@ -391,7 +434,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value name_val = frame->chunk->constants[constant_index];
                 string name = name_val.stringValue;
                 
-                env->set_var(name, registers[data_reg]);
+                env->set_var(name, frame->registers[data_reg]);
                 
                 break;
             }
@@ -403,7 +446,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value name_val = frame->chunk->constants[constant_index];
                 string name = name_val.stringValue;
                 
-                env->set_let(name, registers[data_reg]);
+                env->set_let(name, frame->registers[data_reg]);
                 
                 break;
             }
@@ -415,121 +458,121 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value name_val = frame->chunk->constants[constant_index];
                 string name = name_val.stringValue;
                 
-                env->set_const(name, registers[data_reg]);
+                env->set_const(name, frame->registers[data_reg]);
                 
                 break;
             }
                 
                 // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
             case TurboOpCode::Add: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
                 Value result = binaryAdd(lhs, rhs);
-                registers[instruction.a] = result;
+                frame->registers[instruction.a] = result;
                 break;
             }
                 
             case TurboOpCode::Subtract: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(lhs.numberValue - rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(lhs.numberValue - rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::Multiply: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(lhs.numberValue * rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(lhs.numberValue * rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::Divide: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(lhs.numberValue / rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(lhs.numberValue / rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::Modulo: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(fmod(lhs.numberValue, rhs.numberValue));
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(fmod(lhs.numberValue, rhs.numberValue));
                 break;
             }
                 
             case TurboOpCode::Power: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(pow(lhs.numberValue, rhs.numberValue));
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(pow(lhs.numberValue, rhs.numberValue));
                 break;
             }
                 
             case TurboOpCode::ShiftLeft: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value((int)lhs.numberValue << (int)rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value((int)lhs.numberValue << (int)rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::ShiftRight: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value((int)lhs.numberValue >> (int)rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value((int)lhs.numberValue >> (int)rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::UnsignedShiftRight: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value((unsigned int)lhs.numberValue >> (unsigned int)rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value((unsigned int)lhs.numberValue >> (unsigned int)rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::BitAnd: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value((int)lhs.numberValue & (int)rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value((int)lhs.numberValue & (int)rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::BitOr: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value((int)lhs.numberValue | (int)rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value((int)lhs.numberValue | (int)rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::BitXor: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value((int)lhs.numberValue ^ (int)rhs.numberValue);
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value((int)lhs.numberValue ^ (int)rhs.numberValue);
                 break;
             }
                 
             case TurboOpCode::LogicalAnd: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(isTruthy(lhs) && isTruthy(rhs));
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(isTruthy(lhs) && isTruthy(rhs));
                 break;
             }
                 
             case TurboOpCode::LogicalOr: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = Value(isTruthy(lhs) || isTruthy(rhs));
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value(isTruthy(lhs) || isTruthy(rhs));
                 break;
             }
                 
             case TurboOpCode::NullishCoalescing: {
-                Value lhs = registers[instruction.b];
-                Value rhs = registers[instruction.c];
-                registers[instruction.a] = isNullish(lhs) ? rhs : lhs;
+                Value lhs = frame->registers[instruction.b];
+                Value rhs = frame->registers[instruction.c];
+                frame->registers[instruction.a] = isNullish(lhs) ? rhs : lhs;
                 break;
             }
                 
             case TurboOpCode::StrictEqual: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
                 bool isEqual = false;
                 // For objects/arrays: we compare pointers
                 if (a.type == b.type) {
@@ -539,13 +582,13 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                         isEqual = (a.arrayValue == b.arrayValue);
                     // For other types, we could default to pointer or identity check
                 }
-                registers[instruction.a] = Value::boolean(isEqual);
+                frame->registers[instruction.a] = Value::boolean(isEqual);
                 break;
             }
                 
             case TurboOpCode::StrictNotEqual: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
                 bool notEqual = false;
                 // For numbers, strings, booleans, etc
                 if (a.type != b.type) {
@@ -567,53 +610,53 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                         notEqual = a.arrayValue != b.arrayValue;
                     // add any types we missed
                 }
-                registers[instruction.a] = (Value::boolean(notEqual));
+                frame->registers[instruction.a] = (Value::boolean(notEqual));
                 break;
             }
                 
             case TurboOpCode::Decrement: {
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = frame->registers[instruction.a];
+                Value b = frame->registers[instruction.b];
                 int sum = a.numberValue - b.numberValue;
-                registers[instruction.a] = Value(sum);
+                frame->registers[instruction.a] = Value(sum);
                 break;
             }
 
             case TurboOpCode::Negate: {
-                Value a = registers[instruction.a];
-                registers[instruction.a] = Value(-a.numberValue);
+                Value a = frame->registers[instruction.a];
+                frame->registers[instruction.a] = Value(-a.numberValue);
                 break;
             }
 
             case TurboOpCode::LogicalNot: {
-                Value a = registers[instruction.a];
-                registers[instruction.a] = Value::boolean(!isTruthy(a));
+                Value a = frame->registers[instruction.a];
+                frame->registers[instruction.a] = Value::boolean(!isTruthy(a));
                 break;
             }
                 
             case TurboOpCode::Increment: {
                 
-                Value a = registers[instruction.a];
-                Value b = registers[instruction.b];
+                Value a = frame->registers[instruction.a];
+                Value b = frame->registers[instruction.b];
                 
                 int sum = a.numberValue + b.numberValue;
                 
-                registers[instruction.a] = Value(sum);
+                frame->registers[instruction.a] = Value(sum);
 
                 break;
             }
 
             case TurboOpCode::Equal: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
-                registers[instruction.a] =  Value::boolean(equals(a,b));
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] =  Value::boolean(equals(a,b));
                 break;
             }
 
             case TurboOpCode::NotEqual: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
-                registers[instruction.a] = Value::boolean(!equals(a,b));
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value::boolean(!equals(a,b));
                 break;
             }
 
@@ -622,30 +665,30 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // result register is a.
                 // left reg is b
                 // right register is c
-                Value b = registers[instruction.b];
-                Value c = registers[instruction.c];
-                registers[instruction.a] = Value::boolean(b.numberValue < c.numberValue);
+                Value b = frame->registers[instruction.b];
+                Value c = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value::boolean(b.numberValue < c.numberValue);
                 break;
             }
                 
             case TurboOpCode::LessThanOrEqual: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
-                registers[instruction.a] = Value::boolean(a.numberValue <= b.numberValue);
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value::boolean(a.numberValue <= b.numberValue);
                 break;
             }
                 
             case TurboOpCode::GreaterThan: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
-                registers[instruction.a] = Value::boolean(a.numberValue > b.numberValue);
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value::boolean(a.numberValue > b.numberValue);
                 break;
             }
                 
             case TurboOpCode::GreaterThanOrEqual: {
-                Value a = registers[instruction.b];
-                Value b = registers[instruction.c];
-                registers[instruction.a] = Value::boolean(a.numberValue >= b.numberValue);
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] = Value::boolean(a.numberValue >= b.numberValue);
                 break;
             }
                 
@@ -660,7 +703,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
             case TurboOpCode::JumpIfFalse: {
                 uint32_t offset = instruction.b;
-                Value cond = registers[instruction.a];
+                Value cond = frame->registers[instruction.a];
                 if (!isTruthy(cond)) frame->ip += offset;
                 break;
             }
@@ -679,7 +722,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 int reg = instruction.a;
                 int idx = instruction.b;
                 
-                registers[reg] = frame->locals[idx];
+                frame->registers[reg] = frame->locals[idx];
                 break;
             }
                 
@@ -689,7 +732,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 int idx = instruction.b;
                 string name = frame->chunk->constants[idx].stringValue;
                 
-                registers[reg] = toValue(env->get(name));
+                frame->registers[reg] = toValue(env->get(name));
 
                 break;
             }
@@ -701,7 +744,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 uint8_t idx = instruction.a;
                 uint8_t reg_slot = instruction.b;
                 
-                frame->locals[idx] = registers[reg_slot];
+                frame->locals[idx] = frame->registers[reg_slot];
 
                 break;
             }
@@ -711,7 +754,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 uint8_t idx = instruction.a;
                 uint8_t reg_slot = instruction.b;
                 
-                frame->locals[idx] = registers[reg_slot];
+                frame->locals[idx] = frame->registers[reg_slot];
                 
                 break;
             }
@@ -723,7 +766,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value val = frame->chunk->constants[idx];
                 string name = val.stringValue;
                 
-                env->set_var(name, registers[reg_slot]);
+                env->set_var(name, frame->registers[reg_slot]);
 
                 break;
             }
@@ -735,7 +778,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value val = frame->chunk->constants[idx];
                 string name = val.stringValue;
 
-                env->set_let(name, registers[reg_slot]);
+                env->set_let(name, frame->registers[reg_slot]);
 
                 break;
             }
@@ -743,21 +786,21 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // emit(TurboOpCode::NewArray, arr);
             case TurboOpCode::NewArray: {
                 auto array = make_shared<JSArray>();
-                registers[instruction.a] = Value::array(array);
+                frame->registers[instruction.a] = Value::array(array);
                 break;
             }
                 
                 // emit(TurboOpCode::ArrayPush, arr, val);
             case TurboOpCode::ArrayPush: {
-                auto array = registers[instruction.a].arrayValue;
-                array->push({registers[instruction.b]});
+                auto array = frame->registers[instruction.a].arrayValue;
+                array->push({frame->registers[instruction.b]});
                 break;
             }
                 
                 // TurboOpCode::NewClass, super_class_reg, nameconstindex
             case TurboOpCode::NewClass: {
                                 
-                auto superclass = registers[instruction.a];
+                auto superclass = frame->registers[instruction.a];
                 
                 auto js_class = make_shared<JSClass>();
                 
@@ -770,7 +813,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // add constructor
                 klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
                                 
-                registers[instruction.a] = (klass);
+                frame->registers[instruction.a] = (klass);
                 break;
             }
                 
@@ -779,9 +822,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // property var
             case TurboOpCode::CreateClassPrivatePropertyVar: {
 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "private" } );
                 
@@ -790,9 +833,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CreateClassPublicPropertyVar: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" } );
 
                 break;
@@ -801,9 +844,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CreateClassProtectedPropertyVar: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "protected" } );
 
                 break;
@@ -813,9 +856,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // property const
             case TurboOpCode::CreateClassPrivatePropertyConst: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "private" } );
 
@@ -824,9 +867,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CreateClassPublicPropertyConst: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "public" } );
 
@@ -835,9 +878,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CreateClassProtectedPropertyConst: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
 
                 klass.classValue->set_proto_vm_const(fieldNameValue.stringValue, init, { "protected" } );
 
@@ -847,9 +890,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // static var
             case TurboOpCode::CreateClassPrivateStaticPropertyVar: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_var(fieldNameValue.stringValue, init, { "private" });
                 break;
@@ -857,18 +900,18 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::CreateClassPublicStaticPropertyVar: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_var(fieldNameValue.stringValue, init, { "public" });
                 break;
             }
                 
             case TurboOpCode::CreateClassProtectedStaticPropertyVar: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_var(fieldNameValue.stringValue, init, { "protected" });
                 break;
@@ -876,18 +919,18 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // static const
             case TurboOpCode::CreateClassPrivateStaticPropertyConst: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_const(fieldNameValue.stringValue, init, { "private" });
                 break;
             }
                 
             case TurboOpCode::CreateClassPublicStaticPropertyConst: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_const(fieldNameValue.stringValue, init, { "public" });
 
@@ -895,9 +938,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::CreateClassProtectedStaticPropertyConst: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_const(fieldNameValue.stringValue, init, { "protected" });
                 break;
@@ -906,9 +949,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // op, super_class_reg, method_reg, methodNameReg);
                 
             case TurboOpCode::CreateClassProtectedStaticMethod: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_var(fieldNameValue.stringValue, init, { "protected" });
 
@@ -916,9 +959,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::CreateClassPrivateStaticMethod: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_var(fieldNameValue.stringValue, init, { "private" });
 
@@ -926,9 +969,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::CreateClassPublicStaticMethod: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_var(fieldNameValue.stringValue, init, { "public" });
                 break;
@@ -936,18 +979,18 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CreateClassProtectedMethod: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "protected" });
                 break;
             }
                 
             case TurboOpCode::CreateClassPrivateMethod: {
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "private" });
                 break;
@@ -955,9 +998,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CreateClassPublicMethod: {
                 
-                Value klass = registers[instruction.a];
-                Value init = registers[instruction.b];
-                Value fieldNameValue = registers[instruction.c];
+                Value klass = frame->registers[instruction.a];
+                Value init = frame->registers[instruction.b];
+                Value fieldNameValue = frame->registers[instruction.c];
                 
                 klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" });
                 break;
@@ -966,7 +1009,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // TurboOpCode::CreateInstance, reg
             case TurboOpCode::CreateInstance: {
                 
-                Value klass = registers[instruction.a];
+                Value klass = frame->registers[instruction.a];
                 
                 if (klass.classValue->is_native == true) {
                     
@@ -980,7 +1023,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
                     set_js_object_closure(obj_value);
 
-                    registers[instruction.a] = (obj_value);
+                    frame->registers[instruction.a] = (obj_value);
 
                     break;
                 }
@@ -996,7 +1039,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 obj_value.type = ValueType::OBJECT;
                 obj_value.objectValue = obj;
 
-                registers[instruction.a] = (obj_value);
+                frame->registers[instruction.a] = (obj_value);
 
                 break;
             }
@@ -1011,15 +1054,15 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 for (int i = 0; i < count; i++) {
                     int reg = start + i;
-                    args.push_back(registers[reg]);
+                    args.push_back(frame->registers[reg]);
                 }
 
-                Value obj_value = registers[instruction.a];
+                Value obj_value = frame->registers[instruction.a];
 
                 // call the constructor
                 invokeMethod(obj_value, "constructor", args);
 
-                registers[instruction.a] = (obj_value);
+                frame->registers[instruction.a] = obj_value;
 
                 break;
             }
@@ -1029,13 +1072,13 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 auto object = make_shared<JSObject>();
                 Value v = Value::object(object);
 
-                registers[instruction.a] = v;
+                frame->registers[instruction.a] = v;
                 break;
             }
                 
             case TurboOpCode::GetThis: {
 //                push(Value::object(frame->closure->js_object));
-                registers[instruction.a] = Value::object(frame->closure->js_object);
+                frame->registers[instruction.a] = Value::object(frame->closure->js_object);
                 break;
             }
                 
@@ -1048,7 +1091,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                                 
                 Value obj = getProperty(Value::object(frame->closure->js_object), property_name);
                 
-                registers[instruction.b] = obj;
+                frame->registers[instruction.b] = obj;
 
 //                int index = readUint32();
 //                string prop = frame->chunk->constants[index].toString();
@@ -1066,7 +1109,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value property_value = frame->chunk->constants[instruction.a];
                 string property_name = property_value.toString();
                 
-                Value value = registers[instruction.b];
+                Value value = frame->registers[instruction.b];
                 
                 setProperty(Value::object(frame->closure->js_object), property_name, value);
                 
@@ -1104,20 +1147,20 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::GetParentObject: {
                 // push(Value::object(frame->closure->js_object->parent_object));
-                registers[instruction.a] = Value::object(frame->closure->js_object->parent_object);
+                frame->registers[instruction.a] = Value::object(frame->closure->js_object->parent_object);
                 break;
             }
 
                 // emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
                 // SetProperty: objReg, nameIdx, valueReg
             case TurboOpCode::SetProperty: {
-                auto object = registers[instruction.a];
+                auto object = frame->registers[instruction.a];
                 Value val = frame->chunk->constants[instruction.b];
                 string prop_name = val.stringValue;
-                Value obj_val = registers[instruction.c];
+                Value obj_val = frame->registers[instruction.c];
                 
                 setProperty(object, prop_name, obj_val);
-                registers[instruction.c] = object;
+                frame->registers[instruction.c] = object;
 
                 break;
             }
@@ -1125,44 +1168,44 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // SetPropertyDynamic: objReg, propReg, valueReg
                 // emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, resultReg);
             case TurboOpCode::SetPropertyDynamic: {
-                auto object = registers[instruction.a];
-                string prop_name = registers[instruction.b].stringValue;
-                setProperty(object, prop_name, registers[instruction.c]);
+                auto object = frame->registers[instruction.a];
+                string prop_name = frame->registers[instruction.b].stringValue;
+                setProperty(object, prop_name, frame->registers[instruction.c]);
                 
-                registers[instruction.c] = object;
+                frame->registers[instruction.c] = object;
 
                 break;
             }
                 
                 // TurboOpCode::GetPropertyDynamic, lhsReg, objReg, propReg
             case TurboOpCode::GetPropertyDynamic: {
-                auto object = registers[instruction.b];
-                string prop = registers[instruction.c].toString();
+                auto object = frame->registers[instruction.b];
+                string prop = frame->registers[instruction.c].toString();
                 Value val = getProperty(object, prop);
-                registers[instruction.a] = val;
+                frame->registers[instruction.a] = val;
                 break;
             }
                 
                 // TurboOpCode::GetProperty, lhsReg, objReg, nameIdx
             case TurboOpCode::GetProperty: {
-                Value object = registers[instruction.b];
+                Value object = frame->registers[instruction.b];
                 string prop = frame->chunk->constants[instruction.c].stringValue;
                 Value val = getProperty(object, prop);
-                registers[instruction.a] = val;
+                frame->registers[instruction.a] = val;
                 break;
             }
                 
                 // TurboOpCode::GetObjectLength, lenReg, arrReg
             case TurboOpCode::GetObjectLength: {
-                auto array = registers[instruction.b];
-                registers[instruction.a] = getValueLength(array);
+                auto array = frame->registers[instruction.b];
+                frame->registers[instruction.a] = getValueLength(array);
                 break;
             }
                 
                 // keysReg, objReg
             case TurboOpCode::EnumKeys: {
                 // object is in stack.
-                Value objVal = registers[instruction.b];
+                Value objVal = frame->registers[instruction.b];
                 
                 auto obj = make_shared<JSObject>();
                 
@@ -1174,7 +1217,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                     index++;
                 }
                 // pop obj
-                registers[instruction.a] = (Value::object(obj));
+                frame->registers[instruction.a] = (Value::object(obj));
 
                 break;
             }
@@ -1207,7 +1250,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::Throw: {
                 // exception value on top of stack
-                Value exc = registers[instruction.a].toString();
+                Value exc = frame->registers[instruction.a].toString();
                 // unwind frames until we find a handler (catch or finally)
                 bool handled = false;
                 // Store a 'pending exception' to know we are unwinding due to throw
@@ -1233,7 +1276,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                         // resume.stackDepth = f.stackDepth; // after finally resumes, stack depth should be this
                         resume.ipAfterTry = -1;
                         
-                        registers[f.regCatch] = exc;
+                        frame->registers[f.regCatch] = exc;
                         
                         tryStack.push_back(resume);
                         
@@ -1306,7 +1349,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 int exception_value_register = instruction.a;
                 int exception_value_index = instruction.b;
                 
-                Value throw_value = registers[exception_value_register];
+                Value throw_value = frame->registers[exception_value_register];
                 
                 // load above into local index
                 frame->locals[exception_value_index] = throw_value;
@@ -1316,19 +1359,19 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
             case TurboOpCode::PushArg: {
                 int argReg = instruction.a;
-                argStack.push_back(registers[argReg]);
+                argStack.push_back(frame->registers[argReg]);
                 break;
             }
                 
                 // TurboOpCode::LoadArgument, reg
             case TurboOpCode::LoadArgument: {
-                int argIndex = registers[instruction.a].numberValue;
+                int argIndex = frame->registers[instruction.a].numberValue;
                 
                 Value result = Value::undefined();
                 if (argIndex < frame->args.size()) {
                     result = frame->args[argIndex];
                 }
-                registers[instruction.a] = (result);
+                frame->registers[instruction.a] = (result);
                 break;
             }
                 
@@ -1340,15 +1383,15 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 for (const Value& v : frame->args) {
                     arr->push({v});
                 }
-                registers[instruction.a] = Value::array(arr);
+                frame->registers[instruction.a] = Value::array(arr);
                 break;
             }
 
                 // TurboOpCode::Slice, arg_array_reg, i_reg
             case TurboOpCode::Slice: {
                 // Expects: [array, start] on stack; pops both and pushes array.slice(start)
-                Value startVal = registers[instruction.b];
-                Value arrayVal = registers[instruction.a];
+                Value startVal = frame->registers[instruction.b];
+                Value arrayVal = frame->registers[instruction.a];
 
                 int start = (int)startVal.numberValue;
                 shared_ptr<JSArray> inputArr = arrayVal.arrayValue;
@@ -1361,7 +1404,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 }
                 
                 // push(Value::array(arr));
-                registers[instruction.a] = Value::array(arr);
+                frame->registers[instruction.a] = Value::array(arr);
 
                 break;
                 
@@ -1369,20 +1412,20 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
             case TurboOpCode::LoadArgumentsLength: {
                 // Pushes the count of arguments passed to the current frame
-                registers[instruction.a] = Value((double)frame->args.size());
+                frame->registers[instruction.a] = Value((double)frame->args.size());
                 break;
             }
 
             case TurboOpCode::CreateClosure: {
                 
-                int ci = registers[instruction.a].numberValue;
+                int ci = frame->registers[instruction.a].numberValue;
                 
                 Value fnVal = module_->constants[ci];
                 auto fnRef = fnVal.fnRef; // FunctionObject*
                 auto closure = make_shared<Closure>();
                 closure->fn = fnRef;
 
-                registers[instruction.a] = Value::closure(closure);
+                frame->registers[instruction.a] = Value::closure(closure);
 
                 break;
             }
@@ -1421,15 +1464,15 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
             case TurboOpCode::SetClosureIsLocal: {
-                int idx = registers[instruction.a].numberValue;
-                registers[instruction.b].closureValue->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
+                int idx = frame->registers[instruction.a].numberValue;
+                frame->registers[instruction.b].closureValue->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
                 break;
             }
                 
                 // TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg
             case TurboOpCode::SetClosureIndex: {
-                int idx = registers[instruction.a].numberValue;
-                registers[instruction.b].closureValue->upvalues.push_back(frame->closure->upvalues[idx]);
+                int idx = frame->registers[instruction.a].numberValue;
+                frame->registers[instruction.b].closureValue->upvalues.push_back(frame->closure->upvalues[idx]);
 
                 break;
             }
@@ -1448,13 +1491,13 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 int funcReg   = instruction.b;
                 // int argc      = instruction.c;
                 
-                Value func = registers[funcReg];
+                Value func = frame->registers[funcReg];
                 
                 const vector<Value> const_args = { argStack.begin(), argStack.end() };
                 argStack.clear();
 
                 Value result = callFunction(func, const_args);
-                registers[resultReg] = result;
+                frame->registers[resultReg] = result;
 
                 break;
             }
@@ -1464,7 +1507,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::Return: {
-                Value v = registers[instruction.a];
+                Value v = frame->registers[instruction.a];
                                 
                 return v;
             }
@@ -1511,6 +1554,7 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
         //new_frame.js_object = callee.closureValue->js_object;
+        // new_frame.frame->registers = frame->registers;
 
         // Set frame.closure if calling a closure
         // Assuming callee has a closurePtr member for Closure shared_ptr
