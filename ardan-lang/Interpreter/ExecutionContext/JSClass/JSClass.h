@@ -34,6 +34,7 @@ public:
     // need to add var, let, const fields
     
     Value get(const string& key, bool perform_privacy_check);
+    vector<string> get_static_modifiers(const string& key);
     // calling this, we don't need the modifiers because it has been set by visitClassDeclarartions
     void set(const string& key, Value value, bool perform_privacy_check);
     void check_privacy(const string& key);

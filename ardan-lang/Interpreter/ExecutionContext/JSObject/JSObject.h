@@ -47,6 +47,7 @@ public:
     void set_builtin_value(const string& key, const Value& val);
 
     Value get(const string& key);
+    vector<string> get_modifiers(const string& key);
 
     void setClass(shared_ptr<JSClass> js_klass);
     

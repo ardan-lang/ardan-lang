@@ -53,6 +53,36 @@ Value JSClass::get(const string& key, bool perform_privacy_check) {
         
 }
 
+vector<string> JSClass::get_static_modifiers(const string& key) {
+    
+    // Look in fields
+    auto value = var_static_fields.find(key);
+    if (value != var_static_fields.end()) {
+        
+        // when found, check if it
+        return value->second.modifiers;
+    }
+    
+    // Look in let fields
+    auto let_value = let_static_fields.find(key);
+    if (let_value != let_static_fields.end()) {
+        
+        // when found, check if it
+        return let_value->second.modifiers;
+    }
+    
+    // Look in const fields
+    auto const_value = const_static_fields.find(key);
+    if (const_value != const_static_fields.end()) {
+        
+        // when found, check if it
+        return const_value->second.modifiers;
+    }
+    
+    return {};
+
+}
+
 // calling this, we don't need the modifiers because it has been set by visitClassDeclarartions
 void JSClass::set(const string& key, Value value, bool perform_privacy_check) {
 
@@ -121,7 +151,7 @@ void JSClass::check_privacy(const std::string& key) {
     // throw std::runtime_error("Property not found: " + key);
 }
 
-bool JSClass::hasModifier(const std::vector<std::string>& mods, const std::string& name) {
+bool JSClass::hasModifier(const vector<string>& mods, const string& name) {
     return std::find(mods.begin(), mods.end(), name) != mods.end();
 }
 
