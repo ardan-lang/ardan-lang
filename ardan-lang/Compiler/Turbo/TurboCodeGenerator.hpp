@@ -160,7 +160,7 @@ private:
     void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
     
     int emitTryPlaceholder();
-    void patchTry(int pos);
+    void patchTry(int tryPos, int reg);
     void patchTryFinally(int tryPos, int target);
     void patchTryCatch(int tryPos, int target);
     

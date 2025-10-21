@@ -2456,19 +2456,17 @@ R TurboCodeGen::visitThrow(ThrowStatement* stmt) {
 }
 
 R TurboCodeGen::visitCatch(CatchClause* stmt) {
-    beginScope();
     stmt->body->accept(*this);
-    endScope();
     return true;
 }
 
 R TurboCodeGen::visitTry(TryStatement* stmt) {
     
-    beginScope();
-
     // Mark start of try
+    int ex_val_reg = allocRegister();
     int tryPos = emitTryPlaceholder();
-
+    patchTry(tryPos, ex_val_reg);
+    
     // Compile try block
     stmt->block->accept(*this);
 
@@ -2487,13 +2485,13 @@ R TurboCodeGen::visitTry(TryStatement* stmt) {
         
         // Bind catch parameter
         declareLocal(stmt->handler->param);
-        // emitSetLocal(paramSlot(stmt->handler->param));
-        // store(stmt->handler->param, <#uint32_t reg_slot#>);
-
+        uint32_t idx = getLocal(stmt->handler->param);
+        emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
+        
         stmt->handler->body->accept(*this);
         
         endScope();
-        
+
     }
 
     // Jump over finally if we had a catch
@@ -2509,8 +2507,6 @@ R TurboCodeGen::visitTry(TryStatement* stmt) {
         emit(TurboOpCode::EndFinally);
     }
     
-    endScope();
-
     return true;
     
 }
@@ -2668,7 +2664,7 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
-// Try: catchOffset, finallyOffset
+// Try: catchOffset, finallyOffset, exception register
 int TurboCodeGen::emitTryPlaceholder() {
     emit(TurboOpCode::Try);
 
@@ -2690,13 +2686,9 @@ void TurboCodeGen::patchTryFinally(int tryPos, int target) {
     
 }
 
-//void TurboCodeGen::patchTry(int pos) {
-//    uint32_t offset = (uint32_t)(cur->size() - (pos + 4));
-////    cur->code[pos + 0] = (offset >> 0) & 0xFF;
-////    cur->code[pos + 1] = (offset >> 8) & 0xFF;
-////    cur->code[pos + 2] = (offset >> 16) & 0xFF;
-////    cur->code[pos + 3] = (offset >> 24) & 0xFF;
-//}
+void TurboCodeGen::patchTry(int tryPos, int reg) {
+    cur->code[tryPos].c = reg;
+}
 
 void TurboCodeGen::emit(TurboOpCode op, int a, int b = 0, int c = 0) {
     if (!cur) throw std::runtime_error("No active chunk for code generation.");
@@ -3016,6 +3008,7 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::Try: opName = "Try"; break;
         case TurboOpCode::EndTry: opName = "EndTry"; break;
         case TurboOpCode::EndFinally: opName = "EndFinally"; break;
+        case TurboOpCode::LoadExceptionValue: opName = "LoadExceptionValue"; break;
 
         case TurboOpCode::Loop: opName = "Loop"; break;
 
@@ -3067,7 +3060,7 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
     if ((instr.op == TurboOpCode::GetProperty) && instr.c < chunk->constants.size()) {
         std::cout << " [const: " << chunk->constants[instr.c].toString() << "]";
     }
-
+    
     std::cout << std::endl;
     return offset + 1;
 }
