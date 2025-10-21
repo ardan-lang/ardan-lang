@@ -1551,20 +1551,24 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
 
 R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // Concatenate all pieces
-    uint32_t reg = allocRegister();
+    int reg = allocRegister();
+    
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value("")));
+    
     for (size_t i = 0; i < expr->quasis.size(); ++i) {
-        uint32_t strReg = allocRegister();
+        int strReg = allocRegister();
         emit(TurboOpCode::LoadConst, strReg, emitConstant(expr->quasis[i]->text));
         emit(TurboOpCode::Add, reg, reg, strReg);
-        //freeRegister();
+        freeRegister(strReg);
+        
         if (i < expr->expressions.size()) {
-            uint32_t exprReg = allocRegister();
-            expr->expressions[i]->accept(*this);
+            int exprReg = get<int>(expr->expressions[i]->accept(*this));
             emit(TurboOpCode::Add, reg, reg, exprReg);
-            //freeRegister();
+            freeRegister(exprReg);
         }
+        
     }
+    
     return reg;
 }
 
