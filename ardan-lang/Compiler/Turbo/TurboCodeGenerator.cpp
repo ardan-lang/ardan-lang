@@ -76,7 +76,7 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
-            emit(TurboOpCode::SetThisProperty);
+            // emit(TurboOpCode::SetThisProperty);
             // int nameIdx = emitConstant(Value::str(decl));
             // emitUint32(nameIdx);
             return R();
@@ -114,7 +114,7 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
     
 }
 
-// moves data in reg_slot into local/global
+// moves data from reg_slot into local/global
 R TurboCodeGen::store(string decl, uint32_t reg_slot) {
     
     // decide local or global
@@ -140,16 +140,31 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
+            int nameIdx = emitConstant(Value::str(decl));
+            emit(TurboOpCode::StoreThisProperty, nameIdx, reg_slot);
+            
             // emit(TurboOpCode::SetThisProperty);
             // int nameIdx = emitConstant(Value::str(decl));
             // emitUint32(nameIdx);
+            
             return true;
         }
         
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
+            
+            UpvalueMeta upvalueMeta = upvalues[upvalue];
             // emit(TurboOpCode::SetUpvalue);
             // emitUint32(upvalue);
+            
+            if (upvalueMeta.kind == BindingKind::Var) {
+                emit(TurboOpCode::StoreUpvalueVar, upvalue, reg_slot);
+            } else if (upvalueMeta.kind == BindingKind::Let) {
+                emit(TurboOpCode::StoreUpvalueLet, upvalue, reg_slot);
+            } else if (upvalueMeta.kind == BindingKind::Const) {
+                emit(TurboOpCode::StoreUpvalueConst, upvalue, reg_slot);
+            }
+            
             return true;
         }
         
@@ -182,6 +197,9 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
+            int nameIdx = emitConstant(Value::str(decl));
+            emit(TurboOpCode::LoadThisProperty, reg_slot, nameIdx);
+            
             // emit(TurboOpCode::SetThisProperty);
             // int nameIdx = emitConstant(Value::str(decl));
             // emitUint32(nameIdx);
@@ -1627,7 +1645,6 @@ R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
 R TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
     uint32_t valueReg = get<int>(expr->right->accept(*this));
     // handle assign to variable or property
-    //freeRegister();
     return valueReg;
 }
 
@@ -1640,13 +1657,15 @@ R TurboCodeGen::visitLogical(LogicalExpression* expr) {
 }
 
 R TurboCodeGen::visitThis(ThisExpression* expr) {
-    emit(TurboOpCode::GetThis);
-    return true;
+    int this_reg = allocRegister();
+    emit(TurboOpCode::GetThis, this_reg);
+    return this_reg;
 }
 
 R TurboCodeGen::visitSuper(SuperExpression* expr) {
-    emit(TurboOpCode::GetParentObject);
-    return 0;
+    int parent_reg = allocRegister();
+    emit(TurboOpCode::GetParentObject, parent_reg);
+    return parent_reg;
 }
 
 R TurboCodeGen::visitProperty(PropertyExpression* expr) {
@@ -1655,10 +1674,11 @@ R TurboCodeGen::visitProperty(PropertyExpression* expr) {
 }
 
 R TurboCodeGen::visitSequence(SequenceExpression* expr) {
-    for (auto& ex : expr->expressions) {
-        ex->accept(*this);
+    int last_seq_reg = -1;
+    for (auto& seq : expr->expressions) {
+        last_seq_reg = get<int>(seq->accept(*this));
     }
-    return 0;
+    return last_seq_reg;
 }
 
 R TurboCodeGen::visitFalseKeyword(FalseKeyword* expr) {
@@ -1919,7 +1939,11 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     }
 
     // Create the class object (with superclass on stack)
-    emit(TurboOpCode::NewClass, super_class_reg);
+    emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
+
+    declareLocal(stmt->id);
+    declareGlobal(stmt->id, BindingKind::Var);
+    create(stmt->id, super_class_reg, BindingKind::Var);
 
     // Define fields
     // A field can be var, let, const. private, public, protected
@@ -2129,10 +2153,10 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     // int classNameIdx = emitConstant(Value::str(stmt->id));
 
     int class_reg = allocRegister();
-    declareLocal(stmt->id);
-    declareGlobal(stmt->id, BindingKind::Var);
+    // declareLocal(stmt->id);
+    // declareGlobal(stmt->id, BindingKind::Var);
     
-    create(stmt->id, super_class_reg, BindingKind::Var);
+    // create(stmt->id, super_class_reg, BindingKind::Var);
 
     // clear class info
     classInfo.fields.clear();
@@ -3014,6 +3038,13 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::EndTry: opName = "EndTry"; break;
         case TurboOpCode::EndFinally: opName = "EndFinally"; break;
         case TurboOpCode::LoadExceptionValue: opName = "LoadExceptionValue"; break;
+            
+        case TurboOpCode::LoadThisProperty: opName = "LoadThisProperty"; break;
+        case TurboOpCode::StoreThisProperty: opName = "StoreThisProperty"; break;
+        case TurboOpCode::StoreUpvalueVar: opName = "StoreUpvalueVar"; break;
+        case TurboOpCode::StoreUpvalueLet: opName = "StoreUpvalueLet"; break;
+        case TurboOpCode::StoreUpvalueConst: opName = "StoreUpvalueConst"; break;
+        case TurboOpCode::LoadUpvalue: opName = "LoadUpvalue"; break;
 
         case TurboOpCode::Loop: opName = "Loop"; break;
 

@@ -136,14 +136,22 @@ enum class TurboOpCode : uint8_t {
     CreateClosure,
     SetClosureIsLocal,
     SetClosureIndex,
-    GetUpvalue,
-    SetUpvalue,
+    
+    // GetUpvalue,
+    // SetUpvalue,
     CloseUpvalue,
+    LoadUpvalue,
+    StoreUpvalueVar,
+    StoreUpvalueLet,
+    StoreUpvalueConst,
 
     // Misc
     ClearStack,
     ClearLocals,
 
+    LoadThisProperty,
+    StoreThisProperty,
+    
     SetStaticProperty,
     CreateInstance,
     InvokeConstructor,

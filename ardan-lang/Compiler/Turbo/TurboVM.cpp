@@ -754,9 +754,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-                // TurboOpCode::NewClass, super_class_reg
+                // TurboOpCode::NewClass, super_class_reg, nameconstindex
             case TurboOpCode::NewClass: {
-                
+                                
                 auto superclass = registers[instruction.a];
                 
                 auto js_class = make_shared<JSClass>();
@@ -1035,9 +1035,52 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::GetThis: {
 //                push(Value::object(frame->closure->js_object));
+                registers[instruction.a] = Value::object(frame->closure->js_object);
                 break;
             }
                 
+                // TurboOpCode::LoadThisProperty, reg_slot, nameIdx
+            case TurboOpCode::LoadThisProperty: {
+                
+                // load constant from nameIdx
+                Value property_value = frame->chunk->constants[instruction.b];
+                string property_name = property_value.toString();
+                                
+                Value obj = getProperty(Value::object(frame->closure->js_object), property_name);
+                
+                registers[instruction.b] = obj;
+
+//                int index = readUint32();
+//                string prop = frame->chunk->constants[index].toString();
+//
+//                push(getProperty(Value::object(frame->closure->js_object), prop));
+
+
+                break;
+            }
+                
+                // StoreThisProperty, nameIdx, reg_slot
+            case TurboOpCode::StoreThisProperty: {
+                
+                // load constant from nameIdx
+                Value property_value = frame->chunk->constants[instruction.a];
+                string property_name = property_value.toString();
+                
+                Value value = registers[instruction.b];
+                
+                setProperty(Value::object(frame->closure->js_object), property_name, value);
+                
+                // this update the object the current object
+//                int index = readUint32();
+//                Value v = pop();
+//                string prop = frame->chunk->constants[index].toString();
+//                setProperty(Value::object(frame->closure->js_object), prop, v);
+
+                
+                break;
+            }
+                
+                // Now: StoreThisProperty
             case TurboOpCode::SetThisProperty: {
                 // this update the object the current object
 //                int index = readUint32();
@@ -1048,6 +1091,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // Now: LoadThisProperty
             case TurboOpCode::GetThisProperty: {
                 
 //                int index = readUint32();
@@ -1060,6 +1104,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::GetParentObject: {
                 // push(Value::object(frame->closure->js_object->parent_object));
+                registers[instruction.a] = Value::object(frame->closure->js_object->parent_object);
                 break;
             }
 
@@ -1343,22 +1388,35 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
                 // --- Upvalue access ---
-                case TurboOpCode::GetUpvalue: {
+                //case TurboOpCode::GetUpvalue: {
 //                    uint32_t idx = readUint32();
 //                    push(*frame->closure->upvalues[idx]->location);
-                    break;
-                }
-                case TurboOpCode::SetUpvalue: {
+                //    break;
+                //}
+                //case TurboOpCode::SetUpvalue: {
 //                    uint32_t idx = readUint32();
 //                    *frame->closure->upvalues[idx]->location = pop();
-                    break;
-                }
+                //    break;
+                //}
                     
                 case TurboOpCode::CloseUpvalue: {
 //                    closeUpvalues(stack.empty() ? nullptr : &stack.back());
 //                    pop();
                     break;
                 }
+                
+            case TurboOpCode::LoadUpvalue: {
+                break;
+            }
+            case TurboOpCode::StoreUpvalueVar: {
+                break;
+            }
+            case TurboOpCode::StoreUpvalueLet: {
+                break;
+            }
+            case TurboOpCode::StoreUpvalueConst: {
+                break;
+            }
 
                 
                 // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
