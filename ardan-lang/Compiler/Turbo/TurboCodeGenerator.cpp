@@ -77,15 +77,15 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
             emit(TurboOpCode::SetThisProperty);
-//            int nameIdx = emitConstant(Value::str(decl));
-//            emitUint32(nameIdx);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
             return R();
         }
         
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
-//            emit(TurboOpCode::SetUpvalue);
-//            emitUint32(upvalue);
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
             return R();
         }
         
@@ -140,17 +140,17 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
-            emit(TurboOpCode::SetThisProperty);
-//            int nameIdx = emitConstant(Value::str(decl));
-//            emitUint32(nameIdx);
-            return R();
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            return true;
         }
         
-                int upvalue = resolveUpvalue(decl);
+        int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
-            emit(TurboOpCode::SetUpvalue);
-//            emitUint32(upvalue);
-            return R();
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+            return true;
         }
         
         // top-level/global
@@ -182,17 +182,18 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
-            emit(TurboOpCode::SetThisProperty);
-//            int nameIdx = emitConstant(Value::str(decl));
-//            emitUint32(nameIdx);
-            return R();
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            return true;
         }
         
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
-            emit(TurboOpCode::SetUpvalue);
-//            emitUint32(upvalue);
-            return R();
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+            emit(TurboOpCode::LoadUpvalue, reg_slot, upvalue);
+            return true;
         }
         
         int nameIdx = emitConstant(Value::str(decl));
