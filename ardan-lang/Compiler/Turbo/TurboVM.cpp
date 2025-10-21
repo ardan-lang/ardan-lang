@@ -138,25 +138,29 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
         // if its private, check if the js_object in closure is not nullptr
         // if closure.js_object is not nullptr
         
+        // the object owns the property direct.
         vector<string> modifiers = objVal.objectValue->get_modifiers(propName);
-        bool isPrivate = false;
+        
         for (auto modifier : modifiers) {
             if (modifier == "private") {
-                isPrivate = true;
+                
+                if (frame->closure->js_object == nullptr) {
+                    throw runtime_error("Can't access a private property outside its class.");
+                }
+                
+                // check if the objval and js_object are the same.
+                frame->closure->js_object->get_modifiers(propName);
             }
         }
         
-        if (isPrivate) {
-            if (frame->closure->js_object == nullptr) {
-                throw runtime_error("Can't access a private property outside its class.");
-            }
-        }
         
         return objVal.objectValue->get(propName);
     }
+    
     if (objVal.type == ValueType::ARRAY) {
         return objVal.arrayValue->get(propName);
     }
+    
     if (objVal.type == ValueType::CLASS) {
         
         // perform privacy check
@@ -1093,12 +1097,6 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 frame->registers[instruction.b] = obj;
 
-//                int index = readUint32();
-//                string prop = frame->chunk->constants[index].toString();
-//
-//                push(getProperty(Value::object(frame->closure->js_object), prop));
-
-
                 break;
             }
                 
@@ -1525,9 +1523,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
     
 }
 
-Value TurboVM::callMethod(Value callee,
-                            vector<Value>& args,
-                            Value js_object) {
+Value TurboVM::callMethod(Value callee, vector<Value>& args, Value js_object) {
 
     return callFunction(callee, args);
     
@@ -1553,23 +1549,17 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
         new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
-        //new_frame.js_object = callee.closureValue->js_object;
-        // new_frame.frame->registers = frame->registers;
 
         // Set frame.closure if calling a closure
         // Assuming callee has a closurePtr member for Closure shared_ptr
         // If you extended Value for closure type, set here:
         callStack.push_back(std::move(new_frame));
-        // auto prev_stack = std::move(stack);
-        // stack.clear();
 
         Value result = runFrame(callStack.back());
         
         callStack.pop_back();
         frame = &callStack.back();
         
-        // stack = std::move(prev_stack);
-
         return result;
         
     }
@@ -1613,10 +1603,7 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
 
     // save current frame
     CallFrame prev_frame = callStack.back();
-    
-    //auto prev_stack = std::move(stack);
-    //stack.clear();
-    
+        
     // copy args into frame.locals[0..]
     uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
     for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
@@ -1628,8 +1615,6 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     
     callStack.pop_back();
     frame = &prev_frame;
-
-    //stack = prev_stack;
 
     return result;
     
