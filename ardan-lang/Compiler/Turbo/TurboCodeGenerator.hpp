@@ -67,6 +67,8 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
     struct ClassInfo {
+        string name;
+        string super_class_name;
         unordered_map<string, PropertyMeta> fields;
     };
 
@@ -153,6 +155,9 @@ private:
     vector<string> registered_modules;
 
     ClassInfo classInfo;
+    unordered_map<string, ClassInfo> classes;
+    
+    int lookupClassProperty(string prop_name);
     
     int compileMethod(MethodDefinition& method);
     int recordInstanceField(const string& classId,

@@ -136,7 +136,7 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
         
     } else {
         
-        if (classInfo.fields.count(decl)) {
+        if (lookupClassProperty(decl) == 1) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
@@ -148,6 +148,19 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
             // emitUint32(nameIdx);
             
             return true;
+            
+        } else if (lookupClassProperty(decl) == 2) {
+            
+            int nameIdx = emitConstant(Value::str(decl));
+            
+            int parent_obj_reg = allocRegister();
+            emit(TurboOpCode::GetParentObject, parent_obj_reg);
+            // SetProperty: objReg, nameIdx, valueReg
+            emit(TurboOpCode::SetProperty, parent_obj_reg, nameIdx, reg_slot);
+            freeRegister(parent_obj_reg);
+            
+            return true;
+
         }
         
         int upvalue = resolveUpvalue(decl);
@@ -193,7 +206,9 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
         emit(TurboOpCode::LoadLocalVar, reg_slot, idx);
     } else {
         
-        if (classInfo.fields.count(decl)) {
+        // search if decl is in class fields
+        int result = lookupClassProperty(decl);
+        if (result == 1) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
@@ -203,6 +218,16 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
             // emit(TurboOpCode::SetThisProperty);
             // int nameIdx = emitConstant(Value::str(decl));
             // emitUint32(nameIdx);
+            return true;
+        } else if (result == 2) {
+            // exists in parent class
+            
+            int nameIdx = emitConstant(Value::str(decl));
+
+            int parent_obj_reg = allocRegister();
+            emit(TurboOpCode::GetParentObject, parent_obj_reg);
+            emit(TurboOpCode::GetProperty, reg_slot, parent_obj_reg, nameIdx);
+            freeRegister(parent_obj_reg);
             return true;
         }
         
@@ -1739,6 +1764,21 @@ R TurboCodeGen::visitContinue(ContinueStatement*) {
 
 R TurboCodeGen::visitEmpty(EmptyStatement*) { return 0; }
 
+int TurboCodeGen::lookupClassProperty(string prop_name) {
+    
+    if(classInfo.fields.count(prop_name)) {
+        return 1;
+    }
+    
+    string super_class_name = classInfo.super_class_name;
+    auto super_class_info = classes[super_class_name];
+    if (super_class_info.fields.count(prop_name)) {
+        return 2;
+    }
+    
+    return -1;
+}
+
 int TurboCodeGen::compileMethod(MethodDefinition& method) {
     // Create a nested CodeGen for the method body (closure)
     TurboCodeGen nested(module_);
@@ -1747,6 +1787,7 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
     nested.beginScope();
     // nested.declareLocal("this");
     nested.classInfo = classInfo;
+    nested.classes = classes;
 
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
@@ -1931,10 +1972,20 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
 
 R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
         
+    classInfo.name = stmt->id;
+
     // Evaluate superclass (if any)
     int super_class_reg = allocRegister();
     if (stmt->superClass) {
+        
         super_class_reg = get<int>(stmt->superClass->accept(*this)); // [superclass]
+        
+        auto ident = dynamic_cast<IdentifierExpression*>((stmt->superClass.get()));
+        
+        if (ident) {
+            classInfo.super_class_name = ident->name;
+        }
+        
     } else {
         emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
     }
@@ -2186,6 +2237,8 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     
     // create(stmt->id, super_class_reg, BindingKind::Var);
 
+    // add claas to classes
+    classes[stmt->id] = std::move(classInfo);
     // clear class info
     classInfo.fields.clear();
     
