@@ -2046,7 +2046,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                             } else if (isPrivate) {
                                 op = TurboOpCode::CreateClassPrivatePropertyVar;
                             } else if (isProtected) {
-                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                                op = TurboOpCode::CreateClassProtectedPropertyVar;
                             } else {
                                 op = TurboOpCode::CreateClassPublicPropertyVar;
                             }
