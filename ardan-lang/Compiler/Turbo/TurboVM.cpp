@@ -199,18 +199,46 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
         
         vector<string> modifiers = objVal.classValue->get_static_modifiers(propName);
         bool isPrivate = false;
+        bool isProtected = false;
+
         for (auto modifier : modifiers) {
+            
             if (modifier == "private") {
                 isPrivate = true;
             }
+            
+            if (modifier == "protected") {
+                isProtected = true;
+            }
+
         }
 
         if (isPrivate) {
-            if (frame->closure->js_object == nullptr) {
+            if (!frame->closure->js_object ||
+                frame->closure->js_object->getKlass().get() != objVal.classValue.get()) {
                 throw runtime_error("Can't access a private static property outside its class.");
             }
         }
-
+        
+        if (isProtected) {
+            if (!frame->closure->js_object) {
+                throw runtime_error("Can't access a protected static property outside its class or subclass.");
+            }
+            auto accessorClass = frame->closure->js_object->getKlass();
+            auto targetClass = objVal.classValue;
+            bool allowed = false;
+            while (accessorClass) {
+                if (accessorClass.get() == targetClass.get()) {
+                    allowed = true;
+                    break;
+                }
+                accessorClass = accessorClass->superClass;
+            }
+            if (!allowed) {
+                throw runtime_error("Can't access a protected static property outside its class or subclass.");
+            }
+        }
+        
         return objVal.classValue->get(propName, false);
     }
     // primitives -> string -> property? For now, undefined
@@ -848,6 +876,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                                 
                 auto superclass = frame->registers[instruction.a];
                 
+                string name = frame->chunk->constants[instruction.c].toString();
+                
                 auto js_class = make_shared<JSClass>();
                 
                 if (superclass.type == ValueType::CLASS) {
@@ -855,6 +885,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 }
                 
                 Value klass = Value::klass(js_class);
+                klass.classValue->name = name;
                 
                 // add constructor
                 klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
