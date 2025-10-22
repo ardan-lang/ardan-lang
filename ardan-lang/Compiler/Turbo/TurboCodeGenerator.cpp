@@ -1982,16 +1982,22 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                 
                 PropertyMeta prop_meta = { visibility, binding, isStatic };
                 classInfo.fields[decl.id] = prop_meta;
-                // ****************************
+                // ****************************************************
 
-                int initReg = allocRegister();
+                int initReg = -1;
                 
-                if (decl.init) {
-                    initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                if (isStatic) {
+                    
+                    initReg = allocRegister();
+
+                    if (decl.init) {
+                        initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                    } else {
+                        emit(TurboOpCode::LoadConst, initReg, emitConstant(Value::undefined()));
+                    }
+                    
                 } else {
-                    emit(TurboOpCode::LoadConst,
-                         initReg,
-                         emitConstant(Value::undefined()));
+                    initReg = recordInstanceField(stmt->id, decl.id, decl.init.get(), prop_meta);
                 }
                 
                 int nameIdx = emitConstant(Value::str(decl.id));
@@ -2064,7 +2070,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
                     emit(op, super_class_reg, initReg, fieldNameReg);
                 }
                 
-                freeRegister(initReg);
+                if(isStatic) freeRegister(initReg);
                 freeRegister(fieldNameReg);
                 
             }
@@ -2735,6 +2741,38 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     endLoop();
 
     return 0;
+}
+
+int TurboCodeGen::recordInstanceField(const string& classId,
+                                       const string& fieldId,
+                                       Expression* initExpr,
+                                       const PropertyMeta& propMeta) {
+    TurboCodeGen nested(module_);
+    nested.cur = make_shared<TurboChunk>();
+    int init_reg = get<int>(initExpr->accept(nested));
+    nested.emit(TurboOpCode::Return, init_reg);
+    
+    // Register the init as a constant for this module
+    auto fnChunk = nested.cur;
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+    nested.cur->name = fieldId;
+    
+    disassembleChunk(nested.cur.get(), classId + " : " + fieldId);
+
+    auto fnObj = make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->name = fieldId;
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+    
+    int constant_index = allocRegister();
+    emit(TurboOpCode::LoadConst,
+         constant_index,
+         emitConstant(Value(ci)));
+
+    return constant_index;
+
 }
 
 // Try: catchOffset, finallyOffset, exception register

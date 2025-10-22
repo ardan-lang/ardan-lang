@@ -95,36 +95,18 @@ Value JSObject::get(const string& key) {
 
 vector<string> JSObject::get_modifiers(const string& key) {
     
-    // Look in own properties
     auto it = var_properties.find(key);
-    if (it != var_properties.end()) {
-        return it->second.modifiers;
-    }
-    
+    if (it != var_properties.end()) return it->second.modifiers;
     auto let_it = let_properties.find(key);
-    if (let_it != let_properties.end()) {
-        return let_it->second.modifiers;
-    }
-    
+    if (let_it != let_properties.end()) return let_it->second.modifiers;
     auto const_it = const_properties.find(key);
-    if (const_it != const_properties.end()) {
-        return const_it->second.modifiers;
+    if (const_it != const_properties.end()) return const_it->second.modifiers;
+
+    if (parent_object) {
+        auto val = parent_object->get_modifiers(key);
+        if (!val.empty()) return val;
     }
-
-    // Walk prototype chain (parent object)
-    // parent_js_object is nullptr here.
-    // TODO: fix it
-//    if (parent_object) {
-//        auto val = parent_object->get_modifiers(key);
-//        if (val.size()) {
-//            return val;
-//        }
-//    }
-
-    // Look in class (and superclass chain)
-
     return {};
-
 }
 
 void JSObject::setClass(shared_ptr<JSClass> js_klass) {

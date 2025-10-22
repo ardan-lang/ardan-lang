@@ -155,7 +155,11 @@ private:
     ClassInfo classInfo;
     
     int compileMethod(MethodDefinition& method);
-
+    int recordInstanceField(const string& classId,
+                             const string& fieldId,
+                             Expression* initExpr,
+                             const PropertyMeta& propMeta);
+    
     void emit(TurboOpCode op);
     int emitConstant(const Value &v);
     void emitLoop(uint32_t loopStart);

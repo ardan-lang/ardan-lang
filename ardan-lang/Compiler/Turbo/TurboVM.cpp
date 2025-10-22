@@ -138,21 +138,49 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
         // if its private, check if the js_object in closure is not nullptr
         // if closure.js_object is not nullptr
         
-        // the object owns the property direct.
         vector<string> modifiers = objVal.objectValue->get_modifiers(propName);
+        
+        bool isPrivate = false;
+        bool isProtected = false;
         
         for (auto modifier : modifiers) {
             if (modifier == "private") {
-                
-                if (frame->closure->js_object == nullptr) {
-                    throw runtime_error("Can't access a private property outside its class.");
-                }
-                
-                // check if the objval and js_object are the same.
-                frame->closure->js_object->get_modifiers(propName);
+                isPrivate = true;
+            }
+            
+            if (modifier == "protected") {
+                isProtected = true;
             }
         }
         
+        if (isPrivate) {
+            // Disallow if we are not inside a closure of the owning object
+            if (frame->closure->js_object == nullptr || frame->closure->js_object.get() != objVal.objectValue.get()) {
+                throw runtime_error("Can't access '" + propName + "' a private property outside its class.");
+            }
+        }
+        
+        if (isProtected) {
+            if (frame->closure->js_object == nullptr) {
+                throw runtime_error("Can't access '" + propName + "' a protected property outside its class or subclass.");
+            }
+            auto accessor = frame->closure->js_object;
+            auto owner = objVal.objectValue;
+            // Traverse up the class hierarchy of accessor to see if it matches owner's class
+            auto accessorClass = accessor->getKlass();
+            auto ownerClass = owner->getKlass();
+            bool allowed = false;
+            while (accessorClass) {
+                if (accessorClass.get() == ownerClass.get()) {
+                    allowed = true;
+                    break;
+                }
+                accessorClass = accessorClass->superClass;
+            }
+            if (!allowed) {
+                throw runtime_error("Can't access '" + propName + "' a protected property outside its class or subclass.");
+            }
+        }
         
         return objVal.objectValue->get(propName);
     }
@@ -276,8 +304,16 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
 
         } else {
             
+            // evaluate fields
+            int field_reg = protoProp.second.value.numberValue;
+            int chunk_index = frame->registers[field_reg].numberValue;
+            Value fnValue = module_->constants[chunk_index];
+            Value val = callFunction(fnValue, {});
+            
+            //     Value fnValue = Value::functionRef(fnObj);
+            
             obj->set(protoProp.first,
-                     protoProp.second.value,
+                     val,
                      "VAR",
                      protoProp.second.modifiers);
 
@@ -298,6 +334,12 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
 
         } else {
             
+            // evaluate fields
+            int field_reg = constProtoProp.second.value.numberValue;
+            int chunk_index = frame->registers[field_reg].numberValue;
+            Value fnValue = module_->constants[chunk_index];
+            Value val = callFunction(fnValue, {});
+
             obj->set(constProtoProp.first,
                      constProtoProp.second.value,
                      "CONST",
