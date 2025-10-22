@@ -54,33 +54,15 @@ Value JSClass::get(const string& key, bool perform_privacy_check) {
 }
 
 vector<string> JSClass::get_static_modifiers(const string& key) {
-    
-    // Look in fields
     auto value = var_static_fields.find(key);
-    if (value != var_static_fields.end()) {
-        
-        // when found, check if it
-        return value->second.modifiers;
-    }
-    
-    // Look in let fields
+    if (value != var_static_fields.end()) return value->second.modifiers;
     auto let_value = let_static_fields.find(key);
-    if (let_value != let_static_fields.end()) {
-        
-        // when found, check if it
-        return let_value->second.modifiers;
-    }
-    
-    // Look in const fields
+    if (let_value != let_static_fields.end()) return let_value->second.modifiers;
     auto const_value = const_static_fields.find(key);
-    if (const_value != const_static_fields.end()) {
-        
-        // when found, check if it
-        return const_value->second.modifiers;
-    }
-    
+    if (const_value != const_static_fields.end()) return const_value->second.modifiers;
+    // Inherited statics
+    if (superClass) return superClass->get_static_modifiers(key);
     return {};
-
 }
 
 // calling this, we don't need the modifiers because it has been set by visitClassDeclarartions
