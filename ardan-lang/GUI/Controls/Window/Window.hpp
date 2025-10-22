@@ -9,6 +9,8 @@
 #define Window_hpp
 
 #include <stdio.h>
+#include "../View/View.hpp"
+
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
 #include <string>

@@ -71,8 +71,8 @@ void Window::addComponent(Value object) {
 //    [btn setBezelStyle:NSBezelStyleRounded];
 //    [btn setTarget:nil];
 //    [btn setAction:@selector(performClick:)];
-    auto control = object.objectValue->getKlass();
-    // [[globalDelegate.window contentView] addSubview:object.objectValue->getKlass()];
+    auto control = dynamic_cast<View*>(object.objectValue->getKlass().get());
+    [[globalDelegate.window contentView] addSubview: control->getNativeView()];
 }
 
 void Window::run() {

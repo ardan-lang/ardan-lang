@@ -26,6 +26,8 @@
 
 static NSMutableArray<ButtonTarget *> *buttonTargets;
 
+NSView* Button::getNativeView() { return button; }
+
 shared_ptr<JSObject> Button::construct() {
     if (!buttonTargets) buttonTargets = [NSMutableArray array];
 

@@ -16,6 +16,7 @@
 #include <memory>
 #include <functional>
 
+#include "../View/View.hpp"
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
 
@@ -28,7 +29,7 @@ using namespace std;
 typedef void NSButton;
 #endif
 
-class Button : public JSClass {
+class Button : public View {
 public:
     Button() {
         is_native = true;
@@ -41,6 +42,7 @@ public:
     void setTitle(std::string title);
     void setPosition(float x, float y, float width, float height);
     void onClick(std::function<void()> callback);
+    NSView* getNativeView() override;
     
 private:
     NSButton *button = nullptr;
