@@ -6,6 +6,9 @@
 //
 
 #include "JSClass.h"
+#include "../../../Statements/Statements.hpp"
+
+JSClass::~JSClass() = default;
 
 static Value native(NativeFn fn) { Value v; v.type = ValueType::NATIVE_FUNCTION; v.nativeFunction = fn; return v; }
 

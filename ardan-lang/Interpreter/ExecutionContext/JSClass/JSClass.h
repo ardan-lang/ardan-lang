@@ -59,6 +59,9 @@ public:
     virtual std::shared_ptr<JSObject> construct() {
         return nullptr;
     }
+    
+    virtual ~JSClass(); // declared only
+    
 };
 
 #endif /* JSClass_h */
