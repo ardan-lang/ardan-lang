@@ -261,10 +261,15 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
             int initReg = get<int>(decl.init->accept(*this));
             emit(TurboOpCode::Move, slot, initReg); // move data inside initReg into register slot.
             freeRegister(initReg);
+            
+            if (auto classExpr = dynamic_cast<ClassExpression*>(decl.init.get())) {
+                classExpr->name = decl.id;
+            }
+
         } else {
             emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
         }
-        
+
         declareLocal(decl.id);
         declareGlobal(decl.id, get_kind(kind));
         
@@ -475,6 +480,16 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     if (expr->op.type == TokenType::ASSIGN) {
         // Evaluate RHS into a fresh register
         // int rhsReg = allocRegister();
+        
+        if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
+            // Try to infer name from left
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                classExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+            }
+        }
+        
         int resultReg = get<int>(expr->right->accept(*this));
         
         // Assignment to a variable (identifier)
@@ -524,6 +539,15 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     int objReg = -1;
     int propReg = -1;
     int nameIdx = -1;
+    
+    if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
+        // Try to infer name from left
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            classExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+        }
+    }
     
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
         load(ident->name, lhsReg);
@@ -734,6 +758,11 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
     emit(TurboOpCode::NewObject, obj);
     
     for (auto& prop : expr->props) {
+
+        if (auto classExpr = dynamic_cast<ClassExpression*>(prop.second.get())) {
+            classExpr->name = prop.first.lexeme;
+        }
+
         int val = get<int>(prop.second->accept(*this));
         emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
         freeRegister(val);
@@ -2250,17 +2279,31 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
 
 R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
     
+    classInfo.name = stmt->name;
+    
     // Evaluate superclass (if any)
     int super_class_reg = allocRegister();
     if (stmt->superClass) {
+        
         super_class_reg = get<int>(stmt->superClass->accept(*this)); // [superclass]
+        
+        auto ident = dynamic_cast<IdentifierExpression*>((stmt->superClass.get()));
+        
+        if (ident) {
+            classInfo.super_class_name = ident->name;
+        }
+        
     } else {
         emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
     }
-
+    
     // Create the class object (with superclass on stack)
-    emit(TurboOpCode::NewClass, super_class_reg);
-
+    emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->name)));
+    
+    // declareLocal(stmt->id);
+    // declareGlobal(stmt->id, BindingKind::Var);
+    // create(stmt->id, super_class_reg, BindingKind::Var);
+    
     // Define fields
     // A field can be var, let, const. private, public, protected
     for (auto& field : stmt->fields) {
@@ -2283,39 +2326,45 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
                 isProtected = true;
             }
         }
-
+        
         // Property is always a VariableStatement
         if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
             
             string kind = varStmt->kind;
             
             for (const auto& decl : varStmt->declarations) {
-
+                
                 // ************ Collect property meta ****************
                 auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
                 auto binding = get_kind(kind);
                 
                 PropertyMeta prop_meta = { visibility, binding, isStatic };
                 classInfo.fields[decl.id] = prop_meta;
-                // ****************************
-
-                int initReg = allocRegister();
+                // ****************************************************
                 
-                if (decl.init) {
-                    initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                int initReg = -1;
+                
+                if (isStatic) {
+                    
+                    initReg = allocRegister();
+                    
+                    if (decl.init) {
+                        initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                    } else {
+                        emit(TurboOpCode::LoadConst, initReg, emitConstant(Value::undefined()));
+                    }
+                    
                 } else {
-                    emit(TurboOpCode::LoadConst,
-                         initReg,
-                         emitConstant(Value::undefined()));
+                    initReg = recordInstanceField(stmt->name, decl.id, decl.init.get(), prop_meta);
                 }
                 
                 int nameIdx = emitConstant(Value::str(decl.id));
                 int fieldNameReg = allocRegister();
                 emit(TurboOpCode::LoadConst, fieldNameReg, nameIdx);
                 TurboOpCode op;
-
+                
                 if (isStatic) {
-                                        
+                    
                     switch (get_kind(kind)) {
                         case BindingKind::Var:
                             if (isPublic) {
@@ -2347,7 +2396,7 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
                     emit(op, super_class_reg, initReg, fieldNameReg);
                     
                 } else {
-                                        
+                    
                     switch (get_kind(kind)) {
                         case BindingKind::Var:
                             if (isPublic) {
@@ -2355,7 +2404,7 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
                             } else if (isPrivate) {
                                 op = TurboOpCode::CreateClassPrivatePropertyVar;
                             } else if (isProtected) {
-                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                                op = TurboOpCode::CreateClassProtectedPropertyVar;
                             } else {
                                 op = TurboOpCode::CreateClassPublicPropertyVar;
                             }
@@ -2379,11 +2428,11 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
                     emit(op, super_class_reg, initReg, fieldNameReg);
                 }
                 
-                freeRegister(initReg);
+                if(isStatic) freeRegister(initReg);
                 freeRegister(fieldNameReg);
                 
             }
-                        
+            
         }
         
     }
@@ -2409,7 +2458,7 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
                 isProtected = true;
             }
         }
-
+        
         // ************* Collecting properrty meta ***************
         auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
         
@@ -2417,10 +2466,9 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
         
         classInfo.fields[method->name] = prop_meta;
         // ****************************
-
-
+        
     }
-
+    
     // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
         
@@ -2443,16 +2491,16 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
                 isProtected = true;
             }
         }
-
+        
         // Compile the method as a function object
         int method_reg = compileMethod(*method); // leaves function object on reg
-
+        
         // Get name of method
         int nameIdx = emitConstant(Value::str(method->name));
         int methodNameReg = allocRegister();
         emit(TurboOpCode::LoadConst, methodNameReg, nameIdx);
         TurboOpCode op;
-
+        
         if (isStatic) {
             
             if (isPublic) {
@@ -2487,8 +2535,21 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
         }
     }
     
+    // Bind class in the environment (global)
+    // int classNameIdx = emitConstant(Value::str(stmt->id));
+    
+    int class_reg = allocRegister();
+    
+    // add claas to classes
+    classes[stmt->name] = std::move(classInfo);
+    // clear class info
+    classInfo.fields.clear();
+    
+    freeRegister(class_reg);
+    freeRegister(super_class_reg);
+    
     return super_class_reg;
-
+    
 }
 
 R TurboCodeGen::visitMethodDefinition(MethodDefinition*) { return 0; }
@@ -2796,10 +2857,8 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
-int TurboCodeGen::recordInstanceField(const string& classId,
-                                       const string& fieldId,
-                                       Expression* initExpr,
-                                       const PropertyMeta& propMeta) {
+int TurboCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
+    
     TurboCodeGen nested(module_);
     nested.cur = make_shared<TurboChunk>();
     int init_reg = get<int>(initExpr->accept(nested));
@@ -2826,6 +2885,23 @@ int TurboCodeGen::recordInstanceField(const string& classId,
 
     return constant_index;
 
+}
+
+string TurboCodeGen::evaluate_property(Expression* expr) {
+    if (auto member = dynamic_cast<MemberExpression*>(expr)) {
+        if (member->computed) {
+            return evaluate_property(member->property.get());
+        } else {
+            return member->name.lexeme;
+        }
+    }
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr)) {
+        return ident->name;
+    }
+    if (auto literal = dynamic_cast<LiteralExpression*>(expr)) {
+        return literal->token.lexeme; // Or whatever holds the property key
+    }
+    throw std::runtime_error("Unsupported expression type in evaluate_property");
 }
 
 // Try: catchOffset, finallyOffset, exception register

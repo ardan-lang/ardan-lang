@@ -158,6 +158,7 @@ private:
     unordered_map<string, ClassInfo> classes;
     
     int lookupClassProperty(string prop_name);
+    string evaluate_property(Expression* expr);
     
     int compileMethod(MethodDefinition& method);
     int recordInstanceField(const string& classId,
