@@ -72,6 +72,7 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
 
     } else {
         
+        // This has been done when the class was being created.
         if (classInfo.fields.count(decl)) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
@@ -82,6 +83,7 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
             return R();
         }
         
+        // TODO: check if we need to create upvalues.
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
             // emit(TurboOpCode::SetUpvalue);
@@ -3009,7 +3011,7 @@ void TurboCodeGen::endScope() {
     while (!locals.empty() && locals.back().depth == scopeDepth) {
         if (locals.back().isCaptured) {
             // Local captured by closure → close it
-            // emit(TurboOpCode::OP_CLOSE_UPVALUE);
+            emit(TurboOpCode::CloseUpvalue);
         } else {
             // Normal local → just pop
             // emit(TurboOpCode::OP_POP);

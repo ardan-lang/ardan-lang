@@ -1513,25 +1513,35 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 //    break;
                 //}
                     
-                case TurboOpCode::CloseUpvalue: {
-//                    closeUpvalues(stack.empty() ? nullptr : &stack.back());
-//                    pop();
-                    break;
-                }
-                
-            case TurboOpCode::LoadUpvalue: {
+            case TurboOpCode::CloseUpvalue: {
+                //                    closeUpvalues(stack.empty() ? nullptr : &stack.back());
+                //                    pop();
+                // TODO: check this works
+                closeUpvalues(nullptr);
                 break;
             }
+                
+                // LoadUpvalue, reg_slot, upvalue
+            case TurboOpCode::LoadUpvalue: {
+                uint32_t idx = instruction.b;
+                frame->registers[instruction.a] = *frame->closure->upvalues[idx]->location;
+
+                break;
+            }
+                
+                // StoreUpvalueVar, upvalue, reg_slot
             case TurboOpCode::StoreUpvalueVar: {
+                *frame->closure->upvalues[instruction.a]->location = frame->registers[instruction.b];
                 break;
             }
             case TurboOpCode::StoreUpvalueLet: {
+                *frame->closure->upvalues[instruction.a]->location = frame->registers[instruction.b];
                 break;
             }
             case TurboOpCode::StoreUpvalueConst: {
+                *frame->closure->upvalues[instruction.a]->location = frame->registers[instruction.b];
                 break;
             }
-
                 
                 // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
             case TurboOpCode::SetClosureIsLocal: {
