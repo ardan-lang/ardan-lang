@@ -464,6 +464,7 @@ public:
 class ClassExpression : public Expression {
 public:
     Token token;
+    string name;
     unique_ptr<Expression> superClass;
     vector<unique_ptr<MethodDefinition>> body;
     vector<unique_ptr<PropertyDeclaration>> fields;
