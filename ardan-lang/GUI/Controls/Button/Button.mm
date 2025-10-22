@@ -1,109 +1,80 @@
 //
-//  Button.mm
+//  Button.cpp
 //  ardan-lang
 //
 //  Created by Chidume Nnamdi on 22/10/2025.
 //
 
+#include "Button.hpp"
 #import <Cocoa/Cocoa.h>
-#include <objc/runtime.h>
+#import <objc/runtime.h>
 
-#import "Button.hpp"
 #include "../../../Statements/Statements.hpp"
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
 
-shared_ptr<JSObject> Button::construct() {
-    
-    _button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 120, 32)];
-    [_button setButtonType:NSButtonTypeMomentaryPushIn];
-    [_button setBezelStyle:NSBezelStyleRounded];
-    [_button setTarget:nil];
-    [_button setAction:nil];
-    setup();
+@interface ButtonTarget : NSObject
+@property (nonatomic, copy) void (^callback)(void);
+- (void)onClick:(id)sender;
+@end
 
-    obj->set_builtin_value("setTitle", Value::native([this](const vector<Value>& args) -> Value {
-        [_button setTitle:[NSString stringWithUTF8String:args[0].stringValue.c_str()]];
+@implementation ButtonTarget
+- (void)onClick:(id)sender {
+    if (self.callback) self.callback();
+}
+@end
+
+static NSMutableArray<ButtonTarget *> *buttonTargets;
+
+std::shared_ptr<JSObject> Button::construct() {
+    if (!buttonTargets) buttonTargets = [NSMutableArray array];
+
+    button = [[NSButton alloc] initWithFrame:NSMakeRect(100, 100, 100, 40)];
+    [button setBezelStyle:NSBezelStyleRounded];
+    [button setTitle:@"Button"];
+    
+    // Wrap in JSObject
+    obj = make_shared<JSObject>();
+
+    obj->set_builtin_value("setTitle", Value::native([this](const std::vector<Value>& args) -> Value {
+        setTitle(args[0].stringValue);
+        return Value();
+    }));
+
+    obj->set_builtin_value("setFrame", Value::native([this](const std::vector<Value>& args) -> Value {
+        if (args.size() >= 4)
+            setPosition(args[0].numberValue, args[1].numberValue, args[2].numberValue, args[3].numberValue);
+        return Value();
+    }));
+
+    obj->set_builtin_value("onClick", Value::native([this](const std::vector<Value>& args) -> Value {
+        // args[0] expected to be JS function wrapped in Value
+        clickHandler = [fn = args[0]] {
+            // fn.call({});
+        };
+        onClick(clickHandler);
         return Value();
     }));
     
+    // obj->set_builtin_value("this", Value::)
+
     return obj;
 }
 
-Button::Button(const std::string& title) {
-    @autoreleasepool {
-        _button = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 120, 32)];
-        [_button setTitle:[NSString stringWithUTF8String:title.c_str()]];
-        [_button setButtonType:NSButtonTypeMomentaryPushIn];
-        [_button setBezelStyle:NSBezelStyleRounded];
-        [_button setTarget:nil];
-        [_button setAction:nil];
-        setup();
-    }
+void Button::setTitle(std::string title) {
+    [button setTitle:[NSString stringWithUTF8String:title.c_str()]];
 }
 
-Button::~Button() {
-    @autoreleasepool {
-        if (_button) {
-            // The NSButton is managed by ARC; no manual release
-            objc_setAssociatedObject(_button, "cppButtonTrampoline", nil, OBJC_ASSOCIATION_ASSIGN);
-            _button = nil;
-        }
-    }
+void Button::setPosition(float x, float y, float width, float height) {
+    [button setFrame:NSMakeRect(x, y, width, height)];
 }
 
-Button::Button(Button&& other) noexcept {
-    _button = other._button;
-    _onClick = std::move(other._onClick);
-    other._button = nullptr;
-}
-
-Button& Button::operator=(Button&& other) noexcept {
-    if (this != &other) {
-        _button = other._button;
-        _onClick = std::move(other._onClick);
-        other._button = nullptr;
-    }
-    return *this;
-}
-
-void Button::setup() {
-    attachAction();
-}
-
-void Button::attachAction() {
-    if (!_button) return;
-    //ButtonActionTrampoline* trampoline = [[ButtonActionTrampoline alloc] initWithCPPButton:this];
-    //[_button setTarget:trampoline];
-    [_button setAction:@selector(handleClick:)];
-    //objc_setAssociatedObject(_button, "cppButtonTrampoline", trampoline, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-void Button::setTitle(const std::string& title) {
-    if (_button) {
-        [_button setTitle:[NSString stringWithUTF8String:title.c_str()]];
-    }
-}
-
-void Button::setEnabled(bool enabled) {
-    if (_button) {
-        [_button setEnabled:enabled];
-    }
-}
-
-void Button::setOnClick(OnClickHandler handler) {
-    _onClick = std::move(handler);
-    attachAction();
-}
-
-void Button::show() {
-    if (_button) [_button setHidden:NO];
-}
-
-void Button::hide() {
-    if (_button) [_button setHidden:YES];
-}
-
-void* Button::nativeHandle() const {
-    return (__bridge void*)_button;
+void Button::onClick(std::function<void()> callback) {
+    ButtonTarget *target = [[ButtonTarget alloc] init];
+    target.callback = ^{
+        callback();
+    };
+    [button setTarget:target];
+    [button setAction:@selector(onClick:)];
+    [buttonTargets addObject:target]; // retain target
 }

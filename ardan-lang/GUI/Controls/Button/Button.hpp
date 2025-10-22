@@ -11,52 +11,40 @@
 #include <stdio.h>
 
 #pragma once
-
-#import <Cocoa/Cocoa.h>
-#include <objc/runtime.h>
+// #import <Cocoa/Cocoa.h>
+#include <string>
+#include <memory>
+#include <functional>
 
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include <string>
-#include <functional>
 
 using namespace std;
 
+// Forward declare ObjC classes as opaque types to avoid importing Cocoa
+#ifdef __OBJC__
+@class NSButton;
+#else
+typedef void NSButton;
+#endif
+
 class Button : public JSClass {
 public:
+    Button() {
+        is_native = true;
+    }
+
+    std::shared_ptr<JSObject> obj;
+
+    std::shared_ptr<JSObject> construct() override;
+
+    void setTitle(std::string title);
+    void setPosition(float x, float y, float width, float height);
+    void onClick(std::function<void()> callback);
     
-    shared_ptr<JSObject> obj = std::make_shared<JSObject>();
-    shared_ptr<JSObject> construct() override;
-
-    using OnClickHandler = std::function<void()>;
-
-    Button(const string& title);
-    ~Button();
-
-    // No copy (NSButton isn’t copyable)
-    Button(const Button&) = delete;
-    Button& operator=(const Button&) = delete;
-
-    // Move support (optional)
-    Button(Button&& other) noexcept;
-    Button& operator=(Button&& other) noexcept;
-
-    void setTitle(const string& title);
-    void setEnabled(bool enabled);
-    void setOnClick(OnClickHandler handler);
-
-    void show();
-    void hide();
-
-    // Returns underlying Cocoa button (if needed)
-    void* nativeHandle() const;
-
 private:
-    NSButton* _button;
-    OnClickHandler _onClick;
-
-    void setup();
-    void attachAction();
+    NSButton *button = nullptr;
+    std::function<void()> clickHandler;
 };
 
 #endif /* Button_hpp */
