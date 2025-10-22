@@ -34,9 +34,9 @@ public:
         is_native = true;
     }
 
-    std::shared_ptr<JSObject> obj;
+    shared_ptr<JSObject> obj;
 
-    std::shared_ptr<JSObject> construct() override;
+    shared_ptr<JSObject> construct() override;
 
     void setTitle(std::string title);
     void setPosition(float x, float y, float width, float height);

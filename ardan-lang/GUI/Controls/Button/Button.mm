@@ -26,7 +26,7 @@
 
 static NSMutableArray<ButtonTarget *> *buttonTargets;
 
-std::shared_ptr<JSObject> Button::construct() {
+shared_ptr<JSObject> Button::construct() {
     if (!buttonTargets) buttonTargets = [NSMutableArray array];
 
     button = [[NSButton alloc] initWithFrame:NSMakeRect(100, 100, 100, 40)];
@@ -56,7 +56,7 @@ std::shared_ptr<JSObject> Button::construct() {
         return Value();
     }));
     
-    // obj->set_builtin_value("this", Value::)
+    obj->setClass(shared_ptr<JSClass>(this));
 
     return obj;
 }

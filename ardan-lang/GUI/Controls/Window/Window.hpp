@@ -26,7 +26,7 @@ public:
     shared_ptr<JSObject> construct() override;
     
     void run();
-    void addComponent();
+    void addComponent(Value object);
     void setTitle(string title);
 };
 

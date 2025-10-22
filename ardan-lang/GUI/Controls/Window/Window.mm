@@ -54,7 +54,7 @@ std::shared_ptr<JSObject> Window::construct() {
     }));
 
     obj->set_builtin_value("addComponent", Value::native([this](const std::vector<Value>& args) -> Value {
-        addComponent();
+        addComponent(args[0]);
         return Value();
     }));
 
@@ -65,13 +65,14 @@ void Window::setTitle(std::string title) {
     [globalDelegate.window setTitle:[NSString stringWithUTF8String:title.c_str()]];
 }
 
-void Window::addComponent() {
-    NSButton *btn = [[NSButton alloc] initWithFrame:NSMakeRect(100, 100, 120, 40)];
-    [btn setTitle:@"Click Me!"];
-    [btn setBezelStyle:NSBezelStyleRounded];
-    [btn setTarget:nil];
-    [btn setAction:@selector(performClick:)];
-    [[globalDelegate.window contentView] addSubview:btn];
+void Window::addComponent(Value object) {
+//    NSButton *btn = [[NSButton alloc] initWithFrame:NSMakeRect(100, 100, 120, 40)];
+//    [btn setTitle:@"Click Me!"];
+//    [btn setBezelStyle:NSBezelStyleRounded];
+//    [btn setTarget:nil];
+//    [btn setAction:@selector(performClick:)];
+    auto control = object.objectValue->getKlass();
+    // [[globalDelegate.window contentView] addSubview:object.objectValue->getKlass()];
 }
 
 void Window::run() {
