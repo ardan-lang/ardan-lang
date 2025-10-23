@@ -2763,6 +2763,11 @@ R Interpreter::visitAwaitExpression(AwaitExpression* expr) {
     return expr->inner->accept(*this);
 }
 
+R Interpreter::visitUIExpression(UIViewExpression* visitor) {
+    return true;
+}
+
+
 //R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {
 //    // 1. Evaluate the tag function
 //    Value callee = evaluate(expr->tag.get());

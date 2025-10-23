@@ -278,6 +278,7 @@ public:
     R visitNullKeyword(NullKeyword* expr) override;
     R visitUndefinedKeyword(UndefinedKeyword* expr) override;
     R visitAwaitExpression(AwaitExpression* expr) override;
+    R visitUIExpression(UIViewExpression* visitor) override;
     
     R visitBreak(BreakStatement* stmt) override;
     R visitContinue(ContinueStatement* stmt) override;

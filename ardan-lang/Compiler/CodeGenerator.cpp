@@ -2398,6 +2398,10 @@ R CodeGen::visitClassExpression(ClassExpression* expr) {
     
 }
 
+R CodeGen::visitUIExpression(UIViewExpression* visitor) {
+    return true;
+}
+
 // --------------------- Utils ----------------------
 
 //void CodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {

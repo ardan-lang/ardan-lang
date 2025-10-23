@@ -111,6 +111,7 @@ public:
     R visitNullKeyword(NullKeyword* visitor) override;
     R visitUndefinedKeyword(UndefinedKeyword* visitor) override;
     R visitAwaitExpression(AwaitExpression* visitor) override;
+    R visitUIExpression(UIViewExpression* visitor) override;
     
 };
 

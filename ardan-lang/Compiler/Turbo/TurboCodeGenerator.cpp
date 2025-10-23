@@ -2863,6 +2863,10 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
+R TurboCodeGen::visitUIExpression(UIViewExpression* visitor) {
+    return true;
+}
+
 int TurboCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
     
     TurboCodeGen nested(module_);

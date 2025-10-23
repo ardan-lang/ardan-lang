@@ -45,6 +45,7 @@ class ClassExpression;
 class NullKeyword;
 class UndefinedKeyword;
 class AwaitExpression;
+class UIViewExpression;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -84,6 +85,7 @@ public:
     virtual R visitNullKeyword(NullKeyword* visitor) = 0;
     virtual R visitUndefinedKeyword(UndefinedKeyword* visitor) = 0;
     virtual R visitAwaitExpression(AwaitExpression* visitor) = 0;
+    virtual R visitUIExpression(UIViewExpression* visitor) = 0;
     
 };
 
