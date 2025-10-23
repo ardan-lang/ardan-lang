@@ -55,7 +55,9 @@ public:
 
     void set_proto_vm_var(const string& key, Value value, const vector<string> modifiers);
     void set_proto_vm_const(const string& key, Value value, const vector<string> modifiers);
-
+    bool is_constructor_available();
+    Value get_constructor();
+    
     virtual std::shared_ptr<JSObject> construct() {
         return nullptr;
     }

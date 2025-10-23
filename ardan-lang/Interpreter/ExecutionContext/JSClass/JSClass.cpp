@@ -185,3 +185,42 @@ void JSClass::set_proto_vm_var(const string& key, Value value, const vector<stri
 void JSClass::set_proto_vm_const(const string& key, Value value, const vector<string> modifiers) {
     const_proto_props[key] = { key, modifiers, value };
 }
+
+Value JSClass::get_constructor() {
+    
+    string key = "constructor";
+
+    auto var_proto_props_value = var_proto_props.find(key);
+    if (var_proto_props_value != var_proto_props.end()) {
+        
+        // when found, check if it
+        return var_proto_props_value->second.value;
+    }
+
+    auto const_proto_props_value = const_proto_props.find(key);
+    if (const_proto_props_value != const_proto_props.end()) {
+        
+        // when found, check if it
+        return const_proto_props_value->second.value;
+    }
+    
+    return Value();
+
+}
+
+bool JSClass::is_constructor_available() {
+    
+    string key = "constructor";
+    
+    auto var_proto_props_value = var_proto_props.find(key);
+    if (var_proto_props_value != var_proto_props.end()) {
+        return true;
+    }
+
+    auto const_proto_props_value = const_proto_props.find(key);
+    if (const_proto_props_value != const_proto_props.end()) {
+        return true;
+    }
+
+    return false;
+}
