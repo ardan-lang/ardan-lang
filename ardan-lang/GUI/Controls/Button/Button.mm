@@ -37,7 +37,6 @@ shared_ptr<JSObject> Button::construct() {
 
     NSButton* button = [[NSButton alloc] initWithFrame:NSMakeRect(100, 100, 100, 40)];
     [button setBezelStyle:NSBezelStyleRounded];
-    // [button setTitle:@"Button"];
 
     // Wrap in JSObject
     shared_ptr<JSObject> obj = make_shared<JSObject>();
@@ -89,18 +88,17 @@ shared_ptr<JSObject> Button::construct() {
 }
 
 void Button::setTitle(std::string title, shared_ptr<JSObject> obj_button) {
-    NSButton* button = obj_button->get("view").as<NSView*>();
+    NSButton* button = (NSButton*)obj_button->get("view").as<NSView*>();
     [button setTitle:[NSString stringWithUTF8String:title.c_str()]];
 }
 
 void Button::setPosition(float x, float y, float width, float height, shared_ptr<JSObject> obj_button) {
-    NSButton* button = obj_button->get("view").as<NSView*>();
-
+    NSButton* button = (NSButton*)obj_button->get("view").as<NSView*>();
     [button setFrame:NSMakeRect(x, y, width, height)];
 }
 
 void Button::onClick(std::function<void()> callback, shared_ptr<JSObject> obj_button) {
-    NSButton* button = obj_button->get("view").as<NSView*>();
+    NSButton* button = (NSButton*)obj_button->get("view").as<NSView*>();
     ButtonTarget *target = [[ButtonTarget alloc] init];
     target.callback = ^{
         callback();
