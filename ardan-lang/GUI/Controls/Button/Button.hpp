@@ -15,6 +15,7 @@
 #include <string>
 #include <memory>
 #include <functional>
+#include <ctime>
 
 #include "../View/View.hpp"
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
@@ -45,17 +46,17 @@ public:
 
     }
 
-    shared_ptr<JSObject> obj;
-
+    unordered_map<string, shared_ptr<JSObject>> button_objects;
     shared_ptr<JSObject> construct() override;
 
-    void setTitle(std::string title);
-    void setPosition(float x, float y, float width, float height);
-    void onClick(std::function<void()> callback);
+    void setTitle(std::string title, shared_ptr<JSObject> button);
+    void setPosition(float x, float y, float width, float height, shared_ptr<JSObject> obj_button);
+    void onClick(std::function<void()> callback, shared_ptr<JSObject> obj_button);
+    
     NSView* getNativeView() override;
     
 private:
-    NSButton *button = nullptr;
+    // NSButton *button = nullptr;
     std::function<void()> clickHandler;
 };
 
