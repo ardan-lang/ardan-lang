@@ -33,6 +33,7 @@ protected:
 
 public:
 
+    int _id;
     VM* vm;
     TurboVM* turboVM;
 
