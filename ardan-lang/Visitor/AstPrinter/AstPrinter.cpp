@@ -634,3 +634,7 @@ R AstPrinter::visitAwaitExpression(AwaitExpression* expr) {
     expr->inner->accept(*this);
     return true;
 }
+
+R AstPrinter::visitUIExpression(UIViewExpression* visitor) {
+    return true;
+}
