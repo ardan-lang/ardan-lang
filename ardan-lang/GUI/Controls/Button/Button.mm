@@ -12,6 +12,8 @@
 #include "../../../Statements/Statements.hpp"
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "../../../Compiler/VM/VM.hpp"
+#include "../../../Compiler/Turbo/TurboVM.hpp"
 
 @interface ButtonTarget : NSObject
 @property (nonatomic, copy) void (^callback)(void);
@@ -37,6 +39,20 @@ shared_ptr<JSObject> Button::construct() {
     
     // Wrap in JSObject
     obj = make_shared<JSObject>();
+    
+    obj->set_builtin_value("constructor", Value::native([this](const std::vector<Value>& args) -> Value {
+        
+        string name = args[0].stringValue;
+        setTitle(name);
+        
+        clickHandler = [this, args] {
+            obj->turboVM->callFunction(args[1], {});
+        };
+        
+        onClick(clickHandler);
+        
+        return Value();
+    }));
 
     obj->set_builtin_value("setTitle", Value::native([this](const std::vector<Value>& args) -> Value {
         setTitle(args[0].stringValue);
@@ -50,15 +66,17 @@ shared_ptr<JSObject> Button::construct() {
     }));
 
     obj->set_builtin_value("onClick", Value::native([this](const std::vector<Value>& args) -> Value {
-        // args[0] expected to be JS function wrapped in Value
-        clickHandler = [fn = args[0]] {
-            // fn.call({});
+        
+        clickHandler = [args, this] {
+            obj->turboVM->callFunction(args[1], {});
         };
+        
         onClick(clickHandler);
+        
         return Value();
     }));
     
-    obj->setClass(shared_ptr<JSClass>(this));
+    obj->set("view", Value::any((NSView*)button), "VAR", {});
 
     return obj;
 }

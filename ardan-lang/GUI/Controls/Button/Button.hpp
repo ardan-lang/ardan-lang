@@ -22,6 +22,9 @@
 
 using namespace std;
 
+class VM;
+class TurboVM;
+
 // Forward declare ObjC classes as opaque types to avoid importing Cocoa
 #ifdef __OBJC__
 @class NSButton;
@@ -33,6 +36,13 @@ class Button : public View {
 public:
     Button() {
         is_native = true;
+        
+        set_proto_vm_var("constructor", Value::native([this](const std::vector<Value>& args) -> Value {
+            
+            return Value();
+            
+        }), { "public" } );
+
     }
 
     shared_ptr<JSObject> obj;

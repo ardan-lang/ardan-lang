@@ -24,14 +24,14 @@
 
 static MyAppDelegate *globalDelegate = nil;
 
-std::shared_ptr<JSObject> Window::construct() {
+shared_ptr<JSObject> Window::construct() {
     
     NSApplication *app = [NSApplication sharedApplication];
     globalDelegate = [[MyAppDelegate alloc] init];
     globalDelegate.callbacks = [NSMutableArray array];
     [app setDelegate:globalDelegate];
 
-    NSRect frame = NSMakeRect(200, 200, 400, 300);
+    NSRect frame = NSMakeRect(0, 0, 0, 0);
     globalDelegate.window = [[NSWindow alloc]
         initWithContentRect:frame
                   styleMask:(NSWindowStyleMaskTitled |
@@ -42,6 +42,25 @@ std::shared_ptr<JSObject> Window::construct() {
 
     [globalDelegate.window makeKeyAndOrderFront:nil];
     [globalDelegate.window setTitle:@"Default Window"];
+    
+    // obj->set_builtin_value("constructor"
+    obj->set_builtin_value("constructor", Value::native([this](const std::vector<Value>& args) -> Value {
+        // first arg is window title
+        setTitle(args[0].toString());
+        // second arg is width
+        int width = args[1].numberValue;
+        // third arg is window height
+        int height = args[2].numberValue;
+        
+        int x = 100;
+        int y = 100;
+        
+        NSRect newFrame = NSMakeRect(x, y, width, height);
+        [globalDelegate.window setFrame:newFrame display:YES];
+        
+        return Value();
+        
+    }));
 
     obj->set_builtin_value("setTitle", Value::native([this](const std::vector<Value>& args) -> Value {
         setTitle(args[0].stringValue);
@@ -50,6 +69,12 @@ std::shared_ptr<JSObject> Window::construct() {
 
     obj->set_builtin_value("run", Value::native([this](const std::vector<Value>& args) -> Value {
         run();
+        return Value();
+    }));
+    
+    obj->set_builtin_value("setFrame", Value::native([this](const std::vector<Value>& args) -> Value {
+        if (args.size() >= 4)
+            setPosition(args[0].numberValue, args[1].numberValue, args[2].numberValue, args[3].numberValue);
         return Value();
     }));
 
@@ -65,14 +90,14 @@ void Window::setTitle(std::string title) {
     [globalDelegate.window setTitle:[NSString stringWithUTF8String:title.c_str()]];
 }
 
+void Window::setPosition(float x, float y, float width, float height) {
+    NSRect newFrame = NSMakeRect(x, y, width, height);
+    [globalDelegate.window setFrame:newFrame display:YES];
+}
+
 void Window::addComponent(Value object) {
-//    NSButton *btn = [[NSButton alloc] initWithFrame:NSMakeRect(100, 100, 120, 40)];
-//    [btn setTitle:@"Click Me!"];
-//    [btn setBezelStyle:NSBezelStyleRounded];
-//    [btn setTarget:nil];
-//    [btn setAction:@selector(performClick:)];
-    auto control = dynamic_cast<View*>(object.objectValue->getKlass().get());
-    [[globalDelegate.window contentView] addSubview: control->getNativeView()];
+    auto control_view = object.objectValue->get("view").as<NSView*>();
+    [[globalDelegate.window contentView] addSubview: control_view];
 }
 
 void Window::run() {

@@ -22,6 +22,12 @@ class Window : public JSClass {
 public:
     Window() {
         is_native = true;
+
+        set_proto_vm_var("constructor", Value::native([this](const std::vector<Value>& args) -> Value {
+            
+            return Value();
+            
+        }), { "public" } );
     }
 
     shared_ptr<JSObject> obj = make_shared<JSObject>();
@@ -30,6 +36,10 @@ public:
     void run();
     void addComponent(Value object);
     void setTitle(string title);
+    void setFrame(int x, int y, int w, int h);
+    void getFrame(int &x, int &y, int &w, int &h) const;
+    void setPosition(float x, float y, float width, float height);
+    
 };
 
 #endif /* Window_hpp */
