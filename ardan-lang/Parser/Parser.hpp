@@ -65,7 +65,8 @@ private:
     bool match(TokenType type);
     bool match(initializer_list<TokenType> types);
     Token consume(TokenType type, const string& message);
-
+    void stepBack(int steps);
+    
     Token consumeKeyword(const string& keyword);
     Token consumeKeyword(const string& keyword, const string& message);
     bool checkKeyword(const string& keyword);
@@ -485,6 +486,19 @@ private:
                 return make_unique<ArrowFunction>(make_unique<IdentifierExpression>(std::move(token_previous)), std::move(expr));
 
             }
+            
+            // Look ahead: if next is '{', treat as view expression
+            if (tokens[current + 1].type == TokenType::LEFT_BRACKET) {
+                return parseUIViewExpression();
+            }
+            
+            // SwiftUI-style: Button { ... } or Button(...) { ... }
+            if (peek().type == TokenType::LEFT_PARENTHESIS || peek().type == TokenType::LEFT_BRACKET) {
+                // Back up current to before ident so parseUIViewExpression() will work
+                // current--;
+                stepBack(1);
+                return parseUIViewExpression();
+            }
 
             return make_unique<IdentifierExpression>(std::move(token_previous));
             
@@ -659,6 +673,33 @@ private:
 //            auto literal = parseTemplateLiteral();
 //            return new TaggedTemplateExpression(tag, literal);
 //        }
+        
+    unique_ptr<Expression> parseUIViewExpression() {
+        // IDENTIFIER
+        Token ident = consume(TokenType::IDENTIFIER, "Expected view name");
+
+        // Gather argument list e.g Button("Click Me")
+        std::vector<std::unique_ptr<Expression>> args;
+        if (match(TokenType::LEFT_PARENTHESIS)) {
+            if (!check(TokenType::RIGHT_PARENTHESIS)) {
+                do {
+                    args.push_back(parseAssignment());
+                } while (match(TokenType::COMMA));
+            }
+            consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after arguments");
+        }
+
+        // Gather children block e.g Button { Text("Chidme Nnamdi") }
+        std::vector<std::unique_ptr<Expression>> children;
+        if (match(TokenType::LEFT_BRACKET)) { // '{'
+            while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+                children.push_back(parseUIViewExpression());
+            }
+            consume(TokenType::RIGHT_BRACKET, "Expected '}' after view children");
+        }
+
+        return make_unique<UIViewExpression>(ident.lexeme, /*"",*/ std::move(args), std::move(children));
+    }
     
     [[noreturn]] runtime_error error(const Token& token, const string& message) {
         string where = token.type == TokenType::END_OF_FILE

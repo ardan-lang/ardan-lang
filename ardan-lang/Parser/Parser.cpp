@@ -539,6 +539,10 @@ bool Parser::match(std::initializer_list<TokenType> types) {
     return false;
 }
 
+void Parser::stepBack(int steps) {
+    current = current - steps;
+}
+
 // Ensure the next token matches `type` or throw
 Token Parser::consume(TokenType type, const std::string& message) {
     if (check(type)) return advance();

@@ -12,6 +12,7 @@
 #include <memory>
 #include <vector>
 #include <cstring>
+#include <map>
 #include "../Expression/Expression.hpp"
 #include "StatementVisitor.hpp"
 #include "../Interpreter/R.hpp"
@@ -479,6 +480,29 @@ public:
 
     R accept(ExpressionVisitor& visitor) {
         return visitor.visitClassExpression(this);
+    }
+
+};
+
+class UIViewExpression : public Expression {
+public:
+    string name;
+    string viewType;
+    std::vector<std::unique_ptr<Expression>> args;
+    std::vector<std::unique_ptr<Expression>> children;
+    
+    UIViewExpression(string name,
+                     //string viewType,
+                     std::vector<std::unique_ptr<Expression>> args,
+                     std::vector<std::unique_ptr<Expression>> children)
+    :
+    name(name),
+    //viewType(std::move(viewType)),
+    args(std::move(args)),
+    children(std::move(children)) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitUIExpression(this);
     }
 
 };
