@@ -30,7 +30,9 @@
 
 #include "../../builtin/Print/Print.hpp"
 #include "../../builtin/builtin-includes.h"
-#include "../../GUI/gui.h"
+// #include "../../GUI/gui.h"
+#include "../../GUI/Controls/Button/Button.hpp"
+#include "../../GUI/Controls/Window/Window.hpp"
 #include "../../Interpreter/Promise/Promise.hpp"
 #include "../../builtin/Server/Server.hpp"
 #include "../../Interpreter/Env.h"
@@ -71,7 +73,8 @@ public:
     
     // Globals
     Env* env;
-    
+    EventLoop* event_loop;
+
     TurboVM(shared_ptr<TurboModule> module_ = nullptr);
     ~TurboVM();
     Value callFunction(Value callee, const vector<Value>& args);

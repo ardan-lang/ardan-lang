@@ -28,16 +28,21 @@ TurboVM::~TurboVM() {
 
 void TurboVM::init_builtins() {
     
+    event_loop = new EventLoop();
+    
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
-    //env->set_var("Server", make_shared<Server>(event_loop));
+    env->set_var("Server", make_shared<Server>(event_loop));
     
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
         return Value::nullVal();
     }));
-        
+    
+    env->set_var("Window", make_shared<Window>());
+    env->set_var("Button", make_shared<Button>());
+    
 }
 
 shared_ptr<Upvalue> TurboVM::captureUpvalue(Value* local) {
@@ -396,17 +401,17 @@ Value TurboVM::addCtor() {
     shared_ptr<TurboChunk> fnChunk = make_shared<TurboChunk>();
     fnChunk->arity = 0;
 
-//    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Nop));
+    // fnChunk->writeByte(static_cast<uint8_t>(OpCode::Nop));
     fnChunk->code.push_back({TurboOpCode::Nop, 0,0,0});
-//    fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
-//    fnChunk->writeUint8((uint8_t)0);
+    // fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
+    // fnChunk->writeUint8((uint8_t)0);
     fnChunk->code.push_back({TurboOpCode::SuperCall, 0,0,0});
 
     int constant_index = fnChunk->addConstant(Value::undefined());
     
-//    fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
-//    fnChunk->writeUint32(constant_index);
-//    fnChunk->writeByte(static_cast<uint8_t>(OpCode::Return));
+    // fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
+    // fnChunk->writeUint32(constant_index);
+    // fnChunk->writeByte(static_cast<uint8_t>(OpCode::Return));
     fnChunk->code
         .push_back({TurboOpCode::LoadConst, 0, (uint8_t)constant_index});
     fnChunk->code.push_back({TurboOpCode::Return, 0});
@@ -1091,7 +1096,10 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 if (klass.classValue->is_native == true) {
                     
                     // add constructor
-                    klass.classValue->set_var("constructor", addCtor(), { "public" } );
+                    // check if constructor exists
+                    if (!klass.classValue->is_constructor_available()) {
+                        klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
+                    }
 
                     shared_ptr<JSObject> native_object = klass.classValue->construct();
 
@@ -1100,7 +1108,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
                     set_js_object_closure(obj_value);
 
-                    frame->registers[instruction.a] = (obj_value);
+                    frame->registers[instruction.a] = obj_value;
 
                     break;
                 }
@@ -1112,11 +1120,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
                 shared_ptr<JSObject> obj = createJSObject(klass.classValue);
                 
-                Value obj_value;
-                obj_value.type = ValueType::OBJECT;
-                obj_value.objectValue = obj;
+                Value obj_value = Value::object(obj);
 
-                frame->registers[instruction.a] = (obj_value);
+                frame->registers[instruction.a] = obj_value;
 
                 break;
             }
@@ -1124,20 +1130,28 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // TurboOpCode::InvokeConstructor, reg, argRegs[0], (int)argRegs.size());
             case TurboOpCode::InvokeConstructor: {
                 
-                vector<Value> args;
+                // vector<Value> args;
                 
                 int start = instruction.b;
                 int count = instruction.c;
                 
-                for (int i = 0; i < count; i++) {
-                    int reg = start + i;
-                    args.push_back(frame->registers[reg]);
-                }
+//                for (int i = 0; i < count; i++) {
+//                    int reg = start + i;
+//                    args.push_back(frame->registers[reg]);
+//                }
+
+                const vector<Value> const_args = { argStack.begin(), argStack.end() };
+
+//                for (auto arg : argStack) {
+//                    args.push_back(frame->registers[arg.toString()]);
+//                }
+                
+                argStack.clear();
 
                 Value obj_value = frame->registers[instruction.a];
 
                 // call the constructor
-                invokeMethod(obj_value, "constructor", args);
+                invokeMethod(obj_value, "constructor", const_args);
 
                 frame->registers[instruction.a] = obj_value;
 

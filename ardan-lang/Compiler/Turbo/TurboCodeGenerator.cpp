@@ -718,12 +718,16 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
         emit(TurboOpCode::CreateInstance, reg);
 
         vector<int> argRegs;
-        argRegs.resize(expr->arguments.size());
+        // argRegs.resize(expr->arguments.size());
         // emit args count
         for (auto& arg : expr->arguments) {
             argRegs.push_back(get<int>(arg->accept(*this)));
         }
         
+        for (int argReg : argRegs) {
+            emit(TurboOpCode::PushArg, argReg);
+        }
+
         // TODO: set the arg start to -1 to denote no args
         emit(TurboOpCode::InvokeConstructor,
              reg,
@@ -1629,7 +1633,7 @@ R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // Concatenate all pieces
     int reg = allocRegister();
     
-    emit(TurboOpCode::LoadConst, reg, emitConstant(Value("")));
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::str("")));
     
     for (size_t i = 0; i < expr->quasis.size(); ++i) {
         int strReg = allocRegister();
