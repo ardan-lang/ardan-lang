@@ -44,7 +44,8 @@ enum class ValueType {
     PROMISE,
     FUNCTION_REF,
     CLOSURE,
-    CLASS
+    CLASS,
+    ANY
 };
 
 class Value;
@@ -73,7 +74,25 @@ public:
     shared_ptr<Promise> promiseValue;
     std::shared_ptr<FunctionObject> fnRef; // if FUNCTION_REF
     shared_ptr<Closure> closureValue;
+    std::any anyValue;
         
+    static Value any(std::any any) {
+        Value v;
+        v.type = ValueType::ANY;
+        v.anyValue = std::move(any);
+        return v;
+    }
+    
+    // --- Getters ---
+    template<typename T>
+    T as() const {
+        if (type != ValueType::ANY)
+            throw runtime_error("Value is not of type ANY");
+        return std::any_cast<T>(anyValue);
+    }
+    
+    bool is(ValueType t) const { return type == t; }
+    
     Value() : type(ValueType::UNDEFINED), numberValue(0), boolValue(false) {}
     
     static Value number(double n) { Value v; v.type = ValueType::NUMBER; v.numberValue = n; return v; }
@@ -110,7 +129,7 @@ public:
         v.classValue = klass;
         return v;
     }
-
+    
     static Value promise(shared_ptr<JSObject> promise_value) {
         Value v;
         v.type = ValueType::OBJECT;
@@ -141,7 +160,7 @@ public:
     Value(unsigned long long n);
     Value(float n);
     Value(long double n);
-
+    
     Value(const string& str);
     
     std::string toString() const;
@@ -154,26 +173,26 @@ public:
     
     bool operator==(const Value& rhs);
     
-//    friend std::ostream& operator<<(std::ostream& os, const Value& v) {
-//        switch(v.type) {
-//            case ValueType::NUMBER: os << v.numberValue; break;
-//            case ValueType::STRING: os << '"' << v.stringValue << '"'; break;
-//            case ValueType::BOOLEAN: os << (v.boolValue ? "true" : "false"); break;
-//            case ValueType::OBJECT: os << "[object Object]"; break;
-//            case ValueType::ARRAY: os << "[Array]"; break;
-//            case ValueType::UNDEFINED: os << "undefined"; break;
-//            case ValueType::NULLTYPE: os << "null"; break;
-//            case ValueType::NATIVE_FUNCTION: os << "[native function]"; break;
-//            case ValueType::FUNCTION: os << "[function]"; break;
-//            case ValueType::METHOD: os << "[method]"; break;
-//            case ValueType::PROMISE: os << "[Promise]"; break;
-//            case ValueType::FUNCTION_REF: os << "[FunctionRef]"; break;
-//            case ValueType::CLOSURE: os << "[Closure]"; break;
-//            case ValueType::CLASS: os << "[class]"; break;
-//            default: os << "[Unknown ValueType]"; break;
-//        }
-//        return os;
-//    }
+    //    friend std::ostream& operator<<(std::ostream& os, const Value& v) {
+    //        switch(v.type) {
+    //            case ValueType::NUMBER: os << v.numberValue; break;
+    //            case ValueType::STRING: os << '"' << v.stringValue << '"'; break;
+    //            case ValueType::BOOLEAN: os << (v.boolValue ? "true" : "false"); break;
+    //            case ValueType::OBJECT: os << "[object Object]"; break;
+    //            case ValueType::ARRAY: os << "[Array]"; break;
+    //            case ValueType::UNDEFINED: os << "undefined"; break;
+    //            case ValueType::NULLTYPE: os << "null"; break;
+    //            case ValueType::NATIVE_FUNCTION: os << "[native function]"; break;
+    //            case ValueType::FUNCTION: os << "[function]"; break;
+    //            case ValueType::METHOD: os << "[method]"; break;
+    //            case ValueType::PROMISE: os << "[Promise]"; break;
+    //            case ValueType::FUNCTION_REF: os << "[FunctionRef]"; break;
+    //            case ValueType::CLOSURE: os << "[Closure]"; break;
+    //            case ValueType::CLASS: os << "[class]"; break;
+    //            default: os << "[Unknown ValueType]"; break;
+    //        }
+    //        return os;
+    //    }
     
 };
 
