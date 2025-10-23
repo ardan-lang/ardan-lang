@@ -18,7 +18,7 @@
 #include "../builtin/builtin-includes.h"
 #include "../Scanner/Scanner.hpp"
 #include "../Parser/Parser.hpp"
-#include "../GUI/gui.h"
+// #include "../GUI/gui.h"
 #include "Promise/Promise.hpp"
 #include "../builtin/Server/Server.hpp"
 

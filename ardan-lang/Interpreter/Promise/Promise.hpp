@@ -39,7 +39,7 @@ public:
                 Value result = cb(v);
                 next->resolve(result);
             } catch (...) {
-                next->reject(Value("Error in then callback"));
+                next->reject(Value::str("Error in then callback"));
             }
             return Value::nullVal();
             //return Value::promise(shared_ptr<Promise>(then(cb)));
@@ -58,7 +58,7 @@ public:
                 Value result = cb(err);
                 next->resolve(result);
             } catch (...) {
-                next->reject(Value("Error in catch callback"));
+                next->reject(Value::str("Error in catch callback"));
             }
             return Value::nullVal();
         };
