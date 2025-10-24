@@ -50,6 +50,10 @@ unique_ptr<Statement> Parser::parseStatement() {
         }
         case TokenType::CLASS:
             return parseClassDeclaration();
+            
+        case TokenType::AT:
+                return parseUIViewStatement();
+            
         default:
             return parseExpressionStatement();
     }
@@ -514,6 +518,41 @@ unique_ptr<Statement> Parser::parseAsyncStatement() {
     }
         
     return stmt;
+    
+}
+
+unique_ptr<Statement> Parser::parseUIViewStatement() {
+    
+    consume(TokenType::AT, "Expected '@'.");
+    
+    // identifier
+    Token ident = consume(TokenType::IDENTIFIER, "Expected view name");
+
+    // argument list e.g., Button("Hello")
+    std::vector<std::unique_ptr<Expression>> args;
+    if (match(TokenType::LEFT_PARENTHESIS)) {
+        if (!check(TokenType::RIGHT_PARENTHESIS)) {
+            do {
+                args.push_back(parseAssignment());
+            } while (match(TokenType::COMMA));
+        }
+        consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after arguments");
+    }
+
+    // children block e.g., Button { ... }
+    std::vector<std::unique_ptr<Statement>> children;
+    if (match(TokenType::LEFT_BRACKET)) { // '{'
+        while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+            
+            auto stmt = parseStatement();
+            children.push_back(std::move(stmt));
+
+        }
+        consume(TokenType::RIGHT_BRACKET, "Expected '}' after view children");
+    }
+
+    // return make_unique<UIViewExpression>(ident.lexeme, std::move(args), std::move(children));
+    return make_unique<ExpressionStatement>(make_unique<UIViewExpression>(ident.lexeme, "", std::move(args), std::move(children)));
     
 }
 

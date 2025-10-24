@@ -462,6 +462,11 @@ vector<Token>& Scanner::getTokens() {
                 current--;
                 break;
                 
+                // if token is @
+            case '@':
+                addToken(TokenType::AT, "@");
+                break;
+
             default:
                 
                 if (isDigit()) {
@@ -863,6 +868,12 @@ void Scanner::collectIdentifier() {
             addToken(TokenType::BOOLEAN, kw);
         } else if (kw == "CLASS") {
             addToken(TokenType::CLASS, kw);
+        } else if (kw == "TYPEOF") {
+            addToken(TokenType::TYPEOF, kw);
+        } else if (kw == "DELETE") {
+            addToken(TokenType::DELETE, kw);
+        } else if (kw == "INSTANCEOF") {
+            addToken(TokenType::INSTANCEOF, kw);
         } else {
             addToken(TokenType::KEYWORD, kw);
         }
