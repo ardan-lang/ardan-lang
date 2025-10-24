@@ -119,6 +119,10 @@ private:
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
     
+    string type_of(Value value);
+    bool instance_of(Value a, Value b);
+    bool delete_op(Value object, Value property);
+
 };
 
 #endif /* TurboVM_hpp */

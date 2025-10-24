@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <cctype>
 #include "../Scanner/Token/Token.hpp"
 #include "../Scanner/Token/TokenType.h"
 #include "../Statements/Statements.hpp"
@@ -52,6 +53,7 @@ private:
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
     unique_ptr<Statement> parseImportDeclaration();
+    unique_ptr<Statement> parseUIViewStatement();
 
     vector<unique_ptr<Expression>> parseClassModifiers();
     void parseClassMember(vector<unique_ptr<MethodDefinition>>& methods, vector<unique_ptr<PropertyDeclaration>>& fields);
@@ -116,7 +118,8 @@ private:
             TokenType::BITWISE_XOR_ASSIGN,
             TokenType::LOGICAL_AND_ASSIGN,
             TokenType::LOGICAL_OR_ASSIGN,
-            TokenType::NULLISH_COALESCING_ASSIGN
+            TokenType::NULLISH_COALESCING_ASSIGN,
+            TokenType::INSTANCEOF
         })) {
             Token op = previous();
             auto right = parseAssignment();
@@ -273,7 +276,8 @@ private:
         if (match({
             TokenType::LOGICAL_NOT, TokenType::BITWISE_NOT,
             TokenType::INCREMENT, TokenType::DECREMENT,
-            TokenType::ADD, TokenType::MINUS
+            TokenType::ADD, TokenType::MINUS, TokenType::TYPEOF,
+            TokenType::DELETE
         })) {
             Token op = previous();
             auto right = parseUnary();
@@ -486,19 +490,6 @@ private:
                 return make_unique<ArrowFunction>(make_unique<IdentifierExpression>(std::move(token_previous)), std::move(expr));
 
             }
-            
-            // Look ahead: if next is '{', treat as view expression
-            if (tokens[current + 1].type == TokenType::LEFT_BRACKET) {
-                return parseUIViewExpression();
-            }
-            
-            // SwiftUI-style: Button { ... } or Button(...) { ... }
-            if (peek().type == TokenType::LEFT_PARENTHESIS || peek().type == TokenType::LEFT_BRACKET) {
-                // Back up current to before ident so parseUIViewExpression() will work
-                // current--;
-                stepBack(1);
-                return parseUIViewExpression();
-            }
 
             return make_unique<IdentifierExpression>(std::move(token_previous));
             
@@ -601,7 +592,8 @@ private:
             return make_unique<RestParameter>(name);
         }
 
-        throw error(peek(), "Unexpected token in primary expression");
+        throw error(peek(),
+                    "Unexpected token in primary expression " + peek().lexeme);
         
     }
     
@@ -673,40 +665,13 @@ private:
 //            auto literal = parseTemplateLiteral();
 //            return new TaggedTemplateExpression(tag, literal);
 //        }
-        
-    unique_ptr<Expression> parseUIViewExpression() {
-        // IDENTIFIER
-        Token ident = consume(TokenType::IDENTIFIER, "Expected view name");
-
-        // Gather argument list e.g Button("Click Me")
-        std::vector<std::unique_ptr<Expression>> args;
-        if (match(TokenType::LEFT_PARENTHESIS)) {
-            if (!check(TokenType::RIGHT_PARENTHESIS)) {
-                do {
-                    args.push_back(parseAssignment());
-                } while (match(TokenType::COMMA));
-            }
-            consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after arguments");
-        }
-
-        // Gather children block e.g Button { Text("Chidme Nnamdi") }
-        std::vector<std::unique_ptr<Expression>> children;
-        if (match(TokenType::LEFT_BRACKET)) { // '{'
-            while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
-                children.push_back(parseUIViewExpression());
-            }
-            consume(TokenType::RIGHT_BRACKET, "Expected '}' after view children");
-        }
-
-        return make_unique<UIViewExpression>(ident.lexeme, /*"",*/ std::move(args), std::move(children));
-    }
-    
-    [[noreturn]] runtime_error error(const Token& token, const string& message) {
+                
+    /*[[noreturn]]*/ runtime_error error(const Token& token, const string& message) {
         string where = token.type == TokenType::END_OF_FILE
         ? " at end"
         : " at '" + token.lexeme + "'";
         // return runtime_error("[line " + to_string(token.line) + "] Error" + where + ": " + message);
-        return runtime_error(message);
+        return runtime_error("[line " + to_string(token.line) + "] Error" + where + ": " + message);
     }
 
 };

@@ -81,6 +81,12 @@ enum class TokenType {
     INTERPOLATION_END,
     TEMPLATE_END,
     
+    TYPEOF,
+    INSTANCEOF,
+    DELETE,
+    
+    AT,
+    
     END_OF_FILE,
 };
 

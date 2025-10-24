@@ -430,6 +430,8 @@ TurboOpCode TurboCodeGen::getBinaryOp(const Token& op) {
         case TokenType::BITWISE_RIGHT_SHIFT: return TurboOpCode::ShiftRight;
         case TokenType::UNSIGNED_RIGHT_SHIFT:return TurboOpCode::UnsignedShiftRight;
             
+        case TokenType::INSTANCEOF: return TurboOpCode::InstanceOf;
+            
         default:
             throw std::runtime_error("Unknown binary operator in compiler: " + op.lexeme);
     }
@@ -807,6 +809,44 @@ R TurboCodeGen::visitConditional(ConditionalExpression* expr) {
 // --x, ++x, !x, -x
 R TurboCodeGen::visitUnary(UnaryExpression* expr) {
     
+    if (expr->op.type == TokenType::DELETE) {
+        
+        int reg = allocRegister();
+        
+        if (auto member = dynamic_cast<MemberExpression*>(expr->right.get())) {
+            
+            int objReg = get<int>(member->object->accept(*this));
+            
+            if (member->computed) {
+
+                int propertyReg = get<int>(member->property->accept(*this));
+
+                emit(TurboOpCode::Delete, reg, objReg, propertyReg);
+                
+                freeRegister(propertyReg);
+                
+            } else {
+                
+                int nameConst = emitConstant(Value::str(member->name.lexeme));
+                int propertyReg = allocRegister();
+                emit(TurboOpCode::LoadConst, propertyReg, nameConst);
+
+                emit(TurboOpCode::Delete, reg, objReg, propertyReg);
+                
+                freeRegister(propertyReg);
+                
+            }
+            
+            freeRegister(objReg);
+            
+        } else {
+            throw runtime_error("delete operator works on objects and arrays.");
+        }
+        
+        return reg;
+        
+    }
+    
     // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
         // ++x or --x
@@ -886,6 +926,7 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
         case TokenType::MINUS: emit(TurboOpCode::Negate, reg); break;
         case TokenType::BITWISE_NOT: emit(TurboOpCode::LogicalNot, reg); break;
         case TokenType::ADD: emit(TurboOpCode::Positive, reg); break;
+        case TokenType::TYPEOF: emit(TurboOpCode::TypeOf, reg); break;
         default: throw std::runtime_error("Unsupported unary op in CodeGen");
     }
     
@@ -2866,6 +2907,15 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
 R TurboCodeGen::visitUIExpression(UIViewExpression* visitor) {
     return true;
 }
+
+//Value Interpreter::visitUIExpression(UIExpression* expr) {
+//    auto component = createComponent(expr->name); // e.g. NSLabel, NSButton, etc.
+//    for (auto child : expr->children) {
+//        auto childValue = evaluate(child);
+//        component->addChild(childValue);
+//    }
+//    return component;
+//}
 
 int TurboCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
     

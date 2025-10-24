@@ -161,6 +161,10 @@ enum class TurboOpCode : uint8_t {
     GetParentObject,
     SuperCall,
     CreateObjectLiteral,
+    
+    TypeOf,
+    InstanceOf,
+    Delete,
 
     Halt
     

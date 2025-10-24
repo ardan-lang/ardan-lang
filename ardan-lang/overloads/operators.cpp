@@ -86,6 +86,11 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::INTERPOLATION_END: return os << "INTERPOLATION_END";
         case TokenType::TEMPLATE_END: return os << "TEMPLATE_END";
 
+        case TokenType::INSTANCEOF: return os << "INSTANCEOF";
+        case TokenType::DELETE: return os << "DELETE";
+        case TokenType::TYPEOF: return os << "TYPEOF";
+        case TokenType::AT: return os << "AT";
+
         case TokenType::END_OF_FILE: return os << "END_OF_FILE";
         default: return os << "UNKNOWN";
     }

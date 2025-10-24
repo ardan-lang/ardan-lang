@@ -119,6 +119,32 @@ bool TurboVM::equals(const Value &a, const Value &b) {
     }
 }
 
+string TurboVM::type_of(Value value) {
+    return value.type_of();
+}
+
+// checks if an object is an instance of a specific class or constructor function,
+// or if its prototype chain includes the prototype of the specified constructor.
+// obj, class
+bool TurboVM::instance_of(Value a, Value b) {
+    if (a.type != ValueType::OBJECT || b.type != ValueType::CLASS) {
+        return false;
+    }
+    auto proto = b.classValue;//->getPrototypeObject();
+    auto obj = a.objectValue;
+    while (obj) {
+        if (obj->getKlass().get() == proto.get()) return true;
+        obj = obj->parent_object; //prototype;
+    }
+    return false;
+}
+
+// delete property from object
+bool TurboVM::delete_op(Value object, Value property) {
+    setProperty(object, property.toString(), Value::undefined());
+    return true;
+}
+
 int TurboVM::getValueLength(Value& v) {
     
     if (v.type == ValueType::OBJECT) {
@@ -704,6 +730,36 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::Negate: {
                 Value a = frame->registers[instruction.a];
                 frame->registers[instruction.a] = Value(-a.numberValue);
+                break;
+            }
+                
+                // TurboOpCode::TypeOf, reg
+            case TurboOpCode::TypeOf: {
+                Value value = frame->registers[instruction.a];
+                frame->registers[instruction.a] = Value::str(type_of(value));
+                break;
+            }
+                
+                // TurboOpCode::Delete, reg, objReg, propertyReg
+            case TurboOpCode::Delete: {
+                
+                Value obj = frame->registers[instruction.b];
+                Value property = frame->registers[instruction.c];
+
+                frame->registers[instruction.a] = Value::boolean(delete_op(obj, property));
+                
+                break;
+            }
+
+                // checks if an object is an instance of a specific class or constructor function,
+                // or if its prototype chain includes the prototype of the specified constructor.
+                // obj, class
+            case TurboOpCode::InstanceOf: {
+
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] =  Value::boolean(instance_of(a,b));
+
                 break;
             }
 

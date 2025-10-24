@@ -170,6 +170,7 @@ public:
     int integer();
     bool boolean();
     bool isNull();
+    string type_of();
     
     bool operator==(const Value& rhs);
     

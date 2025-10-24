@@ -89,6 +89,7 @@ string Value::toString() const {
         case ValueType::FUNCTION_REF: return "fn";
         case ValueType::CLOSURE: return "closure";
         case ValueType::CLASS: return "class";
+        case ValueType::ANY: return "any";
     }
     return "undefined";
 }
@@ -109,6 +110,7 @@ bool Value::isTruthy() const {
         case ValueType::FUNCTION_REF: return true;
         case ValueType::CLOSURE: return true;
         case ValueType::CLASS: return true;
+        case ValueType::ANY: return true;
     }
     return false;
 }
@@ -133,6 +135,7 @@ int Value::integer() {
         case ValueType::FUNCTION_REF: return 1;
         case ValueType::CLOSURE: return 1;
         case ValueType::CLASS: return 1;
+        case ValueType::ANY: return 1;
     }
     return 0;
 }
@@ -153,6 +156,7 @@ bool Value::boolean() {
         case ValueType::FUNCTION_REF: return true;
         case ValueType::CLOSURE: return true;
         case ValueType::CLASS: return true;
+        case ValueType::ANY: return true;
     }
     return false;
 }
@@ -174,7 +178,29 @@ bool Value::isNull() {
         case ValueType::FUNCTION_REF: return false;
         case ValueType::CLOSURE: return false;
         case ValueType::CLASS: return false;
+        case ValueType::ANY: return false;
     }
     return false;
 
+}
+
+string Value::type_of() {
+    switch (type) {
+        case ValueType::NUMBER: return "number";
+        case ValueType::STRING: return "string";
+        case ValueType::BOOLEAN: return "boolean";
+        case ValueType::OBJECT: return "object";
+        case ValueType::NULLTYPE: return "null";
+        case ValueType::UNDEFINED: return "undefined";
+        case ValueType::NATIVE_FUNCTION: return "function";
+        case ValueType::FUNCTION: return "function";
+        case ValueType::METHOD: return "method";
+        case ValueType::ARRAY: return "array";
+        case ValueType::PROMISE: return "promise";
+        case ValueType::FUNCTION_REF: return "fn";
+        case ValueType::CLOSURE: return "closure";
+        case ValueType::CLASS: return "class";
+        case ValueType::ANY: return "any";
+    }
+    return "undefined";
 }
