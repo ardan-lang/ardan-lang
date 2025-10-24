@@ -207,6 +207,19 @@ i--;
 ```
 
 ⸻
+### Enum
+
+```
+enum Direction {
+    Up = 1,
+    Down,
+    Left,
+    Right,
+}
+
+let playerDirection = Direction.Up;
+console.log(playerDirection); // Output: 1
+```
 
 ### Functions
 
