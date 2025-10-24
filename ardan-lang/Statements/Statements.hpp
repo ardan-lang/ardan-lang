@@ -544,18 +544,21 @@ class UIViewExpression : public Expression {
 public:
     string name;
     string viewType;
-    std::vector<std::unique_ptr<Expression>> args;
-    std::vector<std::unique_ptr<Statement>> children;
+    vector<unique_ptr<Expression>> args;
+    vector<unique_ptr<Statement>> children;
+    vector<unique_ptr<Expression>> modifiers;
     
     UIViewExpression(string name,
                      string viewType,
-                     std::vector<std::unique_ptr<Expression>> args,
-                     std::vector<std::unique_ptr<Statement>> children)
+                     vector<std::unique_ptr<Expression>> args,
+                     vector<std::unique_ptr<Statement>> children,
+                     vector<unique_ptr<Expression>> modifiers)
     :
     name(name),
     viewType(viewType),
     args(std::move(args)),
-    children(std::move(children)) {}
+    children(std::move(children)),
+    modifiers(std::move(modifiers)) {}
     
     R accept(ExpressionVisitor& visitor) {
         return visitor.visitUIExpression(this);

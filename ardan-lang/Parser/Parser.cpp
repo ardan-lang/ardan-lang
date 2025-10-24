@@ -597,9 +597,22 @@ unique_ptr<Statement> Parser::parseUIViewStatement() {
         }
         consume(TokenType::RIGHT_BRACKET, "Expected '}' after view children");
     }
+    
+    vector<unique_ptr<Expression>> modifiers;
+    
+    while (true) {
+        if (match(TokenType::DOT)) {
+            
+            auto expr = parseAssignment();
+            modifiers.push_back(std::move(expr));
+            
+        }
+        else {
+            break;
+        }
+    }
 
-    // return make_unique<UIViewExpression>(ident.lexeme, std::move(args), std::move(children));
-    return make_unique<ExpressionStatement>(make_unique<UIViewExpression>(ident.lexeme, "", std::move(args), std::move(children)));
+    return make_unique<ExpressionStatement>(make_unique<UIViewExpression>(ident.lexeme, "", std::move(args), std::move(children), std::move(modifiers)));
     
 }
 

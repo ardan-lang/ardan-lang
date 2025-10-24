@@ -2906,6 +2906,14 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
 
 R TurboCodeGen::visitUIExpression(UIViewExpression* visitor) {
     
+//    // Emit instruction to create the UI element (e.g., VStack)
+//    emitCreateUI(visitor->type, visitor->props);
+//
+//    // Recursively initialize and render all children
+//    for (auto& child : visitor->children) {
+//        child->accept(*this);  // This will call visitUIExpression or other relevant method
+//    }
+
     return true;
 }
 
