@@ -55,6 +55,8 @@ std::unordered_map<std::string, std::string> keywords = {
     {"new", "NEW"}, {"delete", "DELETE"}, {"typeof", "TYPEOF"},
     {"instanceof", "INSTANCEOF"}, {"in", "IN"}, {"void", "VOID"},
     {"yield", "YIELD"}, {"await", "AWAIT"}, {"async", "ASYNC"},
+    
+    {"readonly", "READONLY"},
 
     // Literals / special
     {"true", "TRUE"}, {"false", "FALSE"}, {"null", "NULL"},
