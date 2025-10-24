@@ -643,3 +643,6 @@ R AstPrinter::visitEnumDeclaration(EnumDeclaration* stmt) {
     return true;
 }
 
+R AstPrinter::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}

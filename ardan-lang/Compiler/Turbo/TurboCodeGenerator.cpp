@@ -2964,6 +2964,10 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
 //    return component;
 //}
 
+R TurboCodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}
+
 int TurboCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
     
     TurboCodeGen nested(module_);

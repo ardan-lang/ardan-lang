@@ -2771,6 +2771,9 @@ R Interpreter::visitEnumDeclaration(EnumDeclaration* stmt) {
     return true;
 }
 
+R Interpreter::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}
 
 //R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {
 //    // 1. Evaluate the tag function

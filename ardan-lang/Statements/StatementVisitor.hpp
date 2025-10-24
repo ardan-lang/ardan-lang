@@ -34,6 +34,7 @@ class ForInStatement;
 class ForOfStatement;
 class ImportDeclaration;
 class EnumDeclaration;
+class InterfaceDeclaration;
 
 class StatementVisitor {
 public:
@@ -63,6 +64,7 @@ public:
     virtual R visitForOf(ForOfStatement* stmt) = 0;
     virtual R visitImportDeclaration(ImportDeclaration* stmt) = 0;
     virtual R visitEnumDeclaration(EnumDeclaration* stmt) = 0;
+    virtual R visitInterfaceDeclaration(InterfaceDeclaration* stmt) = 0;
 
 };
 

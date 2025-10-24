@@ -55,6 +55,13 @@ private:
     unique_ptr<Statement> parseImportDeclaration();
     unique_ptr<Statement> parseEnumStatement();
     unique_ptr<Statement> parseUIViewStatement();
+    
+    unique_ptr<Statement> parseInterfaceStatement();
+    unique_ptr<InterfaceMember> parseInterfaceMember();
+    vector<Parameter> parseInterfaceParameterList();
+    unique_ptr<TypeReference> parseTypeReference();
+    vector<unique_ptr<TypeReference>> parseTypeReferenceList();
+    vector<unique_ptr<TypeParameter>> parseTypeParametersOptional();
 
     vector<unique_ptr<Expression>> parseClassModifiers();
     void parseClassMember(vector<unique_ptr<MethodDefinition>>& methods, vector<unique_ptr<PropertyDeclaration>>& fields);

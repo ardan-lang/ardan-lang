@@ -169,7 +169,8 @@ public:
     R visitForIn(ForInStatement* stmt) override;
     R visitForOf(ForOfStatement* stmt) override;
     R visitEnumDeclaration(EnumDeclaration* stmt) override;
-
+    R visitInterfaceDeclaration(InterfaceDeclaration* stmt) override;
+    
 private:
     shared_ptr<Chunk> cur; // current chunk being emitted
     // locals map for current function: name -> slot index

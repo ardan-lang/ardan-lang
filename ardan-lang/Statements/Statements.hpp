@@ -489,6 +489,35 @@ public:
 
 };
 
+//enum class InterfaceType {
+//    MethodSignature,
+//    PropertySignature
+//};
+//
+//struct InterfaceMember {
+//    string name;
+//    InterfaceType type;
+//    vector<Expression> modifiers;
+//    vector<Expression> parameters;
+//};
+//
+//class InterfaceStatement : public Statement {
+//public:
+//    string name;
+//    Token token;
+//    vector<InterfaceMember> members;
+//    
+//    InterfaceStatement(string name,
+//                       Token token,
+//                       vector<InterfaceMember> members):
+//    name(name), token(token), members(std::move(members)) {}
+//    
+//    R accept(StatementVisitor& visitor) {
+//        return visitor.visitInterfaceStatement(this);
+//    }
+//
+//};
+
 class ClassExpression : public Expression {
 public:
     Token token;
@@ -533,5 +562,210 @@ public:
     }
 
 };
+
+// ---------interface----------
+
+struct TypeNode {
+    virtual ~TypeNode() = default;
+};
+
+// Identifier reference to a type (e.g., "User", "Promise<T>")
+//struct TypeReference : public TypeNode {
+//    Token name;
+//    vector<unique_ptr<TypeNode>> typeArguments;
+//
+//    TypeReference(Token name, vector<unique_ptr<TypeNode>> typeArguments = {})
+//        : name(name), typeArguments(std::move(typeArguments)) {}
+//};
+
+// Array type: string[]
+struct ArrayTypeNode : public TypeNode {
+    unique_ptr<TypeNode> elementType;
+    ArrayTypeNode(unique_ptr<TypeNode> elementType)
+        : elementType(std::move(elementType)) {}
+};
+
+// Union type: A | B
+struct UnionTypeNode : public TypeNode {
+    vector<unique_ptr<TypeNode>> types;
+    UnionTypeNode(vector<unique_ptr<TypeNode>> types)
+        : types(std::move(types)) {}
+};
+
+// Literal type: "ok" 42
+struct LiteralTypeNode : public TypeNode {
+    Token literal;
+    LiteralTypeNode(Token literal) : literal(literal) {}
+};
+
+// Function type: (a: string) => number
+struct FunctionTypeNode : public TypeNode {
+    vector<pair<string, unique_ptr<TypeNode>>> parameters;
+    unique_ptr<TypeNode> returnType;
+
+    FunctionTypeNode(vector<pair<string, unique_ptr<TypeNode>>> params,
+                     unique_ptr<TypeNode> returnType)
+        : parameters(std::move(params)), returnType(std::move(returnType)) {}
+};
+
+// Tuple type: [string, number]
+struct TupleTypeNode : public TypeNode {
+    vector<unique_ptr<TypeNode>> elements;
+    TupleTypeNode(vector<unique_ptr<TypeNode>> elements)
+        : elements(std::move(elements)) {}
+};
+
+// Parenthesized type: (A | B)
+struct ParenthesizedTypeNode : public TypeNode {
+    unique_ptr<TypeNode> inner;
+    ParenthesizedTypeNode(unique_ptr<TypeNode> inner)
+        : inner(std::move(inner)) {}
+};
+
+// -----------------------------
+// TypeReference Node
+// -----------------------------
+struct TypeReference {
+    string name;
+    vector<unique_ptr<TypeReference>> typeArguments;
+
+    TypeReference(string name) : name(std::move(name)) {}
+};
+
+// -----------------------------
+// TypeParameter (Generics)
+// -----------------------------
+struct TypeParameter {
+    string name;
+    unique_ptr<TypeReference> constraint;   // e.g. T extends SomeInterface
+    // unique_ptr<TypeReference> defaultType;  // e.g. T = string
+
+    TypeParameter(string name, unique_ptr<TypeReference> constraint)
+    : name(std::move(name)), constraint(std::move(constraint))/*, defaultType(nullptr)*/ {
+    }
+};
+
+// -----------------------------
+// Parameter Node
+// -----------------------------
+struct Parameter {
+    string name;
+    unique_ptr<TypeReference> type;
+    bool optional;
+
+    Parameter(string name, unique_ptr<TypeReference> type, bool optional = false)
+        : name(std::move(name)), type(std::move(type)), optional(optional) {}
+};
+
+// =======================================================
+// INTERFACE MEMBERS
+// =======================================================
+
+// Base class
+struct InterfaceMember {
+    virtual ~InterfaceMember() = default;
+};
+
+// -----------------------------
+// PropertySignature
+// -----------------------------
+struct PropertySignature : InterfaceMember {
+    string name;
+    unique_ptr<TypeReference> type;
+    bool optional;
+    bool readonly;
+
+    PropertySignature(string name, unique_ptr<TypeReference> type,
+                      bool optional = false, bool readonly = false)
+        : name(std::move(name)),
+          type(std::move(type)),
+          optional(optional),
+          readonly(readonly) {}
+};
+
+// -----------------------------
+// MethodSignature
+// -----------------------------
+struct MethodSignature : InterfaceMember {
+    string name;
+    vector<Parameter> parameters;
+    unique_ptr<TypeReference> returnType;
+    bool optional;
+
+    MethodSignature(string name,
+                    vector<Parameter> parameters,
+                    unique_ptr<TypeReference> returnType,
+                    bool optional = false)
+        : name(std::move(name)),
+          parameters(std::move(parameters)),
+          returnType(std::move(returnType)),
+          optional(optional) {}
+};
+
+// -----------------------------
+// CallSignature
+// -----------------------------
+struct CallSignature : InterfaceMember {
+    vector<Parameter> parameters;
+    unique_ptr<TypeReference> returnType;
+
+    CallSignature(vector<Parameter> parameters,
+                  unique_ptr<TypeReference> returnType)
+        : parameters(std::move(parameters)),
+          returnType(std::move(returnType)) {}
+};
+
+// -----------------------------
+// ConstructSignature
+// -----------------------------
+struct ConstructSignature : InterfaceMember {
+    vector<Parameter> parameters;
+    unique_ptr<TypeReference> returnType;
+
+    ConstructSignature(vector<Parameter> parameters,
+                       unique_ptr<TypeReference> returnType)
+        : parameters(std::move(parameters)),
+          returnType(std::move(returnType)) {}
+};
+
+// -----------------------------
+// IndexSignature
+// -----------------------------
+struct IndexSignature : InterfaceMember {
+    Parameter key;
+    unique_ptr<TypeReference> valueType;
+
+    IndexSignature(Parameter key, unique_ptr<TypeReference> valueType)
+        : key(std::move(key)), valueType(std::move(valueType)) {}
+};
+
+// =======================================================
+// INTERFACE DECLARATION
+// =======================================================
+struct InterfaceDeclaration : Statement {
+    Token token;
+    string name;
+    vector<unique_ptr<TypeParameter>> typeParameters;
+    vector<unique_ptr<TypeReference>> baseInterfaces; // extends clause
+    vector<unique_ptr<InterfaceMember>> members;
+
+    InterfaceDeclaration(Token token,
+                         string name,
+                         vector<unique_ptr<TypeParameter>> typeParameters,
+                         vector<unique_ptr<TypeReference>> baseInterfaces,
+                         vector<unique_ptr<InterfaceMember>> members)
+        : token(std::move(token)),
+          name(std::move(name)),
+          typeParameters(std::move(typeParameters)),
+          baseInterfaces(std::move(baseInterfaces)),
+          members(std::move(members)) {}
+
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitInterfaceDeclaration(this);
+    }
+    
+};
+
+// ---------end interface------------
 
 #endif /* Statements_hpp */

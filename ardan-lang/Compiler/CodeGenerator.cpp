@@ -2406,6 +2406,10 @@ R CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     return true;
 }
 
+R CodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}
+
 // --------------------- Utils ----------------------
 
 //void CodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {

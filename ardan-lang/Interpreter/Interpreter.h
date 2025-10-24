@@ -113,7 +113,7 @@ public:
     R visitAwaitExpression(AwaitExpression* visitor) override;
     R visitUIExpression(UIViewExpression* visitor) override;
     R visitEnumDeclaration(EnumDeclaration* stmt) override;
-
+    R visitInterfaceDeclaration(InterfaceDeclaration* stmt) override;
 };
 
 #endif /* Interpreter_hpp */

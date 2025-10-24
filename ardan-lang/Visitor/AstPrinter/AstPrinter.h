@@ -83,6 +83,7 @@ public:
     R visitUndefinedKeyword(UndefinedKeyword* visitor) override;
     R visitAwaitExpression(AwaitExpression* visitor) override;
     R visitUIExpression(UIViewExpression* visitor) override;
+    R visitInterfaceDeclaration(InterfaceDeclaration* stmt) override;
 
 };
 

@@ -47,6 +47,7 @@ unique_ptr<Statement> Parser::parseStatement() {
             if (peek().lexeme == ("IMPORT")) return parseImportDeclaration();
             if (peek().lexeme == "ASYNC") return parseAsyncStatement();
             if (peek().lexeme == "ENUM")  return parseEnumStatement();
+            if (peek().lexeme == "INTERFACE") return parseInterfaceStatement();
             else return parseExpressionStatement();
         }
         case TokenType::CLASS:
@@ -601,6 +602,207 @@ unique_ptr<Statement> Parser::parseUIViewStatement() {
     return make_unique<ExpressionStatement>(make_unique<UIViewExpression>(ident.lexeme, "", std::move(args), std::move(children)));
     
 }
+
+// ------------interface--------------
+
+unique_ptr<InterfaceMember> Parser::parseInterfaceMember() {
+    // Handle optional modifiers like "readonly"
+    bool isReadonly = false;
+    if (matchKeyword("READONLY")) {
+        isReadonly = true;
+    }
+
+    // Check for construct signature: "new (...)"
+    if (matchKeyword("NEW")) {
+        consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'new'");
+        vector<Parameter> params = parseInterfaceParameterList();
+        consume(TokenType::RIGHT_PARENTHESIS,
+                "Expected ')' after constructor parameters");
+
+        unique_ptr<TypeReference> returnType = nullptr;
+        if (match(TokenType::COLON)) {
+            returnType = parseTypeReference();
+        }
+
+        return std::make_unique<ConstructSignature>(std::move(params), std::move(returnType));
+    }
+
+    // Check for index signature: "[key: string]: Type"
+    if (match(TokenType::LEFT_BRACKET)) {
+        // Parse key parameter
+        string keyName = consume(TokenType::IDENTIFIER, "Expected parameter name").lexeme;
+        consume(TokenType::COLON, "Expected ':' after parameter name");
+        auto keyType = parseTypeReference();
+        consume(TokenType::RIGHT_BRACKET, "Expected ']' after key type");
+        consume(TokenType::COLON, "Expected ':' after index signature");
+
+        auto valueType = parseTypeReference();
+        return std::make_unique<IndexSignature>(
+            Parameter(keyName, std::move(keyType)),
+            std::move(valueType)
+        );
+    }
+
+    // For now, we expect an identifier or callable signature
+    Token name = consume(TokenType::IDENTIFIER, "Expected member name or signature");
+
+    // CALL SIGNATURE: "(param...): return"
+    if (check(TokenType::LEFT_PARENTHESIS)) {
+        consume(TokenType::LEFT_PARENTHESIS,
+                "Expected '(' after callable signature");
+        vector<Parameter> params = parseInterfaceParameterList();
+        consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after parameters");
+
+        unique_ptr<TypeReference> returnType = nullptr;
+        if (match(TokenType::COLON)) {
+            returnType = parseTypeReference();
+        }
+
+        return std::make_unique<CallSignature>(std::move(params), std::move(returnType));
+    }
+
+    // PROPERTY OR METHOD
+    bool optional = match(TokenType::TERNARY);
+
+    if (check(TokenType::LEFT_PARENTHESIS)) {
+        // Method signature
+        consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after method name");
+        vector<Parameter> params = parseInterfaceParameterList();
+        consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after parameters");
+
+        unique_ptr<TypeReference> returnType = nullptr;
+        if (match(TokenType::COLON)) {
+            returnType = parseTypeReference();
+        }
+
+        return std::make_unique<MethodSignature>(
+            name.lexeme,
+            std::move(params),
+            std::move(returnType),
+            optional
+        );
+    }
+
+    // PROPERTY SIGNATURE
+    consume(TokenType::COLON, "Expected ':' after property name");
+    auto typeRef = parseTypeReference();
+
+    // Optional trailing semicolon or comma
+    match(TokenType::SEMI_COLON);
+    match(TokenType::COMMA);
+
+    return std::make_unique<PropertySignature>(
+        name.lexeme,
+        std::move(typeRef),
+        optional,
+        isReadonly
+    );
+}
+
+vector<Parameter> Parser::parseInterfaceParameterList() {
+    vector<Parameter> params;
+
+    if (check(TokenType::RIGHT_PARENTHESIS)) return params; // Empty list
+
+    do {
+        string name = consume(TokenType::IDENTIFIER, "Expected parameter name").lexeme;
+        bool optional = match(TokenType::TERNARY);
+        // bool optional = match(TokenType::QUESTION);
+
+        consume(TokenType::COLON, "Expected ':' after parameter name");
+        auto typeRef = parseTypeReference();
+
+        params.emplace_back(name, std::move(typeRef), optional);
+
+    } while (match(TokenType::COMMA));
+
+    return params;
+}
+
+unique_ptr<TypeReference> Parser::parseTypeReference() {
+    string name = consume(TokenType::IDENTIFIER, "Expected type name").lexeme;
+    vector<unique_ptr<TypeReference>> typeArgs;
+
+    if (match(TokenType::LESS_THAN)) {
+        do {
+            typeArgs.push_back(parseTypeReference());
+        } while (match(TokenType::COMMA));
+        consume(TokenType::GREATER_THAN, "Expected '>' after type arguments");
+    }
+
+    auto typeRef = std::make_unique<TypeReference>(name);
+    typeRef->typeArguments = std::move(typeArgs);
+    return typeRef;
+}
+
+unique_ptr<Statement> Parser::parseInterfaceStatement() {
+    Token token = consumeKeyword("INTERFACE", "Expected 'interface'");
+    string name = consume(TokenType::IDENTIFIER, "Expected interface name").lexeme;
+
+    auto typeParams = parseTypeParametersOptional();
+    vector<unique_ptr<TypeReference>> bases;
+    if (matchKeyword("extends")) {
+        bases = parseTypeReferenceList();
+    }
+
+    consume(TokenType::LEFT_BRACKET, "Expected '{' after interface name");
+
+    vector<unique_ptr<InterfaceMember>> members;
+    while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
+        members.push_back(parseInterfaceMember());
+    }
+
+    consume(TokenType::RIGHT_BRACKET, "Expected '}' after interface body");
+
+    return make_unique<InterfaceDeclaration>(
+        token,
+        name,
+        std::move(typeParams),
+        std::move(bases),
+        std::move(members)
+    );
+}
+
+vector<unique_ptr<TypeParameter>> Parser::parseTypeParametersOptional() {
+    vector<unique_ptr<TypeParameter>> typeParams;
+
+    // Only proceed if '<' is next
+    if (!match(TokenType::LESS_THAN)) {
+        return typeParams;
+    }
+
+    do {
+        // Each type parameter must be an identifier
+        Token name = consume(TokenType::IDENTIFIER, "Expected type parameter name");
+        unique_ptr<TypeReference> constraint = nullptr;
+
+        // Check if there is a constraint, e.g. "T extends SomeType"
+        if (matchKeyword("EXTENDS")) {
+            constraint = parseTypeReference();
+        }
+
+        typeParams
+            .push_back(make_unique<TypeParameter>(name.lexeme, std::move(constraint)));
+
+    } while (match(TokenType::COMMA));
+
+    consume(TokenType::GREATER_THAN, "Expected '>' after type parameters");
+
+    return typeParams;
+}
+
+vector<unique_ptr<TypeReference>> Parser::parseTypeReferenceList() {
+    vector<unique_ptr<TypeReference>> types;
+
+    do {
+        auto typeRef = parseTypeReference();
+        types.push_back(std::move(typeRef));
+    } while (match(TokenType::COMMA));
+
+    return types;
+}
+
+// ------------end interface----------
 
 // ───────────── Helpers ─────────────
 
