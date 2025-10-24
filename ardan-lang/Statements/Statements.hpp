@@ -466,6 +466,12 @@ struct EnumMember {
     string name;
     unique_ptr<Expression> value;
     int computedValue;
+    
+    // EnumMember(const EnumMember&) = delete;
+    // EnumMember& operator=(const EnumMember&) = delete;
+    // EnumMember(EnumMember&&) = default;
+    // EnumMember& operator=(EnumMember&&) = default;
+    
 };
 
 class EnumDeclaration : public Statement {

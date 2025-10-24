@@ -2905,6 +2905,7 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
 }
 
 R TurboCodeGen::visitUIExpression(UIViewExpression* visitor) {
+    
     return true;
 }
 
