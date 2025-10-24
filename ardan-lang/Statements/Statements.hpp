@@ -489,15 +489,15 @@ public:
     string name;
     string viewType;
     std::vector<std::unique_ptr<Expression>> args;
-    std::vector<std::unique_ptr<Expression>> children;
+    std::vector<std::unique_ptr<Statement>> children;
     
     UIViewExpression(string name,
-                     //string viewType,
+                     string viewType,
                      std::vector<std::unique_ptr<Expression>> args,
-                     std::vector<std::unique_ptr<Expression>> children)
+                     std::vector<std::unique_ptr<Statement>> children)
     :
     name(name),
-    //viewType(std::move(viewType)),
+    viewType(viewType),
     args(std::move(args)),
     children(std::move(children)) {}
     
