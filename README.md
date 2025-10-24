@@ -207,6 +207,44 @@ i--;
 ```
 
 ⸻
+### typeof
+
+```
+typeof 67; // number
+```
+
+### delete
+
+```
+class Person {
+    var name;
+}
+
+const john = new Person();
+john.name = "John";
+const arr = [1, 2, 3];
+
+console.log(john.name); // John
+console.log(delete john.name); // undefined
+console.log(john.name); // undefined
+
+console.log(arr[0]);   // 1
+console.log(delete arr[0]);   // undefined
+console.log(arr[0]);   // undefined
+```
+
+### instanceof
+
+```
+class Person {}
+
+const john = new Person();
+const arr = [1, 2, 3];
+
+console.log(john instanceof Person); // true
+console.log(arr instanceof Person);   // false
+```
+
 ### Enum
 
 ```
