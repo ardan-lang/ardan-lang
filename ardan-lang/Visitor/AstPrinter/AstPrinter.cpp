@@ -638,3 +638,8 @@ R AstPrinter::visitAwaitExpression(AwaitExpression* expr) {
 R AstPrinter::visitUIExpression(UIViewExpression* visitor) {
     return true;
 }
+
+R AstPrinter::visitEnumDeclaration(EnumDeclaration* stmt) {
+    return true;
+}
+

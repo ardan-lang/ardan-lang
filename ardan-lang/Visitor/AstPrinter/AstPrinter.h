@@ -45,7 +45,8 @@ public:
     R visitTry(TryStatement* stmt) override;
     R visitForIn(ForInStatement* stmt) override;
     R visitForOf(ForOfStatement* stmt) override;
-    
+    R visitEnumDeclaration(EnumDeclaration* stmt) override;
+
     // -------- Expressions --------
     R visitLiteral(LiteralExpression* expr) override;
     R visitIdentifier(IdentifierExpression* expr) override;

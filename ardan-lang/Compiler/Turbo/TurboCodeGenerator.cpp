@@ -2908,6 +2908,52 @@ R TurboCodeGen::visitUIExpression(UIViewExpression* visitor) {
     return true;
 }
 
+R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
+    
+    int nameIdx = emitConstant(Value::str(stmt->name));
+    
+    int enumNameReg = allocRegister();
+    emit(TurboOpCode::LoadConst, enumNameReg, nameIdx);
+    
+    emit(TurboOpCode::CreateEnum, enumNameReg);
+    
+    for(auto& member : stmt->members) {
+
+        int memberNameReg = allocRegister();
+        int propIndex = emitConstant(Value::str(member.name));
+        emit(TurboOpCode::LoadConst, memberNameReg, propIndex);
+
+        int valueReg = -1;
+        
+        if (member.value == nullptr) {
+            valueReg = allocRegister();
+            int idx = emitConstant(Value::str(to_string(member.computedValue)));
+            emit(TurboOpCode::LoadConst, valueReg, idx);
+            
+        } else {
+            valueReg = get<int>(member.value->accept(*this));
+        }
+        
+        emit(TurboOpCode::SetEnumProperty,
+             enumNameReg,
+             memberNameReg,
+             valueReg);
+        
+        declareLocal(stmt->name);
+        declareLocal(stmt->name);
+        create(stmt->name, enumNameReg, BindingKind::Var);
+        
+        freeRegister(valueReg);
+        freeRegister(memberNameReg);
+        
+    }
+    
+    freeRegister(enumNameReg);
+    
+    return true;
+    
+}
+
 //Value Interpreter::visitUIExpression(UIExpression* expr) {
 //    auto component = createComponent(expr->name); // e.g. NSLabel, NSButton, etc.
 //    for (auto child : expr->children) {

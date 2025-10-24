@@ -46,6 +46,7 @@ unique_ptr<Statement> Parser::parseStatement() {
             if (peek().lexeme == ("FUNCTION")) return parseFunctionDeclaration();
             if (peek().lexeme == ("IMPORT")) return parseImportDeclaration();
             if (peek().lexeme == "ASYNC") return parseAsyncStatement();
+            if (peek().lexeme == "ENUM")  return parseEnumStatement();
             else return parseExpressionStatement();
         }
         case TokenType::CLASS:
@@ -518,6 +519,51 @@ unique_ptr<Statement> Parser::parseAsyncStatement() {
     }
         
     return stmt;
+    
+}
+
+// If the first member has no initializer, its value defaults to 0.
+// Each subsequent member without an initializer gets previousMemberValue + 1.
+// If a member has an initializer, its value becomes that expression’s result.
+// Auto-increment resumes from the last computed value.
+
+unique_ptr<Statement> Parser::parseEnumStatement() {
+    
+    Token token = peek();
+    
+    consumeKeyword(peek().lexeme, "Expected 'enum'");
+    
+    string name = consume(TokenType::IDENTIFIER, "Expected enum name").lexeme;
+    
+    consume(TokenType::LEFT_BRACKET, "Expected '{'");
+    
+    vector<EnumMember> members;
+    
+    int lastValue = 0;
+    bool first = true;
+    
+    do {
+        string memberName = consume(TokenType::IDENTIFIER, "Expected member name").lexeme;
+        unique_ptr<Expression> value = nullptr;
+        int computedValue = 0;
+        
+        if (match(TokenType::ASSIGN)) {
+            value = parseAssignment();
+        } else {
+            if (first)
+                computedValue = 0;
+            else
+                computedValue = ++lastValue;
+        }
+        first = false;
+        
+        members.push_back({ memberName, std::move(value), computedValue });
+        
+    } while (match(TokenType::COMMA) && !check(TokenType::RIGHT_BRACKET));
+    
+    consume(TokenType::RIGHT_BRACKET, "Expected '}' after enum members");
+    
+    return std::make_unique<EnumDeclaration>(token, name, std::move(members));
     
 }
 

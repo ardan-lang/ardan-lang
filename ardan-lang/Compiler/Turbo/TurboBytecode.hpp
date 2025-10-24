@@ -165,6 +165,9 @@ enum class TurboOpCode : uint8_t {
     TypeOf,
     InstanceOf,
     Delete,
+    
+    CreateEnum,
+    SetEnumProperty,
 
     Halt
     

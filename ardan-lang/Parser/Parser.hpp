@@ -53,6 +53,7 @@ private:
     unique_ptr<Statement> parseFunctionDeclaration();
     unique_ptr<Statement> parseClassDeclaration();
     unique_ptr<Statement> parseImportDeclaration();
+    unique_ptr<Statement> parseEnumStatement();
     unique_ptr<Statement> parseUIViewStatement();
 
     vector<unique_ptr<Expression>> parseClassModifiers();

@@ -1188,19 +1188,19 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // vector<Value> args;
                 
-                int start = instruction.b;
-                int count = instruction.c;
+                // int start = instruction.b;
+                // int count = instruction.c;
                 
-//                for (int i = 0; i < count; i++) {
-//                    int reg = start + i;
-//                    args.push_back(frame->registers[reg]);
-//                }
+                // for (int i = 0; i < count; i++) {
+                    // int reg = start + i;
+                    // args.push_back(frame->registers[reg]);
+                // }
 
                 const vector<Value> const_args = { argStack.begin(), argStack.end() };
 
-//                for (auto arg : argStack) {
-//                    args.push_back(frame->registers[arg.toString()]);
-//                }
+                // for (auto arg : argStack) {
+                    // args.push_back(frame->registers[arg.toString()]);
+                // }
                 
                 argStack.clear();
 
@@ -1360,6 +1360,29 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // pop obj
                 frame->registers[instruction.a] = (Value::object(obj));
 
+                break;
+            }
+                
+                // TurboOpCode::CreateEnum, enumNameReg
+            case TurboOpCode::CreateEnum: {
+                
+                auto enum_value_obj = createJSObject(make_shared<JSClass>());
+                frame->registers[instruction.a] = Value::object(enum_value_obj);
+                
+                break;
+            }
+                
+                // TurboOpCode::SetEnumProperty, enumNameReg, memberNameReg, valueReg
+            case TurboOpCode::SetEnumProperty: {
+                
+                Value enum_obj = frame->registers[instruction.a];
+                Value prop_value = frame->registers[instruction.b];
+                Value value = frame->registers[instruction.c];
+                
+                setProperty(enum_obj, prop_value.toString(), value);
+                
+                frame->registers[instruction.a] = enum_obj;
+                
                 break;
             }
                 

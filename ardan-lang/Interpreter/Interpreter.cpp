@@ -2767,6 +2767,10 @@ R Interpreter::visitUIExpression(UIViewExpression* visitor) {
     return true;
 }
 
+R Interpreter::visitEnumDeclaration(EnumDeclaration* stmt) {
+    return true;
+}
+
 
 //R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {
 //    // 1. Evaluate the tag function

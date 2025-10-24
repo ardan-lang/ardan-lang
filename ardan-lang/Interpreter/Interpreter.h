@@ -112,7 +112,8 @@ public:
     R visitUndefinedKeyword(UndefinedKeyword* visitor) override;
     R visitAwaitExpression(AwaitExpression* visitor) override;
     R visitUIExpression(UIViewExpression* visitor) override;
-    
+    R visitEnumDeclaration(EnumDeclaration* stmt) override;
+
 };
 
 #endif /* Interpreter_hpp */

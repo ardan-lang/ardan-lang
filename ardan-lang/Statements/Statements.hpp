@@ -462,6 +462,27 @@ public:
 
 };
 
+struct EnumMember {
+    string name;
+    unique_ptr<Expression> value;
+    int computedValue;
+};
+
+class EnumDeclaration : public Statement {
+public:
+    Token token;
+    string name;
+    vector<EnumMember> members;
+    
+    EnumDeclaration(Token token, string name, vector<EnumMember> members)
+    : token(token), name(name), members(std::move(members)) {}
+    
+    R accept(StatementVisitor& visitor) {
+        return visitor.visitEnumDeclaration(this);
+    }
+
+};
+
 class ClassExpression : public Expression {
 public:
     Token token;

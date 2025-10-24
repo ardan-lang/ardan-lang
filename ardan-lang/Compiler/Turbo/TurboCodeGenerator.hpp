@@ -279,7 +279,8 @@ public:
     R visitUndefinedKeyword(UndefinedKeyword* expr) override;
     R visitAwaitExpression(AwaitExpression* expr) override;
     R visitUIExpression(UIViewExpression* visitor) override;
-    
+    R visitEnumDeclaration(EnumDeclaration* stmt) override;
+
     R visitBreak(BreakStatement* stmt) override;
     R visitContinue(ContinueStatement* stmt) override;
     R visitThrow(ThrowStatement* stmt) override;

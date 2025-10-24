@@ -2402,6 +2402,10 @@ R CodeGen::visitUIExpression(UIViewExpression* visitor) {
     return true;
 }
 
+R CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
+    return true;
+}
+
 // --------------------- Utils ----------------------
 
 //void CodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
