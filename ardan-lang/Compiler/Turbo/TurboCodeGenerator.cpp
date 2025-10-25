@@ -48,14 +48,16 @@ R TurboCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
     // decide local or global
     if (hasLocal(decl)) {
         uint32_t idx = getLocal(decl);
-        
-        if (locals[idx].kind == BindingKind::Const) {
-            throw std::runtime_error("Assignment to constant variable.");
-        }
-        
+                
         switch (kind) {
             case BindingKind::Var:
-                op = TurboOpCode::CreateLocalVar;
+                
+                if (enclosing == nullptr) {
+                    op = TurboOpCode::CreateGlobalVar;
+                } else {
+                    op = TurboOpCode::CreateLocalVar;
+                }
+                
                 break;
             case BindingKind::Let:
                 op = TurboOpCode::CreateLocalLet;
@@ -127,7 +129,7 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
         Local local = locals[idx];
         
         if (locals[idx].kind == BindingKind::Const) {
-            throw std::runtime_error("Assignment to constant variable.");
+            throw std::runtime_error("Cannot assign value to constant variable.");
         }
         
         if (local.kind == BindingKind::Var) {
@@ -138,7 +140,12 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
         
     } else {
         
-        if (lookupClassProperty(decl) == 1) {
+        TurboCodeGen::PropertyLookup classProperty = lookupClassProperty(decl);
+        if (classProperty.level > 0 && classProperty.meta.kind == BindingKind::Const) {
+            throw runtime_error("Cannot assign value to a const field.");
+        }
+        
+        if (classProperty.level == 1) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
@@ -151,7 +158,7 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
             
             return true;
             
-        } else if (lookupClassProperty(decl) == 2) {
+        } else if (classProperty.level == 2) {
             
             int nameIdx = emitConstant(Value::str(decl));
             
@@ -187,6 +194,10 @@ R TurboCodeGen::store(string decl, uint32_t reg_slot) {
         int nameIdx = emitConstant(Value::str(decl));
         Global global = globals[lookupGlobal(decl)];
         
+        if (global.kind == BindingKind::Const) {
+            throw runtime_error("Cannot assign value to a const expression");
+        }
+        
         if (global.kind == BindingKind::Var) {
             emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
         } else if (global.kind == BindingKind::Let) {
@@ -209,8 +220,8 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
     } else {
         
         // search if decl is in class fields
-        int result = lookupClassProperty(decl);
-        if (result == 1) {
+        TurboCodeGen::PropertyLookup result = lookupClassProperty(decl);
+        if (result.level == 1) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
@@ -221,7 +232,7 @@ R TurboCodeGen::load(string decl, uint32_t reg_slot) {
             // int nameIdx = emitConstant(Value::str(decl));
             // emitUint32(nameIdx);
             return true;
-        } else if (result == 2) {
+        } else if (result.level == 2) {
             // exists in parent class
             
             int nameIdx = emitConstant(Value::str(decl));
@@ -258,6 +269,8 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
         // Allocate a register slot for this variable
         int slot = allocRegister();
         
+        BindingKind bindingKind = get_kind(kind);
+        
         // If initializer: compile it, store result in slot
         if (decl.init) {
             int initReg = get<int>(decl.init->accept(*this));
@@ -269,10 +282,15 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
             }
 
         } else {
+            
+            if (bindingKind == BindingKind::Const) {
+                throw runtime_error("Const must be initialized on declaration.");
+            }
+            
             emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
         }
 
-        declareLocal(decl.id);
+        declareLocal(decl.id, get_kind(kind));
         declareGlobal(decl.id, get_kind(kind));
         
         create(decl.id, slot, get_kind(kind));
@@ -1657,7 +1675,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     
     // closure_infos[to_string(ci)] = closure_info;
 
-    declareLocal(stmt->id);
+    declareLocal(stmt->id, BindingKind::Var);
     declareGlobal(stmt->id, BindingKind::Var);
     
     create(stmt->id, closureChunkIndexReg, BindingKind::Var);
@@ -1840,19 +1858,20 @@ R TurboCodeGen::visitContinue(ContinueStatement*) {
 
 R TurboCodeGen::visitEmpty(EmptyStatement*) { return 0; }
 
-int TurboCodeGen::lookupClassProperty(string prop_name) {
+TurboCodeGen::PropertyLookup TurboCodeGen::lookupClassProperty(string prop_name) {
     
     if(classInfo.fields.count(prop_name)) {
-        return 1;
+        return { 1, classInfo.fields[prop_name] };
     }
     
     string super_class_name = classInfo.super_class_name;
     auto super_class_info = classes[super_class_name];
+
     if (super_class_info.fields.count(prop_name)) {
-        return 2;
+        return { 2, super_class_info.fields[prop_name] };
     }
     
-    return -1;
+    return { -1 , {} };
 }
 
 int TurboCodeGen::compileMethod(MethodDefinition& method) {
@@ -2069,7 +2088,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
 
-    declareLocal(stmt->id);
+    declareLocal(stmt->id, BindingKind::Var);
     declareGlobal(stmt->id, BindingKind::Var);
     create(stmt->id, super_class_reg, BindingKind::Var);
 
@@ -2724,7 +2743,7 @@ R TurboCodeGen::visitTry(TryStatement* stmt) {
         beginScope();
         
         // Bind catch parameter
-        declareLocal(stmt->handler->param);
+        declareLocal(stmt->handler->param, BindingKind::Let);
         uint32_t idx = getLocal(stmt->handler->param);
         emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
         
@@ -2948,8 +2967,7 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
              memberNameReg,
              valueReg);
         
-        declareLocal(stmt->name);
-        declareLocal(stmt->name);
+        declareLocal(stmt->name, BindingKind::Var);
         create(stmt->name, enumNameReg, BindingKind::Var);
         
         freeRegister(valueReg);
@@ -3217,7 +3235,7 @@ void TurboCodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<stri
     if (cur) cur->maxLocals = nextLocalSlot;
 }
 
-void TurboCodeGen::declareLocal(const string& name) {
+void TurboCodeGen::declareLocal(const string& name, BindingKind kind) {
     if (scopeDepth == 0) return; // globals aren’t locals
 
     // prevent shadowing in same scope
@@ -3230,7 +3248,7 @@ void TurboCodeGen::declareLocal(const string& name) {
 
     uint32_t idx = (uint32_t)locals.size();
 
-    Local local { name, scopeDepth, false, (uint32_t)locals.size() };
+    Local local { name, scopeDepth, false, (uint32_t)locals.size(), kind };
     locals.push_back(local);
     
     if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
@@ -3250,6 +3268,20 @@ void TurboCodeGen::declareGlobal(const string& name, BindingKind kind) {
     Global global { name, kind };
     globals.push_back(global);
     
+}
+
+void TurboCodeGen::createVariable(const std::string& name, BindingKind kind) {
+    // do not declare as local if Var and its not inside a function body
+    // do not declare as local if its var and the scopedepth is > 0
+
+    // --------- let scoping check-----------
+    bool IsVar = (kind == BindingKind::Var) ? true : false;
+    
+    if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
+        return;
+    }
+    // --------- end of let scoping check-----------
+
 }
 
 int TurboCodeGen::lookupGlobal(const string& name) {

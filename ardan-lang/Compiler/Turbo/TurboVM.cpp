@@ -511,6 +511,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // TODO: check if we are in function scope
+                // make it function local else make it global var
             case TurboOpCode::CreateLocalVar: {
                 uint8_t local_index = instruction.a;
                 uint8_t data_reg = instruction.b;

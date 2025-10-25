@@ -71,6 +71,11 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
         string super_class_name;
         unordered_map<string, PropertyMeta> fields;
     };
+    
+    struct PropertyLookup {
+        int level;
+        PropertyMeta meta;
+    };
 
     class RegGuard {
         TurboCodeGen& codegen;
@@ -157,14 +162,11 @@ private:
     ClassInfo classInfo;
     unordered_map<string, ClassInfo> classes;
     
-    int lookupClassProperty(string prop_name);
+    PropertyLookup lookupClassProperty(string prop_name);
     string evaluate_property(Expression* expr);
     
     int compileMethod(MethodDefinition& method);
-    int recordInstanceField(const string& classId,
-                             const string& fieldId,
-                             Expression* initExpr,
-                             const PropertyMeta& propMeta);
+    int recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta);
     
     void emit(TurboOpCode op);
     int emitConstant(const Value &v);
@@ -179,7 +181,8 @@ private:
     void patchTryFinally(int tryPos, int target);
     void patchTryCatch(int tryPos, int target);
     
-    void declareLocal(const string& name);
+    void createVariable(const std::string& name, BindingKind kind);
+    void declareLocal(const string& name, BindingKind kind);
     void emitSetLocal(int slot);
     int paramSlot(const string& name);
     int resolveLocal(const string& name);
