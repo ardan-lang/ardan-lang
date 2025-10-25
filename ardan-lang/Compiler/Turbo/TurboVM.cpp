@@ -1240,7 +1240,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                                 
                 Value obj = getProperty(Value::object(frame->closure->js_object), property_name);
                 
-                frame->registers[instruction.b] = obj;
+                frame->registers[instruction.a] = obj;
 
                 break;
             }

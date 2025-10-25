@@ -2999,7 +2999,16 @@ int TurboCodeGen::recordInstanceField(const string& classId, const string& field
     
     TurboCodeGen nested(module_);
     nested.cur = make_shared<TurboChunk>();
-    int init_reg = get<int>(initExpr->accept(nested));
+    
+    int init_reg = -1;
+    
+    if (initExpr == nullptr) {
+        init_reg = allocRegister();
+        int idx = nested.emitConstant(Value::undefined());
+        nested.emit(TurboOpCode::LoadConst, init_reg, idx);
+    } else {
+        init_reg = get<int>(initExpr->accept(nested));
+    }
     nested.emit(TurboOpCode::Return, init_reg);
     
     // Register the init as a constant for this module
