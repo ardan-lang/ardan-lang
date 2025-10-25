@@ -25,9 +25,6 @@
 #include "Compiler/CodeGenerator.hpp"
 #include "Compiler/Compiler.hpp"
 
-//#include "GUI/gui.h"
-//#import <Cocoa/Cocoa.h>
-
 string read_file(const string& filename);
 
 using namespace std;
@@ -574,15 +571,15 @@ void run_compiler(string& filename, string& source) {
 
 void test() {
     
-    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/server.ardan";
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/compile.ardan";
         
     string source = read_file(entryFileName);
     auto ast = get_ast(source, entryFileName);
     
     Compiler compiler;
     
-    // compiler.test_turbo_compile(ast);
-    compiler.test_compile(ast);
+    compiler.test_turbo_compile(ast);
+    // compiler.test_compile(ast);
 
     // run_interpreter(entryFileName, source);
     // showWindow();
