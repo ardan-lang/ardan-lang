@@ -1638,17 +1638,24 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-                // TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
+                // SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg
             case TurboOpCode::SetClosureIsLocal: {
-                int idx = frame->registers[instruction.a].numberValue;
-                frame->registers[instruction.b].closureValue->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
+                int idx = frame->registers[instruction.b].numberValue;
+                frame->registers[instruction.c].closureValue->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
                 break;
             }
-                
+
                 // TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg
             case TurboOpCode::SetClosureIndex: {
-                int idx = frame->registers[instruction.a].numberValue;
-                frame->registers[instruction.b].closureValue->upvalues.push_back(frame->closure->upvalues[idx]);
+                
+                int indexReg = instruction.a;
+                int closureChunkIndexReg = instruction.b;
+                
+                int idx = frame->registers[indexReg].numberValue;
+                
+                auto up = frame->closure->upvalues[idx];
+                
+                frame->registers[closureChunkIndexReg].closureValue->upvalues.push_back(up);
 
                 break;
             }

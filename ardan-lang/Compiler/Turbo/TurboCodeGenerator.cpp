@@ -1206,17 +1206,23 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         // emitUint8(uv.index);
         
         int isLocalReg = allocRegister();
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
-        
         int indexReg = allocRegister();
         emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
         
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
     }
 
     // gather createclosure info for dissaemble
-    //closure_infos[to_string(ci)] = closure_info;
+    // closure_infos[to_string(ci)] = closure_info;
     
     if (scopeDepth == 0) {
         
@@ -1437,13 +1443,19 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //        emitUint8(uv.index);
 
         int isLocalReg = allocRegister();
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
-        
         int indexReg = allocRegister();
         emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
         
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
     }
     
     // Bind function to its name in the global environment
@@ -1470,6 +1482,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     TurboCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
+    nested.cur->name = stmt->id;
     nested.beginScope();
     
     std::vector<std::string> paramNames;
@@ -1652,12 +1665,18 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
 //        emitUint8(uv.index);
         
         int isLocalReg = allocRegister();
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
-        
         int indexReg = allocRegister();
         emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
+        
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
 
     }
     
@@ -2051,13 +2070,19 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
         // emitUint8(uv.index);
         
         int isLocalReg = allocRegister();
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-        emit(TurboOpCode::SetClosureIsLocal, isLocalReg, closureChunkIndexReg);
-        
         int indexReg = allocRegister();
         emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
         
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
     }
     
     disassembleChunk(nested.cur.get(), method.name);
@@ -3435,6 +3460,8 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::StoreUpvalueLet: opName = "StoreUpvalueLet"; break;
         case TurboOpCode::StoreUpvalueConst: opName = "StoreUpvalueConst"; break;
         case TurboOpCode::LoadUpvalue: opName = "LoadUpvalue"; break;
+        case TurboOpCode::SetClosureIsLocal: opName = "SetClosureIsLocal"; break;
+        case TurboOpCode::SetClosureIndex: opName = "SetClosureIndex"; break;
 
         case TurboOpCode::Loop: opName = "Loop"; break;
 
