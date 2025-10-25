@@ -142,7 +142,7 @@ private:
     shared_ptr<TurboChunk> cur; // current chunk being emitted
     // locals map for current function: name -> slot index
     // unordered_map<string, uint32_t> locals;
-    int scopeDepth;
+    int scopeDepth = 0;
     TurboCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
     R store(string decl, uint32_t reg_slot);
@@ -181,7 +181,7 @@ private:
     void patchTryFinally(int tryPos, int target);
     void patchTryCatch(int tryPos, int target);
     
-    void createVariable(const std::string& name, BindingKind kind);
+    void declareVariableScoping(const std::string& name, BindingKind kind);
     void declareLocal(const string& name, BindingKind kind);
     void emitSetLocal(int slot);
     int paramSlot(const string& name);

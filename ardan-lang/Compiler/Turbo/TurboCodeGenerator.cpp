@@ -290,8 +290,9 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
             emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
         }
 
-        declareLocal(decl.id, get_kind(kind));
-        declareGlobal(decl.id, get_kind(kind));
+        declareVariableScoping(decl.id, get_kind(kind));
+        // declareLocal(decl.id, get_kind(kind));
+        // declareGlobal(decl.id, get_kind(kind));
         
         create(decl.id, slot, get_kind(kind));
         freeRegister(slot);
@@ -3270,7 +3271,8 @@ void TurboCodeGen::declareGlobal(const string& name, BindingKind kind) {
     
 }
 
-void TurboCodeGen::createVariable(const std::string& name, BindingKind kind) {
+void TurboCodeGen::declareVariableScoping(const string& name, BindingKind kind) {
+    
     // do not declare as local if Var and its not inside a function body
     // do not declare as local if its var and the scopedepth is > 0
 
@@ -3278,9 +3280,26 @@ void TurboCodeGen::createVariable(const std::string& name, BindingKind kind) {
     bool IsVar = (kind == BindingKind::Var) ? true : false;
     
     if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
+        
+        declareGlobal(name, kind);
+
         return;
     }
+    
+    if (enclosing) {
+        if (IsVar) {
+            declareLocal(name, (kind));
+            int idx = resolveLocal(name);
+            locals[idx].depth = locals[idx].depth - 1;
+            return;
+        }
+    }
     // --------- end of let scoping check-----------
+    
+    declareLocal(name, (kind));
+    declareGlobal(name, (kind));
+    
+    // if the current scope depth is greater than 0, we must declare local
 
 }
 
