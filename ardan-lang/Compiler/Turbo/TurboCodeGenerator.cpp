@@ -1695,10 +1695,11 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     
     // closure_infos[to_string(ci)] = closure_info;
 
-    declareLocal(stmt->id, BindingKind::Var);
-    declareGlobal(stmt->id, BindingKind::Var);
+    BindingKind functionBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    declareLocal(stmt->id, functionBinding);
+    declareGlobal(stmt->id, functionBinding);
     
-    create(stmt->id, closureChunkIndexReg, BindingKind::Var);
+    create(stmt->id, closureChunkIndexReg, functionBinding);
 
     // disassemble the chunk for debugging
     disassembleChunk(nested.cur.get(), stmt->id/*nested.cur->name*/);
