@@ -1,0 +1,120 @@
+// Deep Closure & Scope Test
+let results = [];
+for (var i = 0; i < 5; i++) {
+    function make() {
+        let x = i;
+        return function() { return x; };
+    }
+    results.push(make());
+}
+print(results[0](), results[1](), results[2](), results[3](), results[4]()); // 0 1 2 3 4
+
+// Shadowing and Hoisting
+var x = "global";
+function testScope() {
+    print(x); // undefined or "global"?
+    var x = "local";
+    print(x); // "local"
+}
+testScope();
+
+// Class, Inheritance, Super, Static, Private/Public
+class Base {
+    public var a = 1;
+    private var secret = 42;
+    getSecret() { return this.secret; }
+}
+class Child extends Base {
+    constructor() { super(); }
+    speak() { print("Child", this.a, this.getSecret()); }
+}
+let c = new Child();
+c.speak();
+print(c.secret); // Should error
+
+class Stat {
+    static var count = 0;
+    constructor() { Stat.count++; }
+}
+let s1 = new Stat(), s2 = new Stat();
+print(Stat.count); // 2
+
+// Operator Precedence & Edge Cases
+print(1 + 2 * 3); // 7
+print((1 + 2) * 3); // 9
+print(2 ** 3 ** 2); // 512
+print(10 / 0); // Infinity or error
+
+// Array/Object Mutation & Reference
+let arr = [1,2,3];
+let ref = arr;
+ref[0] = 99;
+print(arr[0]); // 99
+
+let obj = {x: 1};
+let refObj = obj;
+refObj.x = 42;
+print(obj.x); // 42
+
+// Function Default & Rest Arguments
+function f(a, b = 2, ...rest) {
+    print(a, b, rest);
+}
+f(1);           // 1 2 []
+f(1, 10, 20, 30); // 1 10 [20,30]
+
+// Exception Handling
+try {
+    throw "fail";
+} catch (e) {
+    print("caught", e);
+} finally {
+    print("finally");
+}
+
+// Loop Edge Cases
+for (let i = 0; i < 3; i++) {
+    if (i == 1) continue;
+    print(i);
+}
+
+// Ternary, Logical, Nullish
+let v = null;
+print(v ?? "default"); // "default"
+print(true ? "yes" : "no"); // "yes"
+
+// Deep Nested Functions & Closures
+function outer(a) {
+    function inner(b) {
+        function core(c) {
+            return a + b + c;
+        }
+        return core;
+    }
+    return inner;
+}
+print(outer(1)(2)(3)); // 6
+
+// For-in/For-of
+let obj2 = {a:1, b:2};
+for (let k in obj2) { print(k, obj2[k]); }
+let arr2 = [10,20,30];
+for (let v of arr2) { print(v); }
+
+// Recursion
+function fact(n) {
+    if (n <= 1) return 1;
+    return n * fact(n-1);
+}
+print(fact(5)); // 120
+
+// Edge: Accessing undeclared variable
+print(typeof notDeclared); // "undefined" or error
+
+// Edge: Const reassignment
+const z = 9;
+try {
+    z = 10;
+} catch (e) {
+    print("const error", e);
+}

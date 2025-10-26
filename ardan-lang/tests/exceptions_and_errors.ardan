@@ -58,3 +58,23 @@ try {
 // console.log("should not reach");
 
 console.log("=== Done Exceptions ===");
+
+try {
+
+    print("try");
+
+try {
+        print("inside 2nd try");
+
+throw "An error occurred";
+} finally {
+    print("Inner finally executed");
+}
+
+} catch(e) {
+    print(e);
+} 
+
+finally {
+print("done");
+}

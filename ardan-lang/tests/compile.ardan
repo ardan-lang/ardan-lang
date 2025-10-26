@@ -1,234 +1,523 @@
-var name = "Nnamdi";
-var ext_name = name;
+// var name = "Nnamdi";
+// print(name);
+// name += "Chidumennamdi";
+// print(name);
+// var ext_name = name;
 
-print(ext_name, name);
+// print(ext_name, name);
 
-let user = {
-    name: "",
-    getAge: () => {}
-};
+// let user = {
+//    name: "",
+//     getAge: () => {}
+// };
 
-user.name;
-user.name = "Chidumennamdi";
-user.getAge();
+// user.name;
+// user.name = "Chidumennamdi";
+// user.getAge();
 
-let age = (/*ext_name, name*/) => {
- print(ext_name, name);
- return 1;
-};
+// let age = (/*ext_name, name*/) => {
+//  print(ext_name, name);
+//  return 1;
+// };
 
-let age = (arg, b = 90, c = b, ...rest) => {
-    let r = 90;
-    print(arg, b, c, rest);
- return "Hello";
-};
+// let age = (arg, b = 90, c = b, ...rest) => {
+//     let r = 90;
+//     print(arg, b, c, rest);
+//  return "Hello";
+// };
 
-let t = "TT";
+// let t = "TT";
 
-function age() {
-    print(t);
- return "Hello";
-}
+// function age() {
+//     print(t);
+//  return "Hello";
+// }
 
-age();
-print(age());
+// age();
+// print(age());
 
-let adder = function(x) {
-    return function(y) {
-        print(x, y);
-        return x + y;
-    };
-};
-let add5 = adder(5);
-print(add5(3)); // 8
+// let adder = function(x) {
+//     return function(y) {
+//         print(x, y);
+//         return x + y;
+//     };
+// };
+// let add5 = adder(5);
+// print(add5(3)); // 8
 
-var x = "global";
-function outer(y) {
-    let x = "outer";
-    let p = "p";
-    var inp = 90909;
-    print(y);
-    function inner() {
-        //x = 88;
-        print (y);
-        print(inp);
+// var x = "global";
+// function outer(y) {
+//     let x = "outer";
+//     let p = "p";
+//     var inp = 90909;
+//     print(y);
+//     function inner() {
+//         //x = 88;
+//         print (y);
+//         print(inp);
+//     }
+//     inner();
+// }
+
+// outer(90);
+
+// function c(v) {
+//     var t = 90;
+//     function p() {
+//         return t; 
+//     }
+//     return p;
+// }
+// let cc = c("CC");
+// let ccc = c("CCC");
+
+// print(cc());
+// print(ccc());
+
+// // print(inp);
+
+// function fact(n) {
+//     if (n <= 1) return 1;
+//     else return n * fact(n - 1);
+// }
+// console.log("fact 5 =", fact(5));
+
+// a = a + 9; b += 5; // c = c + 1; // should fail if uncommented
+// print(a, b, c);
+
+// print("=== Arithmetic/Logical/Bitwise Ops ===");
+// print(1+2, 5-3, 2*4, 8/2, 7%3, 2**3);
+// print(5==5, 5===5, 5!=4, 5!==4, 5<8, 5<=5, 7>2, 7>=7);
+// print(true&&false, true||false, !false);
+// print(5&3, 5|2, 5^1, ~2, 2<<2, 8>>2, 8>>>2);
+
+// var age = 990;
+// ++age;
+// ++age;
+// print(age);
+// b += 5;
+
+// const user = { age: 90 };//, p: { num: 9 } };
+// print(user["age"]);
+// --user.age;
+// user.age--;
+// user.age= user.age + 1;
+// var t = 8;
+// print(t);
+// t += 2;
+// print(t);
+// var t = 8;
+// --t;
+// print(t);
+// t--;
+// print(t);
+// t = t - 1;
+// print(t);
+// t = t + 1;
+// print(t);
+// t++;
+// print(t);
+// ++t;
+// print(t);
+// print(user.age);
+// print(!true);
+// print(user.p.num);
+
+// for(let i = 0; i < 2; i++) {
+//     print(i);
+// }
+
+// if (false) {
+//     print("true");
+// } else {
+//     print("false");
+// }
+
+// let k=0; while(k<2) { print("while",k); k++; }
+// let bool = true;
+// let r = "nn";
+// print(bool ? r : 0);
+// // Logical: &&, ||, ??
+
+// let i = 0;
+
+// do {
+
+//     if(i == 3) {
+//     break;
+// }
+// print(i);
+// i++;
+//  } while(i < 7);
+
+//  let obj2 = {a:1, b:2};
+
+// for (let key in obj2/*{a:1, b:2, c: 90}*/) { 
+//     print(key, obj2[key]);
+// }
+// print("in",key,obj2[key]);
+
+// let arr = [1,2,3,4,5];
+// let arr_v = 88;
+// for (let el of arr/*[1,2,3,4]*/) { 
+//     let scope = 90;
+//     // if(el == 3) {
+//     //     break;
+//     // }
+//     print(el);//, arr[el]);
+// }
+
+// print("======after loop=====");
+// print(scope, arr_v, el);
+
+// function createCounter() {
+//   let count = 0; // 'count' is a variable in the outer function's scope
+//     print("hay");
+//   function increment() { // 'increment' is the inner function (the closure)
+//      count = count + 1;
+//     count++;
+//     return count;
+//   }
+
+//   return increment; // The outer function returns the inner function
+// }
+
+//  const counter1 = createCounter(); // 'counter1' is now the 'increment' function
+//   print("hay2");
+// const counter2 = createCounter(); // 'counter2' is another instance of 'increment'
+
+// console.log(counter1()); // Output: 1 (count for counter1 is now 1)
+// console.log(counter1()); // Output: 2 (count for counter1 is now 2)
+// console.log(counter2()); // Output: 1 (count for counter2 starts from 0 independently)
+// console.log(counter2()); // Output: 2 (count for counter2 starts from 0 independently)
+// console.log(counter2()); // Output: 3 (count for counter2 starts from 0 independently)
+// console.log(counter1()); // Output: 3 (count for counter1 is now 3)
+
+// print("=== Classes/Inherit/Fields/Methods/Statics ===");
+// class Animal { constructor(one, two) {legs = one;} var legs=4; speak() { print("animal noise"); }}
+// class Dog extends Animal { constructor(one, two) { super(8777, 87776); } var breed = "Lab"; speak() { super.speak(); print("woof"); } }
+// let d = new Dog(); d.speak(); print(d.legs, d.breed);
+
+// // import "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/stub_module.ardan";
+// class Counter { static var count = 0; constructor() { Counter.count++; Counter.count++; } }
+// let c1=new Counter(), c2=new Counter(); print(Counter.count);
+
+// for (var counter = 1; counter <= 10; counter++) {
+//     print(counter);
+// }
+
+// print(counter);
+
+// let arr = [1,2,3];
+
+// let u;
+
+// for(u in arr) {
+//     print(u);
+//     //break;
+// }
+
+// print(u);
+
+// let obj = {
+//   age: 90,
+//   increment: function() {
+//     this.age++;
+//   }
+// };
+
+// obj.increment();
+// console.log(obj.age); // 91 ✅
+
+// print((new Animal(89, 90)).speak());
+// print((new Animal(89, 90)).legs);
+// print("=== Private/Public/Static/Field Visibility ===");
+// class Secret { private var x = 77; public var y = 88; getX() { return this.x; } }
+// let sec = new Secret(); //print(sec.getX(), sec.y);
+// print(sec.x); // Should error
+
+//let nums = [1, 2, 3, 4];
+// let user = { name: "Nnamdi", age: 90 };
+// print(user["age"]++);
+// print(user.age);
+// print(--user["age"]);
+
+// print(user["age"]--);
+// print(!user["age"]);
+// print(user["age"]);
+
+// print(nums.reduce((a, b) => a + b, 0));
+
+// let f = 90;
+// f = "oioi";
+
+//print(nums[0], nums["1"]);
+
+// const test = 9000;
+// print(test++);
+// print(test);
+// test += 90;
+// print(test);
+// test -= 90;
+// print(test);
+// test *= 2;
+// print(test);
+// test /= 3;
+// print(test);
+// test %= 7;
+// print(test);
+// test **= 3;
+// print(test);
+// test &= 0b1100;
+// print(test);
+
+// test = "pol";
+// print(test);
+
+// user.age = user.age + 7;
+// user.age++;
+// print(user.age, user.age);
+
+// user["age"] = user["age"] + 7;
+// print(user.age);
+
+// user["age"] += 7;
+// print(user.age);
+
+// user.age += 7;
+// print(user.age);
+
+// Compound Assignment Tests
+
+// let a = 10;
+// a += 5;
+// print(a); // 15
+
+// a -= 3;
+// print(a); // 12
+
+// a *= 2;
+// print(a); // 24
+
+// a /= 4;
+// print(a); // 6
+
+// a %= 4;
+// print(a); // 2
+
+// a **= 3;
+// print(a); // 8
+
+// let b = 0b1010;
+// b &= 0b1100;
+// print(b); // 8
+
+// b |= 0b0011;
+// print(b); // 11
+
+// b ^= 0b0101;
+// print(b); // 14
+
+// b <<= 2;
+// print(b); // 56
+
+// b >>= 3;
+// print(b); // 7
+
+// b >>>= 1;
+// print(b); // 3
+
+// let str = "Hello";
+// str += " World";
+// print(str); // "Hello World"
+
+// let func = function(x, y, z=88, ...rest) {
+//   print(x, y, z, rest);
+//   return x * y * z;
+// };
+
+// var res = func(10, 5, 1001, "nn", "chi"); // 10, 5, 5
+// print(res); // 20
+
+// class Animal { private static var name = 90; var legs = 4; speak() { print("animal noise"); }}
+
+// print(/*Animal.name, */(new Animal()).legs);
+
+// let i = 9;
+// print(i);
+// for(let i = 0; i < 3; i++) {
+//     if(i == 2) {
+//         break;
+//     }
+//     print(i);
+// }
+// print(i);
+
+// for(let k in { "0":1,"1": 2, "2":3}) {
+//     print(k);
+// }
+
+// print(k, "outside");
+
+// class Base {
+//     protected var knee = "knee from base";
+// }
+
+// class Animal extends Base { 
+    
+//     public static var name = 90; 
+
+//     private var no = 99;
+    
+//     public var legs = 90;//no; 
+    
+//     public speak() { 
+//         // legs = 90;
+//         legs;
+//         Animal.name;
+//         knee = "knee";
+//         return knee;
+//         // print("animal noise", legs); 
+//         // print("animal", Animal.name);
+//     }
+
+// }
+
+// print(/*Animal.name,*/ (new Animal()).speak());
+
+
+// const win = window("Hello", 400, 300);
+
+// let btn = button(win, "Click me", () => {
+//     print("clicked!");
+// });
+
+// run(win);
+
+
+// var win = new Window("Demo", 500, 400);
+// const btn = new Button("Click Me", () => {
+//     print("Button was clicked!");
+//     btn.setTitle("Clicked!");
+// });
+
+// const btn2 = new Button("Increment", () => {
+//     print("Button was clicked!");
+//     btn2.setTitle("Clicked!");
+// });
+// btn2.setFrame(50, 200, 150, 40);
+// win.addComponent(btn);
+// win.addComponent(btn2);
+
+// win.run();
+
+// var obj = {
+//     a: 1,
+//     b: 2,
+//     c: 3
+// };
+
+// print(delete obj.a);
+// print(obj.a);
+// for (let key in obj) {
+//     print(key, obj[key]);
+// }
+
+// const myArray = [1, 2, 3, 4];
+// delete myArray[1]; // Deletes the element at index 1 (value 2)
+
+// console.log(myArray); // Output: [1, <empty>, 3, 4]
+// console.log(myArray.length); // Output: 4 (The length of the array remains the same)
+
+// enum Direction {
+//     Up = 1,
+//     Down,
+//     // Left,
+//     // Right,
+// }
+
+// let playerDirection/*: Direction*/ = Direction.Up;
+// console.log(playerDirection); // Output: 1
+
+// interface User {
+//   name: string;
+//   age: number;
+// }
+
+// function greet(u: User) {
+//   console.log(`Hello, ${u.name}`);
+// }
+
+// greet({ name: "Nnamdi", age: 30 }); // ✅ OK
+// greet({ name: "Anon" });             // ❌ Error (missing `age`)
+
+// class ContentView {
+
+// body()  {
+//     @VStack {
+//     @Text("Hello")
+//     @Button("Tap me") { 
+//         // Action or children
+//         print("Button tapped!");
+//     }
+// }
+
+// }
+
+// }
+
+// class MainView  {
+//     body() {
+//         @Window("Main View", 400, 300) {
+//             @ContentView()
+//         }.run();
+//     }
+// }
+
+// customView.body();
+
+// let globallet = "glo";
+// {
+// const user="user";
+// // user=88;
+// print(user);
+// var t = 90;
+// print(t);
+// }
+
+// print(t);
+
+// function n() {
+//     var xy = "xy";
+//     // console.log(xy, t);
+
+//     {
+// // const userxy="user";
+// // print(userxy);
+// var txy = "txy";
+// print(txy);
+// }
+// print(globallet, t, xy, txy);
+
+// }
+
+// n();
+// print(xy);
+
+class Test {
+    var cfield;
+    body() {
+        // var tt = "tt";
+        // const cv = 90;
+        // {
+        // var t = "t";
+        // //cv = 88;
+        // }
+        cfield = "cfield";
+        // print(tt, t, cfield);
+        print(cfield);
+
     }
-    inner();
 }
 
-outer(90);
-
-function c(v) {
-    var t = 90;
-    function p() {
-        return t; 
-    }
-    return p;
-}
-let cc = c("CC");
-let ccc = c("CCC");
-
-print(cc());
-print(ccc());
-
-// print(inp);
-
-function fact(n) {
-    if (n <= 1) return 1;
-    else return n * fact(n - 1);
-}
-console.log("fact 5 =", fact(5));
-
-a = a + 9; b += 5; // c = c + 1; // should fail if uncommented
-print(a, b, c);
-
-print("=== Arithmetic/Logical/Bitwise Ops ===");
-print(1+2, 5-3, 2*4, 8/2, 7%3, 2**3);
-print(5==5, 5===5, 5!=4, 5!==4, 5<8, 5<=5, 7>2, 7>=7);
-print(true&&false, true||false, !false);
-print(5&3, 5|2, 5^1, ~2, 2<<2, 8>>2, 8>>>2);
-
-var age = 990;
-++age;
-++age;
-print(age);
-b += 5;
-
-const user = { age: 90 };//, p: { num: 9 } };
-print(user["age"]);
---user.age;
-user.age--;
-user.age= user.age + 1;
-var t = 8;
-print(t);
-t += 2;
-print(t);
-var t = 8;
---t;
-print(t);
-t--;
-print(t);
-t = t - 1;
-print(t);
-t = t + 1;
-print(t);
-t++;
-print(t);
-++t;
-print(t);
-print(user.age);
-print(!true);
-print(user.p.num);
-
-for(let i = 0; i < 2; i++) {
-    print(i);
-}
-
-if (false) {
-    print("true");
-} else {
-    print("false");
-}
-
-let k=0; while(k<2) { print("while",k); k++; }
-let bool = true;
-let r = "nn";
-print(bool ? r : 0);
-// Logical: &&, ||, ??
-
-let i = 0;
-
-do {
-
-    if(i == 3) {
-    break;
-}
-print(i);
-i++;
- } while(i < 7);
-
- let obj2 = {a:1, b:2};
-
-for (let key in obj2/*{a:1, b:2, c: 90}*/) { 
-    print(key, obj2[key]);
-}
-print("in",key,obj2[key]);
-
-let arr = [1,2,3,4,5];
-let arr_v = 88;
-for (let el of arr/*[1,2,3,4]*/) { 
-    let scope = 90;
-    // if(el == 3) {
-    //     break;
-    // }
-    print(el);//, arr[el]);
-}
-
-print("======after loop=====");
-print(scope, arr_v, el);
-
-function createCounter() {
-  let count = 0; // 'count' is a variable in the outer function's scope
-    print("hay");
-  function increment() { // 'increment' is the inner function (the closure)
-     count = count + 1;
-    count++;
-    return count;
-  }
-
-  return increment; // The outer function returns the inner function
-}
-
- const counter1 = createCounter(); // 'counter1' is now the 'increment' function
-  print("hay2");
-const counter2 = createCounter(); // 'counter2' is another instance of 'increment'
-
-    console.log(counter1()); // Output: 1 (count for counter1 is now 1)
-    console.log(counter1()); // Output: 2 (count for counter1 is now 2)
-  console.log(counter2()); // Output: 1 (count for counter2 starts from 0 independently)
-   console.log(counter2()); // Output: 2 (count for counter2 starts from 0 independently)
- console.log(counter2()); // Output: 3 (count for counter2 starts from 0 independently)
- console.log(counter1()); // Output: 3 (count for counter1 is now 3)
-
-print("=== Classes/Inherit/Fields/Methods/Statics ===");
-class Animal { constructor(one, two) {legs = one;} var legs=4; speak() { print("animal noise"); }}
-class Dog extends Animal { constructor(one, two) { super(8777, 87776); } var breed = "Lab"; speak() { super.speak(); print("woof"); } }
-let d = new Dog(); d.speak(); print(d.legs, d.breed);
-
-import "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/stub_module.ardan";
-class Counter { static var count = 0; constructor() { Counter.count++; Counter.count++; } }
-let c1=new Counter(), c2=new Counter(); print(Counter.count);
-
-for (var counter = 1; counter <= 10; counter++) {
-    print(counter);
-}
-
-print(counter);
-
-let arr = [1,2,3];
-
-let u;
-
-for(u in arr) {
-    print(u);
-    //break;
-}
-
-print(u);
-
-let obj = {
-  age: 90,
-  increment: function() {
-    this.age++;
-  }
-};
-
-obj.increment();
-console.log(obj.age); // 91 ✅
-
-print((new Animal(89, 90)).speak());
-print((new Animal(89, 90)).legs);
-print("=== Private/Public/Static/Field Visibility ===");
-class Secret { private var x = 77; public var y = 88; getX() { return this.x; } }
-let sec = new Secret(); //print(sec.getX(), sec.y);
-print(sec.x); // Should error
+(new Test()).body();

@@ -20,10 +20,11 @@ test3();
 
 var d = 10;
 function outer() {
-  let d = 20;
-  function inner() { print("shadow d=", d); }
+  let d = 20; let c = 88;
+  function inner() { print("shadow d=", d, c); }
   inner();
 }
+outer(); print("global d=", d);
 outer(); print("global d=", d);
 
 // Re-declaration errors (commented)
@@ -32,14 +33,15 @@ outer(); print("global d=", d);
 // Closure stale
 function makeCounter() { let cnt = 0; return () => { cnt++; return cnt; }; }
 let ctr = makeCounter(); print(ctr(), ctr(), ctr());
+let ctr2 = makeCounter(); print(ctr2(), ctr2(), ctr2());
 
 print("=== Done Scoping ===");
 
-//fs.readFileSync("/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/scoping_and_shadowing.ardan", (err, data) => {
-fs.readFileSync("./tests/scoping_and_shadowing.ardan", (err, data) => {
-    if (err) {
-        console.error("Error reading file:", err);
-        return;
-    }
-    console.log("File contents:", data);
-});
+// //fs.readFileSync("/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/scoping_and_shadowing.ardan", (err, data) => {
+// fs.readFileSync("./tests/scoping_and_shadowing.ardan", (err, data) => {
+//     if (err) {
+//         console.error("Error reading file:", err);
+//         return;
+//     }
+//     console.log("File contents:", data);
+// });
