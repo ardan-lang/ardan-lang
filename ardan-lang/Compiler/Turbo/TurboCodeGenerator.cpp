@@ -681,7 +681,11 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
         emit(TurboOpCode::PushArg, argReg);
     }
 
-    emit(TurboOpCode::Call, resultReg, funcReg, static_cast<int>(argRegs.size()));
+    if (auto super_expr = dynamic_cast<SuperExpression*>(expr->callee.get())) {
+        emit(TurboOpCode::SuperCall, resultReg, funcReg, static_cast<int>(argRegs.size()));
+    } else {
+        emit(TurboOpCode::Call, resultReg, funcReg, static_cast<int>(argRegs.size()));
+    }
 
     for (int argReg : argRegs) {
         freeRegister(argReg);

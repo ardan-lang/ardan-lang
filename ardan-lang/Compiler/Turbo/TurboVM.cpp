@@ -1689,10 +1689,22 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // TurboOpCode::SuperCall, resultReg, funcReg, static_cast<int>(argRegs.size())
             case TurboOpCode::SuperCall: {
+                
+                const vector<Value> const_args = { argStack.begin(), argStack.end() };
+                argStack.clear();
+
+                Value obj_value = frame->registers[instruction.b];
+
+                // call the constructor
+                invokeMethod(obj_value, "constructor", const_args);
+
+                frame->registers[instruction.a] = obj_value;
+
                 break;
             }
-                
+
             case TurboOpCode::Return: {
                 closeUpvalues(nullptr);
 
