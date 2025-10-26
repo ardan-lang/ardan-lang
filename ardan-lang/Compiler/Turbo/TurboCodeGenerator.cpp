@@ -290,7 +290,7 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
             emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
         }
 
-        declareVariableScoping(decl.id, get_kind(kind));
+        declareVariableScoping(decl.id, bindingKind);
         // declareLocal(decl.id, get_kind(kind));
         // declareGlobal(decl.id, get_kind(kind));
         
@@ -665,7 +665,7 @@ R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
 R TurboCodeGen::visitCall(CallExpression* expr) {
 
     int funcReg = get<int>(expr->callee->accept(*this));
-    auto funcGuard = makeRegGuard(funcReg, *this);
+    // auto funcGuard = makeRegGuard(funcReg, *this);
 
     vector<int> argRegs;
     argRegs.reserve(expr->arguments.size());
@@ -675,7 +675,7 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
     }
 
     int resultReg = allocRegister();
-    auto resultGuard = makeRegGuard(resultReg, *this, /*autoFree=*/false);
+    // auto resultGuard = makeRegGuard(resultReg, *this, /*autoFree=*/false);
 
     for (int argReg : argRegs) {
         emit(TurboOpCode::PushArg, argReg);
@@ -687,7 +687,7 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
         freeRegister(argReg);
     }
 
-    funcGuard.release();
+    // funcGuard.release();
     return resultReg;
     
 }
@@ -697,16 +697,16 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
     
     // Evaluate the object expression
     int objectReg = get<int>(expr->object->accept(*this));
-    auto objectGuard = makeRegGuard(objectReg, *this);
+    // auto objectGuard = makeRegGuard(objectReg, *this);
 
     // Allocate target register for result
     int targetReg = allocRegister();
-    auto targetGuard = makeRegGuard(targetReg, *this, /*autoFree=*/false);
+    // auto targetGuard = makeRegGuard(targetReg, *this, /*autoFree=*/false);
 
     if (expr->computed) {
         // obj[prop]
         int propertyReg = get<int>(expr->property->accept(*this));
-        auto propertyGuard = makeRegGuard(propertyReg, *this);
+        // auto propertyGuard = makeRegGuard(propertyReg, *this);
 
         emit(TurboOpCode::GetPropertyDynamic, targetReg, objectReg, propertyReg);
         
@@ -720,7 +720,7 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
     }
 
     // Free object register after use
-    objectGuard.release();
+    // objectGuard.release();
     
     return targetReg;
     
@@ -1430,17 +1430,17 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
 
-//    emit(OpCode::CreateClosure);
-//    emitUint8((uint8_t)ci);
+    // emit(OpCode::CreateClosure);
+    // emitUint8((uint8_t)ci);
 
-//    ClosureInfo closure_info = {};
-//    closure_info.ci = ci;
-//    closure_info.upvalues = nested.upvalues;
+    // ClosureInfo closure_info = {};
+    // closure_info.ci = ci;
+    // closure_info.upvalues = nested.upvalues;
 
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
-//        emitUint8(uv.isLocal ? 1 : 0);
-//        emitUint8(uv.index);
+        // emitUint8(uv.isLocal ? 1 : 0);
+        // emitUint8(uv.index);
 
         int isLocalReg = allocRegister();
         int indexReg = allocRegister();
@@ -2114,9 +2114,11 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
 
-    declareLocal(stmt->id, BindingKind::Var);
-    declareGlobal(stmt->id, BindingKind::Var);
-    create(stmt->id, super_class_reg, BindingKind::Var);
+    BindingKind classBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+
+    declareLocal(stmt->id, classBinding);
+    declareGlobal(stmt->id, classBinding);
+    create(stmt->id, super_class_reg, classBinding);
 
     // Define fields
     // A field can be var, let, const. private, public, protected
