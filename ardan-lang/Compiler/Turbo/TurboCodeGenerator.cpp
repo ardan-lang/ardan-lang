@@ -360,15 +360,14 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
 R TurboCodeGen::visitFor(ForStatement* stmt) {
     
     beginScope();
-    beginLoop();
-    loopStack.back().loopStart = (int)cur->size();
 
     if (stmt->init)
         (stmt->init->accept(*this));
     else throw runtime_error("For loop must have an initializer.");
     
     int loopStart = (int)cur->code.size();
-    
+    beginLoop();
+
     if (stmt->test) {
         
         uint32_t testReg = get<int>(stmt->test->accept(*this));
@@ -378,6 +377,15 @@ R TurboCodeGen::visitFor(ForStatement* stmt) {
         stmt->body->accept(*this);
 
         if (stmt->update) {
+            
+            if (loopStack.back().continues.size() > 0) {
+                for (auto& continueAddr : loopStack.back().continues) {
+                    patchSingleJump(continueAddr);
+                }
+                
+                loopStack.back().continues.clear();
+            }
+            
             stmt->update->accept(*this);
         }
         
@@ -1871,13 +1879,20 @@ R TurboCodeGen::visitBreak(BreakStatement*) {
 }
 
 R TurboCodeGen::visitContinue(ContinueStatement*) {
-    // Usually: emit a jump to loop start
+
     if (loopStack.empty()) {
         throw ("Continue outside loop");
         return false;
     }
-    int loopStart = loopStack.back().loopStart;
-    emitLoop(loopStart); // emit a backwards jump
+    
+    // int loopStart = loopStack.back().loopStart;
+    // emitLoop(loopStart); // emit a backwards jump
+    // emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
+
+        // Emit jump with unknown target
+    int jumpAddr = emitJump(TurboOpCode::Jump);
+    loopStack.back().continues.push_back(jumpAddr);
+
     return true;
 }
 
@@ -2856,6 +2871,14 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
 
     freeRegister(keyReg);
 
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
     // idx++
     int incr_const_reg = allocRegister();
     emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
@@ -2924,11 +2947,21 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
         }
         
     } else {
-        throw std::runtime_error("for-of only supports identifier/variable statement loop variables in codegen");
+        throw std::runtime_error("For...of only supports identifier/variable statement loop variables in codegen.");
     }
     
     // Loop body
     stmt->body->accept(*this);
+
+    if (loopStack.back().continues.size() > 0) {
+        
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+        
+    }
 
     freeRegister(elemReg);
 
@@ -3456,6 +3489,7 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::PushArg: opName = "PushArg"; break;
         case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
+        case TurboOpCode::GetPropertyDynamic: opName = "GetPropertyDynamic"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
             
         case TurboOpCode::Throw: opName = "Throw"; break;
