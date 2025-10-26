@@ -3318,7 +3318,10 @@ void TurboCodeGen::declareVariableScoping(const string& name, BindingKind kind) 
     
     if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
         
+        int previousScopeDepth = scopeDepth;
+        scopeDepth = 0;
         declareGlobal(name, kind);
+        scopeDepth = previousScopeDepth;
 
         return;
     }
