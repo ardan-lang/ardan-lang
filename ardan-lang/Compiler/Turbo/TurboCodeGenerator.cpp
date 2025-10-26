@@ -1196,9 +1196,9 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
     
-//    ClosureInfo closure_info = {};
-//    closure_info.ci = ci;
-//    closure_info.upvalues = nested.upvalues;
+    // ClosureInfo closure_info = {};
+    // closure_info.ci = ci;
+    // closure_info.upvalues = nested.upvalues;
 
     for (auto& uv : nested.upvalues) {
         

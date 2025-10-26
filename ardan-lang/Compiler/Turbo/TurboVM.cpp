@@ -1690,6 +1690,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::Return: {
+                closeUpvalues(nullptr);
+
                 Value v = frame->registers[instruction.a];
                                 
                 return v;
