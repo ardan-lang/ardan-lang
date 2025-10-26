@@ -177,10 +177,12 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
         for (auto modifier : modifiers) {
             if (modifier == "private") {
                 isPrivate = true;
+                continue;
             }
             
             if (modifier == "protected") {
                 isProtected = true;
+                continue;
             }
         }
         
@@ -236,10 +238,12 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
             
             if (modifier == "private") {
                 isPrivate = true;
+                continue;
             }
             
             if (modifier == "protected") {
                 isProtected = true;
+                continue;
             }
 
         }
