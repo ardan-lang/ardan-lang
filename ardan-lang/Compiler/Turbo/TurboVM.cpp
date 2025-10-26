@@ -289,10 +289,13 @@ void TurboVM::setProperty(const Value &objVal, const string &propName, const Val
         objVal.arrayValue->set(propName, val);
         return;
     }
-//    if (objVal.type == ValueType::CLASS) {
-//        objVal.classValue->set(propName, val, false);
-//        return;
-//    }
+    
+    // TODO: make sure to check for privacy
+    // if objVal is a class then the property to et is a static.
+    if (objVal.type == ValueType::CLASS) {
+        objVal.classValue->set(propName, val, false);
+        return;
+    }
     throw std::runtime_error("Cannot set property on non-object");
 }
 
@@ -1316,7 +1319,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, resultReg);
             case TurboOpCode::SetPropertyDynamic: {
                 auto object = frame->registers[instruction.a];
-                string prop_name = frame->registers[instruction.b].stringValue;
+                string prop_name = frame->registers[instruction.b].toString();
                 setProperty(object, prop_name, frame->registers[instruction.c]);
                 
                 frame->registers[instruction.c] = object;
