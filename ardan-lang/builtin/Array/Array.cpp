@@ -24,6 +24,20 @@ shared_ptr<JSObject> Array::construct() {
     
 }
 
+//| Form             | Behavior          | Returns     |
+//| ---------------- | ----------------- | ----------- |
+//| `Array()`        | empty array       | `[]`        |
+//| `Array(3)`       | length 3 (holes)  | `[ , , , ]` |
+//| `Array(1, 2, 3)` | normal array      | `[1, 2, 3]` |
+//| `new Array()`    | same as `Array()` | `[]`        |
+
+//| Expression           | What it does                                    | Notes                                     |
+//| -------------------- | ----------------------------------------------- | ----------------------------------------- |
+//| `new Array()`        | creates an **empty array**                      | same as `[]`                              |
+//| `new Array(3)`       | creates an array of **length 3**, *empty slots* | `[ <3 empty items> ]`                     |
+//| `new Array(1, 2, 3)` | creates an array with 3 elements                | `[1, 2, 3]`                               |
+//| `Array()`            | behaves exactly the same as `new Array()`       | the `new` keyword is optional for `Array` |
+
 Value Array::call(const std::vector<Value>& args) {
     // it will return a string
     
