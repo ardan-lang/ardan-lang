@@ -35,7 +35,7 @@ R TurboCodeGen::visitBlock(BlockStatement* stmt) {
     beginScope();
     for (auto& s : stmt->body) {
         s->accept(*this);
-        registerAllocator->reset();
+        // registerAllocator->reset();
     }
     endScope();
     return 0;
@@ -348,6 +348,14 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
     
     stmt->body->accept(*this);
     
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
     emitLoop(loopStart); // backwards jump
     patchJump(exitJump, (int)cur->code.size());
     
@@ -2685,6 +2693,14 @@ R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
 
     // Jump back to loop start if condition is true
     int condJump = emitJump(TurboOpCode::JumpIfFalse, cond_reg);
+    
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
 
     // Emit loop back
     emitLoop((int)loopStart);
@@ -3033,8 +3049,12 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
              memberNameReg,
              valueReg);
         
-        declareLocal(stmt->name, BindingKind::Var);
-        create(stmt->name, enumNameReg, BindingKind::Var);
+        BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+
+        declareLocal(stmt->name, enumBinding);
+        declareGlobal(stmt->name, enumBinding);
+
+        create(stmt->name, enumNameReg, enumBinding);
         
         freeRegister(valueReg);
         freeRegister(memberNameReg);
@@ -3488,6 +3508,8 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::Call: opName = "Call"; break;
         case TurboOpCode::PushArg: opName = "PushArg"; break;
         case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
+        case TurboOpCode::NewArray: opName = "NewArray"; break;
+        case TurboOpCode::ArrayPush: opName = "ArrayPush"; break;
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::GetPropertyDynamic: opName = "GetPropertyDynamic"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
