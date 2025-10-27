@@ -782,39 +782,39 @@ void Scanner::collectNumber() {
 
     // --- Hexadecimal ---
     if (c == '0' && (peek() == 'x' || peek() == 'X')) {
-        num += c; advance();
-        num += currentCharacter(); advance();
+        /*num += c;*/ advance();
+        /*num += currentCharacter();*/ advance();
         while (isxdigit(currentCharacter()) && !eof()) {
             num += currentCharacter();
             advance();
         }
-        addToken(TokenType::NUMBER, num);
+        addToken(TokenType::NUMBER, to_string(std::stoi(num, nullptr, 16)));
         reverse();
         return;
     }
 
     // --- Binary ---
     if (c == '0' && (peek() == 'b' || peek() == 'B')) {
-        num += c; advance();
-        num += currentCharacter(); advance();
+        /* num += c;*/ advance();
+        /* num += currentCharacter(); */ advance();
         while ((currentCharacter() == '0' || currentCharacter() == '1')  && !eof()) {
             num += currentCharacter();
             advance();
         }
-        addToken(TokenType::NUMBER, num);
+        addToken(TokenType::NUMBER, to_string(std::stoi(num, nullptr, 2)));
         reverse();
         return;
     }
 
     // --- Octal ---
     if (c == '0' && (peek() == 'o' || peek() == 'O')) {
-        num += c; advance();
-        num += currentCharacter(); advance();
+        /*num += c;*/ advance();
+        /*num += currentCharacter();*/ advance();
         while (currentCharacter() >= '0' && currentCharacter() <= '7'  && !eof()) {
             num += currentCharacter();
             advance();
         }
-        addToken(TokenType::NUMBER, num);
+        addToken(TokenType::NUMBER, to_string(std::stoi(num, nullptr, 8)));
         reverse();
         return;
     }

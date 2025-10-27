@@ -72,9 +72,10 @@ string Value::toString() const {
         case ValueType::NUMBER: {
             // handle integers vs doubles
             if (std::floor(numberValue) == numberValue)
-                return std::to_string(static_cast<long long>(numberValue));
+                return std::format("{}", static_cast<long long>(numberValue)); //std::to_string(static_cast<long long>(numberValue));
             else
-                return std::to_string(numberValue);
+                return std::format("{}",
+                                   numberValue); // std::to_string(numberValue);
         }
         case ValueType::STRING: return stringValue;
         case ValueType::BOOLEAN: return boolValue ? "true" : "false";

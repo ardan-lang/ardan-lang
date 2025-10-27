@@ -274,10 +274,10 @@ public:
             
             // Try narrowest type
             if (v >= std::numeric_limits<float>::lowest() && v <= std::numeric_limits<float>::max()) {
-                return static_cast<float>(v);
+                // return static_cast<float>(v);
             }
             if (v >= std::numeric_limits<double>::lowest() && v <= std::numeric_limits<double>::max()) {
-                return static_cast<double>(v);
+                // return static_cast<double>(v);
             }
             return v; // long double
         }
