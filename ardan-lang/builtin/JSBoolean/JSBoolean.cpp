@@ -15,3 +15,13 @@ shared_ptr<JSObject> JSBoolean::construct() {
     return obj;
     
 }
+
+Value JSBoolean::call(const std::vector<Value>& args) {
+    // it will return a string
+    
+    if (args.size() <= 0) {
+        return Value::str("");
+    }
+    
+    return args[0];
+}

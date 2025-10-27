@@ -15,3 +15,7 @@ shared_ptr<JSObject> JSNumber::construct() {
     return obj;
     
 }
+
+Value JSNumber::call(const std::vector<Value>& args) {
+    return Value();
+}

@@ -23,6 +23,7 @@ public:
     }
         
     shared_ptr<JSObject> construct() override;
+    Value call(const std::vector<Value>& args) override;
 
 };
 

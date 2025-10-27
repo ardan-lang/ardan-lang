@@ -30,6 +30,9 @@ public:
     unordered_map<string, ValueField> let_static_fields;
     unordered_map<string, ValueField> const_static_fields;
     bool is_native = false;
+    virtual Value call(const std::vector<Value>& args) {
+        return Value();
+    }
 
     // need to add var, let, const fields
     

@@ -1812,6 +1812,7 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     if (callee.type == ValueType::CLASS && callee.classValue->is_native) {
         // handle native call
         // Array(), Boolean(), String(), etc
+        return callee.classValue->call(args);
     }
     
     if (callee.type != ValueType::FUNCTION_REF) {
