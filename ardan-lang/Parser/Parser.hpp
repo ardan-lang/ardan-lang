@@ -481,7 +481,7 @@ private:
             
             Token token_previous = previous();
             
-            if (token_previous.lexeme == "undefined") return make_unique<NullKeyword>(token_previous);
+            if (token_previous.lexeme == "undefined") return make_unique<UndefinedKeyword>(token_previous);
 
             // add support for single param arrow function
             // x => x; x => {};

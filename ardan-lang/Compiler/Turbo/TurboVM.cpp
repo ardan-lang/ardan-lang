@@ -372,11 +372,11 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             
             // evaluate fields
             int field_reg = protoProp.second.value.numberValue;
-            int chunk_index = frame->registers[field_reg].numberValue;
-            Value fnValue = module_->constants[chunk_index];
+            // int chunk_index = frame->registers[field_reg].numberValue;
+            Value fnValue = module_->constants[field_reg];
             Value val = callFunction(fnValue, {});
             
-            //     Value fnValue = Value::functionRef(fnObj);
+            // Value fnValue = Value::functionRef(fnObj);
             
             obj->set(protoProp.first,
                      val,
@@ -402,8 +402,8 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             
             // evaluate fields
             int field_reg = constProtoProp.second.value.numberValue;
-            int chunk_index = frame->registers[field_reg].numberValue;
-            Value fnValue = module_->constants[chunk_index];
+            // int chunk_index = frame->registers[field_reg].numberValue;
+            Value fnValue = module_->constants[field_reg];
             Value val = callFunction(fnValue, {});
 
             obj->set(constProtoProp.first,
@@ -983,7 +983,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value klass = frame->registers[instruction.a];
                 Value init = frame->registers[instruction.b];
                 Value fieldNameValue = frame->registers[instruction.c];
-                klass.classValue->set_proto_vm_var(fieldNameValue.stringValue, init, { "public" } );
+                klass.classValue->set_proto_vm_var(fieldNameValue.toString(), init, { "public" } );
 
                 break;
                 
@@ -1306,7 +1306,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::SetProperty: {
                 auto object = frame->registers[instruction.a];
                 Value val = frame->chunk->constants[instruction.b];
-                string prop_name = val.stringValue;
+                string prop_name = val.toString();//stringValue;
                 Value obj_val = frame->registers[instruction.c];
                 
                 setProperty(object, prop_name, obj_val);
@@ -1585,7 +1585,19 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
             case TurboOpCode::LoadArgumentsLength: {
                 // Pushes the count of arguments passed to the current frame
-                frame->registers[instruction.a] = Value((double)frame->args.size());
+                // loop thorugh frame->args and don't count null and undefined.
+                
+                int size = 0;
+                
+                for (auto arg : frame->args) {
+                    if (arg.type == ValueType::UNDEFINED) {
+                        continue;
+                    }
+                    size++;
+                }
+                
+                frame->registers[instruction.a] = Value((double)size/*frame->args.size()*/);
+                
                 break;
             }
 

@@ -1578,14 +1578,14 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
             int index_reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
             
-            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
             int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
             
             // Use argument
             int reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
             nested.emit(TurboOpCode::LoadArgument, reg);
             nested.emit(TurboOpCode::Move, store_reg, reg);
             
@@ -3356,7 +3356,7 @@ void TurboCodeGen::declareGlobal(const string& name, BindingKind kind) {
 
     for (int i = (int)globals.size() - 1; i >= 0; i--) {
         if (globals[i].name == name) {
-            throw runtime_error("Variable already declared in this scope");
+            throw runtime_error("Variable " + name +" already declared in this scope");
         }
     }
 

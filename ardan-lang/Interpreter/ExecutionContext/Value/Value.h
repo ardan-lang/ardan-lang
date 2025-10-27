@@ -102,7 +102,7 @@ public:
     static Value array(shared_ptr<JSArray> array) {
         Value v; v.type = ValueType::ARRAY; v.arrayValue = array; return v;
     }
-    static Value undefined() { return Value(); }
+    static Value undefined() { Value v; v.type = ValueType::UNDEFINED; return v; }
     static Value nullVal() { Value v; v.type = ValueType::NULLTYPE; return v; }
     static Value native(NativeFn fn) { Value v; v.type = ValueType::NATIVE_FUNCTION; v.nativeFunction = fn; return v; }
     static Value function(function<Value(vector<Value>)> fn) {
