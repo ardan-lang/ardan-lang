@@ -1897,7 +1897,7 @@ R TurboCodeGen::visitContinue(ContinueStatement*) {
     // emitLoop(loopStart); // emit a backwards jump
     // emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
 
-        // Emit jump with unknown target
+    // Emit jump with unknown target
     int jumpAddr = emitJump(TurboOpCode::Jump);
     loopStack.back().continues.push_back(jumpAddr);
 

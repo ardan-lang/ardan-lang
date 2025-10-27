@@ -35,6 +35,11 @@ void TurboVM::init_builtins() {
     env->set_var("fs", make_shared<File>());
     env->set_var("Server", make_shared<Server>(event_loop));
     
+    env->set_var("String", make_shared<JSString>());
+    env->set_var("Number", make_shared<JSNumber>());
+    env->set_var("Boolean", make_shared<JSBoolean>());
+    env->set_var("Array", make_shared<Array>());
+
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
         return Value::nullVal();
@@ -276,7 +281,24 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
         
         return objVal.classValue->get(propName, false);
     }
+    
     // primitives -> string -> property? For now, undefined
+    if (objVal.type == ValueType::STRING) {
+        
+        auto jsString = make_shared<JSString>();
+        
+        shared_ptr<JSObject> native_object = jsString->construct();
+
+        Value obj_value = Value::object(native_object);
+        obj_value.objectValue->turboVM = this;
+        
+        vector<Value> args = { objVal.toString() };
+
+        invokeMethod(obj_value, "constructor", args);
+
+        return native_object->get(propName);
+    }
+    
     return Value::undefined();
 }
 
@@ -1785,6 +1807,11 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     if (callee.type == ValueType::NATIVE_FUNCTION) {
         Value result = callee.nativeFunction(args);
         return result;
+    }
+    
+    if (callee.type == ValueType::CLASS && callee.classValue->is_native) {
+        // handle native call
+        // Array(), Boolean(), String(), etc
     }
     
     if (callee.type != ValueType::FUNCTION_REF) {

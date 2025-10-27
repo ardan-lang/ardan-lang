@@ -11,5 +11,9 @@
 #include "Math/Math.hpp"
 #include "File/File.hpp"
 #include "Print/Print.hpp"
+#include "JSString/JSString.hpp"
+#include "JSNumber/JSNumber.hpp"
+#include "JSBoolean/JSBoolean.hpp"
+#include "Array/Array.hpp"
 
 #endif /* builtin_includes_h */
