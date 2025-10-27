@@ -297,6 +297,13 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
         invokeMethod(obj_value, "constructor", args);
 
         return native_object->get(propName);
+        
+    }
+    
+    if (objVal.type == ValueType::NUMBER) {
+    }
+    
+    if (objVal.type == ValueType::BOOLEAN) {
     }
     
     return Value::undefined();

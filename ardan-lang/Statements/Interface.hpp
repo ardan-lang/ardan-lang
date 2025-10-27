@@ -14,10 +14,6 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "../Scanner/Token/Token.hpp"
-#include "Expression.hpp"
-#include "Statements.hpp"
-#include "../Parser/Parser.hpp"
 
 using std::string;
 using std::vector;
