@@ -3005,17 +3005,30 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
-R TurboCodeGen::visitUIExpression(UIViewExpression* visitor) {
+R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {
     
-//    // Emit instruction to create the UI element (e.g., VStack)
-//    emitCreateUI(visitor->type, visitor->props);
-//
-//    // Recursively initialize and render all children
-//    for (auto& child : visitor->children) {
-//        child->accept(*this);  // This will call visitUIExpression or other relevant method
-//    }
+    // Emit instruction to create the UI element (e.g., VStack)
+    int uiViewReg = allocRegister();
+    emit(TurboOpCode::CreateUIView,
+         uiViewReg,
+         emitConstant(Value::str(expr->name)));
+    
+    for (auto& arg : expr->args) {
+        
+    }
 
-    return true;
+    // Recursively initialize and render all children
+    for (auto& child : expr->children) {
+        int childUIViewReg = get<int>(child->accept(*this));  // This will call visitUIExpression or other relevant method
+        emit(TurboOpCode::AddChildSubView, childUIViewReg, uiViewReg);
+    }
+    
+    for (auto& modifier : expr->modifiers) {
+        emit(TurboOpCode::CallUIViewModifier, uiViewReg);
+    }
+
+    return uiViewReg;
+    
 }
 
 R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {

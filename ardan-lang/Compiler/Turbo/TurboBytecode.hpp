@@ -168,6 +168,12 @@ enum class TurboOpCode : uint8_t {
     
     CreateEnum,
     SetEnumProperty,
+    
+    // UI
+    CreateUIView,
+    AddChildSubView,
+    SetUIViewArgument,
+    CallUIViewModifier,
 
     Halt
     
