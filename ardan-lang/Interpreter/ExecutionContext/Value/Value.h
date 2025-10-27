@@ -167,8 +167,8 @@ public:
     bool isTruthy() const;
     
     bool isUndefined();
-    int integer();
-    bool boolean();
+    int integer() const;
+    bool boolean() const;
     bool isNull();
     string type_of();
     

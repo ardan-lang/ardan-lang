@@ -119,7 +119,7 @@ bool Value::isUndefined() {
     return type == ValueType::UNDEFINED ? true : false;
 }
 
-int Value::integer() {
+int Value::integer() const {
     switch (type) {
         case ValueType::BOOLEAN: return boolValue ? 1 : 0;
         case ValueType::NUMBER: return numberValue != 0 && !std::isnan(numberValue) ? 1 : 0;
@@ -140,7 +140,7 @@ int Value::integer() {
     return 0;
 }
 
-bool Value::boolean() {
+bool Value::boolean() const {
     switch (type) {
         case ValueType::BOOLEAN: return boolValue;
         case ValueType::NUMBER: return numberValue != 0 && !std::isnan(numberValue);

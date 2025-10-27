@@ -10,18 +10,45 @@
 
 shared_ptr<JSObject> Array::construct() {
     
-    shared_ptr<JSObject> obj = make_shared<JSObject>();
+    auto arr = make_shared<JSArray>();
     
-    return obj;
+    arr->set_builtin_value("constructor", Value::native([this, arr](const std::vector<Value>& args) -> Value {
+        
+        arr->set("value", args[0]);
+        
+        return Value();
+
+    }));
+    
+    return arr;
     
 }
 
 Value Array::call(const std::vector<Value>& args) {
     // it will return a string
     
-    if (args.size() <= 0) {
-        return Value::str("");
+    auto arr = make_shared<JSArray>();
+
+    if (args.size() == 0) {
+        
+        return Value::array(arr);
+        
+    } else if (args.size() == 1) {
+        
+        int arg_len = args[0].numberValue;
+        
+        for (int i = 0; i < arg_len; i++) {
+            arr->push({ Value::str("") });
+        }
+        
+    } else {
+        
+        for (auto arg : args) {
+            arr->push({ arg });
+        }
+
     }
+
+    return Value::array(arr);
     
-    return args[0];
 }
