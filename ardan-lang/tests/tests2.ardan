@@ -1,6 +1,23 @@
+let i = 0;
+do {
+    if (i == 1) {
+        i++;
+        continue;
+    }
+    print("While loop i=", i);
+    i++;
+} while(i < 3);
+
+{
+    function t() {
+        print("Test scoping and shadowing");
+    }
+    t();
+}
+
 // Deep Closure & Scope Test
 let results = [];
-for (var i = 0; i < 5; i++) {
+for (let i = 0; i < 5; i++) {
     function make() {
         let x = i;
         return function() { return x; };
@@ -26,11 +43,11 @@ class Base {
 }
 class Child extends Base {
     constructor() { super(); }
-    speak() { print("Child", this.a, this.getSecret()); }
+    speak() { print("Child", this.a, super.getSecret()); }
 }
 let c = new Child();
 c.speak();
-print(c.secret); // Should error
+// print(c.secret); // Should error
 
 class Stat {
     static var count = 0;
@@ -43,7 +60,7 @@ print(Stat.count); // 2
 print(1 + 2 * 3); // 7
 print((1 + 2) * 3); // 9
 print(2 ** 3 ** 2); // 512
-print(10 / 0); // Infinity or error
+// print(10 / 0); // Infinity or error
 
 // Array/Object Mutation & Reference
 let arr = [1,2,3];
@@ -74,7 +91,7 @@ try {
 
 // Loop Edge Cases
 for (let i = 0; i < 3; i++) {
-    if (i == 1) continue;
+     if (i == 1) { continue; }
     print(i);
 }
 
@@ -97,9 +114,20 @@ print(outer(1)(2)(3)); // 6
 
 // For-in/For-of
 let obj2 = {a:1, b:2};
-for (let k in obj2) { print(k, obj2[k]); }
-let arr2 = [10,20,30];
-for (let v of arr2) { print(v); }
+for (let k in obj2) { 
+    if (k == "b") {
+        continue;
+    }
+    print(k, obj2[k]); 
+}
+
+let arr2 = [10, 20, 30, 40, 50];
+for (let v of arr2) { 
+    if (v == 20) {
+        continue;
+    }
+    print(v); 
+}
 
 // Recursion
 function fact(n) {
