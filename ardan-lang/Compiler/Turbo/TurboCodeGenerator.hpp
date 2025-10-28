@@ -48,6 +48,7 @@ public:
         freeRegs.push_back(r);
     }
     void reset() { nextReg = 1; freeRegs.clear(); }
+    int getNextReg() { return nextReg; }
 };
 
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
