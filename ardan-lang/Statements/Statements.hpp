@@ -368,7 +368,7 @@ public:
 
 class ArrowFunction : public Expression {
 public:
-    string name;
+    string name = "<arrow>";
     unique_ptr<Expression> parameters;
     Token token;
     
