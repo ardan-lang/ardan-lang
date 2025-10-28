@@ -78,8 +78,10 @@ enum class TurboOpCode : uint8_t {
     JumpIfTrue,
     Loop,
     
-    NewArray,
-    NewObject,
+    CreateArrayLiteral,
+    CreateObjectLiteral,
+    CreateObjectLiteralProperty,
+
     ArrayPush,
     SetProperty,
     GetProperty,
@@ -160,7 +162,6 @@ enum class TurboOpCode : uint8_t {
     GetThis,
     GetParentObject,
     SuperCall,
-    CreateObjectLiteral,
     
     TypeOf,
     InstanceOf,

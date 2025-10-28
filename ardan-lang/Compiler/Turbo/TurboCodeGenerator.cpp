@@ -789,7 +789,7 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
 
 R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
     int arr = allocRegister();
-    emit(TurboOpCode::NewArray, arr);
+    emit(TurboOpCode::CreateArrayLiteral, arr);
     for (auto& el : expr->elements) {
         int val = get<int>(el->accept(*this));
         emit(TurboOpCode::ArrayPush, arr, val);
@@ -801,7 +801,7 @@ R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
 R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
     
     int obj = allocRegister();
-    emit(TurboOpCode::NewObject, obj);
+    emit(TurboOpCode::CreateObjectLiteral, obj);
     
     for (auto& prop : expr->props) {
 
@@ -810,7 +810,8 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
         }
 
         int val = get<int>(prop.second->accept(*this));
-        emit(TurboOpCode::SetProperty, obj, emitConstant(prop.first.lexeme), val);
+        emit(TurboOpCode::CreateObjectLiteralProperty, obj, emitConstant(prop.first.lexeme), val);
+        
         freeRegister(val);
     }
     
@@ -3547,10 +3548,14 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::Call: opName = "Call"; break;
         case TurboOpCode::PushArg: opName = "PushArg"; break;
         case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
-        case TurboOpCode::NewArray: opName = "NewArray"; break;
+        case TurboOpCode::CreateArrayLiteral: opName = "CreateArrayLiteral"; break;
+        case TurboOpCode::CreateObjectLiteral: opName = "CreateObjectLiteral"; break;
+        case TurboOpCode::CreateObjectLiteralProperty: opName = "CreateObjectLiteralProperty"; break;
         case TurboOpCode::ArrayPush: opName = "ArrayPush"; break;
         case TurboOpCode::GetProperty: opName = "GetProperty"; break;
         case TurboOpCode::GetPropertyDynamic: opName = "GetPropertyDynamic"; break;
+        case TurboOpCode::GetThis: opName = "GetThis"; break;
+        case TurboOpCode::SetThisProperty: opName = "SetThisProperty"; break;
         case TurboOpCode::Halt: opName = "Halt"; break;
             
         case TurboOpCode::Throw: opName = "Throw"; break;

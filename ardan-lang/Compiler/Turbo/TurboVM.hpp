@@ -121,6 +121,7 @@ private:
     bool instance_of(Value a, Value b);
     bool delete_op(Value object, Value property);
     Value CreateInstance(Value klass);
+    void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
     
     // UI
     void runCreateUIView(Instruction i);

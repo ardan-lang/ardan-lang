@@ -390,6 +390,9 @@ const unordered_map<string, Value> TurboVM::enumerateKeys(Value obj) {
 
 void TurboVM::set_js_object_closure(Value objVal) {
     if (objVal.type == ValueType::OBJECT) {
+
+        objVal.objectValue->turboVM = this;
+
         for(auto& prop : objVal.objectValue->get_all_properties()) {
             if (prop.second.type == ValueType::CLOSURE) {
                 prop.second.closureValue->js_object = objVal.objectValue;
@@ -419,6 +422,24 @@ shared_ptr<JSObject> TurboVM::createJSObject(shared_ptr<JSClass> klass) {
 
 }
 
+void TurboVM::CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object) {
+    if (obj_val.type == ValueType::CLOSURE) {
+        
+        shared_ptr<Closure> new_closure = make_shared<Closure>();
+        new_closure->fn = obj_val.closureValue->fn;
+        new_closure->upvalues = obj_val.closureValue->upvalues;
+        new_closure->js_object = object.objectValue;
+
+        object.objectValue->set(prop_name, Value::closure(new_closure), "VAR", { "public" });
+
+    } else {
+                    
+        object.objectValue->set(prop_name, obj_val, "VAR", { "public" });
+
+    }
+
+}
+
 void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
     for (auto& protoProp : klass.classValue->var_proto_props) {
@@ -430,25 +451,16 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
-            obj->set(protoProp.first,
-                     Value::closure(new_closure),
-                     "VAR",
-                     protoProp.second.modifiers);
+            obj->set(protoProp.first, Value::closure(new_closure), "VAR", protoProp.second.modifiers);
 
         } else {
             
             // evaluate fields
             int field_reg = protoProp.second.value.numberValue;
-            // int chunk_index = frame->registers[field_reg].numberValue;
             Value fnValue = module_->constants[field_reg];
             Value val = callFunction(fnValue, {});
-            
-            // Value fnValue = Value::functionRef(fnObj);
-            
-            obj->set(protoProp.first,
-                     val,
-                     "VAR",
-                     protoProp.second.modifiers);
+                        
+            obj->set(protoProp.first, val, "VAR", protoProp.second.modifiers);
 
         }
 
@@ -469,14 +481,10 @@ void TurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             
             // evaluate fields
             int field_reg = constProtoProp.second.value.numberValue;
-            // int chunk_index = frame->registers[field_reg].numberValue;
             Value fnValue = module_->constants[field_reg];
             Value val = callFunction(fnValue, {});
 
-            obj->set(constProtoProp.first,
-                     constProtoProp.second.value,
-                     "CONST",
-                     constProtoProp.second.modifiers);
+            obj->set(constProtoProp.first, constProtoProp.second.value, "CONST", constProtoProp.second.modifiers);
 
         }
 
@@ -994,8 +1002,8 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-                // emit(TurboOpCode::NewArray, arr);
-            case TurboOpCode::NewArray: {
+                // emit(TurboOpCode::CreateArrayLiteral, arr);
+            case TurboOpCode::CreateArrayLiteral: {
                 auto array = make_shared<JSArray>();
                 frame->registers[instruction.a] = Value::array(array);
                 break;
@@ -1263,17 +1271,33 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-                // emit(TurboOpCode::NewObject, obj);
-            case TurboOpCode::NewObject: {
+                // emit(TurboOpCode::CreateObjectLiteral, obj);                
+            case TurboOpCode::CreateObjectLiteral: {
                 auto object = make_shared<JSObject>();
                 Value v = Value::object(object);
+                set_js_object_closure(v);
 
                 frame->registers[instruction.a] = v;
+
+                break;
+            }
+             
+                // CreateObjectLiteralProperty, obj, index, val
+            case TurboOpCode::CreateObjectLiteralProperty: {
+                
+                auto object = frame->registers[instruction.a];
+                Value val = frame->chunk->constants[instruction.b];
+                string prop_name = val.toString();
+                Value obj_val = frame->registers[instruction.c];
+
+                CreateObjectLiteralProperty(obj_val, prop_name, object);
+
+                frame->registers[instruction.a] = object;
+
                 break;
             }
                 
             case TurboOpCode::GetThis: {
-//                push(Value::object(frame->closure->js_object));
                 frame->registers[instruction.a] = Value::object(frame->closure->js_object);
                 break;
             }
