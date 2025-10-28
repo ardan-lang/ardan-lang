@@ -122,6 +122,13 @@ private:
     string type_of(Value value);
     bool instance_of(Value a, Value b);
     bool delete_op(Value object, Value property);
+    Value CreateInstance(Value klass);
+    
+    // UI
+    void runCreateUIView(Instruction i);
+    void runAddChildSubView(Instruction i);
+    void runSetUIViewArgument(Instruction i);
+    void runCallUIViewModifier(Instruction i);
 
 };
 

@@ -27,8 +27,7 @@ size_t TurboCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
 }
 
 R TurboCodeGen::visitExpression(ExpressionStatement* stmt) {
-    stmt->expression->accept(*this);
-    return 0;
+    return stmt->expression->accept(*this);
 }
 
 R TurboCodeGen::visitBlock(BlockStatement* stmt) {
@@ -3005,32 +3004,6 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
-R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {
-    
-    // Emit instruction to create the UI element (e.g., VStack)
-    int uiViewReg = allocRegister();
-    emit(TurboOpCode::CreateUIView,
-         uiViewReg,
-         emitConstant(Value::str(expr->name)));
-    
-    for (auto& arg : expr->args) {
-        
-    }
-
-    // Recursively initialize and render all children
-    for (auto& child : expr->children) {
-        int childUIViewReg = get<int>(child->accept(*this));  // This will call visitUIExpression or other relevant method
-        emit(TurboOpCode::AddChildSubView, childUIViewReg, uiViewReg);
-    }
-    
-    for (auto& modifier : expr->modifiers) {
-        emit(TurboOpCode::CallUIViewModifier, uiViewReg);
-    }
-
-    return uiViewReg;
-    
-}
-
 R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     
     int nameIdx = emitConstant(Value::str(stmt->name));
@@ -3080,17 +3053,54 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     
 }
 
-//Value Interpreter::visitUIExpression(UIExpression* expr) {
-//    auto component = createComponent(expr->name); // e.g. NSLabel, NSButton, etc.
-//    for (auto child : expr->children) {
-//        auto childValue = evaluate(child);
-//        component->addChild(childValue);
-//    }
-//    return component;
-//}
-
 R TurboCodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
     return true;
+}
+
+R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {
+    
+    vector<int> args;
+    for (auto& arg : expr->args) {
+        int arg_reg = get<int>(arg->accept(*this));
+        emit(TurboOpCode::PushArg, arg_reg);
+        args.push_back(arg_reg);
+    }
+
+    int uiViewReg = allocRegister();
+    emit(TurboOpCode::CreateUIView, uiViewReg, emitConstant(Value::str(expr->name)));
+
+    // Recursively initialize and render all children
+    for (auto& child : expr->children) {
+        int childUIViewReg = get<int>(child->accept(*this));
+        emit(TurboOpCode::AddChildSubView, childUIViewReg, uiViewReg);
+    }
+    
+    for (auto& modifier : expr->modifiers) {
+        if (auto call = dynamic_cast<CallExpression*>(modifier.get())) {
+            auto ident = dynamic_cast<IdentifierExpression*>(call->callee.get());
+            
+            vector<int> modifier_args;
+            for (auto& arg : call->arguments) {
+                int arg_reg = get<int>(arg->accept(*this));
+                emit(TurboOpCode::PushArg, arg_reg);
+                modifier_args.push_back(arg_reg);
+            }
+
+            emit(TurboOpCode::CallUIViewModifier, uiViewReg, emitConstant(ident->name));
+            
+            for (auto arg : modifier_args) {
+                freeRegister(arg);
+            }
+            
+        }
+    }
+    
+    for (auto arg : args) {
+        freeRegister(arg);
+    }
+
+    return uiViewReg;
+    
 }
 
 int TurboCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {

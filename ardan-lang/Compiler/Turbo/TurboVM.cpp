@@ -164,6 +164,40 @@ int TurboVM::getValueLength(Value& v) {
 
 }
 
+Value TurboVM::CreateInstance(Value klass) {
+    
+    if (klass.classValue->is_native == true) {
+        
+        // add constructor
+        // check if constructor exists
+        if (!klass.classValue->is_constructor_available()) {
+            klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
+        }
+
+        shared_ptr<JSObject> native_object = klass.classValue->construct();
+
+        Value obj_value = Value::object(native_object);
+        obj_value.objectValue->turboVM = this;
+
+        set_js_object_closure(obj_value);
+
+        return obj_value;
+
+    }
+
+    // auto obj = make_shared<JSObject>();
+    // obj->setClass(klass.classValue);
+    
+    // TODO: we need to invoke parent constructor
+
+    shared_ptr<JSObject> obj = createJSObject(klass.classValue);
+    
+    Value obj_value = Value::object(obj);
+    
+    return obj_value;
+
+}
+
 Value TurboVM::getProperty(const Value &objVal, const string &propName) {
     
     if (objVal.type == ValueType::OBJECT) {
@@ -1187,34 +1221,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 Value klass = frame->registers[instruction.a];
                 
-                if (klass.classValue->is_native == true) {
-                    
-                    // add constructor
-                    // check if constructor exists
-                    if (!klass.classValue->is_constructor_available()) {
-                        klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
-                    }
-
-                    shared_ptr<JSObject> native_object = klass.classValue->construct();
-
-                    Value obj_value = Value::object(native_object);
-                    obj_value.objectValue->turboVM = this;
-
-                    set_js_object_closure(obj_value);
-
-                    frame->registers[instruction.a] = obj_value;
-
-                    break;
-                }
-
-                // auto obj = make_shared<JSObject>();
-                // obj->setClass(klass.classValue);
-                
-                // TODO: we need to invoke parent constructor
-
-                shared_ptr<JSObject> obj = createJSObject(klass.classValue);
-                
-                Value obj_value = Value::object(obj);
+                Value obj_value = CreateInstance(klass);
 
                 frame->registers[instruction.a] = obj_value;
 
@@ -1760,6 +1767,26 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::Halt:
                 return Value::undefined();
                 break;
+                
+                // UI
+            case TurboOpCode::CreateUIView: {
+                runCreateUIView(instruction);
+                break;
+            }
+                
+            case TurboOpCode::AddChildSubView: {
+                runAddChildSubView(instruction);
+                break;
+            }
+                
+            case TurboOpCode::SetUIViewArgument: {
+                break;
+            }
+                
+            case TurboOpCode::CallUIViewModifier: {
+                runCallUIViewModifier(instruction);
+                break;
+            }
 
             default:
                 throw std::runtime_error("Unknown opcode in VM");
@@ -1779,7 +1806,6 @@ Value TurboVM::callMethod(Value callee, vector<Value>& args, Value js_object) {
 Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
-        // call host function (native or compiled wrapper)
         Value result = callee.functionValue(args);
         return result;
     }
@@ -1797,9 +1823,6 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
 
-        // Set frame.closure if calling a closure
-        // Assuming callee has a closurePtr member for Closure shared_ptr
-        // If you extended Value for closure type, set here:
         callStack.push_back(std::move(new_frame));
 
         Value result = runFrame(callStack.back());
@@ -1849,9 +1872,6 @@ Value TurboVM::callFunction(Value callee, const vector<Value>& args) {
     new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
     new_frame.args = args;
     
-    // Set frame.closure if calling a closure
-    // Assuming callee has a closurePtr member for Closure shared_ptr
-    // If you extended Value for closure type, set here:
     new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
 
     // save current frame
