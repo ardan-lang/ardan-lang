@@ -47,7 +47,9 @@ void TurboVM::init_builtins() {
     
     env->set_var("Window", make_shared<Window>());
     env->set_var("Button", make_shared<Button>());
-    
+    env->set_var("View", make_shared<View>());
+    env->set_var("Text", make_shared<Text>());
+
 }
 
 shared_ptr<Upvalue> TurboVM::captureUpvalue(Value* local) {
@@ -406,7 +408,7 @@ shared_ptr<JSObject> TurboVM::createJSObject(shared_ptr<JSClass> klass) {
     // create a jsobject from superclass and assign to parent_object
     if (klass->superClass != nullptr) {
         
-        object->parent_object = createJSObject(klass->superClass);
+        object->parent_object = klass->superClass->is_native ? klass->superClass->construct() : createJSObject(klass->superClass);
         object->parent_class = klass->superClass;
         
     }
