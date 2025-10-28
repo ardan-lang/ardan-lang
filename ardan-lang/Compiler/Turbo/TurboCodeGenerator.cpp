@@ -1086,6 +1086,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     TurboCodeGen nested(module_);
     nested.cur = make_shared<TurboChunk>();
     nested.enclosing = this;
+    nested.cur->name = expr->name;
     nested.beginScope();
 
     vector<string> paramNames;
@@ -1240,7 +1241,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     auto fnObj = make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
-    fnObj->name = "<arrow>";
+    fnObj->name =  expr->name;
     fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
