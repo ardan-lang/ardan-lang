@@ -23,7 +23,7 @@ void TurboVM::runCreateUIView(Instruction i) {
     shared_ptr<JSClass> klass = ui.classValue;
     Value klass_value = Value::klass(klass);
     Value instance_obj = CreateInstance(klass_value);
-    
+            
     shared_ptr<JSObject> uiObject = instance_obj.objectValue;
     
     vector<Value> arg = { argStack.begin(), argStack.end() };
@@ -31,6 +31,13 @@ void TurboVM::runCreateUIView(Instruction i) {
     
     invokeMethod(instance_obj, "constructor", arg);
     
+    if (klass->superClass != nullptr) {
+        if (klass->superClass->is_native) {
+            Value uiViewBlock = callFunction(instance_obj.objectValue->get("body"), arg);
+            invokeMethod(instance_obj, "addComponent", { uiViewBlock });
+        }
+    }
+
     frame->registers[i.a] = instance_obj;
     
 }
