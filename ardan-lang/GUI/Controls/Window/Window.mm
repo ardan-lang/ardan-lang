@@ -32,7 +32,7 @@ shared_ptr<JSObject> Window::construct() {
     [app setDelegate:globalDelegate];
 
     NSRect frame = NSMakeRect(0, 0, 0, 0);
-    globalDelegate.window = [[NSWindow alloc]
+    globalDelegate.window = [[NSWindow alloc] /*init*/
         initWithContentRect:frame
                   styleMask:(NSWindowStyleMaskTitled |
                              NSWindowStyleMaskClosable |
@@ -41,7 +41,6 @@ shared_ptr<JSObject> Window::construct() {
                       defer:NO];
 
     [globalDelegate.window makeKeyAndOrderFront:nil];
-    [globalDelegate.window setTitle:@"Default Window"];
     
     // obj->set_builtin_value("constructor"
     obj->set_builtin_value("constructor", Value::native([this](const std::vector<Value>& args) -> Value {
@@ -97,6 +96,12 @@ void Window::setPosition(float x, float y, float width, float height) {
 
 void Window::addComponent(Value object) {
     auto control_view = object.objectValue->get("view").as<NSView*>();
+    
+//    NSRect contentBounds = contentView.bounds;
+//    CGFloat topY = contentBounds.size.height - subview.frame.size.height;
+//    subview.frame = NSMakeRect(0, topY, subview.frame.size.width, subview.frame.size.height);
+//    [contentView addSubview:subview];
+
     [[globalDelegate.window contentView] addSubview: control_view];
 }
 

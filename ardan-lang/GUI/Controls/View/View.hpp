@@ -32,6 +32,8 @@ public:
         is_native = true;
     }
     
+    vector<NSView*> views;
+    
     virtual NSView* getNativeView() {
         return nullptr;
     };

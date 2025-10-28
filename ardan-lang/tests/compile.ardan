@@ -451,30 +451,33 @@
 // greet({ name: "Nnamdi", age: 30 }); // ✅ OK
 // greet({ name: "Anon" });             // ❌ Error (missing `age`)
 
-// class ContentView {
+class ContentView extends View {
 
-// body()  {
-//     @VStack {
-//     @Text("Hello")
-//     @Button("Tap me") { 
-//         // Action or children
-//         print("Button tapped!");
-//     }
-// }
+body()  {
+    @HStack {
+    @Button("Tap me")
+    @Button("Display")
+    @Text("Hello")
+     /*{ 
+        // Action or children
+        print("Button tapped!");
+    }.font(90);*/
+}
 
-// }
+}
 
-// }
+}
 
-// class MainView  {
-//     body() {
-//         @Window("Main View", 400, 300) {
-//             @ContentView()
-//         }.run();
-//     }
-// }
+class MainView {
+    start() {
+        @Window("Main View", 500, 500) {
+            @ContentView()
+            // @Button("Tap me from Main View")
+        }.run();
+    }
+}
 
-// customView.body();
+(new MainView()).start();
 
 // let globallet = "glo";
 // {
@@ -502,22 +505,22 @@
 // }
 
 // n();
-// print(xy);
+// //print(xy);
 
-class Test {
-    var cfield;
-    body() {
-        // var tt = "tt";
-        // const cv = 90;
-        // {
-        // var t = "t";
-        // //cv = 88;
-        // }
-        cfield = "cfield";
-        // print(tt, t, cfield);
-        print(cfield);
+// class Test {
+//     var cfield;
+//     body() {
+//         // var tt = "tt";
+//         // const cv = 90;
+//         // {
+//         // var t = "t";
+//         // //cv = 88;
+//         // }
+//         cfield = "cfield";
+//         // print(tt, t, cfield);
+//         print(cfield);
 
-    }
-}
+//     }
+// }
 
-(new Test()).body();
+// (new Test()).body();

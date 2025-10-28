@@ -41,3 +41,4 @@
 #include "Controls/View/View.hpp"
 #include "Controls/TextBox/TextBox.hpp"
 #include "Controls/VStack/VStack.hpp"
+#include "Controls/HStack/HStack.hpp"

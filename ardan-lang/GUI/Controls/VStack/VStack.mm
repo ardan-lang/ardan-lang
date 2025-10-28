@@ -17,8 +17,11 @@
 
 shared_ptr<JSObject> VStack::construct() {
     
-    NSStackView* stackView = [[NSStackView alloc] init];
-    [stackView setOrientation:NSUserInterfaceLayoutOrientationHorizontal];
+    NSStackView* stackView = [[NSStackView alloc] initWithFrame:NSMakeRect(100, 100, 100, 40)];
+    [stackView setOrientation:NSUserInterfaceLayoutOrientationVertical];
+//    stackView.spacing = 10;
+//    stackView.alignment = NSLayoutAttributeCenterY;
+//    stackView.translatesAutoresizingMaskIntoConstraints = NO;
 
     auto obj = make_shared<JSObject>();
     

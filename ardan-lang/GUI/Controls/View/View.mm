@@ -17,7 +17,7 @@
 
 shared_ptr<JSObject> View::construct() {
 
-    NSView* view = [[NSView alloc] initWithFrame:NSMakeRect(100, 100, 100, 40)];
+    NSView* view = [[NSView alloc] initWithFrame:NSMakeRect(0, 10, 500, 500)];
 
     // Wrap in JSObject
     shared_ptr<JSObject> obj = make_shared<JSObject>();
@@ -31,6 +31,7 @@ shared_ptr<JSObject> View::construct() {
     }));
 
     obj->set("view", Value::any((NSView*)view), "VAR", {});
+    views.push_back(view);
 
     return obj;
 
