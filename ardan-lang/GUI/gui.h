@@ -40,3 +40,4 @@
 #include "Controls/Window/Window.hpp"
 #include "Controls/View/View.hpp"
 #include "Controls/TextBox/TextBox.hpp"
+#include "Controls/VStack/VStack.hpp"

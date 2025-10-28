@@ -49,6 +49,7 @@ void TurboVM::init_builtins() {
     env->set_var("Button", make_shared<Button>());
     env->set_var("View", make_shared<View>());
     env->set_var("Text", make_shared<Text>());
+    env->set_var("VStack", make_shared<VStack>());
 
 }
 
