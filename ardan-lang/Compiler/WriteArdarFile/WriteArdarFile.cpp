@@ -18,6 +18,17 @@ WriteArdarFile::WriteArdarFile(const std::string& filename,
         }
 }
 
+WriteArdarFile::WriteArdarFile(const std::string& filename,
+                               const TurboModule* module_,
+                               uint32_t entryChunkIndex,
+                               uint32_t version)
+: out(filename, std::ios::binary), turboModule(module_), version(version), entryChunkIndex(entryChunkIndex)
+{
+    if (!out.is_open()) {
+        throw std::runtime_error("Failed to open file for writing");
+    }
+}
+
 WriteArdarFile::~WriteArdarFile() {
     if (out.is_open()) out.close();
 }
@@ -88,8 +99,82 @@ void WriteArdarFile::writing() {
     out.flush();
 }
 
+void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
+    writeMagic("ARDAR-TURBO"); // 11 bytes, or adjust to fit your needs (and change writeMagic if needed)
+    
+    writeU32(turboModule->version);
+    writeU32(turboModule->entryChunkIndex);
+    
+    // Write chunks
+    writeU32(static_cast<uint32_t>(turboModule->chunks.size()));
+    for (const auto& chunkPtr : turboModule->chunks) {
+        const auto& chunk = *chunkPtr;
+        
+        // Write code size (number of instructions)
+        writeU32(static_cast<uint32_t>(chunk.code.size()));
+        
+        // Write each instruction as 4 bytes
+        for (const auto& instr : chunk.code) {
+            writeU8(static_cast<uint8_t>(instr.op));
+            writeU8(instr.a);
+            writeU8(instr.b);
+            writeU8(instr.c);
+        }
+        
+        // Write constants
+        writeU32(static_cast<uint32_t>(chunk.constants.size()));
+        for (const auto& v : chunk.constants) {
+            writeU8(static_cast<uint8_t>(v.type));
+            switch (v.type) {
+                case ValueType::NUMBER:
+                    writeDouble(v.numberValue);
+                    break;
+                case ValueType::STRING:
+                    writeString(v.stringValue);
+                    break;
+                case ValueType::FUNCTION_REF:
+                    writeU32(v.fnRef->chunkIndex);
+                    writeU32(v.fnRef->arity);
+                    writeString(v.fnRef->name);
+                    writeU32(v.fnRef->upvalues_size);
+                    break;
+                default:
+                    break;
+            }
+        }
+        
+        // Metadata for function/script
+        writeU32(chunk.arity);
+        writeString(chunk.name);
+        writeU32(chunk.maxLocals);
+    }
+    
+    // Write global constants pool
+    writeU32(static_cast<uint32_t>(turboModule->constants.size()));
+    for (const auto& v : turboModule->constants) {
+        writeU8(static_cast<uint8_t>(v.type));
+        switch (v.type) {
+            case ValueType::NUMBER:
+                writeDouble(v.numberValue);
+                break;
+            case ValueType::STRING:
+                writeString(v.stringValue);
+                break;
+            case ValueType::FUNCTION_REF:
+                writeU32(v.fnRef->chunkIndex);
+                writeU32(v.fnRef->arity);
+                writeString(v.fnRef->name);
+                writeU32(v.fnRef->upvalues_size);
+                break;
+            default:
+                break;
+        }
+    }
+    out.flush();
+}
+
 void WriteArdarFile::writeMagic(const char* magic) {
-    out.write(magic, 5); // "ARDAR" is 5 bytes
+    out.write(magic, /*5*/ strlen(magic) ); // "ARDAR" is 5 bytes
 }
 
 void WriteArdarFile::writeU32(uint32_t v) {

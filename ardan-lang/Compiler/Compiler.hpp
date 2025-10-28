@@ -34,6 +34,10 @@ public:
     void test_compile(const std::vector<std::unique_ptr<Statement>>& ast);
     void test_turbo_compile(const std::vector<std::unique_ptr<Statement>>& ast);
     
+    void runTurbo(shared_ptr<TurboModule> module_);
+    void write_ardar_turbo(string outputFilename, shared_ptr<TurboModule> module_, uint32_t entryChunkIndex);
+    shared_ptr<TurboModule> read_ardar_turbo(string outputFilename);
+
 };
 
 #endif /* Compiler_hpp */

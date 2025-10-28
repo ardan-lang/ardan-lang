@@ -100,6 +100,121 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
     return module_;
 }
 
+
+std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string& filename) {
+
+    // Read and check magic
+    char magic[11];
+    in.read(magic, 11);
+    if (std::string(magic, 11) != "ARDAR-TURBO")
+        throw std::runtime_error("File is not a valid TURBO ARDAR file");
+
+    auto module_ = std::make_unique<TurboModule>();
+    module_->version = readU32(in);
+    module_->entryChunkIndex = readU32(in);
+
+    // Chunks
+    uint32_t numChunks = readU32(in);
+    for (uint32_t i = 0; i < numChunks; ++i) {
+        auto chunk = std::make_shared<TurboChunk>();
+
+        // Code
+        uint32_t codeSize = readU32(in);
+        chunk->code.reserve(codeSize);
+        for (uint32_t j = 0; j < codeSize; ++j) {
+            TurboOpCode op = static_cast<TurboOpCode>(readU8(in));
+            uint8_t a = readU8(in);
+            uint8_t b = readU8(in);
+            uint8_t c = readU8(in);
+            chunk->code.push_back({op, a, b, c});
+        }
+
+        // Constants
+        uint32_t numConsts = readU32(in);
+        for (uint32_t k = 0; k < numConsts; ++k) {
+            Value val;
+            val.type = static_cast<ValueType>(readU8(in));
+            switch (val.type) {
+                case ValueType::NUMBER:
+                    val.numberValue = readDouble(in);
+                    break;
+                case ValueType::STRING:
+                    val.stringValue = readString(in);
+                    break;
+                case ValueType::FUNCTION_REF: {
+                    val.fnRef = std::make_shared<FunctionObject>();
+                    val.fnRef->chunkIndex = readU32(in);
+                    val.fnRef->arity = readU32(in);
+                    val.fnRef->name = readString(in);
+                    val.fnRef->upvalues_size = readU32(in);
+                    break;
+                }
+                default:
+                    break;
+            }
+            chunk->constants.push_back(val);
+        }
+
+        chunk->arity = readU32(in);
+        chunk->name = readString(in);
+        chunk->maxLocals = readU32(in);
+
+        module_->chunks.push_back(chunk);
+    }
+
+    // Global constants
+    uint32_t numModuleConsts = readU32(in);
+    for (uint32_t k = 0; k < numModuleConsts; ++k) {
+        Value val;
+        val.type = static_cast<ValueType>(readU8(in));
+        switch (val.type) {
+            case ValueType::NUMBER:
+                val.numberValue = readDouble(in);
+                break;
+            case ValueType::STRING:
+                val.stringValue = readString(in);
+                break;
+            case ValueType::FUNCTION_REF: {
+                val.fnRef = make_shared<FunctionObject>();
+                val.fnRef->chunkIndex = readU32(in);
+                val.fnRef->arity = readU32(in);
+                val.fnRef->name = readString(in);
+                val.fnRef->upvalues_size = readU32(in);
+                break;
+            }
+            default:
+                break;
+        }
+        module_->constants.push_back(val);
+    }
+    return module_;
+}
+
+uint32_t ArdarFileReader::readU32(std::istream& in) {
+    uint32_t v;
+    in.read(reinterpret_cast<char*>(&v), sizeof(uint32_t));
+    return v;
+}
+
+uint8_t ArdarFileReader::readU8(std::istream& in) {
+    uint8_t v;
+    in.read(reinterpret_cast<char*>(&v), sizeof(uint8_t));
+    return v;
+}
+
+double ArdarFileReader::readDouble(std::istream& in) {
+    double v;
+    in.read(reinterpret_cast<char*>(&v), sizeof(double));
+    return v;
+}
+
+std::string ArdarFileReader::readString(std::istream& in) {
+    uint32_t len = readU32(in);
+    std::string s(len, '\0');
+    if(len) in.read(&s[0], len);
+    return s;
+}
+
 void ArdarFileReader::readMagic(const char* expected) {
     char magic[6] = {0}; // 5 bytes + null-terminator
     in.read(magic, 5);

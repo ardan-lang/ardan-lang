@@ -21,7 +21,11 @@
 #include "../VM/Chunk.hpp"
 #include "../VM/VM.hpp"
 #include "../CodeGenerator.hpp"
-#include "../VM/Module.hpp"
+
+#include "../Turbo/TurboModule.hpp"
+#include "../Turbo/TurboChunk.hpp"
+#include "../Turbo/TurboVM.hpp"
+#include "../Turbo/TurboCodeGenerator.hpp"
 
 class ArdarFileReader {
 public:
@@ -29,6 +33,7 @@ public:
     ~ArdarFileReader();
 
     std::unique_ptr<Module> readModule();
+    std::unique_ptr<TurboModule> readTurboModule(const std::string& filename);
 
 private:
     std::ifstream in;
@@ -39,6 +44,11 @@ private:
     double readDouble();
     std::string readString();
     std::vector<uint8_t> readBytes(size_t n);
+
+    std::string readString(std::istream& in);
+    double readDouble(std::istream& in);
+    uint8_t readU8(std::istream& in);
+    uint32_t readU32(std::istream& in);
 
 };
 

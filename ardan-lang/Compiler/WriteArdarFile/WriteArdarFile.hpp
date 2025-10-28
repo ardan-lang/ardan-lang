@@ -18,15 +18,26 @@
 #include "../CodeGenerator.hpp"
 #include "../VM/Module.hpp"
 
+#include "../Turbo/TurboVM.hpp"
+#include "../Turbo/TurboCodeGenerator.hpp"
+#include "../Turbo/TurboModule.hpp"
+
 class WriteArdarFile {
 public:
     WriteArdarFile(const std::string& filename,
                    const Module* module_,
                    uint32_t entryChunkIndex,
                    uint32_t version = 1);
+    
+    WriteArdarFile(const std::string& filename,
+                   const TurboModule* turboModule,
+                   uint32_t entryChunkIndex,
+                   uint32_t version = 2);
+    
     ~WriteArdarFile();
 
     void writing();
+    void writingTurbo(const TurboModule* turboModule);
 
 private:
     void writeMagic(const char* magic);
@@ -38,6 +49,7 @@ private:
 
     std::ofstream out;
     const Module* module_;
+    const TurboModule* turboModule;
     uint32_t version;
     uint32_t entryChunkIndex;
 };
