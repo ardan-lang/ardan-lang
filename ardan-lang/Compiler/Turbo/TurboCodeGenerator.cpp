@@ -2059,6 +2059,22 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
                     hasReturn = true;
                     break;
                 }
+                
+                // TODO: This needs refactor, we should not special case "body" method like this
+                // for view builders 
+                if (auto exprStmt = dynamic_cast<ExpressionStatement*>(stmt.get())) {
+                    
+                    if (auto ui = dynamic_cast<UIViewExpression*>(exprStmt->expression.get()) && method.name == "body") {
+                        hasReturn = true;
+                        
+                        nested
+                            .emit(TurboOpCode::Return,
+                                  nested.registerAllocator->getNextReg() - 1);
+                        
+                        break;
+                    }
+                }
+                
             }
         }
         if (!hasReturn) {
@@ -3582,6 +3598,12 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::CreateClassProtectedMethod: opName = "CreateClassProtectedMethod"; break;
         case TurboOpCode::CreateClassPrivateMethod: opName = "CreateClassPrivateMethod"; break;
         case TurboOpCode::CreateClassPublicMethod: opName = "CreateClassPublicMethod"; break;
+            
+        case TurboOpCode::CreateUIView: opName = "CreateUIView"; break;
+        case TurboOpCode::AddChildSubView: opName = "AddChildSubView"; break;
+        case TurboOpCode::SetUIViewArgument: opName = "SetUIViewArgument"; break;
+        case TurboOpCode::CallUIViewModifier: opName = "CallUIViewModifier"; break;
+
 
         // Add more opcodes as needed
         default: opName = "Unknown"; break;
