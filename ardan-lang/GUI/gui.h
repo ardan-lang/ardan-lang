@@ -35,3 +35,8 @@
 //#ifdef __cplusplus
 //}
 //#endif
+
+#include "Controls/Button/Button.hpp"
+#include "Controls/Window/Window.hpp"
+#include "Controls/View/View.hpp"
+#include "Controls/TextBox/TextBox.hpp"
