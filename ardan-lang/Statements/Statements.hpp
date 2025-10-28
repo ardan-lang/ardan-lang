@@ -368,6 +368,7 @@ public:
 
 class ArrowFunction : public Expression {
 public:
+    string name;
     unique_ptr<Expression> parameters;
     Token token;
     
@@ -447,6 +448,7 @@ class FunctionExpression : public Expression {
 
 public:
     Token token;
+    string name = "<anon>";
     vector<unique_ptr<Expression>> params;
     unique_ptr<Statement> body;
     bool is_async;

@@ -278,6 +278,10 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
             
             if (auto classExpr = dynamic_cast<ClassExpression*>(decl.init.get())) {
                 classExpr->name = decl.id;
+            } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(decl.init.get())) {
+                functionExpr->name = decl.id;
+            } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(decl.init.get())) {
+                arrowFunctionExpr->name = decl.id;
             }
 
         } else {
@@ -526,7 +530,20 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
             } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
                 classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
             }
+        } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                functionExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                functionExpr->name = evaluate_property(memberExpr);
+            }
+        } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(expr->right.get())) {
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                arrowFunctionExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                arrowFunctionExpr->name = evaluate_property(memberExpr);
+            }
         }
+
         
         int resultReg = get<int>(expr->right->accept(*this));
         
@@ -585,7 +602,21 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
         } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
             classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
         }
+    } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            functionExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            functionExpr->name = evaluate_property(memberExpr);
+        }
+    } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(expr->right.get())) {
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            arrowFunctionExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            arrowFunctionExpr->name = evaluate_property(memberExpr);
+        }
+
     }
+
     
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
         load(ident->name, lhsReg);
@@ -807,6 +838,10 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
 
         if (auto classExpr = dynamic_cast<ClassExpression*>(prop.second.get())) {
             classExpr->name = prop.first.lexeme;
+        } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(prop.second.get())) {
+            functionExpr->name = prop.first.lexeme;
+        } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(prop.second.get())) {
+            arrowFunctionExpr->name = prop.first.lexeme;
         }
 
         int val = get<int>(prop.second->accept(*this));
@@ -1271,6 +1306,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     TurboCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
+    nested.cur->name = expr->name;
     nested.beginScope();
 
     vector<string> paramNames;
@@ -1439,7 +1475,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     auto fnObj = std::make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
-    fnObj->name = expr->token.lexeme; //"<anon>";
+    fnObj->name = expr->name; //"<anon>";
     fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
