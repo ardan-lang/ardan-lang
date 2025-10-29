@@ -399,9 +399,15 @@ R CodeGen::visitWhile(WhileStatement* stmt) {
     int exitJump = emitJump(OpCode::JumpIfFalse);
     emit(OpCode::Pop);
     stmt->body->accept(*this);
-    // jump back to loop start
-    // simpler: compute distance as current ip - loopStart + 4?
-    // but we have OP_LOOP that expects offset to subtract; we'll write offset below:
+    
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
     emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
     patchJump(exitJump);
     emit(OpCode::Pop);
@@ -427,6 +433,15 @@ R CodeGen::visitFor(ForStatement* stmt) {
         int exitJump = emitJump(OpCode::JumpIfFalse);
         emit(OpCode::Pop);
         stmt->body->accept(*this);
+        
+        if (loopStack.back().continues.size() > 0) {
+            for (auto& continueAddr : loopStack.back().continues) {
+                patchJump(continueAddr);
+            }
+            
+            loopStack.back().continues.clear();
+        }
+
         if (stmt->update) stmt->update->accept(*this);
         // loop back
         emitLoop((uint32_t)(cur->size() - loopStart ) + 4 + 1);
@@ -2239,6 +2254,14 @@ R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
     // Compile loop body
     stmt->body->accept(*this);
 
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
     // Compile the condition
     stmt->condition->accept(*this);
 
@@ -2906,14 +2929,13 @@ R CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
         // stack: obj, property, value
         emit(OpCode::SetEnumProperty);
     }
-        BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
-
-        declareLocal(stmt->name, enumBinding);
-        declareGlobal(stmt->name, enumBinding);
-
-        create(stmt->name, enumBinding);
-                
     
+    BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    
+    declareLocal(stmt->name, enumBinding);
+    declareGlobal(stmt->name, enumBinding);
+    
+    create(stmt->name, enumBinding);
     
     return true;
     
