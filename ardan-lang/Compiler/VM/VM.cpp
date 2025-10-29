@@ -142,6 +142,50 @@ bool VM::equals(const Value &a, const Value &b) {
     }
 }
 
+string VM::type_of(Value value) {
+    return value.type_of();
+}
+
+// checks if an object is an instance of a specific class or constructor function,
+// or if its prototype chain includes the prototype of the specified constructor.
+// obj, class
+bool VM::instance_of(Value a, Value b) {
+    if (a.type != ValueType::OBJECT || b.type != ValueType::CLASS) {
+        return false;
+    }
+    auto proto = b.classValue;
+    auto obj = a.objectValue;
+    while (obj) {
+        if (obj->getKlass().get() == proto.get()) return true;
+        obj = obj->parent_object;
+    }
+    return false;
+}
+
+// delete property from object
+bool VM::delete_op(Value object, Value property) {
+    setProperty(object, property.toString(), Value::undefined());
+    return true;
+}
+
+void VM::CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object) {
+    if (obj_val.type == ValueType::CLOSURE) {
+        
+        shared_ptr<Closure> new_closure = make_shared<Closure>();
+        new_closure->fn = obj_val.closureValue->fn;
+        new_closure->upvalues = obj_val.closureValue->upvalues;
+        new_closure->js_object = object.objectValue;
+
+        object.objectValue->set(prop_name, Value::closure(new_closure), "VAR", { "public" });
+
+    } else {
+                    
+        object.objectValue->set(prop_name, obj_val, "VAR", { "public" });
+
+    }
+
+}
+
 int VM::getValueLength(Value& v) {
     
     if (v.type == ValueType::OBJECT) {
@@ -158,15 +202,146 @@ int VM::getValueLength(Value& v) {
 
 Value VM::getProperty(const Value &objVal, const string &propName) {
     if (objVal.type == ValueType::OBJECT) {
+        
+        // perform privacy check
+        // if we have do not have js_object in closuure.
+        
+        // get the prop modifiers.
+        // if its private, check if the js_object in closure is not nullptr
+        // if closure.js_object is not nullptr
+        
+        vector<string> modifiers = objVal.objectValue->get_modifiers(propName);
+        
+        bool isPrivate = false;
+        bool isProtected = false;
+        
+        for (auto modifier : modifiers) {
+            if (modifier == "private") {
+                isPrivate = true;
+                continue;
+            }
+            
+            if (modifier == "protected") {
+                isProtected = true;
+                continue;
+            }
+        }
+        
+        if (isPrivate) {
+            // Disallow if we are not inside a closure of the owning object
+            if (frame->closure->js_object == nullptr || frame->closure->js_object.get() != objVal.objectValue.get()) {
+                throw runtime_error("Can't access '" + propName + "' a private property outside its class.");
+            }
+        }
+        
+        if (isProtected) {
+            if (frame->closure->js_object == nullptr) {
+                throw runtime_error("Can't access '" + propName + "' a protected property outside its class or subclass.");
+            }
+            auto accessor = frame->closure->js_object;
+            auto owner = objVal.objectValue;
+            // Traverse up the class hierarchy of accessor to see if it matches owner's class
+            auto accessorClass = accessor->getKlass();
+            auto ownerClass = owner->getKlass();
+            bool allowed = false;
+            while (accessorClass) {
+                if (accessorClass.get() == ownerClass.get()) {
+                    allowed = true;
+                    break;
+                }
+                accessorClass = accessorClass->superClass;
+            }
+            if (!allowed) {
+                throw runtime_error("Can't access '" + propName + "' a protected property outside its class or subclass.");
+            }
+        }
+
         return objVal.objectValue->get(propName);
     }
+    
     if (objVal.type == ValueType::ARRAY) {
         return objVal.arrayValue->get(propName);
     }
+    
     if (objVal.type == ValueType::CLASS) {
+        
+        // perform privacy check
+        // if we have do not have js_object in closuure.
+        
+        // get the prop modifiers.
+        // if its private, check if the js_object in closure is not nullptr
+        
+        vector<string> modifiers = objVal.classValue->get_static_modifiers(propName);
+        bool isPrivate = false;
+        bool isProtected = false;
+
+        for (auto modifier : modifiers) {
+            
+            if (modifier == "private") {
+                isPrivate = true;
+                continue;
+            }
+            
+            if (modifier == "protected") {
+                isProtected = true;
+                continue;
+            }
+
+        }
+
+        if (isPrivate) {
+            if (!frame->closure->js_object ||
+                frame->closure->js_object->getKlass().get() != objVal.classValue.get()) {
+                throw runtime_error("Can't access a private static property outside its class.");
+            }
+        }
+        
+        if (isProtected) {
+            if (!frame->closure->js_object) {
+                throw runtime_error("Can't access a protected static property outside its class or subclass.");
+            }
+            auto accessorClass = frame->closure->js_object->getKlass();
+            auto targetClass = objVal.classValue;
+            bool allowed = false;
+            while (accessorClass) {
+                if (accessorClass.get() == targetClass.get()) {
+                    allowed = true;
+                    break;
+                }
+                accessorClass = accessorClass->superClass;
+            }
+            if (!allowed) {
+                throw runtime_error("Can't access a protected static property outside its class or subclass.");
+            }
+        }
+
         return objVal.classValue->get(propName, false);
     }
+    
     // primitives -> string -> property? For now, undefined
+    if (objVal.type == ValueType::STRING) {
+        
+        auto jsString = make_shared<JSString>();
+        
+        shared_ptr<JSObject> native_object = jsString->construct();
+
+        Value obj_value = Value::object(native_object);
+        obj_value.objectValue->vm = this;
+        
+        vector<Value> args = { objVal.toString() };
+
+        invokeMethod(obj_value, "constructor", args);
+
+        return native_object->get(propName);
+        
+    }
+    
+    if (objVal.type == ValueType::NUMBER) {
+    }
+    
+    if (objVal.type == ValueType::BOOLEAN) {
+    }
+
     return Value::undefined();
 }
 
@@ -179,10 +354,14 @@ void VM::setProperty(const Value &objVal, const string &propName, const Value &v
         objVal.arrayValue->set(propName, val);
         return;
     }
-//    if (objVal.type == ValueType::CLASS) {
-//        //objVal.classValue->set_proto_vm(propName, val);
-//        return;
-//    }
+    
+    // TODO: make sure to check for privacy
+    // if objVal is a class then the property to et is a static.
+    if (objVal.type == ValueType::CLASS) {
+        objVal.classValue->set(propName, val, false);
+        return;
+    }
+    
     throw std::runtime_error("Cannot set property on non-object");
 }
 
@@ -210,6 +389,9 @@ const unordered_map<string, Value> VM::enumerateKeys(Value obj) {
 
 void VM::set_js_object_closure(Value objVal) {
     if (objVal.type == ValueType::OBJECT) {
+        
+        objVal.objectValue->vm = this;
+
         for(auto& prop : objVal.objectValue->get_all_properties()) {
             if (prop.second.type == ValueType::CLOSURE) {
                 prop.second.closureValue->js_object = objVal.objectValue;
@@ -230,7 +412,7 @@ shared_ptr<JSObject> VM::createJSObject(shared_ptr<JSClass> klass) {
     // create a jsobject from superclass and assign to parent_object
     if (klass->superClass != nullptr) {
         
-        object->parent_object = createJSObject(klass->superClass);
+        object->parent_object = klass->superClass->is_native ? klass->superClass->construct() : createJSObject(klass->superClass);
         object->parent_class = klass->superClass;
         
     }
@@ -240,6 +422,7 @@ shared_ptr<JSObject> VM::createJSObject(shared_ptr<JSClass> klass) {
 }
 
 void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
+    
     // TODO: check out where var_proto_props and const_proto_props are set.
     for (auto& protoProp : klass.classValue->var_proto_props) {
                 
@@ -250,42 +433,40 @@ void VM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
             new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
-            obj->set(protoProp.first,
-                     Value::closure(new_closure),
-                     "VAR",
-                     protoProp.second.modifiers);
+            obj->set(protoProp.first, Value::closure(new_closure), "VAR", protoProp.second.modifiers);
 
         } else {
             
-            obj->set(protoProp.first,
-                     protoProp.second.value,
-                     "VAR",
-                     protoProp.second.modifiers);
+            // evaluate fields
+            int field_reg = protoProp.second.value.numberValue;
+            Value fnValue = module_->constants[field_reg];
+            Value val = callFunction(fnValue, {});
+                        
+            obj->set(protoProp.first, val, "VAR", protoProp.second.modifiers);
 
         }
 
     }
-    
-    for (auto& protoProp : klass.classValue->const_proto_props) {
+
+    for (auto& constProtoProp : klass.classValue->const_proto_props) {
                 
-        if (protoProp.second.value.type == ValueType::CLOSURE) {
+        if (constProtoProp.second.value.type == ValueType::CLOSURE) {
             
             shared_ptr<Closure> new_closure = make_shared<Closure>();
-            new_closure->fn = protoProp.second.value.closureValue->fn;
-            new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
+            new_closure->fn = constProtoProp.second.value.closureValue->fn;
+            new_closure->upvalues = constProtoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
 
-            obj->set(protoProp.first,
-                     Value::closure(new_closure),
-                     "CONST",
-                     protoProp.second.modifiers);
+            obj->set(constProtoProp.first, Value::closure(new_closure), "CONST", {});
 
         } else {
             
-            obj->set(protoProp.first,
-                     protoProp.second.value,
-                     "CONST",
-                     protoProp.second.modifiers);
+            // evaluate fields
+            int field_reg = constProtoProp.second.value.numberValue;
+            Value fnValue = module_->constants[field_reg];
+            Value val = callFunction(fnValue, {});
+
+            obj->set(constProtoProp.first, constProtoProp.second.value, "CONST", constProtoProp.second.modifiers);
 
         }
 
@@ -303,6 +484,40 @@ void VM::invokeMethod(Value obj_value, string name, vector<Value> args) {
         }
     }
     
+}
+
+Value VM::CreateInstance(Value klass) {
+    
+    if (klass.classValue->is_native == true) {
+        
+        // add constructor
+        // check if constructor exists
+        if (!klass.classValue->is_constructor_available()) {
+            klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
+        }
+
+        shared_ptr<JSObject> native_object = klass.classValue->construct();
+
+        Value obj_value = Value::object(native_object);
+        obj_value.objectValue->vm = this;
+
+        set_js_object_closure(obj_value);
+
+        return obj_value;
+
+    }
+
+    // auto obj = make_shared<JSObject>();
+    // obj->setClass(klass.classValue);
+    
+    // TODO: we need to invoke parent constructor
+
+    shared_ptr<JSObject> obj = createJSObject(klass.classValue);
+    
+    Value obj_value = Value::object(obj);
+    
+    return obj_value;
+
 }
 
 Value VM::addCtor() {
@@ -364,7 +579,6 @@ Value VM::runFrame(CallFrame &current_frame) {
     
     if (callStack.empty()) return Value::undefined();
 
-    // Point VM at this frame's chunk/locals
     frame = &current_frame;
 
     while (true) {
@@ -399,6 +613,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // TODO: marked for removal
             case OpCode::LoadLocal: {
                 uint32_t idx = readUint32();
                 if (idx >= frame->locals.size()) push(Value::undefined());
@@ -406,6 +621,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
+                // TODO: marked for removal
             case OpCode::StoreLocal: {
                 uint32_t idx = readUint32();
                 Value val = pop();
@@ -419,14 +635,12 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
                 // pushes the value of the global to stack
+                // TODO: marked for removal
             case OpCode::LoadGlobal: {
                 uint32_t ci = readUint32();
                 Value nameVal = frame->chunk->constants[ci];
                 string name = nameVal.toString();
-                
-                // if (globals.find(name) != globals.end()) push(globals[name]);
-                // else push(Value::undefined());
-                
+                                
                 try {
                     
                     R env_value = env->get(name);
@@ -443,6 +657,7 @@ Value VM::runFrame(CallFrame &current_frame) {
             }
 
                 // leaves nothing on stack
+                // TODO: marked for removal
             case OpCode::StoreGlobal: {
                 uint32_t ci = readUint32();
                 Value nameVal = frame->chunk->constants[ci];
@@ -454,7 +669,7 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-                // leaves nothing on stack
+                // TODO: marked for removal
             case OpCode::CreateGlobal: {
                 uint32_t ci = readUint32();
                 Value nameVal = frame->chunk->constants[ci];
@@ -464,6 +679,237 @@ Value VM::runFrame(CallFrame &current_frame) {
                 env->set_var(name, v);
                 
                 break;
+            }
+
+                // moves data from local into stack
+            case OpCode::LoadLocalVar: {
+                // local index
+                uint32_t idx = readUint32();
+                
+                push(frame->locals[idx]);
+
+                break;
+            }
+                
+            case OpCode::LoadGlobalVar: {
+                
+                uint32_t ci = readUint32();
+                Value nameVal = frame->chunk->constants[ci];
+                string name = nameVal.toString();
+                
+                R env_value = env->get(name);
+                
+                Value env_value_conv = toValue(env_value);
+                
+                push(env_value_conv);
+                
+                break;
+            }
+                
+            case OpCode::StoreLocalVar: {
+                
+                uint32_t idx = readUint32();
+                Value val = pop();
+                
+                frame->locals[idx] = val;
+                
+                break;
+            }
+                
+            case OpCode::StoreGlobalVar: {
+                
+                uint32_t ci = readUint32();
+                Value nameVal = frame->chunk->constants[ci];
+                string name = nameVal.toString();
+                Value v = pop();
+                
+                env->set_var(name, v);
+                
+                break;
+            }
+                
+            case OpCode::StoreLocalLet: {
+                
+                uint32_t idx = readUint32();
+                Value val = pop();
+                frame->locals[idx] = val;
+                
+                break;
+            }
+                
+            case OpCode::StoreGlobalLet: {
+                
+                uint32_t ci = readUint32();
+                Value nameVal = frame->chunk->constants[ci];
+                string name = nameVal.toString();
+                Value v = pop();
+                
+                env->set_let(name, v);
+                
+                break;
+            }
+
+            case OpCode::CreateLocalVar: {
+                
+                uint32_t idx = readUint32();
+                Value val = pop();
+                
+                frame->locals[idx] = val;
+                
+                break;
+            }
+                
+            case OpCode::CreateLocalLet: {
+                
+                uint32_t idx = readUint32();
+                Value val = pop();
+                frame->locals[idx] = val;
+                
+                break;
+            }
+                
+            case OpCode::CreateLocalConst: {
+                
+                uint32_t idx = readUint32();
+                Value val = pop();
+                frame->locals[idx] = val;
+                
+                break;
+            }
+                
+            case OpCode::CreateGlobalVar: {
+                
+                uint32_t ci = readUint32();
+                Value nameVal = frame->chunk->constants[ci];
+                string name = nameVal.toString();
+                Value v = pop();
+                
+                env->set_var(name, v);
+                
+                break;
+            }
+                
+            case OpCode::CreateGlobalLet: {
+                
+                uint32_t ci = readUint32();
+                Value nameVal = frame->chunk->constants[ci];
+                string name = nameVal.toString();
+                Value v = pop();
+                
+                env->set_let(name, v);
+                
+                break;
+            }
+                
+            case OpCode::CreateGlobalConst: {
+                
+                uint32_t ci = readUint32();
+                Value nameVal = frame->chunk->constants[ci];
+                string name = nameVal.toString();
+                Value v = pop();
+                
+                env->set_const(name, v);
+                
+                break;
+            }
+                
+            case OpCode::StoreThisProperty: {
+                
+                uint32_t idx = readUint32();
+                
+                // load constant from nameIdx
+                Value property_value = frame->chunk->constants[idx];
+                string property_name = property_value.toString();
+                
+                Value value = pop();
+                
+                setProperty(Value::object(frame->closure->js_object), property_name, value);
+
+                break;
+            }
+                
+            case OpCode::LoadUpvalue: {
+                
+                uint32_t idx = readUint32();
+                push(*frame->closure->upvalues[idx]->location);
+
+                break;
+            }
+                
+            case OpCode::StoreUpvalueVar: {
+                
+                Value v = pop();
+                uint32_t idx = readUint32();
+
+                *frame->closure->upvalues[idx]->location = v;
+
+                break;
+            }
+                
+            case OpCode::StoreUpvalueLet: {
+                
+                Value v = pop();
+                uint32_t idx = readUint32();
+
+                *frame->closure->upvalues[idx]->location = v;
+
+                break;
+            }
+                
+            case OpCode::StoreUpvalueConst: {
+                
+                Value v = pop();
+                uint32_t idx = readUint32();
+
+                *frame->closure->upvalues[idx]->location = v;
+
+                break;
+            }
+                
+            case OpCode::LoadThisProperty: {
+                
+                uint32_t idx = readUint32();
+                
+                // load constant from nameIdx
+                Value property_value = frame->chunk->constants[idx];
+                
+                string property_name = property_value.toString();
+                                
+                Value obj = getProperty(Value::object(frame->closure->js_object), property_name);
+                
+                push(obj);
+
+                break;
+            }
+                
+            case OpCode::TypeOf: {
+                
+                Value value = pop();
+                push(Value::str(type_of(value)));
+
+                break;
+            }
+                
+                // Delete: objReg, propertyReg
+            case OpCode::Delete: {
+                
+                Value property = pop();
+                Value object = pop();
+                
+                push(Value::boolean(delete_op(object, property)));
+                
+                break;
+            }
+                
+            case OpCode::InstanceOf: {
+                
+                Value a = pop();
+                Value b = pop();
+                
+                push(Value::boolean(instance_of(a,b)));
+
+                break;
+                
             }
 
             case OpCode::NewObject: {
@@ -481,6 +927,24 @@ Value VM::runFrame(CallFrame &current_frame) {
                 push(objVal);
                 
                 break;
+            }
+                
+            case OpCode::CreateObjectLiteralProperty: {
+                
+                uint32_t idx = readUint32();
+                Value constant = frame->chunk->constants[idx];
+                string prop_name = constant.toString();
+                
+                Value val = pop();
+                
+                Value object = pop();
+
+                CreateObjectLiteralProperty(val, prop_name, object);
+
+                push(object);
+                
+                break;
+                
             }
                 
             case OpCode::NewClass: {
@@ -841,36 +1305,41 @@ Value VM::runFrame(CallFrame &current_frame) {
                                 
                 Value klass = pop();
 
-                if (klass.classValue->is_native == true) {
-                    
-                    // add constructor
-                    klass.classValue->set_var("constructor", addCtor(), { "public" });
-
-                    shared_ptr<JSObject> native_object = klass.classValue->construct();
-
-                    Value obj_value = Value::object(native_object);
-                    obj_value.objectValue->vm = this;
-
-                    set_js_object_closure(obj_value);
-
-                    // obj_value.type = ValueType::OBJECT;
-                    // obj_value.objectValue = native_klass;
-
-                    push(obj_value);
-
-                    break;
-                }
-
-                // auto obj = make_shared<JSObject>();
-                // obj->setClass(klass.classValue);
-                
-                // TODO: we need to invoke parent constructor
-
-                shared_ptr<JSObject> obj = createJSObject(klass.classValue);
-                
-                Value obj_value;
-                obj_value.type = ValueType::OBJECT;
-                obj_value.objectValue = obj;
+//                if (klass.classValue->is_native == true) {
+//                    
+//                    // add constructor
+//                    // check if constructor exists
+//                    if (!klass.classValue->is_constructor_available()) {
+//                        klass.classValue->set_proto_vm_var("constructor", addCtor(), { "public" } );
+//                    }
+//
+//                    shared_ptr<JSObject> native_object = klass.classValue->construct();
+//
+//                    Value obj_value = Value::object(native_object);
+//                    obj_value.objectValue->vm = this;
+//
+//                    set_js_object_closure(obj_value);
+//
+//                    // obj_value.type = ValueType::OBJECT;
+//                    // obj_value.objectValue = native_klass;
+//
+//                    push(obj_value);
+//
+//                    break;
+//                }
+//
+//                // auto obj = make_shared<JSObject>();
+//                // obj->setClass(klass.classValue);
+//                
+//                // TODO: we need to invoke parent constructor
+//
+//                shared_ptr<JSObject> obj = createJSObject(klass.classValue);
+//                
+//                Value obj_value;
+//                obj_value.type = ValueType::OBJECT;
+//                obj_value.objectValue = obj;
+                                
+                Value obj_value = CreateInstance(klass);
 
                 push(obj_value);
 
@@ -1527,7 +1996,6 @@ Value VM::runFrame(CallFrame &current_frame) {
 
 Value VM::callMethod(Value callee, vector<Value>& args, Value js_object) {
 
-    // return callFunction(js_object, args);
     return callFunction(callee, args);
 
 }
@@ -1535,7 +2003,6 @@ Value VM::callMethod(Value callee, vector<Value>& args, Value js_object) {
 Value VM::callFunction(Value callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
-        // call host function (native or compiled wrapper)
         Value result = callee.functionValue(args);
         return result;
     }
@@ -1552,11 +2019,7 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
         new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
-        // new_frame.js_object = callee.closureValue->js_object;
 
-        // Set frame.closure if calling a closure
-        // Assuming callee has a closurePtr member for Closure shared_ptr
-        // If you extended Value for closure type, set here:
         callStack.push_back(std::move(new_frame));
         auto prev_stack = std::move(stack);
         stack.clear();
@@ -1604,13 +2067,7 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
     new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
     new_frame.args = args;
     
-    // Set frame.closure if calling a closure
-    // Assuming callee has a closurePtr member for Closure shared_ptr
-    // If you extended Value for closure type, set here:
-    new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
-
-    // save current frame
-    CallFrame prev_frame = callStack.back();
+    new_frame.closure = callee.closureValue;
     
     auto prev_stack = std::move(stack);
     stack.clear();
@@ -1623,9 +2080,9 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
     callStack.push_back(std::move(new_frame));
 
     Value result = runFrame(callStack.back());
-    
     callStack.pop_back();
-    frame = &prev_frame;
+
+    frame = &callStack.back();
 
     stack = prev_stack;
 

@@ -59,43 +59,267 @@ R CodeGen::visitBlock(BlockStatement* stmt) {
     return true;
 }
 
-R CodeGen::define(string decl) {
+//R CodeGen::_define(string decl) {
+//    
+//    // decide local or global
+//    if (hasLocal(decl)) {
+//        uint32_t idx = getLocal(decl);
+//        
+//        // auto localIndex = resolveLocal(decl);
+//        if (locals[idx].kind == BindingKind::Const) {
+//            throw std::runtime_error("Assignment to constant variable.");
+//        }
+//        
+//        emit(OpCode::StoreLocal);
+//        emitUint32(idx);
+//    } else {
+//
+//        if (classInfo.fields.count(decl)) {
+//            
+//            // Rewrite: legs = one;  ⇒  this.legs = one;
+//            // Rewrite: legs;  ⇒  this.legs;
+//            emit(OpCode::SetThisProperty);
+//            int nameIdx = emitConstant(Value::str(decl));
+//            emitUint32(nameIdx);
+//            return R();
+//        }
+//
+//        int upvalue = resolveUpvalue(decl);
+//        if (upvalue != -1) {
+//            emit(OpCode::SetUpvalue);
+//            emitUint32(upvalue);
+//            return R();
+//        }
+//
+//        // top-level/global
+//        int nameIdx = emitConstant(Value::str(decl));
+//        // emit(OpCode::CreateGlobal);
+//        emit(OpCode::StoreGlobal);
+//        emitUint32((uint32_t)nameIdx);
+//    }
+//    
+//    return true;
+//
+//}
+
+// creates data into local/global
+R CodeGen::create(string decl, BindingKind kind) {
+    
+    OpCode op;
+
+    // decide local or global
+    if (hasLocal(decl)) {
+        uint32_t idx = getLocal(decl);
+                
+        switch (kind) {
+            case BindingKind::Var:
+                
+                if (enclosing == nullptr) {
+                    op = OpCode::CreateGlobalVar;
+                } else {
+                    op = OpCode::CreateLocalVar;
+                }
+                
+                break;
+            case BindingKind::Let:
+                op = OpCode::CreateLocalLet;
+                break;
+            case BindingKind::Const:
+                op = OpCode::CreateLocalConst;
+                break;
+            default:
+                op = OpCode::CreateLocalVar;
+                break;
+        }
+
+        emit(op);
+        emitUint32(idx);
+
+    } else {
+        
+        // This has been done when the class was being created.
+        if (classInfo.fields.count(decl)) {
+            return R();
+        }
+        
+        // TODO: check if we need to create upvalues.
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            return R();
+        }
+        
+        // top-level/global
+        int nameIdx = emitConstant(Value::str(decl));
+        switch (kind) {
+            case BindingKind::Var:
+                op = OpCode::CreateGlobalVar;
+                break;
+            case BindingKind::Let:
+                op = OpCode::CreateGlobalLet;
+                break;
+            case BindingKind::Const:
+                op = OpCode::CreateGlobalConst;
+                break;
+            default:
+                op = OpCode::CreateGlobalVar;
+                break;
+        }
+
+        emit(op);
+        emitUint32((uint32_t)nameIdx);
+                
+    }
+    
+    return true;
+
+}
+
+// moves data from stack into local/global
+R CodeGen::store(string decl) {
+    
+    // decide local or global
+    if (hasLocal(decl)) {
+        
+        uint32_t idx = getLocal(decl);
+        
+        Local local = locals[idx];
+        
+        if (locals[idx].kind == BindingKind::Const) {
+            throw std::runtime_error("Cannot assign value to constant variable.");
+        }
+        
+        if (local.kind == BindingKind::Var) {
+            emit(OpCode::StoreLocalVar);
+            emitUint32(idx);
+        } else if (local.kind == BindingKind::Let) {
+            emit(OpCode::StoreLocalLet);
+            emitUint32(idx);
+        }
+        
+    } else {
+        
+        PropertyLookup classProperty = lookupClassProperty(decl);
+        if (classProperty.level > 0 && classProperty.meta.kind == BindingKind::Const) {
+            throw runtime_error("Cannot assign value to a const field.");
+        }
+        
+        if (classProperty.level == 1) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            int nameIdx = emitConstant(Value::str(decl));
+            emit(OpCode::StoreThisProperty);
+            emitUint32(nameIdx);
+            
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            
+            return true;
+            
+        } else if (classProperty.level == 2) {
+            
+            int nameIdx = emitConstant(Value::str(decl));
+            
+            emit(OpCode::GetParentObject);
+            emit(OpCode::SetProperty);
+            emitUint32(nameIdx);
+            
+            return true;
+
+        }
+        
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            
+            UpvalueMeta upvalueMeta = upvalues[upvalue];
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+            
+            if (upvalueMeta.kind == BindingKind::Var) {
+                emit(OpCode::StoreUpvalueVar);
+                emitUint32(upvalue);
+            } else if (upvalueMeta.kind == BindingKind::Let) {
+                emit(OpCode::StoreUpvalueLet);
+                emitUint32(upvalue);
+            } else if (upvalueMeta.kind == BindingKind::Const) {
+                emit(OpCode::StoreUpvalueConst);
+                emitUint32(upvalue);
+            }
+            
+            return true;
+        }
+        
+        // top-level/global
+        int nameIdx = emitConstant(Value::str(decl));
+        Global global = globals[lookupGlobal(decl)];
+        
+        if (global.kind == BindingKind::Const) {
+            throw runtime_error("Cannot assign value to a const expression");
+        }
+        
+        if (global.kind == BindingKind::Var) {
+            emit(OpCode::StoreGlobalVar);
+            emitUint32((uint32_t)nameIdx);
+        } else if (global.kind == BindingKind::Let) {
+            emit(OpCode::StoreGlobalLet);
+            emitUint32((uint32_t)nameIdx);
+        }
+        
+    }
+    
+    return true;
+
+}
+
+// moves data from local/global into stack
+R CodeGen::load(string decl) {
     
     // decide local or global
     if (hasLocal(decl)) {
         uint32_t idx = getLocal(decl);
-        
-        // auto localIndex = resolveLocal(decl);
-        if (locals[idx].kind == BindingKind::Const) {
-            throw std::runtime_error("Assignment to constant variable.");
-        }
-        
-        emit(OpCode::StoreLocal);
+        emit(OpCode::LoadLocalVar);
         emitUint32(idx);
     } else {
-
-        if (classInfo.fields.count(decl)) {
+        
+        // search if decl is in class fields
+        PropertyLookup result = lookupClassProperty(decl);
+        if (result.level == 1) {
             
             // Rewrite: legs = one;  ⇒  this.legs = one;
             // Rewrite: legs;  ⇒  this.legs;
-            emit(OpCode::SetThisProperty);
             int nameIdx = emitConstant(Value::str(decl));
+            emit(OpCode::LoadThisProperty);
             emitUint32(nameIdx);
-            return R();
-        }
+            
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            return true;
+        } else if (result.level == 2) {
+            // exists in parent class
+            
+            int nameIdx = emitConstant(Value::str(decl));
 
+            emit(OpCode::GetParentObject);
+            emit(OpCode::GetProperty);
+            emitUint32(nameIdx);
+            return true;
+        }
+        
         int upvalue = resolveUpvalue(decl);
         if (upvalue != -1) {
-            emit(OpCode::SetUpvalue);
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+            emit(OpCode::LoadUpvalue);
             emitUint32(upvalue);
-            return R();
+            return true;
         }
-
-        // top-level/global
+        
         int nameIdx = emitConstant(Value::str(decl));
-        // emit(OpCode::CreateGlobal);
-        emit(OpCode::StoreGlobal);
+        emit(OpCode::LoadGlobalVar);
         emitUint32((uint32_t)nameIdx);
+        
     }
     
     return true;
@@ -106,52 +330,38 @@ R CodeGen::visitVariable(VariableStatement* stmt) {
     
     // var, let and const
     string kind = stmt->kind;
-    
+    BindingKind bindingKind = get_kind(kind);
+
     for (auto &decl : stmt->declarations) {
 
-        if (kind == "CONST" && decl.init == nullptr) {
+        if (bindingKind == BindingKind::Const && decl.init == nullptr) {
             throw runtime_error("Const variables must be initialized.");
             return true;
         }
 
-        declareLocal(decl.id, get_kind(kind));
-
         if (decl.init) {
             decl.init->accept(*this); // push init value
+            
+            if (auto classExpr = dynamic_cast<ClassExpression*>(decl.init.get())) {
+                classExpr->name = decl.id;
+            } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(decl.init.get())) {
+                functionExpr->name = decl.id;
+            } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(decl.init.get())) {
+                arrowFunctionExpr->name = decl.id;
+            }
+
         } else {
             emit(OpCode::LoadConstant);
             int ci = emitConstant(Value::undefined());
             emitUint32(ci);
         }
                 
-        define(decl.id);
-        
-        // decide local or global
-//        if (hasLocal(decl.id)) {
-//            uint32_t idx = getLocal(decl.id);
-//            
-//            if (locals[idx].kind == BindingKind::Const) {
-//                throw std::runtime_error("Assignment to constant variable.");
-//            }
-//
-//            emit(OpCode::StoreLocal);
-//            emitUint32(idx);
-//        } else {
-//
-//            int upvalue = resolveUpvalue(decl.id);
-//            if (upvalue != -1) {
-//                emit(OpCode::SetUpvalue);
-//                emitUint32(upvalue);
-//                return R();
-//            }
-//
-//            // top-level/global
-//            int nameIdx = emitConstant(Value::str(decl.id));
-//            emit(OpCode::CreateGlobal);
-//            emitUint32((uint16_t)nameIdx);
-//            emitUint32((uint16_t)get_kind(kind));
-//            // TODO: add bits for var, let or const.
-//        }
+        // define(decl.id);
+
+        declareVariableScoping(decl.id, bindingKind);
+
+        // TODO: add bits for var, let or const.
+        create(decl.id, bindingKind);
         
     }
     
@@ -190,7 +400,6 @@ R CodeGen::visitWhile(WhileStatement* stmt) {
     emit(OpCode::Pop);
     stmt->body->accept(*this);
     // jump back to loop start
-    // uint32_t backOffset = (uint32_t)(cur->size() - loopStart + 4 + 1); // estimate; we'll write OP_LOOP with offset
     // simpler: compute distance as current ip - loopStart + 4?
     // but we have OP_LOOP that expects offset to subtract; we'll write offset below:
     emitLoop((uint32_t)(cur->size() - loopStart + 4 + 1));
@@ -355,6 +564,10 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
         case TokenType::UNSIGNED_RIGHT_SHIFT:
             emit(OpCode::UnsignedShiftRight);
             break;
+            
+        case TokenType::INSTANCEOF:
+            emit(OpCode::InstanceOf);
+            break;
 
         default:
             throw std::runtime_error("Unknown binary operator in compiler: " + expr->op.lexeme);
@@ -369,12 +582,36 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
 
     // Plain assignment (=)
     if (expr->op.type == TokenType::ASSIGN) {
+        
+        if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
+            // Try to infer name from left
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                classExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+            }
+        } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                functionExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                functionExpr->name = evaluate_property(memberExpr);
+            }
+        } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(expr->right.get())) {
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                arrowFunctionExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                arrowFunctionExpr->name = evaluate_property(memberExpr);
+            }
+        }
+        
         if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
             // Evaluate RHS first
             expr->right->accept(*this);
 
             // Assign to variable (local/global/class field/upvalue)
-            define(ident->token.lexeme);
+            // define(ident->token.lexeme);
+            store(ident->token.lexeme);
+            
         }
         else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
             // Assignment to property (obj.prop = ...)
@@ -412,6 +649,29 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
     }
 
     // Compound assignment (+=, -=, etc.)
+    
+    if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
+        // Try to infer name from left
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            classExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+        }
+    } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            functionExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            functionExpr->name = evaluate_property(memberExpr);
+        }
+    } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(expr->right.get())) {
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            arrowFunctionExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            arrowFunctionExpr->name = evaluate_property(memberExpr);
+        }
+
+    }
+
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
         // Load current value
         ident->accept(*this);
@@ -459,7 +719,8 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
 
     // Store the result back
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
-        define(ident->token.lexeme);
+        // define(ident->token.lexeme);
+        store(ident->token.lexeme);
     }
     else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
         if (member->computed) {
@@ -476,6 +737,32 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
 // returns new value
 // --x, ++x, !x, -x
 R CodeGen::visitUnary(UnaryExpression* expr) {
+    
+    // DELETE
+    if (auto member = dynamic_cast<MemberExpression*>(expr->right.get())) {
+        
+        (member->object->accept(*this));
+        
+        if (member->computed) {
+
+            (member->property->accept(*this));
+
+            emit(OpCode::Delete);
+            
+        } else {
+            
+            int nameConst = emitConstant(Value::str(member->name.lexeme));
+            emit(OpCode::LoadConstant);
+            emitUint32(nameConst);
+
+            emit(OpCode::Delete);
+            
+        }
+        
+    } else {
+        throw runtime_error("delete operator works on objects and arrays.");
+    }
+    
     // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
         // ++x or --x
@@ -497,15 +784,8 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
             emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
             
             // store back
-            define(ident->token.lexeme);
-//            if (hasLocal(ident->name)) {
-//                emit(OpCode::OP_SET_LOCAL);
-//                emitUint32(getLocal(ident->name));
-//            } else {
-//                int nameIdx = emitConstant(Value::str(ident->name));
-//                emit(OpCode::OP_SET_GLOBAL);
-//                emitUint32(nameIdx);
-//            }
+            // define(ident->token.lexeme);
+            store(ident->token.lexeme);
             
             return true;
             
@@ -551,6 +831,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         case TokenType::MINUS: emit(OpCode::Negate); break;
         case TokenType::BITWISE_NOT: emit(OpCode::LogicalNot); break;
         case TokenType::ADD: emit(OpCode::Positive); break;
+        case TokenType::TYPEOF: emit(OpCode::TypeOf); break;
         default: throw std::runtime_error("Unsupported unary op in CodeGen");
     }
     return true;
@@ -581,33 +862,9 @@ R CodeGen::visitStringLiteral(StringLiteral* expr) {
 // Here, we retrieve the identifier from its storage: local, upvalue or global.
 R CodeGen::visitIdentifier(IdentifierExpression* expr) {
     string name = expr->name;
-    if (hasLocal(name)) {
-        emit(OpCode::LoadLocal);
-        emitUint32(getLocal(name));
-    } else {
-        
-        if (classInfo.fields.count(name)) {
-            
-            // Rewrite: legs;  ⇒  this.legs;
-            emit(OpCode::GetThisProperty);
-            int nameIdx = emitConstant(Value::str(name));
-            emitUint32(nameIdx);
-            return R();
-        }
-        
-        int upvalue = resolveUpvalue(expr->name);
-        if (upvalue != -1) {
-            emit(OpCode::GetUpvalue);
-            emitUint32(upvalue);
-            return R();
-        }
-        
-        int nameIdx = emitConstant(Value::str(name));
-        emit(OpCode::LoadGlobal);
-        emitUint32(nameIdx);
-        
-    }
     
+    load(name);
+
     return true;
     
 }
@@ -615,29 +872,42 @@ R CodeGen::visitIdentifier(IdentifierExpression* expr) {
 R CodeGen::visitCall(CallExpression* expr) {
     // emit callee, then args left-to-right, then OP_CALL argc
     
-    if (classInfo.fields.size() > 0 && classInfo.fields.count("constructor")) {
-        // check if this is a super() call.
-        if (auto ident = dynamic_cast<SuperExpression*>(expr->callee.get())) {
-            
-            for (auto &arg : expr->arguments) {
-                arg->accept(*this);
-            }
-            uint8_t argc = (uint8_t)expr->arguments.size();
-            
-            emit(OpCode::SuperCall);
-            emitUint8(argc);
-            
-            return true;
-            
-        }
+//    if (classInfo.fields.size() > 0 && classInfo.fields.count("constructor")) {
+//        // check if this is a super() call.
+//        if (auto ident = dynamic_cast<SuperExpression*>(expr->callee.get())) {
+//            
+//            for (auto &arg : expr->arguments) {
+//                arg->accept(*this);
+//            }
+//            uint8_t argc = (uint8_t)expr->arguments.size();
+//            
+//            emit(OpCode::SuperCall);
+//            emitUint8(argc);
+//            
+//            return true;
+//            
+//        }
+//    }
+    
+    bool isSuperCall = false;
+    if (auto ident = dynamic_cast<SuperExpression*>(expr->callee.get())) {
+        isSuperCall = true;
     }
     
-    expr->callee->accept(*this);
+    !isSuperCall ? expr->callee->accept(*this) : NULL;
+    
     for (auto &arg : expr->arguments) {
         arg->accept(*this);
     }
     uint8_t argc = (uint8_t)expr->arguments.size();
-    emit(OpCode::Call);
+
+    // check if this is a super() call.
+    if (isSuperCall) {
+        emit(OpCode::SuperCall);
+    } else {
+        emit(OpCode::Call);
+    }
+    
     emitUint8(argc);
     return true;
 }
@@ -672,28 +942,25 @@ R CodeGen::visitArray(ArrayLiteralExpression* expr) {
 
 R CodeGen::visitObject(ObjectLiteralExpression* expr) {
     emit(OpCode::NewObject);
-    // For each prop: evaluate value, then OP_SET_PROPERTY with name const
+    emit(OpCode::CreateObjectLiteral);
+
     for (auto &prop : expr->props) {
         // evaluate value
         prop.second->accept(*this);
         int nameIdx = emitConstant(Value::str(prop.first.lexeme));
-        emit(OpCode::SetProperty);
+        emit(OpCode::CreateObjectLiteralProperty);
         emitUint32(nameIdx);
     }
-    
-    emit(OpCode::CreateObjectLiteral);
-    
+        
     return true;
 }
 
 R CodeGen::visitConditional(ConditionalExpression* expr) {
     expr->test->accept(*this);
     int elseJump = emitJump(OpCode::JumpIfFalse);
-    // emit(OpCode::OP_POP);
     expr->consequent->accept(*this);
     int endJump = emitJump(OpCode::Jump);
     patchJump(elseJump);
-    // emit(OpCode::OP_POP);
     expr->alternate->accept(*this);
     patchJump(endJump);
     return true;
@@ -706,6 +973,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     nested.cur = make_shared<Chunk>();
     nested.enclosing = this;
     nested.beginScope();
+    nested.cur->name = expr->name;
 
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
@@ -827,7 +1095,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     auto fnObj = make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
-    fnObj->name = "<arrow>";
+    fnObj->name = expr->name;
     fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
@@ -837,9 +1105,7 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
     
-    ClosureInfo closure_info = {};
-    closure_info.ci = ci;
-    closure_info.upvalues = nested.upvalues;
+    ClosureInfo closure_info = { (uint8_t)ci, nested.upvalues };
 
     for (auto& uv : nested.upvalues) {
         emitUint8(uv.isLocal ? 1 : 0);
@@ -877,6 +1143,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     nested.enclosing = this;
     nested.cur = make_shared<Chunk>();
     nested.beginScope();
+    nested.cur->name = expr->name;
 
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
@@ -1011,7 +1278,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     auto fnObj = std::make_shared<FunctionObject>();
     fnObj->chunkIndex = chunkIndex;
     fnObj->arity = fnChunk->arity;
-    fnObj->name = expr->token.lexeme; //"<anon>";
+    fnObj->name = expr->name;
     fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
 
     Value fnValue = Value::functionRef(fnObj);
@@ -1021,9 +1288,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
-    ClosureInfo closure_info = {};
-    closure_info.ci = ci;
-    closure_info.upvalues = nested.upvalues;
+    ClosureInfo closure_info = { (uint8_t)ci, nested.upvalues };
 
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
@@ -1056,6 +1321,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
     nested.beginScope();
+    nested.cur->name = stmt->id;
     
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
@@ -1181,9 +1447,7 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     emit(OpCode::CreateClosure);
     emitUint8((uint8_t)ci);
 
-    ClosureInfo closure_info = {};
-    closure_info.ci = ci;
-    closure_info.upvalues = nested.upvalues;
+    ClosureInfo closure_info = { (uint8_t)ci, nested.upvalues };
 
     // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
@@ -1192,18 +1456,24 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     }
     
     // Bind function to its name in the global environment
-    if (scopeDepth == 0) {
-        emit(OpCode::CreateGlobal);
-         int nameIdx = emitConstant(Value::str(stmt->id));
-         emitUint32(nameIdx);
-    } else {
-        declareLocal(stmt->id, BindingKind::Var);
-        int slot = paramSlot(stmt->id);
-        emit(OpCode::StoreLocal);
-        // int nameIdx = emitConstant(Value::str(stmt->id));
-        emitUint32(slot);
-    }
+//    if (scopeDepth == 0) {
+//        emit(OpCode::CreateGlobal);
+//         int nameIdx = emitConstant(Value::str(stmt->id));
+//         emitUint32(nameIdx);
+//    } else {
+//        declareLocal(stmt->id, BindingKind::Var);
+//        int slot = paramSlot(stmt->id);
+//        emit(OpCode::StoreLocal);
+//        // int nameIdx = emitConstant(Value::str(stmt->id));
+//        emitUint32(slot);
+//    }
     
+    BindingKind functionBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    declareLocal(stmt->id, functionBinding);
+    declareGlobal(stmt->id, functionBinding);
+    
+    create(stmt->id, functionBinding);
+
     closure_infos[to_string(ci)] = closure_info;
     
     // disassemble the chunk for debugging
@@ -1384,7 +1654,8 @@ R CodeGen::visitUpdate(UpdateExpression* expr) {
         emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::number(1)));
         emit(expr->op.type == TokenType::INCREMENT ? OpCode::Add : OpCode::Subtract);
-        define(ident->name);
+        // define(ident->name);
+        store(ident->name);
 //        if (hasLocal(ident->name)) {
 //            emit(OpCode::StoreLocal);
 //            emitUint32(getLocal(ident->name));
@@ -1520,9 +1791,8 @@ R CodeGen::visitSuper(SuperExpression* stmt) {
 
 // TODO: figure out how to use arguments and call constructor
 R CodeGen::visitNew(NewExpression* expr) {
-    // create new object, push, then call constructor? For now create object and set properties
-    // expr->arguments // vector
-    // expr->callee //
+    
+    // create new object, push, then call constructor
         
     if (auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
                 
@@ -1541,19 +1811,18 @@ R CodeGen::visitNew(NewExpression* expr) {
 
     }
     
-    // set up constructor invocation by calling callee with object? Simpler: if args exist, ignore
-    // To support calling constructor I'd have to add OP_INVOKE or convention; skip constructor calls for now.
     return true;
 }
 
 void CodeGen::compileMethod(MethodDefinition& method) {
+    
     // Create a nested CodeGen for the method body (closure)
     CodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
     nested.beginScope();
-    // nested.declareLocal("this");
     nested.classInfo = classInfo;
+    nested.classes = classes;
 
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
@@ -1629,7 +1898,7 @@ void CodeGen::compileMethod(MethodDefinition& method) {
     // Compile the method body
     if (method.methodBody) {
         method.methodBody->accept(nested);
-        // Ensure OP_RETURN is emitted
+        // Ensure Return is emitted
         bool hasReturn = false;
         if (auto* block = dynamic_cast<BlockStatement*>(method.methodBody.get())) {
             for (auto& stmt : block->body) {
@@ -1676,9 +1945,18 @@ void CodeGen::compileMethod(MethodDefinition& method) {
 
 R CodeGen::visitClass(ClassDeclaration* stmt) {
         
+    classInfo.name = stmt->id;
+
     // Evaluate superclass (if any)
     if (stmt->superClass) {
         stmt->superClass->accept(*this); // [superclass]
+        
+        auto ident = dynamic_cast<IdentifierExpression*>((stmt->superClass.get()));
+        
+        if (ident) {
+            classInfo.super_class_name = ident->name;
+        }
+
     } else {
         emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
@@ -1722,13 +2000,25 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
             
             for (const auto& decl : varStmt->declarations) {
                 
-                classInfo.fields.insert(decl.id);
+                // ************ Collect property meta ****************
+                auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+                auto binding = get_kind(kind);
                 
-                if (decl.init) {
-                    decl.init->accept(*this); // Evaluate initializer
+                PropertyMeta prop_meta = { visibility, binding, isStatic };
+                classInfo.fields[decl.id] = prop_meta;
+                // ****************************************************
+
+                if (isStatic) {
+                    
+                    if (decl.init) {
+                        decl.init->accept(*this); // Evaluate initializer
+                    } else {
+                        emit(OpCode::LoadConstant);
+                        emitUint32(emitConstant(Value::undefined()));
+                    }
+                    
                 } else {
-                    emit(OpCode::LoadConstant);
-                    emitUint32(emitConstant(Value::undefined()));
+                    recordInstanceField(stmt->id, decl.id, decl.init.get(), prop_meta);
                 }
                 
                 int nameIdx = emitConstant(Value::str(decl.id));
@@ -1777,7 +2067,7 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                             } else if (isPrivate) {
                                 op = OpCode::CreateClassPrivatePropertyVar;
                             } else if (isProtected) {
-                                op = OpCode::CreateClassProtectedStaticPropertyVar;
+                                op = OpCode::CreateClassProtectedPropertyVar;
                             } else {
                                 op = OpCode::CreateClassPublicPropertyVar;
                             }
@@ -1809,29 +2099,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
     
     for (auto& method : stmt->body) {
         
-        // Check if 'static' modifier is present
-        bool isStatic = false;
-        for (const auto& mod : method->modifiers) {
-            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
-                isStatic = true;
-                break;
-            }
-        }
-
-        if (!isStatic) {
-            classInfo.fields.insert(method->name);
-        }
-
-    }
-
-    // Define methods (attach to class or prototype as appropriate)
-    for (auto& method : stmt->body) {
-        // Compile the method as a function object
-        compileMethod(*method); // leaves function object on stack
-
-        // Get name of method
-        int nameIdx = emitConstant(Value::str(method->name));
-        
         bool isStatic = false;
         bool isPrivate = false;
         bool isPublic = false;
@@ -1850,6 +2117,49 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
             if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
                 isProtected = true;
             }
+        }
+
+        // ************* Collecting properrty meta ***************
+        auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+        
+        PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
+        
+        classInfo.fields[method->name] = prop_meta;
+        // ****************************
+
+    }
+
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : stmt->body) {
+        // Compile the method as a function object
+        compileMethod(*method); // leaves function object on stack
+
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+            
         }
         
         OpCode op;
@@ -1889,14 +2199,23 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
 
     // TODO: need to fix this to store not only in global
     // Bind class in the environment (global)
-    int classNameIdx = emitConstant(Value::str(stmt->id));
-    emit(OpCode::CreateGlobal);
-    emitUint32(classNameIdx);
+    // int classNameIdx = emitConstant(Value::str(stmt->id));
+    // emit(OpCode::CreateGlobal);
+    // emitUint32(classNameIdx);
 
+    // add claas to classes
+    classes[stmt->id] = std::move(classInfo);
     // clear class info
     classInfo.fields.clear();
 
+    BindingKind classBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+
+    declareLocal(stmt->id, classBinding);
+    declareGlobal(stmt->id, classBinding);
+    create(stmt->id, classBinding);
+
     return true;
+    
 }
 
 R CodeGen::visitMethodDefinition(MethodDefinition* stmt) {
@@ -2294,9 +2613,20 @@ R CodeGen::visitRestParameter(RestParameter* expr) {
 
 R CodeGen::visitClassExpression(ClassExpression* expr) {
     
+    auto stmt = expr;
+    
+    classInfo.name = expr->name;
+
     // Evaluate superclass (if any)
-    if (expr->superClass) {
-        expr->superClass->accept(*this); // [superclass]
+    if (stmt->superClass) {
+        stmt->superClass->accept(*this); // [superclass]
+        
+        auto ident = dynamic_cast<IdentifierExpression*>((stmt->superClass.get()));
+        
+        if (ident) {
+            classInfo.super_class_name = ident->name;
+        }
+
     } else {
         emit(OpCode::LoadConstant);
         emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
@@ -2306,36 +2636,133 @@ R CodeGen::visitClassExpression(ClassExpression* expr) {
     emit(OpCode::NewClass); // pops superclass, pushes new class object
 
     // Define fields
-    for (auto& field : expr->fields) {
-        // Only handle static fields during class definition codegen
+    for (auto& field : stmt->fields) {
+        
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : field->modifiers) {
+            
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
             }
+            
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+            
         }
-        // if (!isStatic)
-            // continue;
 
         // Property is always a VariableStatement
         if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            string kind = varStmt->kind;
+            
             for (const auto& decl : varStmt->declarations) {
                 
-                classInfo.fields.insert(decl.id);
+                // ************ Collect property meta ****************
+                auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+                auto binding = get_kind(kind);
                 
-                if (decl.init) {
-                    decl.init->accept(*this); // Evaluate initializer
+                PropertyMeta prop_meta = { visibility, binding, isStatic };
+                classInfo.fields[decl.id] = prop_meta;
+                // ****************************************************
+
+                if (isStatic) {
+                    
+                    if (decl.init) {
+                        decl.init->accept(*this); // Evaluate initializer
+                    } else {
+                        emit(OpCode::LoadConstant);
+                        emitUint32(emitConstant(Value::undefined()));
+                    }
+                    
                 } else {
-                    emit(OpCode::LoadConstant);
-                    emitUint32(emitConstant(Value::undefined()));
+                    recordInstanceField(stmt->name,
+                                        decl.id,
+                                        decl.init.get(),
+                                        prop_meta);
                 }
+                
                 int nameIdx = emitConstant(Value::str(decl.id));
                 
+                OpCode op;
+
                 if (isStatic) {
-                    emit(OpCode::SetStaticProperty);
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicStaticPropertyVar;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivateStaticPropertyVar;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = OpCode::CreateClassPublicStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicStaticPropertyConst;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivateStaticPropertyConst;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedStaticPropertyConst;
+                            } else {
+                                op = OpCode::CreateClassPublicStaticPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    // emit(OpCode::SetStaticProperty);
+                    emit(op);
+
                 } else {
-                    emit(OpCode::SetProperty);
+                    
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicPropertyVar;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivatePropertyVar;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedPropertyVar;
+                            } else {
+                                op = OpCode::CreateClassPublicPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = OpCode::CreateClassPublicPropertyConst;
+                            } else if (isPrivate) {
+                                op = OpCode::CreateClassPrivatePropertyConst;
+                            } else if (isProtected) {
+                                op = OpCode::CreateClassProtectedPropertyConst;
+                            } else {
+                                op = OpCode::CreateClassPublicPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+
+                    // emit(OpCode::SetProperty);
+                    emit(op);
                 }
                 
                 emitUint32(nameIdx);
@@ -2343,57 +2770,111 @@ R CodeGen::visitClassExpression(ClassExpression* expr) {
         }
     }
     
-    for (auto& method : expr->body) {
+    for (auto& method : stmt->body) {
         
-        // Check if 'static' modifier is present
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : method->modifiers) {
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
             }
         }
 
-        if (!isStatic) {
-            classInfo.fields.insert(method->name);
-        }
+        // ************* Collecting properrty meta ***************
+        auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+        
+        PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
+        
+        classInfo.fields[method->name] = prop_meta;
+        // ****************************
 
     }
 
     // Define methods (attach to class or prototype as appropriate)
-    for (auto& method : expr->body) {
+    for (auto& method : stmt->body) {
         // Compile the method as a function object
         compileMethod(*method); // leaves function object on stack
 
         // Get name of method
         int nameIdx = emitConstant(Value::str(method->name));
         
-        // Check if 'static' modifier is present
         bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
         for (const auto& mod : method->modifiers) {
+            
             if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
                 isStatic = true;
-                break;
             }
+            
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+            
         }
+        
+        OpCode op;
 
         if (isStatic) {
-            emit(OpCode::SetStaticProperty);
-            emitUint32(nameIdx); // Pops class and function, sets property on class object
+            
+            if (isPublic) {
+                op = OpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = OpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = OpCode::CreateClassProtectedStaticMethod;
+            } else {
+                op = OpCode::CreateClassPublicStaticMethod;
+            }
+            
+            // emit(OpCode::SetStaticProperty);
         } else {
-            emit(OpCode::SetProperty);
-            emitUint32(nameIdx); // Pops class and function, sets on prototype
+            
+            if (isPublic) {
+                op = OpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = OpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = OpCode::CreateClassProtectedMethod;
+            } else {
+                op = OpCode::CreateClassPublicMethod;
+            }
+            
         }
+        
+        emit(op);
+        emitUint32(nameIdx); // Pops class and function, sets on prototype
+
     }
 
-    // Bind class in the environment (global)
-    // int classNameIdx = emitConstant(Value::str(expr->id));
-    // emit(OpCode::CreateGlobal);
-    // emitUint32(classNameIdx);
+    // add claas to classes
+    classes[stmt->name] = std::move(classInfo);
 
     // clear class info
     classInfo.fields.clear();
-
+    
     return true;
     
 }
@@ -2412,27 +2893,54 @@ R CodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
 
 // --------------------- Utils ----------------------
 
-//void CodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
-//    locals.clear();
-//    nextLocalSlot = 0;
-//    // reserve param slots as locals 0..paramCount-1
-//    for (uint32_t i = 0; i < paramCount; ++i) {
-//        string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
-//        locals[name] = i;
-//        nextLocalSlot = i + 1;
-//    }
-//    if (cur) cur->maxLocals = nextLocalSlot;
-//}
+int CodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
+    
+    CodeGen nested(module_);
+    nested.cur = make_shared<Chunk>();
+        
+    if (initExpr == nullptr) {
+        
+        int idx = nested.emitConstant(Value::undefined());
+        nested.emit(OpCode::LoadConstant);
+        nested.emitUint32(idx);
+        
+    } else {
+        (initExpr->accept(nested));
+    }
+    
+    nested.emit(OpCode::Return);
+    
+    // Register the init as a constant for this module
+    auto fnChunk = nested.cur;
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+    nested.cur->name = fieldId;
+    
+    disassembleChunk(nested.cur.get(), classId + " : " + fieldId);
+
+    auto fnObj = make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->name = fieldId;
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+    
+    emit(OpCode::LoadConstant);
+    emitUint32(emitConstant(Value(ci)));
+
+    return 0;
+
+}
 
 void CodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
     locals.clear();
     nextLocalSlot = 0;
     for (uint32_t i = 0; i < paramCount; ++i) {
         string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
-        Local local{name, /*depth=*/1, /*isCaptured=*/false, (uint32_t)i}; // usually scopeDepth=1 for params
+        Local local { name, /*depth=*/1, /*isCaptured=*/false, (uint32_t)i, BindingKind::Var }; // usually scopeDepth=1 for params
         locals.push_back(local);
         nextLocalSlot = i + 1;
     }
+    
     if (cur) cur->maxLocals = nextLocalSlot;
 }
 
@@ -2451,15 +2959,6 @@ int CodeGen::emitConstant(const Value &v) {
     return cur->addConstant(v);
 }
 
-//uint32_t CodeGen::makeLocal(const string &name) {
-//    auto it = locals.find(name);
-//    if (it != locals.end()) return it->second;
-//    uint32_t idx = nextLocalSlot++;
-//    locals[name] = idx;
-//    if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
-//    return idx;
-//}
-
 uint32_t CodeGen::makeLocal(const std::string& name, BindingKind kind) {
     for (int i = (int)locals.size() - 1; i >= 0; --i) {
         if (locals[i].name == name) return locals[i].slot_index;
@@ -2471,20 +2970,12 @@ uint32_t CodeGen::makeLocal(const std::string& name, BindingKind kind) {
     return idx;
 }
 
-//bool CodeGen::hasLocal(const string &name) {
-//    return locals.find(name) != locals.end();
-//}
-
 bool CodeGen::hasLocal(const std::string& name) {
     for (int i = (int)locals.size() - 1; i >= 0; --i) {
         if (locals[i].name == name) return true;
     }
     return false;
 }
-
-//uint32_t CodeGen::getLocal(const string &name) {
-//    return locals.at(name);
-//}
 
 uint32_t CodeGen::getLocal(const std::string& name) {
     for (int i = (int)locals.size() - 1; i >= 0; --i) {
@@ -2576,12 +3067,6 @@ void CodeGen::patchTry(int pos) {
     cur->code[pos + 3] = (offset >> 24) & 0xFF;
 }
 
-//int CodeGen::declareLocal(const string& name) {
-//    int slot = nextLocalSlot++;
-//    locals[name].slot_index = slot;
-//    return slot;
-//}
-
 void CodeGen::declareLocal(const string& name, BindingKind kind) {
     if (scopeDepth == 0) return; // globals aren’t locals
 
@@ -2589,12 +3074,31 @@ void CodeGen::declareLocal(const string& name, BindingKind kind) {
     for (int i = (int)locals.size() - 1; i >= 0; i--) {
         if (locals[i].depth != -1 && locals[i].depth < scopeDepth) break;
         if (locals[i].name == name) {
-            throw runtime_error("Variable already declared in this scope");
+            throw runtime_error("Variable" + name + " already declared in this scope");
         }
     }
 
+    uint32_t idx = (uint32_t)locals.size();
+
     Local local { name, scopeDepth, false, (uint32_t)locals.size(), kind };
     locals.push_back(local);
+    
+    if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
+}
+
+void CodeGen::declareGlobal(const string& name, BindingKind kind) {
+    
+    if (scopeDepth > 0) return; // locals aren’t globals
+
+    for (int i = (int)globals.size() - 1; i >= 0; i--) {
+        if (globals[i].name == name) {
+            throw runtime_error("Variable " + name +" already declared in this scope.");
+        }
+    }
+
+    Global global { name, kind };
+    globals.push_back(global);
+    
 }
 
 void CodeGen::emitSetLocal(int slot) {
@@ -2615,31 +3119,41 @@ int CodeGen::resolveLocal(const std::string& name) {
     return -1;
 }
 
-int CodeGen::addUpvalue(bool isLocal, int index) {
+int CodeGen::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
     for (int i = 0; i < (int)upvalues.size(); i++) {
         if (upvalues[i].isLocal == isLocal && upvalues[i].index == index) {
             return i;
         }
     }
-    upvalues.push_back({isLocal, (uint32_t)index});
+    upvalues.push_back({isLocal, (uint32_t)index, name, kind});
     return (int)upvalues.size() - 1;
 }
 
     // resolve variable
 int CodeGen::resolveUpvalue(const std::string& name) {
+    
     if (enclosing) {
         int localIndex = enclosing->resolveLocal(name);
         if (localIndex != -1) {
             enclosing->locals[localIndex].isCaptured = true;
-            return addUpvalue(true, localIndex);
+            return addUpvalue(true,
+                              localIndex,
+                              name,
+                              enclosing->locals[localIndex].kind);
         }
         
         int upIndex = enclosing->resolveUpvalue(name);
         if (upIndex != -1) {
-            return addUpvalue(false, upIndex);
+            
+            return addUpvalue(false,
+                              upIndex,
+                              enclosing->upvalues[upIndex].name,
+                              enclosing->upvalues[upIndex].kind);
         }
     }
+    
     return -1;
+    
 }
 
 void CodeGen::beginScope() {
@@ -2694,6 +3208,83 @@ inline uint32_t CodeGen::readUint32(const Chunk* chunk, size_t offset) {
            ((uint32_t)chunk->code[offset + 1] << 8) |
            ((uint32_t)chunk->code[offset + 2] << 16) |
            ((uint32_t)chunk->code[offset + 3] << 24);
+}
+
+int CodeGen::lookupGlobal(const string& name) {
+    for (int i = (int)globals.size() - 1; i >= 0; i--) {
+        if (globals[i].name == name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+PropertyLookup CodeGen::lookupClassProperty(string prop_name) {
+    
+    if(classInfo.fields.count(prop_name)) {
+        return { 1, classInfo.fields[prop_name] };
+    }
+    
+    string super_class_name = classInfo.super_class_name;
+    auto super_class_info = classes[super_class_name];
+
+    if (super_class_info.fields.count(prop_name)) {
+        return { 2, super_class_info.fields[prop_name] };
+    }
+    
+    return { -1 , {} };
+}
+
+void CodeGen::declareVariableScoping(const string& name, BindingKind kind) {
+    
+    // do not declare as local if Var and its not inside a function body
+    // do not declare as local if its var and the scopedepth is > 0
+
+    // --------- let scoping check-----------
+    bool IsVar = (kind == BindingKind::Var) ? true : false;
+    
+    if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
+        
+        int previousScopeDepth = scopeDepth;
+        scopeDepth = 0;
+        declareGlobal(name, kind);
+        scopeDepth = previousScopeDepth;
+
+        return;
+    }
+    
+    if (enclosing) {
+        if (IsVar) {
+            declareLocal(name, (kind));
+            int idx = resolveLocal(name);
+            locals[idx].depth = locals[idx].depth - 1;
+            return;
+        }
+    }
+    // --------- end of let scoping check-----------
+    
+    declareLocal(name, (kind));
+    declareGlobal(name, (kind));
+    
+    // if the current scope depth is greater than 0, we must declare local
+
+}
+
+string CodeGen::evaluate_property(Expression* expr) {
+    if (auto member = dynamic_cast<MemberExpression*>(expr)) {
+        if (member->computed) {
+            return evaluate_property(member->property.get());
+        } else {
+            return member->name.lexeme;
+        }
+    }
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr)) {
+        return ident->name;
+    }
+    if (auto literal = dynamic_cast<LiteralExpression*>(expr)) {
+        return literal->token.lexeme; // Or whatever holds the property key
+    }
+    throw std::runtime_error("Unsupported expression type in evaluate_property");
 }
 
 size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
@@ -2779,7 +3370,27 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::SetStaticProperty:
         case OpCode::LoadChunkIndex:
         case OpCode::LoadArgument:
-        case OpCode::GetProperty: {
+            
+        case OpCode::GetProperty:
+        case OpCode::LoadLocalVar:
+        case OpCode::LoadGlobalVar:
+        case OpCode::StoreLocalVar:
+        case OpCode::StoreGlobalVar:
+        case OpCode::StoreLocalLet:
+        case OpCode::StoreGlobalLet:
+        case OpCode::CreateLocalVar:
+        case OpCode::CreateLocalLet:
+        case OpCode::CreateLocalConst:
+        case OpCode::CreateGlobalVar:
+        case OpCode::CreateGlobalLet:
+        case OpCode::CreateGlobalConst:
+        case OpCode::StoreThisProperty:
+        case OpCode::LoadUpvalue:
+        case OpCode::StoreUpvalueVar:
+        case OpCode::StoreUpvalueLet:
+        case OpCode::StoreUpvalueConst:
+        case OpCode::LoadThisProperty:
+{
             uint32_t nameIndex = readUint32(chunk, offset + 1);
             std::cout << opcodeToString(op) << " constant[" << nameIndex << "]";
             if (nameIndex < chunk->constants.size()) {
@@ -2841,8 +3452,8 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-        case OpCode::CreateInstance:
             // calls
+        case OpCode::InvokeConstructor:
         case OpCode::SuperCall:
         case OpCode::Call: {
             uint8_t argCount = chunk->code[offset + 1];
@@ -2850,6 +3461,7 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 2;
         }
             
+        case OpCode::CreateInstance:
         case OpCode::GetThis:
         case OpCode::NewClass:
         case OpCode::Try:
@@ -2866,11 +3478,40 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::CloseUpvalue:
         case OpCode::ClearStack:
         case OpCode::ClearLocals:
-        case OpCode::InvokeConstructor:
         case OpCode::GetParentObject:
         case OpCode::CreateObjectLiteral:
+        case OpCode::TypeOf:
+        case OpCode::Delete:
+        case OpCode::InstanceOf:
             cout << opcodeToString(op) << "\n";
             return offset + 1;
+        case OpCode::CreateObjectLiteralProperty:
+        case OpCode::CreateClassPrivatePropertyVar:
+        case OpCode::CreateClassPublicPropertyVar:
+        case OpCode::CreateClassProtectedPropertyVar:
+        case OpCode::CreateClassPrivatePropertyConst:
+        case OpCode::CreateClassPublicPropertyConst:
+        case OpCode::CreateClassProtectedPropertyConst:
+        case OpCode::CreateClassPrivateStaticPropertyVar:
+        case OpCode::CreateClassPublicStaticPropertyVar:
+        case OpCode::CreateClassProtectedStaticPropertyVar:
+        case OpCode::CreateClassPrivateStaticPropertyConst:
+        case OpCode::CreateClassPublicStaticPropertyConst:
+        case OpCode::CreateClassProtectedStaticPropertyConst:
+        case OpCode::CreateClassProtectedStaticMethod:
+        case OpCode::CreateClassPrivateStaticMethod:
+        case OpCode::CreateClassPublicStaticMethod:
+        case OpCode::CreateClassProtectedMethod:
+        case OpCode::CreateClassPrivateMethod:
+        case OpCode::CreateClassPublicMethod: {
+           uint32_t nameIndex = readUint32(chunk, offset + 1);
+           std::cout << opcodeToString(op) << " constant[" << nameIndex << "]";
+           if (nameIndex < chunk->constants.size()) {
+               std::cout << " \"" << chunk->constants[nameIndex].toString() << "\"";
+           }
+           std::cout << "\n";
+           return offset + 1 + 4;
+       }
     }
 
     std::cout << "UNKNOWN " << (int)instruction << "\n";

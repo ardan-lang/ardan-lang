@@ -124,6 +124,48 @@ const char* opcodeToString(OpCode op) {
 
         // === Halt / Sentinel ===
         case OpCode::Halt:              return "Halt";
+
+        case OpCode::LoadLocalVar:                  return "LoadLocalVar";
+        case OpCode::LoadGlobalVar:                 return "LoadGlobalVar";
+        case OpCode::StoreLocalVar:                 return "StoreLocalVar";
+        case OpCode::StoreGlobalVar:                return "StoreGlobalVar";
+        case OpCode::StoreLocalLet:                 return "StoreLocalLet";
+        case OpCode::StoreGlobalLet:                return "StoreGlobalLet";
+        case OpCode::CreateLocalVar:                return "CreateLocalVar";
+        case OpCode::CreateLocalLet:                return "CreateLocalLet";
+        case OpCode::CreateLocalConst:              return "CreateLocalConst";
+        case OpCode::CreateGlobalVar:               return "CreateGlobalVar";
+        case OpCode::CreateGlobalLet:               return "CreateGlobalLet";
+        case OpCode::CreateGlobalConst:             return "CreateGlobalConst";
+        case OpCode::StoreThisProperty:             return "StoreThisProperty";
+        case OpCode::LoadUpvalue:                   return "LoadUpvalue";
+        case OpCode::StoreUpvalueVar:               return "StoreUpvalueVar";
+        case OpCode::StoreUpvalueLet:               return "StoreUpvalueLet";
+        case OpCode::StoreUpvalueConst:             return "StoreUpvalueConst";
+        case OpCode::LoadThisProperty:              return "LoadThisProperty";
+        case OpCode::TypeOf:                        return "TypeOf";
+        case OpCode::Delete:                        return "Delete";
+        case OpCode::InstanceOf:                    return "InstanceOf";
+        case OpCode::CreateObjectLiteralProperty:   return "CreateObjectLiteralProperty";
+        case OpCode::CreateClassPrivatePropertyVar: return "CreateClassPrivatePropertyVar";
+        case OpCode::CreateClassPublicPropertyVar:  return "CreateClassPublicPropertyVar";
+        case OpCode::CreateClassProtectedPropertyVar:return "CreateClassProtectedPropertyVar";
+        case OpCode::CreateClassPrivatePropertyConst:return "CreateClassPrivatePropertyConst";
+        case OpCode::CreateClassPublicPropertyConst: return "CreateClassPublicPropertyConst";
+        case OpCode::CreateClassProtectedPropertyConst:return "CreateClassProtectedPropertyConst";
+        case OpCode::CreateClassPrivateStaticPropertyVar:  return "CreateClassPrivateStaticPropertyVar";
+        case OpCode::CreateClassPublicStaticPropertyVar:   return "CreateClassPublicStaticPropertyVar";
+        case OpCode::CreateClassProtectedStaticPropertyVar:return "CreateClassProtectedStaticPropertyVar";
+        case OpCode::CreateClassPrivateStaticPropertyConst: return "CreateClassPrivateStaticPropertyConst";
+        case OpCode::CreateClassPublicStaticPropertyConst:  return "CreateClassPublicStaticPropertyConst";
+        case OpCode::CreateClassProtectedStaticPropertyConst:return "CreateClassProtectedStaticPropertyConst";
+        case OpCode::CreateClassProtectedStaticMethod: return "CreateClassProtectedStaticMethod";
+        case OpCode::CreateClassPrivateStaticMethod:   return "CreateClassPrivateStaticMethod";
+        case OpCode::CreateClassPublicStaticMethod:    return "CreateClassPublicStaticMethod";
+        case OpCode::CreateClassProtectedMethod:       return "CreateClassProtectedMethod";
+        case OpCode::CreateClassPrivateMethod:         return "CreateClassPrivateMethod";
+        case OpCode::CreateClassPublicMethod:          return "CreateClassPublicMethod";
+
     }
     return "Unknown";
 }

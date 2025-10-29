@@ -29,11 +29,36 @@
 
 using namespace std;
 
+enum class BindingKind {
+    Var,
+    Let,
+    Const,
+};
+
+enum class Visibility { Public, Protected, Private };
+
+struct PropertyMeta {
+    Visibility visibility;
+    BindingKind kind;
+    bool isStatic;
+};
+
+struct PropertyLookup {
+    int level;
+    PropertyMeta meta;
+    BindingKind kind;
+};
+
 struct ClassInfo {
-    unordered_set<std::string> fields;
+//    unordered_set<std::string> fields;
+//    
+//    unordered_set<string> publicFields;
+//    unordered_set<string> privateFields;
     
-    unordered_set<string> publicFields;
-    unordered_set<string> privateFields;
+    string name;
+    string super_class_name;
+    unordered_map<string, PropertyMeta> fields;
+
 };
 
 struct LoopContext {
@@ -57,6 +82,7 @@ struct UpvalueMeta {
     bool isLocal;   // True if from parent's locals, false if from parent's upvalues
     uint32_t index; // Slot or upvalue index
     string name;
+    BindingKind kind;
 };
 
 struct ClosureInfo {
@@ -67,12 +93,6 @@ struct ClosureInfo {
 struct FieldInfo {
     string name;
     enum class Access { Public, Private } access;
-};
-
-enum class BindingKind {
-    Var,
-    Let,
-    Const,
 };
 
 struct Local {
@@ -183,10 +203,14 @@ private:
     CodeGen* enclosing;
     
     ClassInfo classInfo;
-    
+    unordered_map<string, ClassInfo> classes;
+
     void compileMethod(MethodDefinition& method);
+    R create(string decl, BindingKind kind);
+    R store(string decl);
+    R load(string decl);
     
-    R define(string decl);
+    // R define(string decl);
     int resolveLocal(const std::string& name);
     
     // helpers
@@ -222,13 +246,19 @@ private:
     
     void beginScope();
     void endScope();
-    int addUpvalue(bool isLocal, int index);
+    int addUpvalue(bool isLocal, int index, string name, BindingKind kind);
     int resolveUpvalue(const string& name);
     size_t disassembleInstruction(const Chunk* chunk, size_t offset);
     void disassembleChunk(const Chunk* chunk, const std::string& name);
     BindingKind get_kind(string kind);
     inline uint32_t readUint32(const Chunk* chunk, size_t offset);
     Token createToken(TokenType type);
-
+    PropertyLookup lookupClassProperty(string prop_name);
+    int lookupGlobal(const string& name);
+    void declareVariableScoping(const string& name, BindingKind kind);
+    void declareGlobal(const string& name, BindingKind kind);
+    int recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta);
+    string evaluate_property(Expression* expr);
+    
 };
 

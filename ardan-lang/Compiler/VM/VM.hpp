@@ -30,7 +30,7 @@
 
 #include "../../builtin/Print/Print.hpp"
 #include "../../builtin/builtin-includes.h"
-// #include "../../GUI/gui.h"
+#include "../../GUI/gui.h"
 #include "../../Interpreter/Promise/Promise.hpp"
 #include "../../builtin/Server/Server.hpp"
 #include "../../Interpreter/Env.h"
@@ -118,7 +118,13 @@ private:
     int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
+    void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
     
+    string type_of(Value value);
+    bool instance_of(Value a, Value b);
+    bool delete_op(Value object, Value property);
+    Value CreateInstance(Value klass);
+
 };
 
 #endif /* VM_hpp */

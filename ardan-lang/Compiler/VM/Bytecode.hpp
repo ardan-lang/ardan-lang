@@ -27,6 +27,37 @@ enum class OpCode : uint8_t {
     StoreGlobal,         // pop -> globals[name] (push value back)
     CreateGlobal,        // pop -> define new global
 
+    LoadLocalVar,
+    LoadGlobalVar,
+    
+    StoreLocalVar,
+    StoreGlobalVar,
+    StoreLocalLet,
+    StoreGlobalLet,
+
+    CreateLocalVar, // creates a new local. moves data inside slot reg into the locals.
+    CreateLocalLet,
+    CreateLocalConst,
+    CreateGlobalVar,
+    CreateGlobalLet,
+    CreateGlobalConst,
+    
+    StoreThisProperty,
+    
+    LoadUpvalue,
+    StoreUpvalueVar,
+    StoreUpvalueLet,
+    StoreUpvalueConst,
+    
+    LoadThisProperty,
+    
+    TypeOf,
+    Delete,
+    InstanceOf,
+    
+    CreateObjectLiteralProperty,
+
+
     // Object / Array
     NewObject,           // push new empty object
     SetProperty,         // u32 constname -> pop value, obj; set obj[name] = value
@@ -128,11 +159,7 @@ enum class OpCode : uint8_t {
     GetParentObject,
     SuperCall,
     CreateObjectLiteral,
-    
-    // CreateLocalVar,
-    // CreateLocalLet,
-    // CreateLocalConst,
-    
+        
     CreateClassPrivatePropertyVar,
     CreateClassPublicPropertyVar,
     CreateClassProtectedPropertyVar,

@@ -1965,7 +1965,6 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
     nested.enclosing = this;
     nested.cur = std::make_shared<TurboChunk>();
     nested.beginScope();
-    // nested.declareLocal("this");
     nested.classInfo = classInfo;
     nested.classes = classes;
 
