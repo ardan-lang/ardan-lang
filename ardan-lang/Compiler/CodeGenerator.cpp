@@ -1767,8 +1767,13 @@ R CodeGen::visitContinue(ContinueStatement* stmt) {
         throw ("Continue outside loop");
         return false;
     }
-    int loopStart = loopStack.back().loopStart;
-    emitLoop(loopStart); // emit a backwards jump
+
+    // int loopStart = loopStack.back().loopStart;
+    // emitLoop(loopStart); // emit a backwards jump
+
+    int jumpAddr = emitJump(OpCode::Jump);
+    loopStack.back().continues.push_back(jumpAddr);
+
     return true;
 }
 
@@ -2379,42 +2384,39 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     
     // loop through the keys of the object
     beginScope();
+    stmt->init->accept(*this);
     // load object to stack
     stmt->object->accept(*this);
     
     emit(OpCode::Dup);
     // get keys of object
     emit(OpCode::EnumKeys);
-    uint32_t keys_slot = makeLocal("__for_in_keys", BindingKind::Var);
-    emit(OpCode::StoreLocal);
+    uint32_t keys_slot = makeLocal("__for_in_keys", BindingKind::Let);
+    emit(OpCode::StoreLocalLet);
     emitUint32(keys_slot);
-    // emit(OpCode::OP_POP);
 
     emit(OpCode::Dup);
     emit(OpCode::GetObjectLength);
     
-    uint32_t length_slot = makeLocal("__for_in_length", BindingKind::Var);
-    emit(OpCode::StoreLocal);
+    uint32_t length_slot = makeLocal("__for_in_length", BindingKind::Let);
+    emit(OpCode::StoreLocalLet);
     emitUint32(length_slot);
 
-    uint32_t idx_slot = makeLocal("__for_in_idx", BindingKind::Var);
+    uint32_t idx_slot = makeLocal("__for_in_idx", BindingKind::Let);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(0)));
-    emit(OpCode::StoreLocal);
+    emit(OpCode::StoreLocalLet);
     emitUint32(idx_slot);
-    
-    // emit(OpCode::OP_POP);
-    // emit(OpCode::OP_POP);
-    
+        
     size_t loop_start = cur->size();
     beginLoop();
     loopStack.back().loopStart = (int)loop_start;
 
     // get both len and idx
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32(idx_slot);
 
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32(length_slot);
 
     emit(OpCode::NotEqual);
@@ -2425,46 +2427,54 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     emit(OpCode::Dup);
 
     // Get key at idx: keys[idx]
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32(keys_slot);
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32(idx_slot);
     emit(OpCode::GetPropertyDynamic);
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
-        uint32_t slot = makeLocal(ident->name, BindingKind::Var);
-        emit(OpCode::StoreLocal);
-        emitUint32(slot);
+        // uint32_t slot = makeLocal(ident->name, BindingKind::Let);
+        // emit(OpCode::StoreLocalLet);
+        // emitUint32(slot);
+        store(ident->name);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
-        uint32_t slot = makeLocal(var_stmt->declarations[0].id,
-                                  get_kind(var_stmt->kind));
-        emit(OpCode::StoreLocal);
-        emitUint32(slot);
+        // uint32_t slot = makeLocal(var_stmt->declarations[0].id, get_kind(var_stmt->kind));
+        // emit(OpCode::StoreLocal);
+        // emitUint32(slot);
+        store(var_stmt->declarations[0].id);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
-            uint32_t slot = makeLocal(ident->name, BindingKind::Var);
-            emit(OpCode::StoreLocal);
-            emitUint32(slot);
+            // uint32_t slot = makeLocal(ident->name, BindingKind::Let);
+            // emit(OpCode::StoreLocalLet);
+            // emitUint32(slot);
+            store(ident->name);
         }
         
     } else {
-        throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
+        throw std::runtime_error("For...in only supports identifier/variable statement loop variables in codegen.");
     }
     
     // get size of the keys
-    emit(OpCode::Nop);
     stmt->body->accept(*this);
-    emit(OpCode::Nop);
     
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
     // Increment idx
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32(idx_slot);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
     emit(OpCode::Add);
-    emit(OpCode::StoreLocal);
+    emit(OpCode::StoreLocalLet);
     emitUint32(idx_slot);
     
     // loop till stack is empty
@@ -2489,29 +2499,30 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     // std::unique_ptr<Statement> body;
     emit(OpCode::ClearStack);
     beginScope();
+    
+    stmt->left->accept(*this);
+
     // assume, right must directly hold an object literal
     stmt->right->accept(*this);
         
     emit(OpCode::Dup);
 
-    size_t __for_of_array_slot = makeLocal("__for_of_array", BindingKind::Var);
-    emit(OpCode::StoreLocal);
+    size_t __for_of_array_slot = makeLocal("__for_of_array", BindingKind::Let);
+    emit(OpCode::StoreLocalLet);
     emitUint32((uint32_t)__for_of_array_slot);
 
     emit(OpCode::GetObjectLength);
     // get array length
-    size_t length_slot = makeLocal("__for_of_length", BindingKind::Var);
-    emit(OpCode::StoreLocal);
+    size_t length_slot = makeLocal("__for_of_length", BindingKind::Let);
+    emit(OpCode::StoreLocalLet);
     emitUint32((uint32_t)length_slot);
     // emit(OpCode::OP_POP);
 
-    size_t idx_slot = makeLocal("__for_of_index", BindingKind::Var);
+    size_t idx_slot = makeLocal("__for_of_index", BindingKind::Let);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value(0)));
-    emit(OpCode::StoreLocal);
+    emit(OpCode::StoreLocalLet);
     emitUint32((uint32_t)idx_slot);
-
-    // emit(OpCode::OP_POP);
 
     int loop_start = (int)cur->size();
     
@@ -2519,10 +2530,10 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     loopStack.back().loopStart = loop_start;
 
     // get both len and idx
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32((uint32_t)idx_slot);
 
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32((uint32_t)length_slot);
     
     emit(OpCode::NotEqual);
@@ -2530,61 +2541,66 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     int jump_if_false = emitJump(OpCode::JumpIfFalse);
 
     // emit(OpCode::OP_DUP);
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32((uint32_t)__for_of_array_slot);
 
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32((uint32_t)idx_slot);
     emit(OpCode::GetPropertyDynamic);
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
-        uint32_t slot = makeLocal(ident->name, BindingKind::Var);
-        emit(OpCode::StoreLocal);
-        emitUint32(slot);
+        // uint32_t slot = makeLocal(ident->name, BindingKind::Var);
+        // emit(OpCode::StoreLocal);
+        // emitUint32(slot);
+        store(ident->name);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
-        uint32_t slot = makeLocal(var_stmt->declarations[0].id, get_kind(var_stmt->kind));
-        emit(OpCode::StoreLocal);
-        emitUint32(slot);
+        // uint32_t slot = makeLocal(var_stmt->declarations[0].id, get_kind(var_stmt->kind));
+        // emit(OpCode::StoreLocal);
+        // emitUint32(slot);
+        store(var_stmt->declarations[0].id);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
-            uint32_t slot = makeLocal(ident->name, BindingKind::Var);
-            emit(OpCode::StoreLocal);
-            emitUint32(slot);
+            // uint32_t slot = makeLocal(ident->name, BindingKind::Var);
+            // emit(OpCode::StoreLocal);
+            // emitUint32(slot);
+            store(ident->name);
         }
         
     } else {
-        throw std::runtime_error("for-of only supports identifier/variable statement loop variables in codegen");
+        throw std::runtime_error("For...of only supports identifier/variable statement loop variables in codegen.");
     }
 
     stmt->body->accept(*this);
-
-    // emit(OpCode::OP_POP);
     
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
     // increment idx
     // push idx
-    emit(OpCode::LoadLocal);
+    emit(OpCode::LoadLocalVar);
     emitUint32((uint32_t)idx_slot);
     emit(OpCode::LoadConstant);
     emitUint32(emitConstant(Value::number(1)));
     emit(OpCode::Add);
-    emit(OpCode::StoreLocal);
+    emit(OpCode::StoreLocalLet);
     emitUint32((uint32_t)idx_slot);
-
-    // emit(OpCode::OP_POP);
-    // emit(OpCode::OP_POP);
 
     emitLoop((int)cur->size() - loop_start + 4 + 1);
     patchJump(jump_if_false);
-    // emit(OpCode::OP_POP);
+    
     endScope();
     endLoop();
     
     emit(OpCode::ClearStack);
     
     // we need to clear locals.
-    // emit(OpCode::OP_CLEAR_LOCALS);
 
     return true;
     

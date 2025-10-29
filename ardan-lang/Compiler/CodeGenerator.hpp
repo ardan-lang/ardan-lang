@@ -64,6 +64,7 @@ struct ClassInfo {
 struct LoopContext {
     int loopStart;              // address of loop condition start
     vector<int> breaks;    // jump addresses that need patching
+    vector<int> continues;
 };
 
 struct ExceptionHandler {
