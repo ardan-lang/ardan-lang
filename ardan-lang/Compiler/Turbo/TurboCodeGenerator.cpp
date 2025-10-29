@@ -3067,11 +3067,11 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     emit(TurboOpCode::CreateEnum, enumNameReg);
     
     for(auto& member : stmt->members) {
-
+        
         int memberNameReg = allocRegister();
         int propIndex = emitConstant(Value::str(member.name));
         emit(TurboOpCode::LoadConst, memberNameReg, propIndex);
-
+        
         int valueReg = -1;
         
         if (member.value == nullptr) {
@@ -3088,17 +3088,19 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
              memberNameReg,
              valueReg);
         
-        BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
-
-        declareLocal(stmt->name, enumBinding);
-        declareGlobal(stmt->name, enumBinding);
-
-        create(stmt->name, enumNameReg, enumBinding);
-        
         freeRegister(valueReg);
         freeRegister(memberNameReg);
         
     }
+    
+    BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    
+    declareLocal(stmt->name, enumBinding);
+    declareGlobal(stmt->name, enumBinding);
+    
+    create(stmt->name, enumNameReg, enumBinding);
+    
+    
     
     freeRegister(enumNameReg);
     
