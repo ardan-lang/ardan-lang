@@ -57,6 +57,8 @@ enum class OpCode : uint8_t {
     
     CreateObjectLiteralProperty,
 
+    CreateEnum,
+    SetEnumProperty,
 
     // Object / Array
     NewObject,           // push new empty object

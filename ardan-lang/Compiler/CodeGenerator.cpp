@@ -2606,27 +2606,6 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     
 }
 
-R CodeGen::visitPublicKeyword(PublicKeyword* expr) {
-    
-    return true;
-}
-
-R CodeGen::visitPrivateKeyword(PrivateKeyword* expr) {
-    return true;
-}
-
-R CodeGen::visitProtectedKeyword(ProtectedKeyword* expr) {
-    return true;
-}
-
-R CodeGen::visitStaticKeyword(StaticKeyword* expr) {
-    return true;
-}
-
-R CodeGen::visitRestParameter(RestParameter* expr) {
-    return true;
-}
-
 R CodeGen::visitClassExpression(ClassExpression* expr) {
     
     auto stmt = expr;
@@ -2900,10 +2879,68 @@ R CodeGen::visitUIExpression(UIViewExpression* visitor) {
 }
 
 R CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
+    
+    int nameIdx = emitConstant(Value::str(stmt->name));
+    
+    emit(OpCode::LoadConstant);
+    emitUint32(nameIdx);
+    
+    emit(OpCode::CreateEnum);
+    
+    for(auto& member : stmt->members) {
+        
+        int propIndex = emitConstant(Value::str(member.name));
+        emit(OpCode::LoadConstant);
+        emitUint32(propIndex);
+        
+        if (member.value == nullptr) {
+            
+            int idx = emitConstant(Value::str(to_string(member.computedValue)));
+            emit(OpCode::LoadConstant);
+            emitUint32(idx);
+            
+        } else {
+            member.value->accept(*this);
+        }
+        
+        // stack: obj, property, value
+        emit(OpCode::SetEnumProperty);
+    }
+        BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+
+        declareLocal(stmt->name, enumBinding);
+        declareGlobal(stmt->name, enumBinding);
+
+        create(stmt->name, enumBinding);
+                
+    
+    
     return true;
+    
 }
 
 R CodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}
+
+R CodeGen::visitPublicKeyword(PublicKeyword* expr) {
+    
+    return true;
+}
+
+R CodeGen::visitPrivateKeyword(PrivateKeyword* expr) {
+    return true;
+}
+
+R CodeGen::visitProtectedKeyword(ProtectedKeyword* expr) {
+    return true;
+}
+
+R CodeGen::visitStaticKeyword(StaticKeyword* expr) {
+    return true;
+}
+
+R CodeGen::visitRestParameter(RestParameter* expr) {
     return true;
 }
 
@@ -3108,7 +3145,7 @@ void CodeGen::declareGlobal(const string& name, BindingKind kind) {
 
     for (int i = (int)globals.size() - 1; i >= 0; i--) {
         if (globals[i].name == name) {
-            throw runtime_error("Variable " + name +" already declared in this scope.");
+            throw runtime_error("Variable " + name + " already declared in this scope.");
         }
     }
 

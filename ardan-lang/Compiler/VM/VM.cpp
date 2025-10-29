@@ -911,6 +911,31 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
                 
             }
+                // stack: nameIdx
+            case OpCode::CreateEnum: {
+                
+                Value enum_name_index = pop();
+                
+                auto enum_value_obj = createJSObject(make_shared<JSClass>());
+                
+                push(Value::object(enum_value_obj));
+
+                break;
+            }
+                
+            case OpCode::SetEnumProperty: {
+                // stack: obj, property, value
+
+                Value value = pop();
+                Value prop_value = pop();
+                Value enum_obj = pop();
+                
+                setProperty(enum_obj, prop_value.toString(), value);
+                
+                push(enum_obj);
+                
+                break;
+            }
 
             case OpCode::NewObject: {
                 auto obj = std::make_shared<JSObject>();
