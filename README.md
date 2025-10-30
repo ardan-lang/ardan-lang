@@ -194,7 +194,7 @@ x = null ?? 42; // 42
 ### Bitwise
 
 ```
-let mask = 0b1010 & 0b1100; // 0b1000 (8)
+let mask = 0b1010 & 0b1100; // 8
 ```
 
 ### Increment/Decrement
@@ -455,6 +455,7 @@ Ardan enables object-oriented programming with ES6-like classes.
 
 ```
 class Point {
+    var x, y;
     constructor(x, y) {
         this.x = x;
         this.y = y;
@@ -474,6 +475,7 @@ print(pt.x, pt.y); // 3, 4
 
 ```
 class Animal {
+    var name;
     constructor(name) {
         this.name = name;
     }
@@ -498,13 +500,16 @@ Ardan supports public, private, protected, and static keywords (syntax).
 
 ```
 class Counter {
-    public value = 0;
-    private secret = 42;
+    public var value = 0;
+    private var secret = 42;
 
     increment() {
         this.value++;
     }
 }
+let counter = new Counter();
+counter.increment();
+print(counter.value); // 1
 ```
 
 ⸻
