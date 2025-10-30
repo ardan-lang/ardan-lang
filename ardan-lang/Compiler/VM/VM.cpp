@@ -520,6 +520,18 @@ Value VM::CreateInstance(Value klass) {
 
 }
 
+void VM::InvokeConstructor(Value obj_value, vector<Value> args) {
+    
+    invokeMethod(obj_value, "constructor", args);
+    
+    // call super class constructor
+    
+    if (obj_value.objectValue->parent_object != nullptr) {
+        InvokeConstructor(Value::object(obj_value.objectValue->parent_object), args);
+    }
+
+}
+
 Value VM::addCtor() {
 
     shared_ptr<Chunk> fnChunk = make_shared<Chunk>();
@@ -1378,7 +1390,8 @@ Value VM::runFrame(CallFrame &current_frame) {
                 Value obj_value = pop();
 
                 // call the constructor
-                invokeMethod(obj_value, "constructor", args);
+                InvokeConstructor(obj_value, args);
+                // invokeMethod(obj_value, "constructor", args);
 
                 push(obj_value);
                 

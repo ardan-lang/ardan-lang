@@ -504,6 +504,18 @@ void TurboVM::invokeMethod(Value obj_value, string name, vector<Value> args) {
     
 }
 
+void TurboVM::InvokeConstructor(Value obj_value, vector<Value> args) {
+    
+    invokeMethod(obj_value, "constructor", args);
+    
+    // call super class constructor
+    
+    if (obj_value.objectValue->parent_object != nullptr) {
+        InvokeConstructor(Value::object(obj_value.objectValue->parent_object), args);
+    }
+
+}
+
 Value TurboVM::addCtor() {
 
     shared_ptr<TurboChunk> fnChunk = make_shared<TurboChunk>();
@@ -1264,8 +1276,9 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value obj_value = frame->registers[instruction.a];
 
                 // call the constructor
-                invokeMethod(obj_value, "constructor", const_args);
-
+                // invokeMethod(obj_value, "constructor", const_args);
+                InvokeConstructor(obj_value, const_args);
+                
                 frame->registers[instruction.a] = obj_value;
 
                 break;

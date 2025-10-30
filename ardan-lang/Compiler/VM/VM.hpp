@@ -124,7 +124,8 @@ private:
     bool instance_of(Value a, Value b);
     bool delete_op(Value object, Value property);
     Value CreateInstance(Value klass);
-
+    void InvokeConstructor(Value obj_value, vector<Value> args);
+    
 };
 
 #endif /* VM_hpp */

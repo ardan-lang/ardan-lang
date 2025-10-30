@@ -122,6 +122,7 @@ private:
     bool delete_op(Value object, Value property);
     Value CreateInstance(Value klass);
     void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
+    void InvokeConstructor(Value obj_value, vector<Value> args);
     
     // UI
     void runCreateUIView(Instruction i);
