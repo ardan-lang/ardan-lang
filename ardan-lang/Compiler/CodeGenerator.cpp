@@ -3303,6 +3303,8 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 2;
         }
             
+        case OpCode::CreateEnum:
+        case OpCode::SetEnumProperty:
         case OpCode::CreateInstance:
         case OpCode::GetThis:
         case OpCode::NewClass:
