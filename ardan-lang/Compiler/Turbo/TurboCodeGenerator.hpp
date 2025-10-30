@@ -239,6 +239,7 @@ public:
     size_t generate(const vector<unique_ptr<Statement>> &program);
     
     void emitAssignment(BinaryExpression* expr);
+    void patchContinueStatement();
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;

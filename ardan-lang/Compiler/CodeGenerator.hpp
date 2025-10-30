@@ -50,11 +50,6 @@ struct PropertyLookup {
 };
 
 struct ClassInfo {
-//    unordered_set<std::string> fields;
-//    
-//    unordered_set<string> publicFields;
-//    unordered_set<string> privateFields;
-    
     string name;
     string super_class_name;
     unordered_map<string, PropertyMeta> fields;
@@ -195,7 +190,6 @@ public:
 private:
     shared_ptr<Chunk> cur; // current chunk being emitted
     // locals map for current function: name -> slot index
-    // unordered_map<string, uint32_t> locals;
     vector<Local> locals;
     vector<Global> globals;
     uint32_t nextLocalSlot = 0;
@@ -211,7 +205,6 @@ private:
     R store(string decl);
     R load(string decl);
     
-    // R define(string decl);
     int resolveLocal(const std::string& name);
     
     // helpers
@@ -260,6 +253,10 @@ private:
     void declareGlobal(const string& name, BindingKind kind);
     int recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta);
     string evaluate_property(Expression* expr);
+    void patchContinueStatement();
+    
+    CodeGen compileFunction(string name, Expression* parameters);
+    void emitParameterInitializationLogic(CodeGen nested, vector<string> paramNames, vector<ParameterInfo> parameterInfos);
     
 };
 

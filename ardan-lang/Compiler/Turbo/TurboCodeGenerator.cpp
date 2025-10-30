@@ -1008,6 +1008,7 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
 
 }
 
+// returns old value
 R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
     
     int lhsReg = get<int>(expr->argument->accept(*this));
@@ -1030,15 +1031,18 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
              lhsReg,
              rhsReg);
         
-        freeRegister(lhsReg);
+        // we don't free this because we will return it as the old value
+        // freeRegister(lhsReg);
         freeRegister(rhsReg);
         
         store(ident->name, opResultReg);
         
-        returnReg = opResultReg;
+        returnReg = lhsReg; //opResultReg;
         
     }
     else if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+        
+        // int oldValueReg = get<int>(visitMember(member));
         
         int rhsReg = allocRegister();
         emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
@@ -1049,7 +1053,8 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
              lhsReg,
              rhsReg);
         
-        freeRegister(lhsReg);
+        // we don't free this because we will return it as the old value
+        // freeRegister(lhsReg);
         freeRegister(rhsReg);
         
         // Evaluate object to reg
@@ -1059,21 +1064,19 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
             
             int propReg = get<int>(member->property->accept(*this)); // Property key to reg
             
-            // SetPropertyDynamic: objReg, propReg, valueReg
             emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
             freeRegister(propReg); // propReg
             
         } else {
             
             int nameIdx = emitConstant(Value::str(member->name.lexeme));
-            // SetProperty: objReg, nameIdx, valueReg
             emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
             
         }
         
         freeRegister(objReg); // objReg
         
-        returnReg = opResultReg;
+        returnReg = lhsReg; //opResultReg;
     }
     
     return returnReg;
@@ -1841,9 +1844,7 @@ R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
 }
 
 R TurboCodeGen::visitAssignment(AssignmentExpression* expr) {
-    uint32_t valueReg = get<int>(expr->right->accept(*this));
-    // handle assign to variable or property
-    return valueReg;
+    return 0;
 }
 
 R TurboCodeGen::visitLogical(LogicalExpression* expr) {
@@ -3158,6 +3159,18 @@ R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {
     
 }
 
+void TurboCodeGen::patchContinueStatement() {
+    
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
+}
+
 int TurboCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
     
     TurboCodeGen nested(module_);
@@ -3400,7 +3413,13 @@ void TurboCodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<stri
     nextLocalSlot = 0;
     for (uint32_t i = 0; i < paramCount; ++i) {
         string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
-        Local local { name, /*depth=*/1, /*isCaptured=*/false, (uint32_t)i, BindingKind::Var }; // usually scopeDepth=1 for params
+        Local local {
+            name,
+            /*depth=*/1,
+            /*isCaptured=*/false,
+            (uint32_t)i,
+            BindingKind::Let
+        }; // usually scopeDepth=1 for params
         locals.push_back(local);
         nextLocalSlot = i + 1;
     }
