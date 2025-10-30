@@ -1843,7 +1843,17 @@ Value VM::runFrame(CallFrame &current_frame) {
 
             case OpCode::LoadArgumentsLength: {
                 // Pushes the count of arguments passed to the current frame
-                push(Value((double)frame->args.size()));
+                
+                int size = 0;
+                
+                for (auto arg : frame->args) {
+                    if (arg.type == ValueType::UNDEFINED) {
+                        continue;
+                    }
+                    size++;
+                }
+
+                push(Value((double)size));
                 break;
             }
                 
