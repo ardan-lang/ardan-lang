@@ -581,31 +581,31 @@ let, const, var, function, class, extends, constructor, if, else, while, for, in
 
 ### Operators
 
-Arithmetic: +, -, *, /, %, **, ++, --
-Comparison: ==, !=, ===, !==, <, <=, >, >=
-Logical: &&, ||, !, ??
-Assignment: =, +=, -=, *=, /=, %= etc.
-Bitwise: &, |, ^, ~, <<, >>, >>>
-Member access: ., []
+- `Arithmetic`: +, -, *, /, %, **, ++, --
+- `Comparison`: ==, !=, ===, !==, <, <=, >, >=
+- `Logical`: &&, ||, !, ??
+- `Assignment`: =, +=, -=, *=, /=, %= etc.
+- `Bitwise`: &, |, ^, ~, <<, >>, >>>
+- `Member access`: ., []
 
 ### Statements
 
-• Expression Statement
-• Block Statement { ... }
-• If / Else
-• While / Do-While
-• For / For-In / For-Of
-• Break / Continue / Return / Throw
-• Switch
-• Try / Catch / Finally
-• Function Declaration
-• Class Declaration
+- Expression Statement
+- Block Statement { ... }
+- If / Else
+- While / Do-While
+- For / For-In / For-Of
+- Break / Continue / Return / Throw
+- Switch
+- Try / Catch / Finally
+- Function Declaration
+- Class Declaration
 
 ### Special Values
 
-• true, false
-• null (reserved)
-• undefined (reserved)
+- true, false
+- null (reserved)
+- undefined (reserved)
 
 ⸻
 
