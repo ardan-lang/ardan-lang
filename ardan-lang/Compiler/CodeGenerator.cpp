@@ -1812,7 +1812,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                             break;
                     }
 
-                    // emit(OpCode::SetProperty);
                     emit(op);
                 }
                 
@@ -1900,7 +1899,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                 op = OpCode::CreateClassPublicStaticMethod;
             }
             
-            // emit(OpCode::SetStaticProperty);
         } else {
             
             if (isPublic) {
@@ -1913,7 +1911,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
                 op = OpCode::CreateClassPublicMethod;
             }
             
-            // emit(OpCode::SetProperty);
         }
         
         emit(op);
@@ -1923,9 +1920,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
 
     // TODO: need to fix this to store not only in global
     // Bind class in the environment (global)
-    // int classNameIdx = emitConstant(Value::str(stmt->id));
-    // emit(OpCode::CreateGlobal);
-    // emitUint32(classNameIdx);
 
     // add claas to classes
     classes[stmt->id] = std::move(classInfo);
@@ -2152,21 +2146,12 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
-        // uint32_t slot = makeLocal(ident->name, BindingKind::Let);
-        // emit(OpCode::StoreLocalLet);
-        // emitUint32(slot);
         store(ident->name);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
-        // uint32_t slot = makeLocal(var_stmt->declarations[0].id, get_kind(var_stmt->kind));
-        // emit(OpCode::StoreLocal);
-        // emitUint32(slot);
         store(var_stmt->declarations[0].id);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
-            // uint32_t slot = makeLocal(ident->name, BindingKind::Let);
-            // emit(OpCode::StoreLocalLet);
-            // emitUint32(slot);
             store(ident->name);
         }
         
@@ -2227,7 +2212,6 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
     size_t length_slot = makeLocal("__for_of_length", BindingKind::Let);
     emit(OpCode::StoreLocalLet);
     emitUint32((uint32_t)length_slot);
-    // emit(OpCode::OP_POP);
 
     size_t idx_slot = makeLocal("__for_of_index", BindingKind::Let);
     emit(OpCode::LoadConstant);
@@ -2261,21 +2245,12 @@ R CodeGen::visitForOf(ForOfStatement* stmt) {
 
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
-        // uint32_t slot = makeLocal(ident->name, BindingKind::Var);
-        // emit(OpCode::StoreLocal);
-        // emitUint32(slot);
         store(ident->name);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
-        // uint32_t slot = makeLocal(var_stmt->declarations[0].id, get_kind(var_stmt->kind));
-        // emit(OpCode::StoreLocal);
-        // emitUint32(slot);
         store(var_stmt->declarations[0].id);
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
-            // uint32_t slot = makeLocal(ident->name, BindingKind::Var);
-            // emit(OpCode::StoreLocal);
-            // emitUint32(slot);
             store(ident->name);
         }
         
@@ -2579,10 +2554,6 @@ R CodeGen::visitClassExpression(ClassExpression* expr) {
     
 }
 
-R CodeGen::visitUIExpression(UIViewExpression* visitor) {
-    return true;
-}
-
 R CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     
     int nameIdx = emitConstant(Value::str(stmt->name));
@@ -2619,6 +2590,11 @@ R CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     
     create(stmt->name, enumBinding);
     
+    return true;
+    
+}
+
+R CodeGen::visitUIExpression(UIViewExpression* visitor) {
     return true;
     
 }
