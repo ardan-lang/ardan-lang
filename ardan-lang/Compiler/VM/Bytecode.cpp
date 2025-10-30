@@ -166,6 +166,8 @@ const char* opcodeToString(OpCode op) {
         case OpCode::CreateClassPrivateMethod:         return "CreateClassPrivateMethod";
         case OpCode::CreateClassPublicMethod:          return "CreateClassPublicMethod";
 
+        case OpCode::CreateEnum: return "CreateEnum";
+        case OpCode::SetEnumProperty: return "SetEnumProperty";
     }
     return "Unknown";
 }
