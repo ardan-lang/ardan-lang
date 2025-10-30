@@ -40,3 +40,55 @@ Some systems (like V8 or Swift’s LLJIT) can generate machine code at runtime, 
 The emitted code is either saved as an executable file (static compilation) or executed directly from memory (JIT).
 
 
+
+
+High-Level Approach
+
+1. Create an ARM64 Emitter: Handles writing raw instructions to a buffer.
+2. Write Visitor Methods for Each AST Node: Each visitor lowers its node to ARM64 using the emitter.
+3. Manage Registers and Stack: Allocate/free registers, handle locals/args, manage stack for function calls, etc.
+
+
+⸻
+
+2. Register Allocator
+
+Use a simple allocator as in your code already.
+
+⸻
+
+3. Generic Codegen Visitor
+
+For each AST node, emit ARM64 that implements its semantics. Here is a comprehensive sample for the core constructs:
+
+⸻
+
+4. Assembly Helpers
+
+You need helpers for each instruction form. Example:
+
+⸻
+
+5. Data Section for Strings/Constants
+
+Add a data section for literal strings, arrays, etc.:
+
+⸻
+
+6. Example Output
+
+Here’s a minimal real codegen for return 3+5;:
+
+
+7. Final Notes
+
+• Scopes and Locals: Use frame pointer (FP) and stack offsets for locals.
+• Arguments: Pass in x0-x7 registers.
+• Function Calls: Move callee address to a register, use blr, pass/receive args in x0-x7, x0.
+• Objects/Arrays: For these, you’ll write custom memory layouts and field access logic.
+• Control Flow: Use labels, branch instructions, and register/stack management.
+
+⸻
+
+In summary:
+For each AST node, emit the corresponding ARM64 instructions into an in-memory buffer using a visitor pattern, a register allocator, and an instruction emitter. Each node’s codegen can be made as above (see pseudo-implementations per node). For a real compiler, expand each node handler to cover your language’s semantics.
