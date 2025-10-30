@@ -47,6 +47,9 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
                 case ValueType::STRING:
                     v.stringValue = readString();
                     break;
+                case ValueType::BOOLEAN:
+                    v.boolValue = readDouble() == 0 ? false : true;
+                    break;
                 case ValueType::FUNCTION_REF: {
                     auto fn = make_shared<FunctionObject>();
                     fn->chunkIndex = readU32();
@@ -80,6 +83,9 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
                 break;
             case ValueType::STRING:
                 v.stringValue = readString();
+                break;
+            case ValueType::BOOLEAN:
+                v.boolValue = readDouble() == 0 ? false : true;
                 break;
             case ValueType::FUNCTION_REF: {
                 auto fn = make_shared<FunctionObject>();
@@ -138,6 +144,9 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
                 case ValueType::NUMBER:
                     val.numberValue = readDouble(in);
                     break;
+                case ValueType::BOOLEAN:
+                    val.boolValue = readDouble(in) == 0 ? false : true;
+                    break;
                 case ValueType::STRING:
                     val.stringValue = readString(in);
                     break;
@@ -173,6 +182,9 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
                 break;
             case ValueType::STRING:
                 val.stringValue = readString(in);
+                break;
+            case ValueType::BOOLEAN:
+                val.boolValue = readDouble(in) == 0 ? false : true;
                 break;
             case ValueType::FUNCTION_REF: {
                 val.fnRef = make_shared<FunctionObject>();

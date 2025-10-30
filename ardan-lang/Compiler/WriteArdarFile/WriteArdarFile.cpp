@@ -51,21 +51,24 @@ void WriteArdarFile::writing() {
         for (const auto& v : chunk.constants) {
             writeU8(static_cast<uint8_t>(v.type));
             switch (v.type) {
-            case ValueType::NUMBER:
-                writeDouble(v.numberValue);
-                break;
-            case ValueType::STRING:
-                writeString(v.stringValue);
-                break;
-            case ValueType::FUNCTION_REF:
-                writeU32(v.fnRef->chunkIndex);
-                writeU32(v.fnRef->arity);
-                writeString(v.fnRef->name);
-                writeU32(v.fnRef->upvalues_size);
-
-                break;
-            default:
-                break;
+                case ValueType::NUMBER:
+                    writeDouble(v.numberValue);
+                    break;
+                case ValueType::BOOLEAN:
+                    writeDouble(v.boolValue);
+                    break;
+                case ValueType::STRING:
+                    writeString(v.stringValue);
+                    break;
+                case ValueType::FUNCTION_REF:
+                    writeU32(v.fnRef->chunkIndex);
+                    writeU32(v.fnRef->arity);
+                    writeString(v.fnRef->name);
+                    writeU32(v.fnRef->upvalues_size);
+                    
+                    break;
+                default:
+                    break;
             }
         }
         
@@ -84,6 +87,9 @@ void WriteArdarFile::writing() {
             break;
         case ValueType::STRING:
             writeString(v.stringValue);
+            break;
+        case ValueType::BOOLEAN:
+            writeDouble(v.boolValue);
             break;
         case ValueType::FUNCTION_REF:
             writeU32(v.fnRef->chunkIndex);
@@ -129,6 +135,9 @@ void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
                 case ValueType::NUMBER:
                     writeDouble(v.numberValue);
                     break;
+                case ValueType::BOOLEAN:
+                    writeDouble(v.boolValue);
+                    break;
                 case ValueType::STRING:
                     writeString(v.stringValue);
                     break;
@@ -159,6 +168,9 @@ void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
                 break;
             case ValueType::STRING:
                 writeString(v.stringValue);
+                break;
+            case ValueType::BOOLEAN:
+                writeDouble(v.boolValue);
                 break;
             case ValueType::FUNCTION_REF:
                 writeU32(v.fnRef->chunkIndex);
