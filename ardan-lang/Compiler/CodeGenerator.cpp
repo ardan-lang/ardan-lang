@@ -1983,22 +1983,17 @@ R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
 R CodeGen::visitSwitchCase(SwitchCase* stmt) {
     // Each case's test should have already been checked in visitSwitch
     // Emit the body of this case
-    beginScope();
     for (auto& s : stmt->consequent) {
-        if (auto break_stmt = dynamic_cast<BreakStatement*>(s.get())) {
-            continue;
-        } else {
-            s->accept(*this);
-
-        }
+        s->accept(*this);
+        
     }
-    endScope();
     return true;
 }
 
 R CodeGen::visitSwitch(SwitchStatement* stmt) {
     
     beginScope();
+    beginLoop();
 
     std::vector<int> caseJumps;
     int defaultJump = -1;
@@ -2039,6 +2034,7 @@ R CodeGen::visitSwitch(SwitchStatement* stmt) {
         patchJump(jmp);
     }
 
+    endLoop();
     endScope();
 
     return true;
