@@ -35,14 +35,41 @@
 #include "../builtin/Server/Server.hpp"
 #include "../Interpreter/Env.h"
 
+class IVM {
+public:
+    virtual ~IVM() = default;
+    virtual Value run(shared_ptr<void> chunk, const vector<Value>& args = {}) = 0;
+    virtual void init_builtins() = 0;
+};
+
 template <typename DerivedVM, typename ModuleT, typename ChunkT>
 class BaseVM {
 public:
     void init_builtins();
     Value getProperty(const Value &objVal, const string &propName);
-    void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
+
+    void setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
+        if (objVal.type == ValueType::CLASS) {
+            // objVal.classValue->set_static_vm(propName, val);
+            return;
+        }
+        throw std::runtime_error("Cannot set static property on non-class");
+    }
+
+    int getValueLength(Value& v) {
+        
+        if (v.type == ValueType::OBJECT) {
+            return (int)v.objectValue->get_all_properties().size();
+        }
+        
+        if (v.type == ValueType::ARRAY) {
+            return v.arrayValue->get("length").numberValue;
+        }
+        
+        return v.numberValue;
+
+    }
     
-    int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
     
@@ -50,7 +77,20 @@ public:
     void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
     void InvokeConstructor(Value obj_value, vector<Value> args);
     
-    const unordered_map<string, Value> enumerateKeys(Value obj);
+    const unordered_map<string, Value> enumerateKeys(Value obj) {
+        
+        if (obj.type == ValueType::OBJECT) {
+            return obj.objectValue->get_all_properties();
+        }
+        
+        if (obj.type == ValueType::ARRAY) {
+            return obj.arrayValue->get_indexed_properties();
+        }
+        
+        return {};
+        
+    }
+
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     void set_js_object_closure(Value objVal);
     void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
