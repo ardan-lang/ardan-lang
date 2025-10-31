@@ -88,20 +88,6 @@ Instruction TurboVM::readInstruction() {
     return frame->chunk->code[frame->ip++];
 }
 
-int TurboVM::getValueLength(Value& v) {
-    
-    if (v.type == ValueType::OBJECT) {
-        return (int)v.objectValue->get_all_properties().size();
-    }
-    
-    if (v.type == ValueType::ARRAY) {
-        return v.arrayValue->get("length").numberValue;
-    }
-    
-    return v.numberValue;
-
-}
-
 Value TurboVM::CreateInstance(Value klass) {
     
     if (klass.classValue->is_native == true) {
@@ -279,28 +265,6 @@ Value TurboVM::getProperty(const Value &objVal, const string &propName) {
     }
     
     return Value::undefined();
-}
-
-void TurboVM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
-    if (objVal.type == ValueType::CLASS) {
-        //objVal.classValue->set_static_vm(propName, val);
-        return;
-    }
-    throw std::runtime_error("Cannot set static property on non-class");
-}
-
-const unordered_map<string, Value> TurboVM::enumerateKeys(Value obj) {
-    
-    if (obj.type == ValueType::OBJECT) {
-        return obj.objectValue->get_all_properties();
-    }
-    
-    if (obj.type == ValueType::ARRAY) {
-        return obj.arrayValue->get_indexed_properties();
-    }
-    
-    return {};
-    
 }
 
 void TurboVM::set_js_object_closure(Value objVal) {
@@ -782,6 +746,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::Void: {
                 frame->registers[instruction.a] = Value::undefined();
+                break;
             }
 
             case TurboOpCode::LogicalNot: {

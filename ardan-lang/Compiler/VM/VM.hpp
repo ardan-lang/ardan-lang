@@ -87,7 +87,6 @@ private:
     std::vector<Value> popArgs(size_t count);
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     Value addCtor();
-    const unordered_map<string, Value> enumerateKeys(Value obj);
     void set_js_object_closure(Value objVal);
     
     // execute the top-most frame until it returns (Return)
@@ -112,8 +111,6 @@ private:
     uint8_t readUint8();
     void init_builtins();
     Value getProperty(const Value &objVal, const string &propName);
-    void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
-    int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
     void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);

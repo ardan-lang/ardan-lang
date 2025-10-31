@@ -120,20 +120,6 @@ void VM::CreateObjectLiteralProperty(Value obj_val, string prop_name, Value obje
 
 }
 
-int VM::getValueLength(Value& v) {
-    
-    if (v.type == ValueType::OBJECT) {
-        return (int)v.objectValue->get_all_properties().size();
-    }
-    
-    if (v.type == ValueType::ARRAY) {
-        return v.arrayValue->get("length").numberValue;
-    }
-    
-    return v.numberValue;
-
-}
-
 Value VM::getProperty(const Value &objVal, const string &propName) {
     if (objVal.type == ValueType::OBJECT) {
         
@@ -277,28 +263,6 @@ Value VM::getProperty(const Value &objVal, const string &propName) {
     }
 
     return Value::undefined();
-}
-
-void VM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
-    if (objVal.type == ValueType::CLASS) {
-        // objVal.classValue->set_static_vm(propName, val);
-        return;
-    }
-    throw std::runtime_error("Cannot set static property on non-class");
-}
-
-const unordered_map<string, Value> VM::enumerateKeys(Value obj) {
-    
-    if (obj.type == ValueType::OBJECT) {
-        return obj.objectValue->get_all_properties();
-    }
-    
-    if (obj.type == ValueType::ARRAY) {
-        return obj.arrayValue->get_indexed_properties();
-    }
-    
-    return {};
-    
 }
 
 void VM::set_js_object_closure(Value objVal) {
@@ -849,6 +813,7 @@ Value VM::runFrame(CallFrame &current_frame) {
             case OpCode::Void: {
                 pop();
                 push(Value::undefined());
+                break;
             }
 
                 // stack: nameIdx
