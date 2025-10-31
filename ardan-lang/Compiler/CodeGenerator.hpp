@@ -259,6 +259,8 @@ private:
     
     CodeGen compileFunction(string name, Expression* parameters);
     void emitParameterInitializationLogic(CodeGen nested, vector<string> paramNames, vector<ParameterInfo> parameterInfos);
-    
+    void collectParameterInfo(Expression* parameters, vector<string>& paramNames,
+                              vector<ParameterInfo>& parameterInfos
+                              );
 };
 

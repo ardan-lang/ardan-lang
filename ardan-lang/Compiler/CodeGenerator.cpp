@@ -949,33 +949,47 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     vector<ParameterInfo> parameterInfos;
 
     // Collect parameter info (name, hasDefault, defaultExpr, isRest)
-    if (expr->parameters) {
-        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
-            for (auto& p : seq->expressions) {
-                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                    // ...rest
-                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
-                    paramNames.push_back(rest->token.lexeme);
-                    parameterInfos
-                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-                    //}
-                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                    // b = 90 or c = b
-                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                        paramNames.push_back(ident->name);
-                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-                    }
-                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                    // Simple arg
-                    paramNames.push_back(ident->name);
-                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-                }
-            }
-        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
-            paramNames.push_back(ident->name);
-            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-        }
-    }
+
+    collectParameterInfo(expr->parameters.get(), paramNames, parameterInfos);
+    
+//    if (expr->parameters) {
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    // ...rest
+//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos
+//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//                    //}
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    // b = 90 or c = b
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    // Simple arg
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//                }
+//            }
+//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//        }
+//        else if (auto* rest = dynamic_cast<RestParameter*>(expr->parameters.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//        }
+//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(expr->parameters.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+//            }
+//        }
+//
+//    }
 
     // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
@@ -1067,42 +1081,44 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : expr->params) {
         
-        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-            for (auto& p : seq->expressions) {
-                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                    // ...rest
-                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
-                    paramNames.push_back(rest->token.lexeme);
-                    parameterInfos
-                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-                    //}
-                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                    // b = 90 or c = b
-                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                        paramNames.push_back(ident->name);
-                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-                    }
-                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                    // Simple arg
-                    paramNames.push_back(ident->name);
-                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-                }
-            }
-        }
-        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-            paramNames.push_back(rest->token.lexeme);
-            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-        }
-        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
-            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-                paramNames.push_back(ident->name);
-                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-            }
-        }
-        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-            paramNames.push_back(ident->name);
-            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-        }
+        collectParameterInfo(param.get(), paramNames, parameterInfos);
+
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    // ...rest
+//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos
+//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//                    //}
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    // b = 90 or c = b
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    // Simple arg
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//                }
+//            }
+//        }
+//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//        }
+//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+//            }
+//        }
+//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//        }
         
     }
 
@@ -1184,36 +1200,40 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
 
     // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : stmt->params) {
-        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-            for (auto& p : seq->expressions) {
-                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                    paramNames.push_back(rest->token.lexeme);
-                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                        paramNames.push_back(ident->name);
-                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
-                    }
-                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                    paramNames.push_back(ident->name);
-                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
-                }
-            }
-        }
-        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-            paramNames.push_back(rest->token.lexeme);
-            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-        }
-        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
-            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-                paramNames.push_back(ident->name);
-                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-            }
-        }
-        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-            paramNames.push_back(ident->name);
-            parameterInfos.emplace_back(ident->name, false, nullptr, false);
-        }
+        
+        collectParameterInfo(param.get(), paramNames, parameterInfos);
+
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
+//                }
+//            }
+//        }
+//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//        }
+//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+//            }
+//        }
+//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.emplace_back(ident->name, false, nullptr, false);
+//        }
+        
     }
 
     // Allocate local slots for parameters
@@ -1589,33 +1609,37 @@ void CodeGen::compileMethod(MethodDefinition& method) {
 
     // Collect parameter info (from method.params)
     for (auto& param : method.params) {
-        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-            for (auto& p : seq->expressions) {
-                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                    paramNames.push_back(rest->token.lexeme);
-                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                        paramNames.push_back(ident->name);
-                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-                    }
-                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                    paramNames.push_back(ident->name);
-                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-                }
-            }
-        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-            paramNames.push_back(rest->token.lexeme);
-            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
-            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                paramNames.push_back(ident->name);
-                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-            }
-        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-            paramNames.push_back(ident->name);
-            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-        }
+        
+        collectParameterInfo(param.get(), paramNames, parameterInfos);
+        
+//        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//                }
+//            }
+//        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//            }
+//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//        }
+        
     }
 
     // Allocate local slots for parameters
@@ -2633,11 +2657,54 @@ R CodeGen:: visitYieldExpression(YieldExpression* visitor) {
     return true;
 }
 
-R CodeGen:: visitSpreadExpression(SpreadExpression* visitor) {
+R CodeGen::visitSpreadExpression(SpreadExpression* visitor) {
     return true;
 }
 
 // --------------------- Utils ----------------------
+
+void CodeGen::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
+                          vector<ParameterInfo>& parameterInfos
+) {
+    if (parameters) {
+        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(parameters)) {
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                    // ...rest
+                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos
+                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+                    //}
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    // b = 90 or c = b
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+                    }
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                    // Simple arg
+                    paramNames.push_back(ident->name);
+                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+                }
+            }
+        }
+        else if (auto* ident = dynamic_cast<IdentifierExpression*>(parameters)) {
+            paramNames.push_back(ident->name);
+            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+        } else if (auto* rest = dynamic_cast<RestParameter*>(parameters)) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+        } else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(parameters)) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+            }
+        }
+
+    }
+
+}
 
 void CodeGen::emitParameterInitializationLogic(CodeGen nested, vector<string> paramNames, vector<ParameterInfo> parameterInfos) {
     

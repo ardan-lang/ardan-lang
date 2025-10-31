@@ -238,6 +238,10 @@ public:
     
     size_t generate(const vector<unique_ptr<Statement>> &program);
     
+    void collectParameterInfo(Expression* parameters, vector<string>& paramNames,
+                              vector<ParameterInfo>& parameterInfos
+                                            );
+    
     void emitAssignment(BinaryExpression* expr);
     void patchContinueStatement();
     
