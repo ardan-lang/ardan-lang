@@ -126,8 +126,7 @@ private:
             TokenType::BITWISE_XOR_ASSIGN,
             TokenType::LOGICAL_AND_ASSIGN,
             TokenType::LOGICAL_OR_ASSIGN,
-            TokenType::NULLISH_COALESCING_ASSIGN,
-            TokenType::INSTANCEOF
+            TokenType::NULLISH_COALESCING_ASSIGN
         })) {
             Token op = previous();
             auto right = parseAssignment();
@@ -227,7 +226,8 @@ private:
         auto expr = parseShift();
         while (match({
             TokenType::LESS_THAN, TokenType::LESS_THAN_EQUAL,
-            TokenType::GREATER_THAN, TokenType::GREATER_THAN_EQUAL
+            TokenType::GREATER_THAN, TokenType::GREATER_THAN_EQUAL,
+            TokenType::INSTANCEOF, TokenType::IN
         })) {
             Token op = previous();
             auto right = parseShift();
@@ -285,10 +285,13 @@ private:
             TokenType::LOGICAL_NOT, TokenType::BITWISE_NOT,
             TokenType::INCREMENT, TokenType::DECREMENT,
             TokenType::ADD, TokenType::MINUS, TokenType::TYPEOF,
-            TokenType::DELETE
+            TokenType::DELETE, TokenType::VOID, TokenType::AWAIT
         })) {
             Token op = previous();
             auto right = parseUnary();
+            if (op.type == TokenType::AWAIT) {
+                return make_unique<AwaitExpression>(std::move(right));
+            }
             return make_unique<UnaryExpression>(op, std::move(right));
         }
         return parseUpdate();

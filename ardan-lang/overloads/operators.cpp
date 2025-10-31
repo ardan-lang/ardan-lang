@@ -89,6 +89,9 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::INSTANCEOF: return os << "INSTANCEOF";
         case TokenType::DELETE: return os << "DELETE";
         case TokenType::TYPEOF: return os << "TYPEOF";
+        case TokenType::VOID: return os << "VOID";
+        case TokenType::IN: return os << "IN";
+        case TokenType::AWAIT: return os << "AWAIT";
         case TokenType::AT: return os << "AT";
 
         case TokenType::END_OF_FILE: return os << "END_OF_FILE";

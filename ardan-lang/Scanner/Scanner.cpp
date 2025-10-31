@@ -876,6 +876,12 @@ void Scanner::collectIdentifier() {
             addToken(TokenType::DELETE, kw);
         } else if (kw == "INSTANCEOF") {
             addToken(TokenType::INSTANCEOF, kw);
+        } else if (kw == "VOID") {
+            addToken(TokenType::VOID, kw);
+        } else if (kw == "AWAIT") {
+            addToken(TokenType::AWAIT, kw);
+        } else if (kw == "IN") {
+            addToken(TokenType::IN, kw);
         } else {
             addToken(TokenType::KEYWORD, kw);
         }
