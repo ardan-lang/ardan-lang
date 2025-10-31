@@ -68,17 +68,17 @@ greet("Alice");  // Hello, Alice
 greet(undefined); // Hello, World (default applies)
 greet(null);     // Hello, null (default does NOT apply)
 
-function f(a = 1, b = a + 2) {
-console.log(a, b);
+function f22(a = 1, b = a + 2) {
+    console.log(a, b);
 }
-f();    // 1 3
-f(5);   // 5 7
+f22();    // 1 3
+f22(5);   // 5 7
 
-function sum(...nums) {
+function sumfn(...nums) {
   return nums.reduce((a, b) => a + b, 0);
 }
 
-console.log(sum(1, 2, 3, 4)); // 10
+console.log(sumfn(1, 2, 3, 4)); // 10
 
 function demo(a, b = 2, ...rest) {
   console.log("a:", a);

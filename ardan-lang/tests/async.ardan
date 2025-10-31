@@ -1,0 +1,61 @@
+// async function demo(a, b = 2, ...rest) {
+//   console.log("a:", a);
+//   console.log("b:", b);
+//   console.log("rest:", rest);
+// }
+
+// demo(5, 7, 9, 11); // a:5, b:7, rest:[9,11]
+// print("Sync here 1.");
+// demo(2, 3, 4, 5);
+// print("Sync here 2.");
+
+// const sum = async(a, b = 10) => await fetc();
+
+// const sum = async (a, b) => print(a + b);
+
+// sum(90, "sum");
+
+// let adder = async function(x) {
+//     return function(y) {
+//         return x * y;
+//     };
+// };
+
+// print(adder(9)(7));
+
+async function foo() {
+    return 99;
+}
+
+print("before foo");
+let p = foo();
+print(p);  // should print [object Promise]
+
+// to get the value from the promise, we use .then()
+// the .then() method takes a callback function that receives the resolved value
+// and returns a new promise
+// we can chain multiple .then() calls to transform the value step by step
+// each .then() returns a new promise, so we can keep chaining
+// if we return a value from the callback, it becomes the resolved value of the new promise
+// if we return a promise from the callback, the new promise adopts its state
+// if we throw an error from the callback, the new promise is rejected with that error
+// this allows us to create a sequence of asynchronous operations that depend on each other
+// here, we print the value, add 1 to it, and print it again, multiple times
+// the final value should be 99 + 1 + 1 + 1 + 1 = 103
+// we can also use arrow functions for brevity
+// we can use parentheses around the parameter if we have multiple parameters or none
+// we can omit parentheses if we have a single parameter
+// we can use curly braces for the function body if we have multiple statements
+// we can omit curly braces if we have a single expression, which is returned automatically
+let y = 9000;
+p.then(x => {
+    print(x);
+    return x+1;
+}).then(x => print(x)).then((x) => print(y * y)).then(x => 78).then((x) => print(x));   // should print 99
+print("after foo");
+
+function func(foosa) {
+    foosa(789);
+}
+
+func(x => print(x));
