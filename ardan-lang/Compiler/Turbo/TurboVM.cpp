@@ -154,6 +154,7 @@ bool TurboVM::delete_op(Value object, Value property) {
     return true;
 }
 
+// MDN: The in operator returns true if the specified property is in the specified object or its prototype chain.
 bool TurboVM::in(Value objVal, Value b) {
     
     string propName = b.toString();
@@ -895,6 +896,10 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 Value b = frame->registers[instruction.c];
                 frame->registers[instruction.a] =  Value::boolean(in(a,b));
                 break;
+            }
+                
+            case TurboOpCode::Void: {
+                frame->registers[instruction.a] = Value::undefined();
             }
 
             case TurboOpCode::LogicalNot: {

@@ -125,6 +125,7 @@ private:
     bool delete_op(Value object, Value property);
     Value CreateInstance(Value klass);
     void InvokeConstructor(Value obj_value, vector<Value> args);
+    bool in(Value objVal, Value b);
     
 };
 

@@ -200,6 +200,38 @@ int VM::getValueLength(Value& v) {
 
 }
 
+// MDN: The in operator returns true if the specified property is in the specified object or its prototype chain.
+bool VM::in(Value objVal, Value b) {
+    
+    string propName = b.toString();
+    
+    Value result;
+    
+    if (objVal.type == ValueType::OBJECT) {
+        result = objVal.objectValue->
+    }
+    
+    if (objVal.type == ValueType::ARRAY) {
+        result = objVal.arrayValue->get(propName);
+    }
+    
+    if (objVal.type == ValueType::CLASS) {
+        try {
+            //
+            result = objVal.classValue->get(propName, false);
+        } catch(exception) {
+            result = Value();
+        }
+    }
+    
+    if (result.type == ValueType) {
+        <#statements#>
+    }
+    
+    throw runtime_error("");
+    
+}
+
 Value VM::getProperty(const Value &objVal, const string &propName) {
     if (objVal.type == ValueType::OBJECT) {
         
@@ -923,6 +955,20 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
                 
             }
+                
+            case OpCode::In: {
+                Value a = pop();
+                Value b = pop();
+                
+                push(Value::boolean(in(a,b)));
+                break;
+            }
+                
+            case OpCode::Void: {
+                pop();
+                push(Value::undefined());
+            }
+
                 // stack: nameIdx
             case OpCode::CreateEnum: {
                 
