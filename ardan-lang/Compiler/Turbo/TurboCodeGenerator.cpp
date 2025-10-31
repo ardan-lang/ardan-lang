@@ -1142,6 +1142,85 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic
+//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+//        const auto& info = parameterInfos[i];
+//        // For rest parameter
+//        if (info.isRest) {
+//            
+//            // collect rest arguments as array: arguments.slice(i)
+//            
+//            int arg_array_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+//            
+//            int i_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+//            
+//            nested.freeRegister(i_reg);
+//            
+//            nested.store(info.name, arg_array_reg);
+//            
+//            nested.freeRegister(arg_array_reg);
+//            
+//            continue;
+//        }
+//        // For parameters with default value
+//        if (info.hasDefault) {
+//            // if (arguments.length > i) use argument; else use default expr
+//            
+//            int store_reg = nested.allocRegister();
+//     
+//            int args_len_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+//            
+//            int index_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+//            
+//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+//            
+//            // Use argument
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            nested.emit(TurboOpCode::Move, store_reg, reg);
+//            
+//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+//            
+//            // Use default
+//            nested.patchJump(useArg);
+//            
+//            // Evaluate default expression (can reference previous params!)
+//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+//            
+//            // Set local either way
+//            nested.patchSingleJump(setLocalJump);
+//
+//            nested.store(info.name, store_reg);
+//            
+//            nested.freeRegister(store_reg);
+//            nested.freeRegister(default_expr_reg);
+//            nested.freeRegister(reg);
+//            nested.freeRegister(args_len_reg);
+//            nested.freeRegister(index_reg);
+//            
+//        } else {
+//            
+//            // Direct: assign argument i to local slot
+//            
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            
+//            nested.store(info.name, reg);
+//            
+//            nested.freeRegister(reg);
+//            
+//        }
+//    }
+
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
         // For rest parameter
@@ -1174,14 +1253,14 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
             int index_reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
             
-            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
             int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
             
             // Use argument
             int reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
             nested.emit(TurboOpCode::LoadArgument, reg);
             nested.emit(TurboOpCode::Move, store_reg, reg);
             
@@ -1215,7 +1294,6 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
             nested.emit(TurboOpCode::LoadArgument, reg);
             
             nested.store(info.name, reg);
-            
             nested.freeRegister(reg);
             
         }
@@ -1378,6 +1456,84 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic
+//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+//        const auto& info = parameterInfos[i];
+//        // For rest parameter
+//        if (info.isRest) {
+//            
+//            // collect rest arguments as array: arguments.slice(i)
+//            
+//            int arg_array_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+//            
+//            int i_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+//            
+//            nested.freeRegister(i_reg);
+//            
+//            nested.store(info.name, arg_array_reg);
+//            
+//            nested.freeRegister(arg_array_reg);
+//            
+//            continue;
+//        }
+//        // For parameters with default value
+//        if (info.hasDefault) {
+//            // if (arguments.length > i) use argument; else use default expr
+//            
+//            int store_reg = nested.allocRegister();
+//     
+//            int args_len_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+//            
+//            int index_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+//            
+//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+//            
+//            // Use argument
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            nested.emit(TurboOpCode::Move, store_reg, reg);
+//            
+//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+//            
+//            // Use default
+//            nested.patchJump(useArg);
+//            
+//            // Evaluate default expression (can reference previous params!)
+//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+//            
+//            // Set local either way
+//            nested.patchSingleJump(setLocalJump);
+//
+//            nested.store(info.name, store_reg);
+//            
+//            nested.freeRegister(store_reg);
+//            nested.freeRegister(default_expr_reg);
+//            nested.freeRegister(reg);
+//            nested.freeRegister(args_len_reg);
+//            nested.freeRegister(index_reg);
+//            
+//        } else {
+//            
+//            // Direct: assign argument i to local slot
+//            
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            
+//            nested.store(info.name, reg);
+//            nested.freeRegister(reg);
+//            
+//        }
+//    }
+
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
         // For rest parameter
@@ -1410,14 +1566,14 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
             int index_reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
             
-            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
             int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
             
             // Use argument
             int reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
             nested.emit(TurboOpCode::LoadArgument, reg);
             nested.emit(TurboOpCode::Move, store_reg, reg);
             
@@ -2031,6 +2187,85 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic (rest/default)
+//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+//        const auto& info = parameterInfos[i];
+//        // For rest parameter
+//        if (info.isRest) {
+//            
+//            // collect rest arguments as array: arguments.slice(i)
+//            
+//            int arg_array_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+//            
+//            int i_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+//            
+//            nested.freeRegister(i_reg);
+//            
+//            nested.store(info.name, arg_array_reg);
+//            
+//            nested.freeRegister(arg_array_reg);
+//            
+//            continue;
+//        }
+//        // For parameters with default value
+//        if (info.hasDefault) {
+//            // if (arguments.length > i) use argument; else use default expr
+//            
+//            int store_reg = nested.allocRegister();
+//     
+//            int args_len_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+//            
+//            int index_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+//            
+//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+//            
+//            // Use argument
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            nested.emit(TurboOpCode::Move, store_reg, reg);
+//            
+//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+//            
+//            // Use default
+//            nested.patchJump(useArg);
+//            
+//            // Evaluate default expression (can reference previous params!)
+//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+//            
+//            // Set local either way
+//            nested.patchSingleJump(setLocalJump);
+//
+//            nested.store(info.name, store_reg);
+//            
+//            nested.freeRegister(store_reg);
+//            nested.freeRegister(default_expr_reg);
+//            nested.freeRegister(reg);
+//            nested.freeRegister(args_len_reg);
+//            nested.freeRegister(index_reg);
+//            
+//        } else {
+//            
+//            // Direct: assign argument i to local slot
+//            
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            
+//            nested.store(info.name, reg);
+//            
+//            nested.freeRegister(reg);
+//            
+//        }
+//    }
+
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
         // For rest parameter
@@ -2063,14 +2298,14 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
             int index_reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
             
-            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
             int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
             
             // Use argument
             int reg = nested.allocRegister();
-            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
             nested.emit(TurboOpCode::LoadArgument, reg);
             nested.emit(TurboOpCode::Move, store_reg, reg);
             
@@ -2104,7 +2339,6 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
             nested.emit(TurboOpCode::LoadArgument, reg);
             
             nested.store(info.name, reg);
-            
             nested.freeRegister(reg);
             
         }
@@ -2737,15 +2971,15 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
     // Bind class in the environment (global)
     // int classNameIdx = emitConstant(Value::str(stmt->id));
     
-    int class_reg = allocRegister();
+    // int class_reg = allocRegister();
     
     // add claas to classes
     classes[stmt->name] = std::move(classInfo);
     // clear class info
     classInfo.fields.clear();
     
-    freeRegister(class_reg);
-    freeRegister(super_class_reg);
+    // freeRegister(class_reg);
+    // freeRegister(super_class_reg);
     
     return super_class_reg;
     
@@ -3197,40 +3431,37 @@ void TurboCodeGen::collectParameterInfo(Expression* parameters, vector<string>& 
                           vector<ParameterInfo>& parameterInfos
 ) {
     if (parameters) {
-        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(parameters)) {
-            for (auto& p : seq->expressions) {
-                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                    // ...rest
-                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
-                    paramNames.push_back(rest->token.lexeme);
-                    parameterInfos
-                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-                    //}
-                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                    // b = 90 or c = b
-                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                        paramNames.push_back(ident->name);
-                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+
+                if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(parameters)) {
+                    for (auto& p : seq->expressions) {
+                        if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                            paramNames.push_back(rest->token.lexeme);
+                            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+                        } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                                paramNames.push_back(ident->name);
+                                parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
+                            }
+                        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                            paramNames.push_back(ident->name);
+                            parameterInfos.emplace_back(ident->name, false, nullptr, false);
+                        }
                     }
-                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                    // Simple arg
-                    paramNames.push_back(ident->name);
-                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
                 }
-            }
-        }
-        else if (auto* ident = dynamic_cast<IdentifierExpression*>(parameters)) {
-            paramNames.push_back(ident->name);
-            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-        } else if (auto* rest = dynamic_cast<RestParameter*>(parameters)) {
-            paramNames.push_back(rest->token.lexeme);
-            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-        } else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(parameters)) {
-            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-                paramNames.push_back(ident->name);
-                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-            }
-        }
+                else if (auto* rest = dynamic_cast<RestParameter*>(parameters)) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+                }
+                else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(parameters)) {
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+                    }
+                }
+                else if (auto* ident = dynamic_cast<IdentifierExpression*>(parameters)) {
+                    paramNames.push_back(ident->name);
+                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
+                }
 
     }
 
