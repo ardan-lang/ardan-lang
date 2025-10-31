@@ -182,6 +182,9 @@ enum class OpCode : uint8_t {
     CreateClassProtectedMethod,
     CreateClassPrivateMethod,
     CreateClassPublicMethod,
+    
+    In,
+    Void,
 
     // Debug / Sentinel
     Halt

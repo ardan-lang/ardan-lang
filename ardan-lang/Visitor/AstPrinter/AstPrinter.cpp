@@ -646,3 +646,11 @@ R AstPrinter::visitEnumDeclaration(EnumDeclaration* stmt) {
 R AstPrinter::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
     return true;
 }
+
+R AstPrinter::visitYieldExpression(YieldExpression* visitor)  {
+    return true;
+}
+
+R AstPrinter::visitSpreadExpression(SpreadExpression* visitor) {
+    return true;
+}

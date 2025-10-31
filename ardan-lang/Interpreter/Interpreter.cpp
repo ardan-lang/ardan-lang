@@ -2775,6 +2775,14 @@ R Interpreter::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
     return true;
 }
 
+R Interpreter::visitYieldExpression(YieldExpression* visitor) {
+    return true;
+}
+
+R Interpreter::visitSpreadExpression(SpreadExpression* visitor) {
+    return true;
+}
+
 //R Interpreter::visitTaggedTemplate(TaggedTemplateExpression* expr) {
 //    // 1. Evaluate the tag function
 //    Value callee = evaluate(expr->tag.get());

@@ -84,6 +84,10 @@ enum class TokenType {
     TYPEOF,
     INSTANCEOF,
     DELETE,
+    VOID,
+    AWAIT,
+    IN,
+    YIELD,
     
     AT,
     

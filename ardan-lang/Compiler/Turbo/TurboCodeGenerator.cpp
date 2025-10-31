@@ -469,6 +469,7 @@ TurboOpCode TurboCodeGen::getBinaryOp(const Token& op) {
         case TokenType::UNSIGNED_RIGHT_SHIFT:return TurboOpCode::UnsignedShiftRight;
             
         case TokenType::INSTANCEOF: return TurboOpCode::InstanceOf;
+        case TokenType::IN: return TurboOpCode::In;
             
         default:
             throw std::runtime_error("Unknown binary operator in compiler: " + op.lexeme);
@@ -1001,6 +1002,7 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
         case TokenType::BITWISE_NOT: emit(TurboOpCode::LogicalNot, reg); break;
         case TokenType::ADD: emit(TurboOpCode::Positive, reg); break;
         case TokenType::TYPEOF: emit(TurboOpCode::TypeOf, reg); break;
+        case TokenType::VOID: emit(TurboOpCode::Void, reg); break;
         default: throw std::runtime_error("Unsupported unary op in CodeGen");
     }
     
@@ -3110,6 +3112,14 @@ R TurboCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
 }
 
 R TurboCodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}
+
+R TurboCodeGen::visitYieldExpression(YieldExpression* visitor) {
+    return true;
+}
+
+R TurboCodeGen::visitSpreadExpression(SpreadExpression* visitor) {
     return true;
 }
 

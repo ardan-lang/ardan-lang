@@ -92,6 +92,7 @@ ostream& operator<<(ostream& os, TokenType type) {
         case TokenType::VOID: return os << "VOID";
         case TokenType::IN: return os << "IN";
         case TokenType::AWAIT: return os << "AWAIT";
+        case TokenType::YIELD: return os << "YIELD";
         case TokenType::AT: return os << "AT";
 
         case TokenType::END_OF_FILE: return os << "END_OF_FILE";

@@ -882,6 +882,8 @@ void Scanner::collectIdentifier() {
             addToken(TokenType::AWAIT, kw);
         } else if (kw == "IN") {
             addToken(TokenType::IN, kw);
+        }else if (kw == "YIELD") {
+            addToken(TokenType::YIELD, kw);
         } else {
             addToken(TokenType::KEYWORD, kw);
         }

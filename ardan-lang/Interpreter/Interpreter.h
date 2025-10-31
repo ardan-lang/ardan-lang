@@ -114,6 +114,9 @@ public:
     R visitUIExpression(UIViewExpression* visitor) override;
     R visitEnumDeclaration(EnumDeclaration* stmt) override;
     R visitInterfaceDeclaration(InterfaceDeclaration* stmt) override;
+    R visitYieldExpression(YieldExpression* visitor) override;
+    R visitSpreadExpression(SpreadExpression* visitor) override;
+
 };
 
 #endif /* Interpreter_hpp */

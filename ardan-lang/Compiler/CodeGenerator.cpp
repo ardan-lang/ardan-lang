@@ -2624,6 +2624,14 @@ R CodeGen::visitRestParameter(RestParameter* expr) {
     return true;
 }
 
+R CodeGen:: visitYieldExpression(YieldExpression* visitor) {
+    return true;
+}
+
+R CodeGen:: visitSpreadExpression(SpreadExpression* visitor) {
+    return true;
+}
+
 // --------------------- Utils ----------------------
 
 void CodeGen::emitParameterInitializationLogic(CodeGen nested, vector<string> paramNames, vector<ParameterInfo> parameterInfos) {

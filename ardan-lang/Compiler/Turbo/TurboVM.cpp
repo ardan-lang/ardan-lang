@@ -154,6 +154,37 @@ bool TurboVM::delete_op(Value object, Value property) {
     return true;
 }
 
+bool TurboVM::in(Value objVal, Value b) {
+    
+    string propName = b.toString();
+    
+    Value result;
+    
+    if (objVal.type == ValueType::OBJECT) {
+        result = objVal.objectValue->
+    }
+    
+    if (objVal.type == ValueType::ARRAY) {
+        result = objVal.arrayValue->get(propName);
+    }
+    
+    if (objVal.type == ValueType::CLASS) {
+        try {
+            //
+            result = objVal.classValue->get(propName, false);
+        } catch(exception) {
+            result = Value();
+        }
+    }
+    
+    if (result.type == ValueType) {
+        <#statements#>
+    }
+    
+    throw runtime_error("");
+    
+}
+
 int TurboVM::getValueLength(Value& v) {
     
     if (v.type == ValueType::OBJECT) {
@@ -858,6 +889,13 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
 
                 break;
             }
+                
+            case TurboOpCode::In: {
+                Value a = frame->registers[instruction.b];
+                Value b = frame->registers[instruction.c];
+                frame->registers[instruction.a] =  Value::boolean(in(a,b));
+                break;
+            }
 
             case TurboOpCode::LogicalNot: {
                 Value a = frame->registers[instruction.a];
@@ -1255,28 +1293,12 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 // TurboOpCode::InvokeConstructor, reg, argRegs[0], (int)argRegs.size());
             case TurboOpCode::InvokeConstructor: {
                 
-                // vector<Value> args;
-                
-                // int start = instruction.b;
-                // int count = instruction.c;
-                
-                // for (int i = 0; i < count; i++) {
-                    // int reg = start + i;
-                    // args.push_back(frame->registers[reg]);
-                // }
-
                 const vector<Value> const_args = { argStack.begin(), argStack.end() };
-
-                // for (auto arg : argStack) {
-                    // args.push_back(frame->registers[arg.toString()]);
-                // }
-                
                 argStack.clear();
 
                 Value obj_value = frame->registers[instruction.a];
 
                 // call the constructor
-                // invokeMethod(obj_value, "constructor", const_args);
                 InvokeConstructor(obj_value, const_args);
                 
                 frame->registers[instruction.a] = obj_value;
@@ -1341,11 +1363,6 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 setProperty(Value::object(frame->closure->js_object), property_name, value);
                 
                 // this update the object the current object
-//                int index = readUint32();
-//                Value v = pop();
-//                string prop = frame->chunk->constants[index].toString();
-//                setProperty(Value::object(frame->closure->js_object), prop, v);
-
                 
                 break;
             }
@@ -1373,7 +1390,6 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::GetParentObject: {
-                // push(Value::object(frame->closure->js_object->parent_object));
                 frame->registers[instruction.a] = Value::object(frame->closure->js_object->parent_object);
                 break;
             }

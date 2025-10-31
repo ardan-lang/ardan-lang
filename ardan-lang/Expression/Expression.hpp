@@ -417,5 +417,35 @@ public:
 
 };
 
+class YieldExpression : public Expression {
+public:
+    Token token;
+    unique_ptr<Expression> expression;
+    bool delegate;
+    
+    YieldExpression(Token token,
+                    unique_ptr<Expression> expression,
+                    bool delegate) : token(token), expression(std::move(expression)), delegate(delegate) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitYieldExpression(this);
+    }
+    
+};
+
+class SpreadExpression : public Expression {
+
+public:
+    Token token;
+    unique_ptr<Expression> expression;
+
+    SpreadExpression(Token token,
+                     unique_ptr<Expression> expression) : token(token), expression(std::move(expression)) {}
+    
+    R accept(ExpressionVisitor& visitor) {
+        return visitor.visitSpreadExpression(this);
+    }
+
+};
 
 #endif /* Expression_hpp */

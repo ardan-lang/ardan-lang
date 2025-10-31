@@ -301,5 +301,7 @@ public:
     R visitTry(TryStatement* stmt) override;
     R visitForIn(ForInStatement* stmt) override;
     R visitForOf(ForOfStatement* stmt) override;
-        
+    R visitYieldExpression(YieldExpression* visitor) override;
+    R visitSpreadExpression(SpreadExpression* visitor) override;
+
 };

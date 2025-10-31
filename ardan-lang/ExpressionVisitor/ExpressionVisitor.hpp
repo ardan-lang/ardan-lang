@@ -46,6 +46,8 @@ class NullKeyword;
 class UndefinedKeyword;
 class AwaitExpression;
 class UIViewExpression;
+class YieldExpression;
+class SpreadExpression;
 
 // Visitor interface
 class ExpressionVisitor {
@@ -86,6 +88,8 @@ public:
     virtual R visitUndefinedKeyword(UndefinedKeyword* visitor) = 0;
     virtual R visitAwaitExpression(AwaitExpression* visitor) = 0;
     virtual R visitUIExpression(UIViewExpression* visitor) = 0;
+    virtual R visitYieldExpression(YieldExpression* visitor) = 0;
+    virtual R visitSpreadExpression(SpreadExpression* visitor) = 0;
     
 };
 
