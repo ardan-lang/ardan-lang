@@ -902,8 +902,13 @@ R CodeGen::visitMember(MemberExpression* expr) {
 R CodeGen::visitArray(ArrayLiteralExpression* expr) {
     emit(OpCode::NewArray);
     for (auto &el : expr->elements) {
-        el->accept(*this); // push element
-        emit(OpCode::ArrayPush);
+        if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(el.get())) {
+            spread->expression->accept(*this);
+            emit(OpCode::ArraySpread);
+        } else {
+            el->accept(*this); // push element
+            emit(OpCode::ArrayPush);
+        }
     }
     return true;
 }
@@ -913,11 +918,17 @@ R CodeGen::visitObject(ObjectLiteralExpression* expr) {
     emit(OpCode::CreateObjectLiteral);
 
     for (auto &prop : expr->props) {
-        // evaluate value
-        prop.second->accept(*this);
-        int nameIdx = emitConstant(Value::str(prop.first.lexeme));
-        emit(OpCode::CreateObjectLiteralProperty);
-        emitUint32(nameIdx);
+        
+        if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(prop.second.get())) {
+            spread->expression->accept(*this); // leaves object on stack
+            emit(OpCode::ObjectSpread);
+        } else {
+            // evaluate value
+            prop.second->accept(*this);
+            int nameIdx = emitConstant(Value::str(prop.first.lexeme));
+            emit(OpCode::CreateObjectLiteralProperty);
+            emitUint32(nameIdx);
+        }
     }
         
     return true;
@@ -2657,8 +2668,14 @@ R CodeGen:: visitYieldExpression(YieldExpression* visitor) {
     return true;
 }
 
-R CodeGen::visitSpreadExpression(SpreadExpression* visitor) {
+R CodeGen::visitSpreadExpression(SpreadExpression* expr) {
+    
+    Expression* spreadExpr = expr->expression.get();
+    
+    spreadExpr->accept(*this);
+
     return true;
+    
 }
 
 // --------------------- Utils ----------------------

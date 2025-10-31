@@ -918,6 +918,35 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // TurboOpCode::ArraySpread, arr, val
+            case TurboOpCode::ArraySpread: {
+                
+                Value spreadArray = frame->registers[instruction.b];
+                Value array = frame->registers[instruction.a];
+                
+                for( auto index : spreadArray.arrayValue->get_indexed_properties()) {
+                    array.arrayValue->push({ index.second });
+                }
+                
+                frame->registers[instruction.a] = array;
+
+                break;
+            }
+                
+            case TurboOpCode::ObjectSpread: {
+                
+                Value spreadObj = frame->registers[instruction.b];
+                Value obj = frame->registers[instruction.a];
+                
+                for (auto index : spreadObj.objectValue->get_all_properties()) {
+                    setProperty(obj, index.first, index.second);
+                }
+                
+                frame->registers[instruction.a] = obj;
+                
+                break;
+            }
+
                 // TurboOpCode::NewClass, super_class_reg, nameconstindex
             case TurboOpCode::NewClass: {
                                 

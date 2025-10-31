@@ -185,6 +185,8 @@ enum class OpCode : uint8_t {
     
     In,
     Void,
+    ArraySpread,
+    ObjectSpread,
 
     // Debug / Sentinel
     Halt

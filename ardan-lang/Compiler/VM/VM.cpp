@@ -877,6 +877,19 @@ Value VM::runFrame(CallFrame &current_frame) {
                 
             }
                 
+            case OpCode::ObjectSpread: {
+                Value spreadObj = pop();
+                Value obj = pop();
+                
+                for (auto index : spreadObj.objectValue->get_all_properties()) {
+                    setProperty(obj, index.first, index.second);
+                }
+                
+                push(obj);
+                
+                break;
+            }
+                
             case OpCode::NewClass: {
                 
                 auto superclass = pop();
@@ -1405,6 +1418,20 @@ Value VM::runFrame(CallFrame &current_frame) {
                     throw std::runtime_error("ArrayPush: target not array");
                 arrVal.arrayValue->push({val});
                 push(arrVal);
+                break;
+            }
+                
+            case OpCode::ArraySpread: {
+                
+                Value spreadArray = pop();
+                Value array = pop();
+                
+                for( auto index : spreadArray.arrayValue->get_indexed_properties()) {
+                    array.arrayValue->push({ index.second });
+                }
+                
+                push(array);
+                
                 break;
             }
 

@@ -148,7 +148,7 @@ string JSObject::toString() const {
         }
 
         concat += prop.first + ": ";
-        concat += prop.second.stringValue + ( index >= (get_all_properties().size() - 1) ? "" : ", ");
+        concat += prop.second.toString() + ( index >= (get_all_properties().size() - 1) ? "" : ", ");
         
         index++;
         

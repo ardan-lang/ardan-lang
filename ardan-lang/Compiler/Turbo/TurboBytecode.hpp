@@ -87,6 +87,8 @@ enum class TurboOpCode : uint8_t {
     GetProperty,
     In,
     Void,
+    ArraySpread,
+    ObjectSpread,
     
     // Dynamic property access
     GetPropertyDynamic,  // pop key, obj; push obj[key]

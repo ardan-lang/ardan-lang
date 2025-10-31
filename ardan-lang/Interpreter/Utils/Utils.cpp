@@ -314,6 +314,11 @@ if (std::holds_alternative<std::monostate>(value)) {
         return;
     }
     
+    if (get<Value>(value).type == ValueType::OBJECT) {
+        cout << get<Value>(value).objectValue->toString();
+        return;
+    }
+    
 //        NATIVE_FUNCTION,
 //        FUNCTION,
 //        METHOD

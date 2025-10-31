@@ -823,9 +823,14 @@ R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
     int arr = allocRegister();
     emit(TurboOpCode::CreateArrayLiteral, arr);
     for (auto& el : expr->elements) {
-        int val = get<int>(el->accept(*this));
-        emit(TurboOpCode::ArrayPush, arr, val);
-        freeRegister(val);
+        if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(el.get())) {
+            int val = get<int>(spread->expression->accept(*this));
+            emit(TurboOpCode::ArraySpread, arr, val);
+        } else {
+            int val = get<int>(el->accept(*this));
+            emit(TurboOpCode::ArrayPush, arr, val);
+            freeRegister(val);
+        }
     }
     return arr;
 }
@@ -845,8 +850,18 @@ R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
             arrowFunctionExpr->name = prop.first.lexeme;
         }
 
-        int val = get<int>(prop.second->accept(*this));
-        emit(TurboOpCode::CreateObjectLiteralProperty, obj, emitConstant(prop.first.lexeme), val);
+        int val = -1;
+        
+        if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(prop.second.get())) {
+            
+            int val = get<int>(spread->expression->accept(*this));
+            emit(TurboOpCode::ObjectSpread, obj, val);
+            
+        } else {
+            
+            int val = get<int>(prop.second->accept(*this));
+            emit(TurboOpCode::CreateObjectLiteralProperty, obj, emitConstant(prop.first.lexeme), val);
+        }
         
         freeRegister(val);
     }
@@ -3375,8 +3390,8 @@ R TurboCodeGen::visitYieldExpression(YieldExpression* visitor) {
     return true;
 }
 
-R TurboCodeGen::visitSpreadExpression(SpreadExpression* visitor) {
-    return true;
+R TurboCodeGen::visitSpreadExpression(SpreadExpression* expr) {
+    return expr->expression->accept(*this);
 }
 
 R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {

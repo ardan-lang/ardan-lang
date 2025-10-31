@@ -660,7 +660,7 @@ private:
 
     unique_ptr<Expression> parseSpread() {
         Token name = peek();
-        auto expr = parseExpression();
+        auto expr = parseAssignment();
         return make_unique<SpreadExpression>(name, std::move(expr));
     }
 
