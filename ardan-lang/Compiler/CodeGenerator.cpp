@@ -517,6 +517,10 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
         case TokenType::INSTANCEOF:
             emit(OpCode::InstanceOf);
             break;
+            
+        case TokenType::IN:
+            emit(OpCode::In);
+            break;
 
         default:
             throw std::runtime_error("Unknown binary operator in compiler: " + expr->op.lexeme);
@@ -795,6 +799,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         case TokenType::BITWISE_NOT: emit(OpCode::LogicalNot); break;
         case TokenType::ADD: emit(OpCode::Positive); break;
         case TokenType::TYPEOF: emit(OpCode::TypeOf); break;
+        case TokenType::VOID: emit(OpCode::Void); break;
         default: throw std::runtime_error("Unsupported unary op in CodeGen");
     }
     return true;

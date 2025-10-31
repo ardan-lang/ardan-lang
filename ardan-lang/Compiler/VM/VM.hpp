@@ -35,6 +35,8 @@
 #include "../../builtin/Server/Server.hpp"
 #include "../../Interpreter/Env.h"
 
+#include "../BaseVM.hpp"
+
 using namespace std;
 
 using std::vector;
@@ -59,7 +61,7 @@ struct TryFrame {
     int ipAfterTry;   // where the linear try block ends (for normal flow)
 };
 
-class VM {
+class VM : public BaseVM<VM, Module, Chunk> {
 
 public:
     
@@ -109,23 +111,15 @@ private:
     uint32_t readUint32();
     uint8_t readUint8();
     void init_builtins();
-    Value binaryAdd(const Value &a, const Value &b);
-    bool isTruthy(const Value &v);
-    bool equals(const Value &a, const Value &b);
     Value getProperty(const Value &objVal, const string &propName);
-    void setProperty(const Value &objVal, const string &propName, const Value &val);
     void setStaticProperty(const Value &objVal, const string &propName, const Value &val);
     int getValueLength(Value& v);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
     void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
     
-    string type_of(Value value);
-    bool instance_of(Value a, Value b);
-    bool delete_op(Value object, Value property);
     Value CreateInstance(Value klass);
     void InvokeConstructor(Value obj_value, vector<Value> args);
-    bool in(Value objVal, Value b);
     
 };
 

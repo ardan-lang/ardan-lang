@@ -224,3 +224,19 @@ bool JSClass::is_constructor_available() {
 
     return false;
 }
+
+bool JSClass::has_static(const std::string& name) const {
+    // Check own static fields first
+    if (var_static_fields.contains(name) ||
+        let_static_fields.contains(name) ||
+        const_static_fields.contains(name)) {
+        return true;
+    }
+
+    // Walk up the superclass chain
+    if (superClass) {
+        return superClass->has_static(name);
+    }
+
+    return false;
+}

@@ -171,7 +171,7 @@ unique_ptr<Statement> Parser::parseForStatement() {
     
     auto kw = peek();
 
-    if (kw.lexeme == ("IN") && kw.type == TokenType::KEYWORD) {
+    if (kw.type == TokenType::IN/*kw.lexeme == ("IN") && kw.type == TokenType::KEYWORD*/) {
         return parseForInStatement(init);
     }
 
@@ -204,7 +204,7 @@ unique_ptr<Statement> Parser::parseTraditionalForStatement(unique_ptr<Statement>
 
 unique_ptr<Statement> Parser::parseForInStatement(unique_ptr<Statement>& init) {
     
-    consume(TokenType::KEYWORD, "Expect 'in'");
+    consume(TokenType::IN, "Expect 'in'");
     
     // parse
     auto objectExpr = parseExpression();

@@ -47,18 +47,19 @@ public:
     void set(const string& key, const Value& val, string type, vector<string> modifiers);
     void set_builtin_value(const string& key, const Value& val);
 
-    Value get(const string& key);
-    vector<string> get_modifiers(const string& key);
+    Value get(const string& key) const;
+    vector<string> get_modifiers(const string& key) const;
 
     void setClass(shared_ptr<JSClass> js_klass);
     
-    const unordered_map<string, Value> get_all_properties();
+    const unordered_map<string, Value> get_all_properties() const;
     
-    shared_ptr<JSClass> getKlass();
+    shared_ptr<JSClass> getKlass() const;
     
-    string toString();
+    string toString() const;
     
     void set_as_object_literal();
+    bool has(const string& key) const;
     
 };
 

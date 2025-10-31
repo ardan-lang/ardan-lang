@@ -102,72 +102,6 @@ uint8_t VM::readUint8() {
     return readByte();
 }
 
-Value VM::binaryAdd(const Value &a, const Value &b) {
-    if (a.type == ValueType::STRING || b.type == ValueType::STRING) {
-        return Value::str(a.toString() + b.toString());
-    }
-    return Value(a.numberValue + b.numberValue);
-}
-
-bool VM::isTruthy(const Value &v) {
-    if (v.type == ValueType::NULLTYPE) return false;
-    if (v.type == ValueType::UNDEFINED) return false;
-    if (v.type == ValueType::BOOLEAN) return v.boolValue;
-    if (v.type == ValueType::NUMBER) return v.numberValue != 0;
-    if (v.type == ValueType::STRING) return !v.stringValue.empty();
-    // objects/arrays considered truthy
-    return true;
-}
-
-bool VM::equals(const Value &a, const Value &b) {
-    // shallow equality similar to interpreter
-    if (a.type != b.type) {
-        // try numeric-string comparisons etc is omitted for brevity
-        return a.toString() == b.toString();
-    }
-    switch (a.type) {
-        case ValueType::NUMBER: return a.numberValue == b.numberValue;
-        case ValueType::STRING: return a.stringValue == b.stringValue;
-        case ValueType::BOOLEAN: return a.boolValue == b.boolValue;
-        case ValueType::NULLTYPE:
-        case ValueType::UNDEFINED:
-            return true;
-        default:
-            // object identity
-            if (a.type == ValueType::OBJECT && b.type == ValueType::OBJECT)
-                return a.objectValue == b.objectValue;
-            if (a.type == ValueType::ARRAY && b.type == ValueType::ARRAY)
-                return a.arrayValue == b.arrayValue;
-            return false;
-    }
-}
-
-string VM::type_of(Value value) {
-    return value.type_of();
-}
-
-// checks if an object is an instance of a specific class or constructor function,
-// or if its prototype chain includes the prototype of the specified constructor.
-// obj, class
-bool VM::instance_of(Value a, Value b) {
-    if (a.type != ValueType::OBJECT || b.type != ValueType::CLASS) {
-        return false;
-    }
-    auto proto = b.classValue;
-    auto obj = a.objectValue;
-    while (obj) {
-        if (obj->getKlass().get() == proto.get()) return true;
-        obj = obj->parent_object;
-    }
-    return false;
-}
-
-// delete property from object
-bool VM::delete_op(Value object, Value property) {
-    setProperty(object, property.toString(), Value::undefined());
-    return true;
-}
-
 void VM::CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object) {
     if (obj_val.type == ValueType::CLOSURE) {
         
@@ -198,38 +132,6 @@ int VM::getValueLength(Value& v) {
     
     return v.numberValue;
 
-}
-
-// MDN: The in operator returns true if the specified property is in the specified object or its prototype chain.
-bool VM::in(Value objVal, Value b) {
-    
-    string propName = b.toString();
-    
-    Value result;
-    
-    if (objVal.type == ValueType::OBJECT) {
-        result = objVal.objectValue->
-    }
-    
-    if (objVal.type == ValueType::ARRAY) {
-        result = objVal.arrayValue->get(propName);
-    }
-    
-    if (objVal.type == ValueType::CLASS) {
-        try {
-            //
-            result = objVal.classValue->get(propName, false);
-        } catch(exception) {
-            result = Value();
-        }
-    }
-    
-    if (result.type == ValueType) {
-        <#statements#>
-    }
-    
-    throw runtime_error("");
-    
 }
 
 Value VM::getProperty(const Value &objVal, const string &propName) {
@@ -375,26 +277,6 @@ Value VM::getProperty(const Value &objVal, const string &propName) {
     }
 
     return Value::undefined();
-}
-
-void VM::setProperty(const Value &objVal, const string &propName, const Value &val) {
-    if (objVal.type == ValueType::OBJECT) {
-        objVal.objectValue->set(propName, val, "VAR", {});
-        return;
-    }
-    if (objVal.type == ValueType::ARRAY) {
-        objVal.arrayValue->set(propName, val);
-        return;
-    }
-    
-    // TODO: make sure to check for privacy
-    // if objVal is a class then the property to et is a static.
-    if (objVal.type == ValueType::CLASS) {
-        objVal.classValue->set(propName, val, false);
-        return;
-    }
-    
-    throw std::runtime_error("Cannot set property on non-object");
 }
 
 void VM::setStaticProperty(const Value &objVal, const string &propName, const Value &val) {

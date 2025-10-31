@@ -59,7 +59,7 @@ void JSObject::set(const string& key, const Value& val, string type, vector<stri
     }
 }
 
-Value JSObject::get(const string& key) {
+Value JSObject::get(const string& key) const {
     
     // Look in own properties
     auto it = var_properties.find(key);
@@ -93,7 +93,7 @@ Value JSObject::get(const string& key) {
     
 }
 
-vector<string> JSObject::get_modifiers(const string& key) {
+vector<string> JSObject::get_modifiers(const string& key) const {
     
     auto it = var_properties.find(key);
     if (it != var_properties.end()) return it->second.modifiers;
@@ -113,7 +113,7 @@ void JSObject::setClass(shared_ptr<JSClass> js_klass) {
     js_class = js_klass;
 }
 
-const unordered_map<string, Value> JSObject::get_all_properties() {
+const unordered_map<string, Value> JSObject::get_all_properties() const {
     
     unordered_map<string, Value> all_properties = {};
     
@@ -132,11 +132,11 @@ const unordered_map<string, Value> JSObject::get_all_properties() {
     return all_properties;
 }
 
-shared_ptr<JSClass> JSObject::getKlass() {
+shared_ptr<JSClass> JSObject::getKlass() const {
     return js_class;
 }
 
-string JSObject::toString() {
+string JSObject::toString() const {
     
     string concat = "{";
     int index = 0;
@@ -166,4 +166,19 @@ void JSObject::set_as_object_literal() {
 
 void JSObject::set_builtin_value(const string& key, const Value& val) {
     var_properties[key] = { key, {}, val };
+}
+
+bool JSObject::has(const std::string& name) const {
+    if (var_properties.contains(name) ||
+        let_properties.contains(name) ||
+        const_properties.contains(name)) {
+        return true;
+    }
+
+    // Check in parent scope (if exists)
+    if (parent_object) {
+        return parent_object->has(name);
+    }
+
+    return false;
 }
