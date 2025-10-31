@@ -109,16 +109,17 @@ private:
         return make_unique<SequenceExpression>(std::move(exprs));
     }
             
-    unique_ptr<Expression> parseArrowFunction() {
+    unique_ptr<Expression> parseArrowFunction(unique_ptr<Expression> param) {
         
         unique_ptr<Expression> expr;
         
         if (check(TokenType::LEFT_BRACKET)) {
             auto block = parseBlockStatement();
-            expr = make_unique<ArrowFunction>(std::move(expr), std::move(block));
+            expr = make_unique<ArrowFunction>(std::move(param),
+                                              std::move(block));
         } else {
             auto exprBody = parseAssignment();
-            expr = make_unique<ArrowFunction>(std::move(expr), std::move(exprBody));
+            expr = make_unique<ArrowFunction>(std::move(param), std::move(exprBody));
         }
         
         return expr;
@@ -166,7 +167,7 @@ private:
             
             if (op.type == TokenType::ARROW) {
                 
-                expr = parseArrowFunction();
+                expr = parseArrowFunction(std::move(expr));
                 
             } else {
                 auto right = parseAssignment();
