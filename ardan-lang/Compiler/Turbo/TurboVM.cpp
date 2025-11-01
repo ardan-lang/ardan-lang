@@ -1510,6 +1510,17 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+            case TurboOpCode::PushSpreadArg: {
+                int argReg = instruction.a;
+                Value array = frame->registers[argReg];
+                
+                for (auto index : array.arrayValue->get_indexed_properties()) {
+                    argStack.push_back(index.second);
+                }
+                
+                break;
+            }
+                
                 // TurboOpCode::LoadArgument, reg
             case TurboOpCode::LoadArgument: {
                 int argIndex = frame->registers[instruction.a].numberValue;

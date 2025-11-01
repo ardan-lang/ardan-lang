@@ -2059,21 +2059,45 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
 }
 
 vector<Value> VM::popArgs(size_t count) {
-    
-    vector<Value> args;
-    args.resize(count, Value::undefined());
+    int numBitmaps = ((int)count + 31) / 32;
+    vector<uint32_t> spreadMasks(numBitmaps);
+    for (int i = 0; i < numBitmaps; i++) {
+        spreadMasks[i] = readUint32();
+    }
 
-    // args were pushed left-to-right, so top of stack is last arg.
-    // pop in reverse to restore original order into args[0..count-1].
+    // Pop raw args (top of stack = last arg)
+    vector<Value> rawArgs;
+    rawArgs.reserve(count);
     for (size_t i = 0; i < count; ++i) {
-        if (stack.empty()) {
-            args[count - 1 - i] = Value::undefined();
+        if (stack.empty()) throw runtime_error("Stack underflow in popArgs.");
+        rawArgs.push_back(stack.back());
+        stack.pop_back();
+    }
+
+    // Reverse to get left-to-right order
+    std::reverse(rawArgs.begin(), rawArgs.end());
+
+    // Expand spreads
+    vector<Value> finalArgs;
+    finalArgs.reserve(count * 2);
+    for (size_t i = 0; i < count; ++i) {
+        bool isSpread = (spreadMasks[i / 32] >> (i % 32)) & 1;
+        if (isSpread) {
+            const Value& spreadVal = rawArgs[i];
+            if (spreadVal.type == ValueType::ARRAY) {
+                const auto& arr = spreadVal.arrayValue->get_indexed_properties();
+                for (auto& kv : arr) {
+                    finalArgs.push_back(kv.second);
+                }
+            } else {
+                throw runtime_error("Cannot spread non-iterable argument.");
+            }
         } else {
-            args[count - 1 - i] = stack.back();
-            stack.pop_back();
+            finalArgs.push_back(rawArgs[i]);
         }
     }
-    return args;
+
+    return finalArgs;
 }
 
 void VM::handleRethrow() {

@@ -262,5 +262,14 @@ private:
     void collectParameterInfo(Expression* parameters, vector<string>& paramNames,
                               vector<ParameterInfo>& parameterInfos
                               );
+    R compileArgument(vector<unique_ptr<Expression>>& arguments, size_t count);
+    
+    static uint32_t readUint32At(const Chunk* chunk, int pos) {
+        return (chunk->code[pos]) |
+               (chunk->code[pos + 1] << 8) |
+               (chunk->code[pos + 2] << 16) |
+               (chunk->code[pos + 3] << 24);
+    }
+
 };
 

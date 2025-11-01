@@ -723,9 +723,18 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
 
     int resultReg = allocRegister();
     // auto resultGuard = makeRegGuard(resultReg, *this, /*autoFree=*/false);
+    int index = 0;
 
     for (int argReg : argRegs) {
-        emit(TurboOpCode::PushArg, argReg);
+        
+        if (auto spreadExpr = dynamic_cast<SpreadExpression*>((expr->arguments[index]).get())) {
+            emit(TurboOpCode::PushSpreadArg, argReg);
+        } else {
+            emit(TurboOpCode::PushArg, argReg);
+        }
+        
+        index++;
+        
     }
 
     if (auto super_expr = dynamic_cast<SuperExpression*>(expr->callee.get())) {

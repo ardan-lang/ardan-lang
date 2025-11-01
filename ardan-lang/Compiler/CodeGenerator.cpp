@@ -837,6 +837,42 @@ R CodeGen::visitIdentifier(IdentifierExpression* expr) {
     
 }
 
+//for (auto& arg : expr->arguments) {
+//    if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(arg.get())) {
+//        spread->expression->accept(*this); // pushes array to stack
+//        emit(OpCode::MarkSpreadArg);       // (or record in an auxiliary bitmap)
+//    } else {
+//        arg->accept(*this);                // pushes value to stack
+//        emit(OpCode::MarkNormalArg);       // (or record in bitmap as non-spread)
+//    }
+//}
+//emit(OpCode::CallWithSpread);
+//emitUint8(expr->arguments.size()); // total elements pushed (spread and non-spread)
+//emitSpreadBitmap(spread_flags);    // e.g. 0b0101 if arg2 and arg4 are spread
+
+// For CallWithSpread:
+//int argc = ...;             // number of pushed args (including spread exprs)
+//uint32_t spread_bitmap = ...; // e.g. 0b0101
+//vector<Value> final_args;
+//
+//for (int i = 0; i < argc; ++i) {
+//    Value arg = pop();
+//    bool is_spread = (spread_bitmap & (1 << (argc - 1 - i))) != 0;
+//    if (is_spread) {
+//        for (Value v : arg.asArray()) {
+//            final_args.push_back(v);
+//        }
+//    } else {
+//        final_args.push_back(arg);
+//    }
+//}
+//
+//// Reverse final_args if needed (depending on stack direction)
+//std::reverse(final_args.begin(), final_args.end());
+
+// Now, call the function with final_args...
+
+// callee | arg1 | ...a | arg2 | ...b | argc | [spread flags]
 R CodeGen::visitCall(CallExpression* expr) {
     // emit callee, then args left-to-right, then OP_CALL argc
     
@@ -867,6 +903,7 @@ R CodeGen::visitCall(CallExpression* expr) {
     for (auto &arg : expr->arguments) {
         arg->accept(*this);
     }
+        
     uint8_t argc = (uint8_t)expr->arguments.size();
 
     // check if this is a super() call.
@@ -877,7 +914,63 @@ R CodeGen::visitCall(CallExpression* expr) {
     }
     
     emitUint8(argc);
+    
+    compileArgument(expr->arguments, argc);
+    
+//    uint32_t byte = 0;
+//    int bitIndex = 0;
+//    
+//    for (auto &arg : expr->arguments) {
+//        
+//        if (auto spreadExpr = dynamic_cast<SpreadExpression*>(arg.get())) {
+//            byte |= (1 << bitIndex);
+//        }
+//        
+//        bitIndex++;
+//        
+//        if (bitIndex == 32) {
+//            emitUint32(byte);
+//            byte = 0;
+//            bitIndex = 0;
+//        }
+//        
+//    }
+//    
+//    if (bitIndex > 0) {
+//        emitUint32(byte);
+//    }
+
     return true;
+}
+
+R CodeGen::compileArgument(vector<unique_ptr<Expression>>& arguments,
+                           size_t count) {
+    
+    uint32_t byte = 0;
+    int bitIndex = 0;
+    
+    for (auto &arg : arguments) {
+        
+        if (auto spreadExpr = dynamic_cast<SpreadExpression*>(arg.get())) {
+            byte |= (1 << bitIndex);
+        }
+        
+        bitIndex++;
+        
+        if (bitIndex == 32) {
+            emitUint32(byte);
+            byte = 0;
+            bitIndex = 0;
+        }
+        
+    }
+    
+    if (bitIndex > 0) {
+        emitUint32(byte);
+    }
+    
+    return true;
+
 }
 
 R CodeGen::visitMember(MemberExpression* expr) {
@@ -1599,6 +1692,7 @@ R CodeGen::visitNew(NewExpression* expr) {
 
         // emit args count
         emitUint8((uint8_t)expr->arguments.size());
+        compileArgument(expr->arguments, expr->arguments.size());
 
     }
     
@@ -3391,15 +3485,38 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-            // calls
+//            // calls
+//        case OpCode::InvokeConstructor:
+//        case OpCode::SuperCall:
+//        case OpCode::Call: {
+//            uint8_t argCount = chunk->code[offset + 1];
+//            std::cout << opcodeToString(op) << " " << (int)argCount << " args\n";
+//            return offset + 2;
+//        }
+            
         case OpCode::InvokeConstructor:
         case OpCode::SuperCall:
         case OpCode::Call: {
             uint8_t argCount = chunk->code[offset + 1];
-            std::cout << opcodeToString(op) << " " << (int)argCount << " args\n";
-            return offset + 2;
+            int numBitmaps = (argCount + 31) / 32;
+
+            std::cout << opcodeToString(op)
+                      << " " << (int)argCount
+                      << " args";
+
+            if (numBitmaps > 0) {
+                std::cout << " [spreadMask(s):";
+                for (int i = 0; i < numBitmaps; i++) {
+                    uint32_t mask = readUint32At(chunk, (int)offset + 2 + (i * 4));
+                    std::cout << " 0x" << std::hex << mask << std::dec;
+                }
+                std::cout << " ]";
+            }
+            std::cout << "\n";
+
+            return offset + 2 + (numBitmaps * 4);
         }
-            
+
         case OpCode::CreateEnum:
         case OpCode::SetEnumProperty:
         case OpCode::CreateInstance:
@@ -3424,6 +3541,10 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
         case OpCode::TypeOf:
         case OpCode::Delete:
         case OpCode::InstanceOf:
+        case OpCode::Void:
+        case OpCode::In:
+        case OpCode::ArraySpread:
+        case OpCode::ObjectSpread:
             cout << opcodeToString(op) << "\n";
             return offset + 1;
         case OpCode::CreateObjectLiteralProperty:
