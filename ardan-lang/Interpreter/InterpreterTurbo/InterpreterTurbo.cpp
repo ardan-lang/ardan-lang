@@ -6,3 +6,4064 @@
 //
 
 #include "InterpreterTurbo.hpp"
+#include <memory>
+
+#include "../../Statements/Statements.hpp"
+#include "../../Expression/Expression.hpp"
+#include "../../Visitor/AstPrinter/AstPrinter.h"
+#include "../Utils/Utils.h"
+#include "../ExecutionContext/JSArray/JSArray.h"
+#include "../ExecutionContext/Value/Value.h"
+#include "../../builtin/Print/Print.hpp"
+#include "../../builtin/builtin-includes.h"
+#include "../../Scanner/Scanner.hpp"
+#include "../../Parser/Parser.hpp"
+#include "../Promise/Promise.hpp"
+#include "../../builtin/Server/Server.hpp"
+
+size_t InterpreterTurbo::generate(const vector<unique_ptr<Statement>> &program) {
+    cur = make_shared<TurboChunk>();
+    cur->name = "BYTECODE";
+    locals.clear();
+    nextLocalSlot = 0;
+    emit(TurboOpCode::PushLexicalEnv);
+    
+    for (const auto &s : program) {
+        s->accept(*this);
+    }
+    
+    emit(TurboOpCode::PopLexicalEnv);
+    
+    emit(TurboOpCode::Halt);
+    disassembleChunk(cur.get(), cur->name);
+    
+    uint32_t idx = module_->addChunk(cur);
+    module_->entryChunkIndex = idx;
+    
+    return idx;
+}
+
+R InterpreterTurbo::visitExpression(ExpressionStatement* stmt) {
+    return stmt->expression->accept(*this);
+}
+
+R InterpreterTurbo::visitBlock(BlockStatement* stmt) {
+    
+    if(stmt->standalone) beginScope();
+    for (auto& s : stmt->body) {
+        s->accept(*this);
+        // registerAllocator->reset();
+    }
+    if(stmt->standalone) endScope();
+    return 0;
+}
+
+R InterpreterTurbo::create(string decl, uint32_t reg_slot, BindingKind kind) {
+    
+    TurboOpCode op;
+
+    // decide local or global
+    if (hasLocal(decl)) {
+        uint32_t idx = getLocal(decl);
+                
+        switch (kind) {
+            case BindingKind::Var:
+                
+                if (enclosing == nullptr) {
+                    op = TurboOpCode::CreateGlobalVar;
+                } else {
+                    op = TurboOpCode::CreateLocalVar;
+                }
+                
+                break;
+            case BindingKind::Let:
+                op = TurboOpCode::CreateLocalLet;
+                break;
+            case BindingKind::Const:
+                op = TurboOpCode::CreateLocalConst;
+                break;
+            default:
+                op = TurboOpCode::CreateLocalVar;
+                break;
+        }
+
+        emit(op, idx, reg_slot);
+
+    } else {
+        
+        // This has been done when the class was being created.
+        if (classInfo.fields.count(decl)) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            return R();
+        }
+        
+        // TODO: check if we need to create upvalues.
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+            return R();
+        }
+        
+        // top-level/global
+        int nameIdx = emitConstant(Value::str(decl));
+        switch (kind) {
+            case BindingKind::Var:
+                op = TurboOpCode::CreateGlobalVar;
+                break;
+            case BindingKind::Let:
+                op = TurboOpCode::CreateGlobalLet;
+                break;
+            case BindingKind::Const:
+                op = TurboOpCode::CreateGlobalConst;
+                break;
+            default:
+                op = TurboOpCode::CreateGlobalVar;
+                break;
+        }
+
+        emit(op, (uint32_t)nameIdx, reg_slot);
+                
+    }
+    
+    return true;
+    
+}
+
+// moves data from reg_slot into local/global
+R InterpreterTurbo::store(string decl, uint32_t reg_slot) {
+    
+    // decide local or global
+    if (hasLocal(decl)) {
+        
+        uint32_t idx = getLocal(decl);
+        
+        Local local = locals[idx];
+        
+        if (locals[idx].kind == BindingKind::Const) {
+            throw std::runtime_error("Cannot assign value to constant variable.");
+        }
+        
+        if (local.kind == BindingKind::Var) {
+            emit(TurboOpCode::StoreLocalVar, idx, reg_slot);
+        } else if (local.kind == BindingKind::Let) {
+            emit(TurboOpCode::StoreLocalLet, idx, reg_slot);
+        }
+        
+    } else {
+        
+        InterpreterTurbo::PropertyLookup classProperty = lookupClassProperty(decl);
+        if (classProperty.level > 0 && classProperty.meta.kind == BindingKind::Const) {
+            throw runtime_error("Cannot assign value to a const field.");
+        }
+        
+        if (classProperty.level == 1) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            int nameIdx = emitConstant(Value::str(decl));
+            emit(TurboOpCode::StoreThisProperty, nameIdx, reg_slot);
+            
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            
+            return true;
+            
+        } else if (classProperty.level == 2) {
+            
+            int nameIdx = emitConstant(Value::str(decl));
+            
+            int parent_obj_reg = allocRegister();
+            emit(TurboOpCode::GetParentObject, parent_obj_reg);
+            // SetProperty: objReg, nameIdx, valueReg
+            emit(TurboOpCode::SetProperty, parent_obj_reg, nameIdx, reg_slot);
+            freeRegister(parent_obj_reg);
+            
+            return true;
+
+        }
+        
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            
+            UpvalueMeta upvalueMeta = upvalues[upvalue];
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+
+            int nameIdx = emitConstant(Value::str(decl));
+
+            if (upvalueMeta.kind == BindingKind::Var) {
+//                emit(TurboOpCode::StoreUpvalueVar, upvalue, reg_slot);
+                emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
+            } else if (upvalueMeta.kind == BindingKind::Let) {
+//                emit(TurboOpCode::StoreUpvalueLet, upvalue, reg_slot);
+                emit(TurboOpCode::StoreGlobalLet, (uint32_t)nameIdx, reg_slot);
+            } else if (upvalueMeta.kind == BindingKind::Const) {
+                emit(TurboOpCode::StoreUpvalueConst, upvalue, reg_slot);
+            }
+            
+            return true;
+        }
+        
+        // top-level/global
+        int nameIdx = emitConstant(Value::str(decl));
+        Global global = globals[lookupGlobal(decl)];
+        
+        if (global.kind == BindingKind::Const) {
+            throw runtime_error("Cannot assign value to a const expression");
+        }
+        
+        if (global.kind == BindingKind::Var) {
+            emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
+        } else if (global.kind == BindingKind::Let) {
+            emit(TurboOpCode::StoreGlobalLet, (uint32_t)nameIdx, reg_slot);
+        }
+        
+    }
+    
+    return true;
+    
+}
+
+// moves data from local/global into reg_slot
+R InterpreterTurbo::load(string decl, uint32_t reg_slot) {
+
+    // decide local or global
+    if (hasLocal(decl)) {
+        uint32_t idx = getLocal(decl);
+        emit(TurboOpCode::LoadLocalVar, reg_slot, idx);
+    } else {
+        
+        // search if decl is in class fields
+        InterpreterTurbo::PropertyLookup result = lookupClassProperty(decl);
+        if (result.level == 1) {
+            
+            // Rewrite: legs = one;  ⇒  this.legs = one;
+            // Rewrite: legs;  ⇒  this.legs;
+            int nameIdx = emitConstant(Value::str(decl));
+            emit(TurboOpCode::LoadThisProperty, reg_slot, nameIdx);
+            
+            // emit(TurboOpCode::SetThisProperty);
+            // int nameIdx = emitConstant(Value::str(decl));
+            // emitUint32(nameIdx);
+            return true;
+        } else if (result.level == 2) {
+            // exists in parent class
+            
+            int nameIdx = emitConstant(Value::str(decl));
+
+            int parent_obj_reg = allocRegister();
+            emit(TurboOpCode::GetParentObject, parent_obj_reg);
+            emit(TurboOpCode::GetProperty, reg_slot, parent_obj_reg, nameIdx);
+            freeRegister(parent_obj_reg);
+            return true;
+        }
+        
+        int upvalue = resolveUpvalue(decl);
+        if (upvalue != -1) {
+            // emit(TurboOpCode::SetUpvalue);
+            // emitUint32(upvalue);
+            // emit(TurboOpCode::LoadUpvalue, reg_slot, upvalue);
+            int nameIdx = emitConstant(Value::str(decl));
+            emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
+
+            return true;
+        }
+        
+        int nameIdx = emitConstant(Value::str(decl));
+        emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
+        
+    }
+    
+    return true;
+    
+}
+
+R InterpreterTurbo::visitVariable(VariableStatement* stmt) {
+    
+    string kind = stmt->kind;
+    
+    for (auto& decl : stmt->declarations) {
+        // Allocate a register slot for this variable
+        int slot = allocRegister();
+        
+        BindingKind bindingKind = get_kind(kind);
+        
+        // If initializer: compile it, store result in slot
+        if (decl.init) {
+            int initReg = get<int>(decl.init->accept(*this));
+            emit(TurboOpCode::Move, slot, initReg); // move data inside initReg into register slot.
+            freeRegister(initReg);
+            
+            if (auto classExpr = dynamic_cast<ClassExpression*>(decl.init.get())) {
+                classExpr->name = decl.id;
+            } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(decl.init.get())) {
+                functionExpr->name = decl.id;
+            } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(decl.init.get())) {
+                arrowFunctionExpr->name = decl.id;
+            }
+
+        } else {
+            
+            if (bindingKind == BindingKind::Const) {
+                throw runtime_error("Const must be initialized on declaration.");
+            }
+            
+            emit(TurboOpCode::LoadConst, slot, emitConstant(Value::undefined()));
+        }
+
+        declareVariableScoping(decl.id, bindingKind);
+        // declareLocal(decl.id, get_kind(kind));
+        // declareGlobal(decl.id, get_kind(kind));
+        
+        create(decl.id, slot, get_kind(kind));
+        freeRegister(slot);
+        // DO NOT freeRegister(slot) here!
+        // It must stay alive until endScope() pops it.
+    }
+    
+    return 0;
+    
+}
+
+R InterpreterTurbo::visitIf(IfStatement* stmt) {
+
+    beginScope();
+
+    uint32_t cond = get<int>(stmt->test->accept(*this));
+    int elseJump = emitJump(TurboOpCode::JumpIfFalse, cond);
+    freeRegister(cond);
+        
+    stmt->consequent->accept(*this);
+    
+    int finalEndJump = emitJump(TurboOpCode::Jump);
+    
+    int endJump = -1;
+    if (stmt->alternate)
+        endJump = emitJump(TurboOpCode::Jump);
+    
+    patchJump(elseJump);
+    
+    if (stmt->alternate) {
+        scopeDepth--;
+        stmt->alternate->accept(*this);
+        patchJump(endJump, (int)cur->code.size());
+    }
+    
+    patchSingleJump(finalEndJump);
+    
+    endScope();
+    
+    return 0;
+}
+
+R InterpreterTurbo::visitWhile(WhileStatement* stmt) {
+    
+    beginScope();
+    beginLoop();
+    
+    int loopStart = (int)cur->code.size();
+    
+    uint32_t cond = get<int>(stmt->test->accept(*this));
+    int exitJump = emitJump(TurboOpCode::JumpIfFalse, cond);
+    freeRegister(cond);
+    
+    stmt->body->accept(*this);
+    
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
+    emitLoop(loopStart); // backwards jump
+    patchJump(exitJump, (int)cur->code.size());
+    
+    endLoop();
+    endScope();
+    
+    return 0;
+}
+
+R InterpreterTurbo::visitFor(ForStatement* stmt) {
+    
+    beginScope();
+
+    if (stmt->init)
+        (stmt->init->accept(*this));
+    else throw runtime_error("For loop must have an initializer.");
+    
+    int loopStart = (int)cur->code.size();
+    beginLoop();
+
+    if (stmt->test) {
+        
+        uint32_t testReg = get<int>(stmt->test->accept(*this));
+        int exitJump = emitJump(TurboOpCode::JumpIfFalse, testReg);
+        freeRegister(testReg);
+
+        stmt->body->accept(*this);
+
+        if (stmt->update) {
+            
+            if (loopStack.back().continues.size() > 0) {
+                for (auto& continueAddr : loopStack.back().continues) {
+                    patchSingleJump(continueAddr);
+                }
+                
+                loopStack.back().continues.clear();
+            }
+            
+            stmt->update->accept(*this);
+        }
+        
+        // move up to test
+        emitLoop(loopStart);
+
+        patchJump(exitJump, (int)cur->code.size());
+        
+    } else {
+        stmt->body->accept(*this);
+        if (stmt->update)
+            stmt->update->accept(*this);
+        emit(TurboOpCode::Loop, (int)cur->code.size() - loopStart);
+    }
+    
+    endLoop();
+    endScope();
+    return 0;
+}
+
+R InterpreterTurbo::visitReturn(ReturnStatement* stmt) {
+    
+    uint32_t value = allocRegister();
+    
+    if (stmt->argument)
+        value = get<int>(stmt->argument->accept(*this));
+    else
+        emit(TurboOpCode::LoadConst, value, emitConstant(Value::undefined()));
+    
+    emit(TurboOpCode::Return, value);
+    
+    freeRegister(value);
+    
+    return 0;
+    
+}
+
+TurboOpCode InterpreterTurbo::getBinaryOp(const Token& op) {
+    
+    switch (op.type) {
+            // --- Arithmetic ---
+        case TokenType::ADD:                 return TurboOpCode::Add;
+        case TokenType::MINUS:               return TurboOpCode::Subtract;
+        case TokenType::MUL:                 return TurboOpCode::Multiply;
+        case TokenType::DIV:                 return TurboOpCode::Divide;
+        case TokenType::MODULI:              return TurboOpCode::Modulo;
+        case TokenType::POWER:               return TurboOpCode::Power;
+            
+            // --- Comparisons ---
+        case TokenType::VALUE_EQUAL:         return TurboOpCode::Equal;
+        case TokenType::REFERENCE_EQUAL:     return TurboOpCode::StrictEqual;
+        case TokenType::INEQUALITY:          return TurboOpCode::NotEqual;
+        case TokenType::STRICT_INEQUALITY:   return TurboOpCode::StrictNotEqual;
+        case TokenType::LESS_THAN:           return TurboOpCode::LessThan;
+        case TokenType::LESS_THAN_EQUAL:     return TurboOpCode::LessThanOrEqual;
+        case TokenType::GREATER_THAN:        return TurboOpCode::GreaterThan;
+        case TokenType::GREATER_THAN_EQUAL:  return TurboOpCode::GreaterThanOrEqual;
+            
+            // --- Logical ---
+        case TokenType::LOGICAL_AND:         return TurboOpCode::LogicalAnd;
+        case TokenType::LOGICAL_OR:          return TurboOpCode::LogicalOr;
+        case TokenType::NULLISH_COALESCING:  return TurboOpCode::NullishCoalescing;
+            
+            // --- Bitwise ---
+        case TokenType::BITWISE_AND:         return TurboOpCode::BitAnd;
+        case TokenType::BITWISE_OR:          return TurboOpCode::BitOr;
+        case TokenType::BITWISE_XOR:         return TurboOpCode::BitXor;
+        case TokenType::BITWISE_LEFT_SHIFT:  return TurboOpCode::ShiftLeft;
+        case TokenType::BITWISE_RIGHT_SHIFT: return TurboOpCode::ShiftRight;
+        case TokenType::UNSIGNED_RIGHT_SHIFT:return TurboOpCode::UnsignedShiftRight;
+            
+        case TokenType::INSTANCEOF: return TurboOpCode::InstanceOf;
+        case TokenType::IN: return TurboOpCode::In;
+            
+        default:
+            throw std::runtime_error("Unknown binary operator in compiler: " + op.lexeme);
+    }
+    
+}
+
+R InterpreterTurbo::visitBinary(BinaryExpression* expr) {
+    switch (expr->op.type) {
+        case TokenType::ASSIGN:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_MINUS:
+        case TokenType::ASSIGN_MUL:
+        case TokenType::ASSIGN_DIV:
+        case TokenType::MODULI_ASSIGN:
+        case TokenType::POWER_ASSIGN:
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN:
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_AND_ASSIGN:
+        case TokenType::BITWISE_OR_ASSIGN:
+        case TokenType::BITWISE_XOR_ASSIGN:
+        case TokenType::LOGICAL_AND_ASSIGN:
+        case TokenType::LOGICAL_OR_ASSIGN:
+        case TokenType::NULLISH_COALESCING_ASSIGN:
+            emitAssignment(expr);
+            return true;
+        default:
+            break;
+    }
+    
+    // For all other operators, existing logic:
+    int left = get<int>(expr->left->accept(*this));
+    int right = get<int>(expr->right->accept(*this));
+    int result = allocRegister();
+        
+    TurboOpCode op = getBinaryOp(expr->op);
+    emit(op, result, left, right);
+
+    freeRegister(left);
+    freeRegister(right);
+
+    return result;
+    
+}
+
+void InterpreterTurbo::emitAssignment(BinaryExpression* expr) {
+    auto left = expr->left.get();
+    
+    // ----------- Plain assignment (=) -----------
+    if (expr->op.type == TokenType::ASSIGN) {
+        // Evaluate RHS into a fresh register
+        // int rhsReg = allocRegister();
+        
+        if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
+            // Try to infer name from left
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                classExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+            }
+        } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                functionExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                functionExpr->name = evaluate_property(memberExpr);
+            }
+        } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(expr->right.get())) {
+            if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+                arrowFunctionExpr->name = idExpr->name;
+            } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+                arrowFunctionExpr->name = evaluate_property(memberExpr);
+            }
+        }
+
+        
+        int resultReg = get<int>(expr->right->accept(*this));
+        
+        // Assignment to a variable (identifier)
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+            // int destReg = lookupLocalSlot(ident->name);
+            // Move/copy result into local/global slot
+            // emit(TurboOpCode::Move, destReg, resultReg);
+            store(ident->name, resultReg);
+        }
+        // Assignment to an object property
+        else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+            // Evaluate object to reg
+            int objReg = get<int>(member->object->accept(*this));
+            
+            if (member->computed) {
+                
+                int propReg = get<int>(member->property->accept(*this)); // Property key to reg
+                
+                // SetPropertyDynamic: objReg, propReg, valueReg
+                emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, resultReg);
+                freeRegister(propReg); // propReg
+                
+            } else {
+                
+                int nameIdx = emitConstant(Value::str(member->name.lexeme));
+                // SetProperty: objReg, nameIdx, valueReg
+                emit(TurboOpCode::SetProperty, objReg, nameIdx, resultReg);
+                
+            }
+            
+            freeRegister(objReg); // objReg
+            
+        }
+        else {
+            throw std::runtime_error("Unsupported assignment target in CodeGen");
+        }
+        
+        // freeRegister(rhsReg); // rhsReg
+        // freeRegister(resultReg);
+        return;
+    }
+    
+    // ----------- Compound assignments (+=, -=, etc.) -----------
+    // Evaluate LHS (load current value)
+
+    int lhsReg = allocRegister();
+    int objReg = -1;
+    int propReg = -1;
+    int nameIdx = -1;
+    
+    if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
+        // Try to infer name from left
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            classExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+        }
+    } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            functionExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            functionExpr->name = evaluate_property(memberExpr);
+        }
+    } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(expr->right.get())) {
+        if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
+            arrowFunctionExpr->name = idExpr->name;
+        } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
+            arrowFunctionExpr->name = evaluate_property(memberExpr);
+        }
+
+    }
+
+    
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        load(ident->name, lhsReg);
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+        
+         objReg = get<int>(member->object->accept(*this));
+        
+         if (member->computed) {
+             propReg = get<int>(member->property->accept(*this));
+             // Get property value into lhsReg
+             emit(TurboOpCode::GetPropertyDynamic, lhsReg, objReg, propReg);
+         } else {
+             nameIdx = emitConstant(Value::str(member->name.lexeme));
+             emit(TurboOpCode::GetProperty, lhsReg, objReg, nameIdx);
+         }
+         // int valueReg = allocRegister(); // dest for the result
+        
+    } else {
+        throw std::runtime_error("Unsupported assignment target in CodeGen");
+    }
+    
+    // Evaluate RHS into a new register
+    int rhsReg = get<int>(expr->right->accept(*this));
+    
+    // Compute result of compound operation
+    int opResultReg = allocRegister(); // where to store result (reuse for identifiers)
+
+    switch (expr->op.type) {
+        case TokenType::ASSIGN_ADD: emit(TurboOpCode::Add, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::ASSIGN_MINUS: emit(TurboOpCode::Subtract, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::ASSIGN_MUL: emit(TurboOpCode::Multiply, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::ASSIGN_DIV: emit(TurboOpCode::Divide, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::MODULI_ASSIGN: emit(TurboOpCode::Modulo, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::POWER_ASSIGN: emit(TurboOpCode::Power, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN: emit(TurboOpCode::ShiftLeft, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN: emit(TurboOpCode::ShiftRight, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN: emit(TurboOpCode::UnsignedShiftRight, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::BITWISE_AND_ASSIGN: emit(TurboOpCode::BitAnd, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::BITWISE_OR_ASSIGN: emit(TurboOpCode::BitOr, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::BITWISE_XOR_ASSIGN: emit(TurboOpCode::BitXor, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::LOGICAL_AND_ASSIGN: emit(TurboOpCode::LogicalAnd, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::LOGICAL_OR_ASSIGN: emit(TurboOpCode::LogicalOr, opResultReg, lhsReg, rhsReg); break;
+        case TokenType::NULLISH_COALESCING_ASSIGN: emit(TurboOpCode::NullishCoalescing, opResultReg, lhsReg, rhsReg); break;
+        default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
+    }
+    
+    // Store back to LHS
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+        // emit(TurboOpCode::Move, lhsReg, opResultReg);
+        store(ident->name, opResultReg);
+    }
+    else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
+         if (member->computed) {
+             emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+             freeRegister(propReg); // propReg
+         } else {
+             emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+         }
+        freeRegister(objReg); // objReg
+        //freeRegister(); // valueReg if not reused
+    }
+    
+    freeRegister(rhsReg); // rhsReg
+    freeRegister(lhsReg); // lhsReg if not reused
+}
+
+R InterpreterTurbo::visitLiteral(LiteralExpression* expr) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(expr->token.lexeme));
+    return reg;
+}
+
+R InterpreterTurbo::visitNumericLiteral(NumericLiteral* expr) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(toValue(expr->value))); // load from constant into reg register
+    return reg;
+}
+
+R InterpreterTurbo::visitStringLiteral(StringLiteral* expr) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value(expr->text)));
+    return reg;
+}
+
+R InterpreterTurbo::visitIdentifier(IdentifierExpression* expr) {
+    int reg = allocRegister();
+    load(expr->name, reg);
+    return reg;
+}
+
+R InterpreterTurbo::visitCall(CallExpression* expr) {
+
+    int funcReg = get<int>(expr->callee->accept(*this));
+    // auto funcGuard = makeRegGuard(funcReg, *this);
+
+    vector<int> argRegs;
+    argRegs.reserve(expr->arguments.size());
+    for (auto& arg : expr->arguments) {
+        int r = get<int>(arg->accept(*this));
+        argRegs.push_back(r);
+    }
+
+    int resultReg = allocRegister();
+    // auto resultGuard = makeRegGuard(resultReg, *this, /*autoFree=*/false);
+    int index = 0;
+
+    for (int argReg : argRegs) {
+        
+        if (auto spreadExpr = dynamic_cast<SpreadExpression*>((expr->arguments[index]).get())) {
+            emit(TurboOpCode::PushSpreadArg, argReg);
+        } else {
+            emit(TurboOpCode::PushArg, argReg);
+        }
+        
+        index++;
+        
+    }
+
+    if (auto super_expr = dynamic_cast<SuperExpression*>(expr->callee.get())) {
+        emit(TurboOpCode::SuperCall, resultReg, funcReg, static_cast<int>(argRegs.size()));
+    } else {
+        emit(TurboOpCode::Call, resultReg, funcReg, static_cast<int>(argRegs.size()));
+    }
+
+    for (int argReg : argRegs) {
+        freeRegister(argReg);
+    }
+
+    // funcGuard.release();
+    return resultReg;
+    
+}
+
+// object.property access
+R InterpreterTurbo::visitMember(MemberExpression* expr) {
+    
+    // Evaluate the object expression
+    int objectReg = get<int>(expr->object->accept(*this));
+    // auto objectGuard = makeRegGuard(objectReg, *this);
+
+    // Allocate target register for result
+    int targetReg = allocRegister();
+    // auto targetGuard = makeRegGuard(targetReg, *this, /*autoFree=*/false);
+
+    if (expr->computed) {
+        // obj[prop]
+        int propertyReg = get<int>(expr->property->accept(*this));
+        // auto propertyGuard = makeRegGuard(propertyReg, *this);
+
+        emit(TurboOpCode::GetPropertyDynamic, targetReg, objectReg, propertyReg);
+        
+        freeRegister(propertyReg);
+        
+    } else {
+        // obj.name
+        int nameConst = emitConstant(Value::str(expr->name.lexeme));
+        emit(TurboOpCode::GetProperty, targetReg, objectReg, nameConst);
+        
+    }
+
+    // Free object register after use
+    // objectGuard.release();
+    
+    return targetReg;
+    
+}
+
+R InterpreterTurbo::visitNew(NewExpression* expr) {
+    
+    if (expr->arguments.size() > 255) {
+        throw runtime_error("Arguments to constructor must not exceed 255.");
+    }
+    
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
+                
+        int reg = get<int>(ident->accept(*this));
+        
+        emit(TurboOpCode::CreateInstance, reg);
+
+        vector<int> argRegs;
+        // argRegs.resize(expr->arguments.size());
+        // emit args count
+        for (auto& arg : expr->arguments) {
+            argRegs.push_back(get<int>(arg->accept(*this)));
+        }
+        
+        for (int argReg : argRegs) {
+            emit(TurboOpCode::PushArg, argReg);
+        }
+
+        // TODO: set the arg start to -1 to denote no args
+        emit(TurboOpCode::InvokeConstructor,
+             reg,
+             argRegs.size() == 0 ? 0 : argRegs[0],
+             (int)argRegs.size());
+
+        // free args regs
+        for (auto argReg : argRegs) {
+            freeRegister(argReg);
+        }
+        
+        return reg;
+
+    }
+    
+    throw runtime_error("New must be called on an exting class.");
+    
+}
+
+R InterpreterTurbo::visitArray(ArrayLiteralExpression* expr) {
+    int arr = allocRegister();
+    emit(TurboOpCode::CreateArrayLiteral, arr);
+    for (auto& el : expr->elements) {
+        if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(el.get())) {
+            int val = get<int>(spread->expression->accept(*this));
+            emit(TurboOpCode::ArraySpread, arr, val);
+        } else {
+            int val = get<int>(el->accept(*this));
+            emit(TurboOpCode::ArrayPush, arr, val);
+            freeRegister(val);
+        }
+    }
+    return arr;
+}
+
+R InterpreterTurbo::visitObject(ObjectLiteralExpression* expr) {
+    
+    int obj = allocRegister();
+    emit(TurboOpCode::CreateObjectLiteral, obj);
+    
+    for (auto& prop : expr->props) {
+
+        if (auto classExpr = dynamic_cast<ClassExpression*>(prop.second.get())) {
+            classExpr->name = prop.first.lexeme;
+        } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(prop.second.get())) {
+            functionExpr->name = prop.first.lexeme;
+        } else if (auto arrowFunctionExpr = dynamic_cast<ArrowFunction*>(prop.second.get())) {
+            arrowFunctionExpr->name = prop.first.lexeme;
+        }
+
+        int val = -1;
+        
+        if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(prop.second.get())) {
+            
+            int val = get<int>(spread->expression->accept(*this));
+            emit(TurboOpCode::ObjectSpread, obj, val);
+            
+        } else {
+            
+            int val = get<int>(prop.second->accept(*this));
+            emit(TurboOpCode::CreateObjectLiteralProperty, obj, emitConstant(prop.first.lexeme), val);
+        }
+        
+        freeRegister(val);
+    }
+    
+    return obj;
+    
+}
+
+R InterpreterTurbo::visitConditional(ConditionalExpression* expr) {
+    
+    int finally_reg = allocRegister();
+    
+    int cond = get<int>(expr->test->accept(*this));
+    int elseJump = emitJump(TurboOpCode::JumpIfFalse, cond);
+    freeRegister(cond);
+    
+    int consq_reg = get<int>(expr->consequent->accept(*this));
+    emit(TurboOpCode::Move, finally_reg, consq_reg);
+    
+    int endJump = emitJump(TurboOpCode::Jump);
+    patchJump(elseJump, (int)cur->code.size());
+    
+    int alternate_reg = get<int>(expr->alternate->accept(*this));
+    emit(TurboOpCode::Move, finally_reg, alternate_reg);
+    
+    patchSingleJump(endJump);
+    
+    freeRegister(consq_reg);
+    freeRegister(alternate_reg);
+    
+    return finally_reg;
+    
+}
+
+// --x, ++x, !x, -x
+R InterpreterTurbo::visitUnary(UnaryExpression* expr) {
+    
+    if (expr->op.type == TokenType::DELETE) {
+        
+        int reg = allocRegister();
+        
+        if (auto member = dynamic_cast<MemberExpression*>(expr->right.get())) {
+            
+            int objReg = get<int>(member->object->accept(*this));
+            
+            if (member->computed) {
+
+                int propertyReg = get<int>(member->property->accept(*this));
+
+                emit(TurboOpCode::Delete, reg, objReg, propertyReg);
+                
+                freeRegister(propertyReg);
+                
+            } else {
+                
+                int nameConst = emitConstant(Value::str(member->name.lexeme));
+                int propertyReg = allocRegister();
+                emit(TurboOpCode::LoadConst, propertyReg, nameConst);
+
+                emit(TurboOpCode::Delete, reg, objReg, propertyReg);
+                
+                freeRegister(propertyReg);
+                
+            }
+            
+            freeRegister(objReg);
+            
+        } else {
+            throw runtime_error("delete operator works on objects and arrays.");
+        }
+        
+        return reg;
+        
+    }
+    
+    // For prefix unary ops that target identifiers or members, we need special handling.
+    if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
+        // ++x or --x
+        if (auto ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
+            
+            // load ident
+            int lhsReg = allocRegister();
+            load(ident->name, lhsReg);
+            
+            int rhsReg = allocRegister();
+            emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+            
+            int opResultReg = allocRegister();
+            // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+            emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+                 opResultReg,
+                 lhsReg,
+                 rhsReg);
+            
+            freeRegister(lhsReg);
+            freeRegister(rhsReg);
+
+            store(ident->name, opResultReg);
+                        
+            return opResultReg;
+            
+        }
+
+        if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
+            
+            int lhsReg = get<int>(member_expr->accept(*this));
+            int rhsReg = allocRegister();
+            emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+            int opResultReg = allocRegister();
+            // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+            emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+                 opResultReg,
+                 lhsReg,
+                 rhsReg);
+
+            freeRegister(lhsReg);
+            freeRegister(rhsReg);
+
+            // Evaluate object to reg
+            int objReg = get<int>(member_expr->object->accept(*this));
+
+            if (member_expr->computed) {
+                
+                int propReg = get<int>(member_expr->property->accept(*this)); // Property key to reg
+                
+                // SetPropertyDynamic: objReg, propReg, valueReg
+                emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+                freeRegister(propReg); // propReg
+                
+            } else {
+                
+                int nameIdx = emitConstant(Value::str(member_expr->name.lexeme));
+                // SetProperty: objReg, nameIdx, valueReg
+                emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+                
+            }
+            
+            freeRegister(objReg); // objReg
+
+            return opResultReg;
+
+        }
+
+        throw std::runtime_error("Unsupported unary increment/decrement target");
+    }
+
+    // non-targeted unary ops (prefix) evaluate their operand first
+    int reg = get<int>(expr->right->accept(*this));
+    
+    switch (expr->op.type) {
+        case TokenType::LOGICAL_NOT: emit(TurboOpCode::LogicalNot, reg); break;
+        case TokenType::MINUS: emit(TurboOpCode::Negate, reg); break;
+        case TokenType::BITWISE_NOT: emit(TurboOpCode::LogicalNot, reg); break;
+        case TokenType::ADD: emit(TurboOpCode::Positive, reg); break;
+        case TokenType::TYPEOF: emit(TurboOpCode::TypeOf, reg); break;
+        case TokenType::VOID: emit(TurboOpCode::Void, reg); break;
+        default: throw std::runtime_error("Unsupported unary op in CodeGen");
+    }
+    
+    return reg;
+
+}
+
+// returns old value
+R InterpreterTurbo::visitUpdate(UpdateExpression* expr) {
+    
+    int lhsReg = get<int>(expr->argument->accept(*this));
+    //    TurboOpCode op = expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract;
+    //    emit(op, reg, reg, emitConstant(Value(1)));
+    //    //freeRegister();
+    //    return reg;
+    
+    int returnReg = -1;
+    
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->argument.get())) {
+        
+        int rhsReg = allocRegister();
+        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+        
+        int opResultReg = allocRegister();
+        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+             opResultReg,
+             lhsReg,
+             rhsReg);
+        
+        // we don't free this because we will return it as the old value
+        // freeRegister(lhsReg);
+        freeRegister(rhsReg);
+        
+        store(ident->name, opResultReg);
+        
+        returnReg = lhsReg; //opResultReg;
+        
+    }
+    else if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
+        
+        // int oldValueReg = get<int>(visitMember(member));
+        
+        int rhsReg = allocRegister();
+        emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
+        int opResultReg = allocRegister();
+        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
+        emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
+             opResultReg,
+             lhsReg,
+             rhsReg);
+        
+        // we don't free this because we will return it as the old value
+        // freeRegister(lhsReg);
+        freeRegister(rhsReg);
+        
+        // Evaluate object to reg
+        int objReg = get<int>(member->object->accept(*this));
+        
+        if (member->computed) {
+            
+            int propReg = get<int>(member->property->accept(*this)); // Property key to reg
+            
+            emit(TurboOpCode::SetPropertyDynamic, objReg, propReg, opResultReg);
+            freeRegister(propReg); // propReg
+            
+        } else {
+            
+            int nameIdx = emitConstant(Value::str(member->name.lexeme));
+            emit(TurboOpCode::SetProperty, objReg, nameIdx, opResultReg);
+            
+        }
+        
+        freeRegister(objReg); // objReg
+        
+        returnReg = lhsReg; //opResultReg;
+    }
+    
+    return returnReg;
+    
+}
+
+R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
+    
+    // Create a nested CodeGen for the function body
+    InterpreterTurbo nested(module_);
+    nested.cur = make_shared<TurboChunk>();
+    nested.enclosing = this;
+    nested.cur->name = expr->name;
+    // nested.beginScope();
+
+    vector<string> paramNames;
+    vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
+    if (expr->parameters) {
+        
+        collectParameterInfo(expr->parameters.get(), paramNames, parameterInfos);
+        
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    // ...rest
+//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos
+//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//                    //}
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    // b = 90 or c = b
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    // Simple arg
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//                }
+//            }
+//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//        } else if (auto* rest = dynamic_cast<RestParameter*>(expr->parameters.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//        } else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(expr->parameters.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+//            }
+//        }
+
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic
+//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+//        const auto& info = parameterInfos[i];
+//        // For rest parameter
+//        if (info.isRest) {
+//
+//            // collect rest arguments as array: arguments.slice(i)
+//
+//            int arg_array_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+//
+//            int i_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+//
+//            nested.freeRegister(i_reg);
+//
+//            nested.store(info.name, arg_array_reg);
+//
+//            nested.freeRegister(arg_array_reg);
+//
+//            continue;
+//        }
+//        // For parameters with default value
+//        if (info.hasDefault) {
+//            // if (arguments.length > i) use argument; else use default expr
+//
+//            int store_reg = nested.allocRegister();
+//
+//            int args_len_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+//
+//            int index_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+//
+//            // Use argument
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            nested.emit(TurboOpCode::Move, store_reg, reg);
+//
+//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+//
+//            // Use default
+//            nested.patchJump(useArg);
+//
+//            // Evaluate default expression (can reference previous params!)
+//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+//
+//            // Set local either way
+//            nested.patchSingleJump(setLocalJump);
+//
+//            nested.store(info.name, store_reg);
+//
+//            nested.freeRegister(store_reg);
+//            nested.freeRegister(default_expr_reg);
+//            nested.freeRegister(reg);
+//            nested.freeRegister(args_len_reg);
+//            nested.freeRegister(index_reg);
+//
+//        } else {
+//
+//            // Direct: assign argument i to local slot
+//
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//
+//            nested.store(info.name, reg);
+//
+//            nested.freeRegister(reg);
+//
+//        }
+//    }
+
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
+        } else {
+            
+            // Direct: assign argument i to local slot
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+            nested.freeRegister(reg);
+            
+        }
+    }
+
+    // Compile function body
+    if (expr->exprBody) {
+        expr->exprBody->accept(nested);
+        nested.emit(TurboOpCode::Return);
+        // we must return the value of the expr
+    } else if (expr->stmtBody) {
+        
+        expr->stmtBody->accept(nested);
+        
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(expr->stmtBody.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        if (!is_return_avaialble) {
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+        }
+        
+    }
+
+    // Register chunk & emit as constant
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name =  expr->name;
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+    emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
+    
+    // ClosureInfo closure_info = {};
+    // closure_info.ci = ci;
+    // closure_info.upvalues = nested.upvalues;
+
+    for (auto& uv : nested.upvalues) {
+        
+        // emitUint8(uv.isLocal ? 1 : 0);
+        // emitUint8(uv.index);
+        
+        int isLocalReg = allocRegister();
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
+        
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
+    }
+
+    // gather createclosure info for dissaemble
+    // closure_infos[to_string(ci)] = closure_info;
+    
+    if (scopeDepth == 0) {
+        
+    } else {
+        // declareLocal(stmt->id);
+        // int slot = paramSlot(stmt->id);
+        // emit(OpCode::StoreLocal);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        // emitUint32(slot);
+    }
+    
+    disassembleChunk(nested.cur.get(), nested.cur->name);
+
+    return closureChunkIndexReg;
+    
+}
+
+R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
+    
+//    Token token;
+//    vector<unique_ptr<Expression>> params;
+//    unique_ptr<Statement> body;
+//    bool is_async;
+
+    // Create a nested CodeGen for the function body
+    InterpreterTurbo nested(module_);
+    nested.enclosing = this;
+    nested.cur = make_shared<TurboChunk>();
+    nested.cur->name = expr->name;
+    // nested.beginScope();
+
+    vector<string> paramNames;
+    vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
+    for (auto& param : expr->params) {
+        
+        collectParameterInfo(param.get(), paramNames, parameterInfos);
+        
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    // ...rest
+//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos
+//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//                    //}
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    // b = 90 or c = b
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    // Simple arg
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//                }
+//            }
+//        }
+//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//        }
+//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+//            }
+//        }
+//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//        }
+        
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic
+//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+//        const auto& info = parameterInfos[i];
+//        // For rest parameter
+//        if (info.isRest) {
+//
+//            // collect rest arguments as array: arguments.slice(i)
+//
+//            int arg_array_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+//
+//            int i_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+//
+//            nested.freeRegister(i_reg);
+//
+//            nested.store(info.name, arg_array_reg);
+//
+//            nested.freeRegister(arg_array_reg);
+//
+//            continue;
+//        }
+//        // For parameters with default value
+//        if (info.hasDefault) {
+//            // if (arguments.length > i) use argument; else use default expr
+//
+//            int store_reg = nested.allocRegister();
+//
+//            int args_len_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+//
+//            int index_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+//
+//            // Use argument
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            nested.emit(TurboOpCode::Move, store_reg, reg);
+//
+//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+//
+//            // Use default
+//            nested.patchJump(useArg);
+//
+//            // Evaluate default expression (can reference previous params!)
+//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+//
+//            // Set local either way
+//            nested.patchSingleJump(setLocalJump);
+//
+//            nested.store(info.name, store_reg);
+//
+//            nested.freeRegister(store_reg);
+//            nested.freeRegister(default_expr_reg);
+//            nested.freeRegister(reg);
+//            nested.freeRegister(args_len_reg);
+//            nested.freeRegister(index_reg);
+//
+//        } else {
+//
+//            // Direct: assign argument i to local slot
+//
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//
+//            nested.store(info.name, reg);
+//            nested.freeRegister(reg);
+//
+//        }
+//    }
+
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
+        } else {
+            
+            // Direct: assign argument i to local slot
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+            nested.freeRegister(reg);
+            
+        }
+    }
+
+    // Compile function body
+    if (expr->body) {
+        expr->body->accept(nested);
+        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(expr->body.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        
+        if (!is_return_avaialble) {
+//            nested.emit(OpCode::LoadConstant);
+//            int ud = nested.emitConstant(Value::undefined());
+//            nested.emitUint32(ud);
+//            nested.emit(OpCode::Return);
+            
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+
+        }
+
+    }
+
+    // Register chunk & emit as constant
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = expr->name; //"<anon>";
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+
+    // emit(OpCode::CreateClosure);
+    // emitUint8((uint8_t)ci);
+
+    // ClosureInfo closure_info = {};
+    // closure_info.ci = ci;
+    // closure_info.upvalues = nested.upvalues;
+
+    // Emit upvalue descriptors
+    for (auto& uv : nested.upvalues) {
+        // emitUint8(uv.isLocal ? 1 : 0);
+        // emitUint8(uv.index);
+
+        int isLocalReg = allocRegister();
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
+        
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
+    }
+    
+    // Bind function to its name in the global environment
+    if (scopeDepth == 0) {
+        // emit(OpCode::CreateGlobal);
+         // int nameIdx = emitConstant(Value::str(expr->id));
+         // emitUint32(nameIdx);
+    } else {
+        // declareLocal(stmt->id);
+        // int slot = paramSlot(stmt->id);
+        // emit(OpCode::StoreLocal);
+        // int nameIdx = emitConstant(Value::str(stmt->id));
+        // emitUint32(slot);
+    }
+
+    // closure_infos[to_string(ci)] = closure_info;
+    disassembleChunk(nested.cur.get(), nested.cur->name);
+
+    return closureChunkIndexReg;
+}
+
+R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
+    // Create a nested code generator for the function body
+    InterpreterTurbo nested(module_);
+    nested.enclosing = this;
+    nested.cur = make_shared<TurboChunk>();
+    nested.cur->name = stmt->id;
+    // nested.beginScope();
+    
+    std::vector<std::string> paramNames;
+    std::vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
+    for (auto& param : stmt->params) {
+        
+        collectParameterInfo(param.get(), paramNames, parameterInfos);
+        
+//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
+//                }
+//            }
+//        }
+//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+//        }
+//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+//            }
+//        }
+//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.emplace_back(ident->name, false, nullptr, false);
+//        }
+        
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
+        } else {
+            
+            // Direct: assign argument i to local slot
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+            nested.freeRegister(reg);
+            
+        }
+    }
+
+    // Compile function body
+    if (stmt->body) {
+        stmt->body->accept(nested);
+        // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
+        // TODO: we need to check if return is the last statement.
+        bool is_return_avaialble = false;
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(stmt->body.get())) {
+            for (auto& body : block->body) {
+                if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                    is_return_avaialble = true;
+                }
+            }
+        }
+        if (!is_return_avaialble) {
+//            nested.emit(OpCode::LoadConstant);
+//            int ud = nested.emitConstant(Value::undefined());
+//            nested.emitUint32(ud);
+//            nested.emit(OpCode::Return);
+            
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+
+        }
+
+    }
+
+    // Register chunk & emit as constant
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = stmt->id;
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+//    emit(OpCode::CreateClosure);
+//    emitUint8((uint8_t)ci);
+//
+//    ClosureInfo closure_info = {};
+//    closure_info.ci = ci;
+//    closure_info.upvalues = nested.upvalues;
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+    emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
+
+    // Emit upvalue descriptors
+    for (auto& uv : nested.upvalues) {
+//        emitUint8(uv.isLocal ? 1 : 0);
+//        emitUint8(uv.index);
+        
+        int isLocalReg = allocRegister();
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
+        
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
+    }
+    
+    // Bind function to its name in the global environment
+//    if (scopeDepth == 0) {
+//        emit(OpCode::CreateGlobal);
+//         int nameIdx = emitConstant(Value::str(stmt->id));
+//         emitUint32(nameIdx);
+//    } else {
+//        declareLocal(stmt->id, BindingKind::Var);
+//        int slot = paramSlot(stmt->id);
+//        emit(OpCode::StoreLocal);
+//        // int nameIdx = emitConstant(Value::str(stmt->id));
+//        emitUint32(slot);
+//    }
+    
+    // closure_infos[to_string(ci)] = closure_info;
+
+    BindingKind functionBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    declareLocal(stmt->id, functionBinding);
+    declareGlobal(stmt->id, functionBinding);
+    
+    create(stmt->id, closureChunkIndexReg, functionBinding);
+
+    // disassemble the chunk for debugging
+    disassembleChunk(nested.cur.get(), stmt->id/*nested.cur->name*/);
+    
+    freeRegister(closureChunkIndexReg);
+
+    return true;
+}
+
+R InterpreterTurbo::visitTemplateLiteral(TemplateLiteral* expr) {
+    // Concatenate all pieces
+    int reg = allocRegister();
+    
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::str("")));
+    
+    for (size_t i = 0; i < expr->quasis.size(); ++i) {
+        int strReg = allocRegister();
+        emit(TurboOpCode::LoadConst, strReg, emitConstant(expr->quasis[i]->text));
+        emit(TurboOpCode::Add, reg, reg, strReg);
+        freeRegister(strReg);
+        
+        if (i < expr->expressions.size()) {
+            int exprReg = get<int>(expr->expressions[i]->accept(*this));
+            emit(TurboOpCode::Add, reg, reg, exprReg);
+            freeRegister(exprReg);
+        }
+        
+    }
+    
+    return reg;
+}
+
+string InterpreterTurbo::resolveImportPath(ImportDeclaration* stmt) {
+    
+    namespace fs = std::filesystem;
+    
+    // dir of the file that contained the import
+    fs::path baseDir = fs::path(stmt->sourceFile).parent_path();
+    
+    string raw = stmt->path.lexeme;
+    if (!raw.empty() && raw.front() == '"' && raw.back() == '"') {
+        raw = raw.substr(1, raw.size() - 2);
+    }
+    
+    fs::path resolved = fs::weakly_canonical(baseDir / raw);
+    
+    return resolved.string();
+    
+}
+
+R InterpreterTurbo::visitImportDeclaration(ImportDeclaration* stmt) {
+    
+    // Resolve the path (relative or absolute)
+    std::string importPath = resolveImportPath(stmt);
+
+    // Check if module is already loaded (avoid cycles/duplication)
+    if (isModuleLoaded(importPath)) {
+        // Already loaded, nothing to do (or optionally, re-bind exported symbols)
+        return true;
+    }
+
+    std::string source = read_file(importPath);
+
+    // Parse the imported source to AST
+    Scanner scanner(source);
+    auto tokens = scanner.getTokens();
+    
+    // pass the resolved file path into the parser
+    Parser parser(tokens);
+    parser.sourceFile = importPath;
+    auto ast = parser.parse();
+
+    // Register the imported module BEFORE compiling to handle cycles
+    registerModule(importPath);
+
+    for (const auto &s : ast) {
+        s->accept(*this);
+    }
+
+    return true;
+    
+}
+
+R InterpreterTurbo::visitAssignment(AssignmentExpression* expr) {
+    return 0;
+}
+
+R InterpreterTurbo::visitLogical(LogicalExpression* expr) {
+    expr->left->accept(*this);
+    int endJump = emitJump(TurboOpCode::JumpIfFalse);
+    expr->right->accept(*this);
+    patchJump(endJump, (int)cur->code.size());
+    return 0;
+}
+
+R InterpreterTurbo::visitThis(ThisExpression* expr) {
+    int this_reg = allocRegister();
+    emit(TurboOpCode::GetThis, this_reg);
+    return this_reg;
+}
+
+R InterpreterTurbo::visitSuper(SuperExpression* expr) {
+    int parent_reg = allocRegister();
+    emit(TurboOpCode::GetParentObject, parent_reg);
+    return parent_reg;
+}
+
+R InterpreterTurbo::visitProperty(PropertyExpression* expr) {
+    // see Member visitor
+    return 0;
+}
+
+R InterpreterTurbo::visitSequence(SequenceExpression* expr) {
+    int last_seq_reg = -1;
+    for (auto& seq : expr->expressions) {
+        last_seq_reg = get<int>(seq->accept(*this));
+    }
+    return last_seq_reg;
+}
+
+R InterpreterTurbo::visitFalseKeyword(FalseKeyword* expr) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::boolean(false)));
+    return reg;
+}
+
+R InterpreterTurbo::visitTrueKeyword(TrueKeyword* expr) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::boolean(true)));
+    return reg;
+}
+
+R InterpreterTurbo::visitPublicKeyword(PublicKeyword*) { return 0; }
+R InterpreterTurbo::visitPrivateKeyword(PrivateKeyword*) { return 0; }
+R InterpreterTurbo::visitProtectedKeyword(ProtectedKeyword*) { return 0; }
+R InterpreterTurbo::visitStaticKeyword(StaticKeyword*) { return 0; }
+R InterpreterTurbo::visitRestParameter(RestParameter*) { return 0; }
+
+R InterpreterTurbo::visitNullKeyword(NullKeyword*) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::nullVal()));
+    return reg;
+}
+
+R InterpreterTurbo::visitUndefinedKeyword(UndefinedKeyword*) {
+    int reg = allocRegister();
+    emit(TurboOpCode::LoadConst, reg, emitConstant(Value::undefined()));
+    return reg;
+}
+
+R InterpreterTurbo::visitAwaitExpression(AwaitExpression*) { return 0; }
+
+R InterpreterTurbo::visitBreak(BreakStatement*) {
+    // Usually: emit a jump to end of current loop
+    if (loopStack.empty()) {
+        throw ("Break outside loop");
+        return false;
+    }
+    // Emit jump with unknown target
+    int jumpAddr = emitJump(TurboOpCode::Jump);
+    loopStack.back().breaks.push_back(jumpAddr);
+    return true;
+}
+
+R InterpreterTurbo::visitContinue(ContinueStatement*) {
+
+    if (loopStack.empty()) {
+        throw ("Continue outside loop");
+        return false;
+    }
+    
+    // int loopStart = loopStack.back().loopStart;
+    // emitLoop(loopStart); // emit a backwards jump
+    // emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
+
+    // Emit jump with unknown target
+    int jumpAddr = emitJump(TurboOpCode::Jump);
+    loopStack.back().continues.push_back(jumpAddr);
+
+    return true;
+}
+
+R InterpreterTurbo::visitEmpty(EmptyStatement*) { return 0; }
+
+InterpreterTurbo::PropertyLookup InterpreterTurbo::lookupClassProperty(string prop_name) {
+    
+    if(classInfo.fields.count(prop_name)) {
+        return { 1, classInfo.fields[prop_name] };
+    }
+    
+    string super_class_name = classInfo.super_class_name;
+    auto super_class_info = classes[super_class_name];
+
+    if (super_class_info.fields.count(prop_name)) {
+        return { 2, super_class_info.fields[prop_name] };
+    }
+    
+    return { -1 , {} };
+}
+
+int InterpreterTurbo::compileMethod(MethodDefinition& method) {
+    // Create a nested CodeGen for the method body (closure)
+    InterpreterTurbo nested(module_);
+    nested.enclosing = this;
+    nested.cur = std::make_shared<TurboChunk>();
+    nested.beginScope();
+    nested.classInfo = classInfo;
+    nested.classes = classes;
+
+    std::vector<std::string> paramNames;
+    std::vector<ParameterInfo> parameterInfos;
+
+    // Collect parameter info (from method.params)
+    for (auto& param : method.params) {
+        
+        collectParameterInfo(param.get(), paramNames, parameterInfos);
+        
+//        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
+//            for (auto& p : seq->expressions) {
+//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+//                    paramNames.push_back(rest->token.lexeme);
+//                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                        paramNames.push_back(ident->name);
+//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//                    }
+//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+//                    paramNames.push_back(ident->name);
+//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//                }
+//            }
+//        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
+//            paramNames.push_back(rest->token.lexeme);
+//            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
+//        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
+//            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+//                paramNames.push_back(ident->name);
+//                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
+//            }
+//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
+//            paramNames.push_back(ident->name);
+//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
+//        }
+        
+    }
+
+    // Allocate local slots for parameters
+    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
+
+    // Emit parameter initialization logic (rest/default)
+//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+//        const auto& info = parameterInfos[i];
+//        // For rest parameter
+//        if (info.isRest) {
+//
+//            // collect rest arguments as array: arguments.slice(i)
+//
+//            int arg_array_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+//
+//            int i_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+//
+//            nested.freeRegister(i_reg);
+//
+//            nested.store(info.name, arg_array_reg);
+//
+//            nested.freeRegister(arg_array_reg);
+//
+//            continue;
+//        }
+//        // For parameters with default value
+//        if (info.hasDefault) {
+//            // if (arguments.length > i) use argument; else use default expr
+//
+//            int store_reg = nested.allocRegister();
+//
+//            int args_len_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+//
+//            int index_reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
+//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+//
+//            // Use argument
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//            nested.emit(TurboOpCode::Move, store_reg, reg);
+//
+//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+//
+//            // Use default
+//            nested.patchJump(useArg);
+//
+//            // Evaluate default expression (can reference previous params!)
+//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+//
+//            // Set local either way
+//            nested.patchSingleJump(setLocalJump);
+//
+//            nested.store(info.name, store_reg);
+//
+//            nested.freeRegister(store_reg);
+//            nested.freeRegister(default_expr_reg);
+//            nested.freeRegister(reg);
+//            nested.freeRegister(args_len_reg);
+//            nested.freeRegister(index_reg);
+//
+//        } else {
+//
+//            // Direct: assign argument i to local slot
+//
+//            int reg = nested.allocRegister();
+//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+//
+//            nested.emit(TurboOpCode::LoadArgument, reg);
+//
+//            nested.store(info.name, reg);
+//
+//            nested.freeRegister(reg);
+//
+//        }
+//    }
+
+    for (size_t i = 0; i < parameterInfos.size(); ++i) {
+        const auto& info = parameterInfos[i];
+        // For rest parameter
+        if (info.isRest) {
+            
+            // collect rest arguments as array: arguments.slice(i)
+            
+            int arg_array_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
+            
+            int i_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
+            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
+            
+            nested.freeRegister(i_reg);
+            
+            nested.store(info.name, arg_array_reg);
+            
+            nested.freeRegister(arg_array_reg);
+            
+            continue;
+        }
+        // For parameters with default value
+        if (info.hasDefault) {
+            // if (arguments.length > i) use argument; else use default expr
+            
+            int store_reg = nested.allocRegister();
+     
+            int args_len_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
+            
+            int index_reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value(i)));
+            
+            nested.emit(TurboOpCode::GreaterThan, args_len_reg, args_len_reg, index_reg);
+            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
+            
+            // Use argument
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value(i)));
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            nested.emit(TurboOpCode::Move, store_reg, reg);
+            
+            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
+            
+            // Use default
+            nested.patchJump(useArg);
+            
+            // Evaluate default expression (can reference previous params!)
+            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
+            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
+            
+            // Set local either way
+            nested.patchSingleJump(setLocalJump);
+
+            nested.store(info.name, store_reg);
+            
+            nested.freeRegister(store_reg);
+            nested.freeRegister(default_expr_reg);
+            nested.freeRegister(reg);
+            nested.freeRegister(args_len_reg);
+            nested.freeRegister(index_reg);
+            
+        } else {
+            
+            // Direct: assign argument i to local slot
+            
+            int reg = nested.allocRegister();
+            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
+
+            nested.emit(TurboOpCode::LoadArgument, reg);
+            
+            nested.store(info.name, reg);
+            nested.freeRegister(reg);
+            
+        }
+    }
+
+    // Compile the method body
+    if (method.methodBody) {
+        method.methodBody->accept(nested);
+        // Ensure OP_RETURN is emitted
+        bool hasReturn = false;
+        if (auto* block = dynamic_cast<BlockStatement*>(method.methodBody.get())) {
+            for (auto& stmt : block->body) {
+                if (dynamic_cast<ReturnStatement*>(stmt.get())) {
+                    hasReturn = true;
+                    break;
+                }
+                
+                // TODO: This needs refactor, we should not special case "body" method like this
+                // for view builders
+                if (auto exprStmt = dynamic_cast<ExpressionStatement*>(stmt.get())) {
+                    
+                    if (auto ui = dynamic_cast<UIViewExpression*>(exprStmt->expression.get()) && method.name == "body") {
+                        hasReturn = true;
+                        
+                        nested
+                            .emit(TurboOpCode::Return,
+                                  nested.registerAllocator->getNextReg() - 1);
+                        
+                        break;
+                    }
+                }
+                
+            }
+        }
+        if (!hasReturn) {
+            int reg = nested.allocRegister();
+            int ud = nested.emitConstant(Value::undefined());
+            nested.emit(TurboOpCode::LoadConst, reg, ud);
+
+            nested.emit(TurboOpCode::Return, reg);
+        }
+    }
+
+    // Register the method function as a constant for this module
+    auto fnChunk = nested.cur;
+    fnChunk->arity = (uint32_t)paramNames.size();
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+
+    auto fnObj = std::make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->arity = fnChunk->arity;
+    fnObj->name = method.name;
+    fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+
+    // Emit closure for this function (leaves closure object on stack)
+    // emit(OpCode::CreateClosure);
+    // emitUint8((uint8_t)ci);
+    int closureChunkIndexReg = allocRegister();
+    emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
+    
+    emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+
+    for (auto& uv : nested.upvalues) {
+        // emitUint8(uv.isLocal ? 1 : 0);
+        // emitUint8(uv.index);
+        
+        int isLocalReg = allocRegister();
+        int indexReg = allocRegister();
+        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+
+        if (uv.isLocal) {
+            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+        } else {
+            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+        }
+        
+        freeRegister(isLocalReg);
+        freeRegister(indexReg);
+
+    }
+    
+    disassembleChunk(nested.cur.get(), method.name);
+    
+    return closureChunkIndexReg;
+
+}
+
+R InterpreterTurbo::visitClass(ClassDeclaration* stmt) {
+        
+    classInfo.name = stmt->id;
+
+    // Evaluate superclass (if any)
+    int super_class_reg = allocRegister();
+    if (stmt->superClass) {
+        
+        super_class_reg = get<int>(stmt->superClass->accept(*this)); // [superclass]
+        
+        auto ident = dynamic_cast<IdentifierExpression*>((stmt->superClass.get()));
+        
+        if (ident) {
+            classInfo.super_class_name = ident->name;
+        }
+        
+    } else {
+        emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
+    }
+
+    // Create the class object (with superclass on stack)
+    emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
+
+    BindingKind classBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+
+    declareLocal(stmt->id, classBinding);
+    declareGlobal(stmt->id, classBinding);
+    create(stmt->id, super_class_reg, classBinding);
+
+    // Define fields
+    // A field can be var, let, const. private, public, protected
+    for (auto& field : stmt->fields) {
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            string kind = varStmt->kind;
+            
+            for (const auto& decl : varStmt->declarations) {
+                
+                // ************ Collect property meta ****************
+                auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+                auto binding = get_kind(kind);
+                
+                PropertyMeta prop_meta = { visibility, binding, isStatic };
+                classInfo.fields[decl.id] = prop_meta;
+                // ****************************************************
+
+                int initReg = -1;
+                
+                if (isStatic) {
+                    
+                    initReg = allocRegister();
+
+                    if (decl.init) {
+                        initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                    } else {
+                        emit(TurboOpCode::LoadConst, initReg, emitConstant(Value::undefined()));
+                    }
+                    
+                } else {
+                    initReg = recordInstanceField(stmt->id, decl.id, decl.init.get(), prop_meta);
+                }
+                
+                int nameIdx = emitConstant(Value::str(decl.id));
+                int fieldNameReg = allocRegister();
+                emit(TurboOpCode::LoadConst, fieldNameReg, nameIdx);
+                TurboOpCode op;
+
+                if (isStatic) {
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                    
+                } else {
+                                        
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                }
+                
+                if(isStatic) freeRegister(initReg);
+                freeRegister(fieldNameReg);
+                
+            }
+                        
+        }
+        
+    }
+    
+    for (auto& method : stmt->body) {
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+
+        // ************* Collecting properrty meta ***************
+        auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+        
+        PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
+        
+        classInfo.fields[method->name] = prop_meta;
+        // ****************************
+
+    }
+
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : stmt->body) {
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+
+        // Compile the method as a function object
+        int method_reg = compileMethod(*method); // leaves function object on reg
+
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        int methodNameReg = allocRegister();
+        emit(TurboOpCode::LoadConst, methodNameReg, nameIdx);
+        TurboOpCode op;
+
+        if (isStatic) {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedStaticMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+        } else {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+            freeRegister(method_reg);
+            freeRegister(methodNameReg);
+            
+        }
+    }
+
+    // Bind class in the environment (global)
+    // int classNameIdx = emitConstant(Value::str(stmt->id));
+
+    int class_reg = allocRegister();
+    // declareLocal(stmt->id);
+    // declareGlobal(stmt->id, BindingKind::Var);
+    
+    // create(stmt->id, super_class_reg, BindingKind::Var);
+
+    // add claas to classes
+    classes[stmt->id] = std::move(classInfo);
+    // clear class info
+    classInfo.fields.clear();
+    
+    freeRegister(class_reg);
+    freeRegister(super_class_reg);
+
+    return true;
+}
+
+R InterpreterTurbo::visitClassExpression(ClassExpression* stmt) {
+    
+    classInfo.name = stmt->name;
+    
+    // Evaluate superclass (if any)
+    int super_class_reg = allocRegister();
+    if (stmt->superClass) {
+        
+        super_class_reg = get<int>(stmt->superClass->accept(*this)); // [superclass]
+        
+        auto ident = dynamic_cast<IdentifierExpression*>((stmt->superClass.get()));
+        
+        if (ident) {
+            classInfo.super_class_name = ident->name;
+        }
+        
+    } else {
+        emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
+    }
+    
+    // Create the class object (with superclass on stack)
+    emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->name)));
+    
+    // declareLocal(stmt->id);
+    // declareGlobal(stmt->id, BindingKind::Var);
+    // create(stmt->id, super_class_reg, BindingKind::Var);
+    
+    // Define fields
+    // A field can be var, let, const. private, public, protected
+    for (auto& field : stmt->fields) {
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : field->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+        
+        // Property is always a VariableStatement
+        if (auto* varStmt = dynamic_cast<VariableStatement*>(field->property.get())) {
+            
+            string kind = varStmt->kind;
+            
+            for (const auto& decl : varStmt->declarations) {
+                
+                // ************ Collect property meta ****************
+                auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+                auto binding = get_kind(kind);
+                
+                PropertyMeta prop_meta = { visibility, binding, isStatic };
+                classInfo.fields[decl.id] = prop_meta;
+                // ****************************************************
+                
+                int initReg = -1;
+                
+                if (isStatic) {
+                    
+                    initReg = allocRegister();
+                    
+                    if (decl.init) {
+                        initReg = get<int>(decl.init->accept(*this)); // Evaluate initializer
+                    } else {
+                        emit(TurboOpCode::LoadConst, initReg, emitConstant(Value::undefined()));
+                    }
+                    
+                } else {
+                    initReg = recordInstanceField(stmt->name, decl.id, decl.init.get(), prop_meta);
+                }
+                
+                int nameIdx = emitConstant(Value::str(decl.id));
+                int fieldNameReg = allocRegister();
+                emit(TurboOpCode::LoadConst, fieldNameReg, nameIdx);
+                TurboOpCode op;
+                
+                if (isStatic) {
+                    
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivateStaticPropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedStaticPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicStaticPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                    
+                } else {
+                    
+                    switch (get_kind(kind)) {
+                        case BindingKind::Var:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyVar;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedPropertyVar;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyVar;
+                            }
+                            break;
+                        case BindingKind::Const:
+                            if (isPublic) {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            } else if (isPrivate) {
+                                op = TurboOpCode::CreateClassPrivatePropertyConst;
+                            } else if (isProtected) {
+                                op = TurboOpCode::CreateClassProtectedPropertyConst;
+                            } else {
+                                op = TurboOpCode::CreateClassPublicPropertyConst;
+                            }
+                            break;
+                        default:
+                            throw runtime_error("Fields in classes must have a Binding kind. e.g var.");
+                            break;
+                    }
+                    
+                    emit(op, super_class_reg, initReg, fieldNameReg);
+                }
+                
+                if(isStatic) freeRegister(initReg);
+                freeRegister(fieldNameReg);
+                
+            }
+            
+        }
+        
+    }
+    
+    for (auto& method : stmt->body) {
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+        
+        // ************* Collecting properrty meta ***************
+        auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
+        
+        PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
+        
+        classInfo.fields[method->name] = prop_meta;
+        // ****************************
+        
+    }
+    
+    // Define methods (attach to class or prototype as appropriate)
+    for (auto& method : stmt->body) {
+        
+        bool isStatic = false;
+        bool isPrivate = false;
+        bool isPublic = false;
+        bool isProtected = false;
+        
+        for (const auto& mod : method->modifiers) {
+            if (auto* staticKW = dynamic_cast<StaticKeyword*>(mod.get())) {
+                isStatic = true;
+            }
+            if (auto* privateKW = dynamic_cast<PrivateKeyword*>(mod.get())) {
+                isPrivate = true;
+            }
+            if (auto* publicKW = dynamic_cast<PublicKeyword*>(mod.get())) {
+                isPublic = true;
+            }
+            if (auto* protectedKW = dynamic_cast<ProtectedKeyword*>(mod.get())) {
+                isProtected = true;
+            }
+        }
+        
+        // Compile the method as a function object
+        int method_reg = compileMethod(*method); // leaves function object on reg
+        
+        // Get name of method
+        int nameIdx = emitConstant(Value::str(method->name));
+        int methodNameReg = allocRegister();
+        emit(TurboOpCode::LoadConst, methodNameReg, nameIdx);
+        TurboOpCode op;
+        
+        if (isStatic) {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateStaticMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedStaticMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicStaticMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+        } else {
+            
+            if (isPublic) {
+                op = TurboOpCode::CreateClassPublicMethod;
+            } else if (isPrivate) {
+                op = TurboOpCode::CreateClassPrivateMethod;
+            } else if (isProtected) {
+                op = TurboOpCode::CreateClassProtectedMethod;
+            } else {
+                op = TurboOpCode::CreateClassPublicMethod;
+            }
+            
+            emit(op, super_class_reg, method_reg, methodNameReg);
+            
+            freeRegister(method_reg);
+            freeRegister(methodNameReg);
+            
+        }
+    }
+    
+    // Bind class in the environment (global)
+    // int classNameIdx = emitConstant(Value::str(stmt->id));
+    
+    // int class_reg = allocRegister();
+    
+    // add claas to classes
+    classes[stmt->name] = std::move(classInfo);
+    // clear class info
+    classInfo.fields.clear();
+    
+    // freeRegister(class_reg);
+    // freeRegister(super_class_reg);
+    
+    return super_class_reg;
+    
+}
+
+R InterpreterTurbo::visitMethodDefinition(MethodDefinition*) { return 0; }
+
+R InterpreterTurbo::visitDoWhile(DoWhileStatement* stmt) {
+    
+    beginLoop();
+    beginScope();
+    loopStack.back().loopStart = (int)cur->size();
+    
+    // Mark loop start
+    size_t loopStart = cur->code.size();
+    
+    // Compile loop body
+    stmt->body->accept(*this);
+
+    // Compile the condition
+    int cond_reg = get<int>(stmt->condition->accept(*this));
+
+    // Jump back to loop start if condition is true
+    int condJump = emitJump(TurboOpCode::JumpIfFalse, cond_reg);
+    
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
+    // Emit loop back
+    emitLoop((int)loopStart);
+
+    // Patch the jump to after the loop if condition is false
+    patchJump(condJump);
+    
+    endScope();
+    endLoop();
+
+    return true;
+
+}
+
+R InterpreterTurbo::visitSwitchCase(SwitchCase* stmt) {
+    // Each case's test should have already been checked in visitSwitch
+    // Emit the body of this case
+    for (auto& s : stmt->consequent) {
+        s->accept(*this);
+    }
+    return true;
+}
+
+R InterpreterTurbo::visitSwitch(SwitchStatement* stmt) {
+    
+    beginScope();
+    beginLoop();
+    
+    vector<int> caseJumps;
+    int defaultJump = -1;
+
+    // Evaluate the discriminant and leave on register
+    int discriminant_reg = get<int>(stmt->discriminant->accept(*this));
+
+    // Emit checks for each case
+    for (size_t i = 0; i < stmt->cases.size(); ++i) {
+        SwitchCase* scase = stmt->cases[i].get();
+        if (scase->test) {
+            // Duplicate discriminant for comparison
+            int test_reg = get<int>(scase->test->accept(*this));
+            emit(TurboOpCode::Equal, test_reg, test_reg, discriminant_reg);
+
+            // If not equal, jump to next
+            int jump = emitJump(TurboOpCode::JumpIfFalse, test_reg);
+
+            // If equal, emit case body, and jump to end
+            scase->accept(*this);
+            caseJumps.push_back(emitJump(TurboOpCode::Jump));
+            
+            patchJump(jump);
+            
+        } else {
+            // Default case: remember its position
+            defaultJump = (int)cur->size();
+            scase->accept(*this);
+            // No jump needed after default
+        }
+    }
+
+    // Patch all jumps to here (after switch body)
+    for (int jmp : caseJumps) {
+        patchSingleJump(jmp);
+    }
+
+    endLoop();
+    endScope();
+
+    return true;
+}
+
+R InterpreterTurbo::visitThrow(ThrowStatement* stmt) {
+    int arg_reg = get<int>(stmt->argument->accept(*this));
+    emit(TurboOpCode::Throw, arg_reg);
+    freeRegister(arg_reg);
+    return 0;
+}
+
+R InterpreterTurbo::visitCatch(CatchClause* stmt) {
+    stmt->body->accept(*this);
+    return true;
+}
+
+R InterpreterTurbo::visitTry(TryStatement* stmt) {
+    
+    // Mark start of try
+    int ex_val_reg = allocRegister();
+    int tryPos = emitTryPlaceholder();
+    patchTry(tryPos, ex_val_reg);
+    
+    // Compile try block
+    stmt->block->accept(*this);
+
+    // End of try
+    emit(TurboOpCode::EndTry);
+
+    int endJump = -1;
+
+    // If there's a catch, emit jump over it for normal completion
+    if (stmt->handler) {
+        endJump = emitJump(TurboOpCode::Jump);
+        // Patch catch offset
+        patchTryCatch(tryPos, (int)cur->code.size() - 1);
+
+        beginScope();
+        
+        // Bind catch parameter
+        declareLocal(stmt->handler->param, BindingKind::Let);
+        uint32_t idx = getLocal(stmt->handler->param);
+        emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
+        
+        stmt->handler->body->accept(*this);
+        
+        endScope();
+
+    }
+
+    // Jump over finally if we had a catch
+    if (endJump != -1) {
+        patchSingleJump(endJump);
+    }
+
+    // If there's a finally, patch and emit it
+    if (stmt->finalizer) {
+        patchTryFinally(tryPos, (int)cur->code.size() - 1);
+
+        stmt->finalizer->accept(*this);
+        emit(TurboOpCode::EndFinally);
+    }
+    
+    return true;
+    
+}
+
+R InterpreterTurbo::visitForIn(ForInStatement* stmt) {
+
+    beginScope();
+    beginLoop();
+
+    stmt->init->accept(*this);
+    
+    // Evaluate the object to iterate
+    int objReg = get<int>(stmt->object->accept(*this));
+    int keysReg = allocRegister();
+
+    // Get keys array (assumes builtin/function to get keys)
+    emit(TurboOpCode::EnumKeys, keysReg, objReg);
+
+    // Prepare index and length
+    int idxReg = allocRegister();
+    emit(TurboOpCode::LoadConst, idxReg, emitConstant(Value(0)));
+
+    int lenReg = allocRegister();
+    emit(TurboOpCode::GetObjectLength, lenReg, keysReg);
+
+    int loopStart = (int)cur->code.size();
+
+    // if (idx >= len) break;
+    int condReg = allocRegister();
+    emit(TurboOpCode::LessThan, condReg, idxReg, lenReg);
+    int breakJump = emitJump(TurboOpCode::JumpIfFalse, condReg);
+
+    // Get current key: key = keys[idx]
+    int keyReg = allocRegister();
+    emit(TurboOpCode::GetPropertyDynamic, keyReg, keysReg, idxReg);
+
+    // Assign keyReg to loop variable (var/let/const)
+    // Assign value to loop variable
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
+        store(ident->name, keyReg);
+    } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
+        store(var_stmt->declarations[0].id, keyReg);
+    } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
+        
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
+            store(ident->name, keyReg);
+        }
+        
+    } else {
+        throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
+    }
+    
+    // Loop body
+    stmt->body->accept(*this);
+
+    freeRegister(keyReg);
+
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
+    // idx++
+    int incr_const_reg = allocRegister();
+    emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
+    emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
+
+    // Jump to loop start
+    emitLoop(loopStart);
+
+    // Patch break
+    patchJump(breakJump, (int)cur->code.size());
+
+    // Free registers
+    freeRegister(objReg);
+    freeRegister(keysReg);
+    freeRegister(idxReg);
+    freeRegister(lenReg);
+    freeRegister(condReg);
+    freeRegister(incr_const_reg);
+    
+    endLoop();
+    endScope();
+
+    return 0;
+}
+
+R InterpreterTurbo::visitForOf(ForOfStatement* stmt) {
+    
+    beginScope();
+    beginLoop();
+    
+    // let k
+    stmt->left->accept(*this);
+    
+    // Evaluate the iterable
+    int arrReg = get<int>(stmt->right->accept(*this));
+
+    // Get length
+    int lenReg = allocRegister();
+    emit(TurboOpCode::GetObjectLength, lenReg, arrReg);
+
+    // Index register
+    int idxReg = allocRegister();
+    emit(TurboOpCode::LoadConst, idxReg, emitConstant(Value(0)));
+
+    // Loop start
+    int loopStart = (int)cur->code.size();
+
+    // if (idx >= len) break;
+    int condReg = allocRegister();
+    emit(TurboOpCode::LessThan, condReg, idxReg, lenReg);
+    int breakJump = emitJump(TurboOpCode::JumpIfFalse, condReg);
+
+    // Get current element: arr[idx]
+    int elemReg = allocRegister();
+    emit(TurboOpCode::GetPropertyDynamic, elemReg, arrReg, idxReg);
+
+    // Assign element to loop variable
+    if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
+        store(ident->name, elemReg);
+    } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
+        store(var_stmt->declarations[0].id, elemReg);
+    } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
+        
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
+            store(ident->name, elemReg);
+        }
+        
+    } else {
+        throw std::runtime_error("For...of only supports identifier/variable statement loop variables in codegen.");
+    }
+    
+    // Loop body
+    stmt->body->accept(*this);
+
+    if (loopStack.back().continues.size() > 0) {
+        
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchSingleJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+        
+    }
+
+    freeRegister(elemReg);
+
+    // idx++
+    int incr_const_reg = allocRegister();
+    emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
+    emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
+
+    // Jump back
+    emitLoop(loopStart);
+
+    // Patch break
+    patchJump(breakJump, (int)cur->code.size());
+
+    // Free registers
+    freeRegister(arrReg);
+    freeRegister(lenReg);
+    freeRegister(idxReg);
+    freeRegister(condReg);
+    freeRegister(incr_const_reg);
+    
+    endScope();
+    endLoop();
+
+    return 0;
+}
+
+R InterpreterTurbo::visitEnumDeclaration(EnumDeclaration* stmt) {
+    
+    int nameIdx = emitConstant(Value::str(stmt->name));
+    
+    int enumNameReg = allocRegister();
+    emit(TurboOpCode::LoadConst, enumNameReg, nameIdx);
+    
+    emit(TurboOpCode::CreateEnum, enumNameReg);
+    
+    for(auto& member : stmt->members) {
+        
+        int memberNameReg = allocRegister();
+        int propIndex = emitConstant(Value::str(member.name));
+        emit(TurboOpCode::LoadConst, memberNameReg, propIndex);
+        
+        int valueReg = -1;
+        
+        if (member.value == nullptr) {
+            valueReg = allocRegister();
+            int idx = emitConstant(Value::str(to_string(member.computedValue)));
+            emit(TurboOpCode::LoadConst, valueReg, idx);
+            
+        } else {
+            valueReg = get<int>(member.value->accept(*this));
+        }
+        
+        emit(TurboOpCode::SetEnumProperty,
+             enumNameReg,
+             memberNameReg,
+             valueReg);
+        
+        freeRegister(valueReg);
+        freeRegister(memberNameReg);
+        
+    }
+    
+    BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    
+    declareLocal(stmt->name, enumBinding);
+    declareGlobal(stmt->name, enumBinding);
+    
+    create(stmt->name, enumNameReg, enumBinding);
+    
+    
+    
+    freeRegister(enumNameReg);
+    
+    return true;
+    
+}
+
+R InterpreterTurbo::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+    return true;
+}
+
+R InterpreterTurbo::visitYieldExpression(YieldExpression* visitor) {
+    return true;
+}
+
+R InterpreterTurbo::visitSpreadExpression(SpreadExpression* expr) {
+    return expr->expression->accept(*this);
+}
+
+R InterpreterTurbo::visitUIExpression(UIViewExpression* expr) {
+    
+    vector<int> args;
+    for (auto& arg : expr->args) {
+        int arg_reg = get<int>(arg->accept(*this));
+        emit(TurboOpCode::PushArg, arg_reg);
+        args.push_back(arg_reg);
+    }
+
+    int uiViewReg = allocRegister();
+    emit(TurboOpCode::CreateUIView, uiViewReg, emitConstant(Value::str(expr->name)));
+
+    // Recursively initialize and render all children
+    for (auto& child : expr->children) {
+        int childUIViewReg = get<int>(child->accept(*this));
+        emit(TurboOpCode::AddChildSubView, childUIViewReg, uiViewReg);
+    }
+    
+    for (auto& modifier : expr->modifiers) {
+        if (auto call = dynamic_cast<CallExpression*>(modifier.get())) {
+            auto ident = dynamic_cast<IdentifierExpression*>(call->callee.get());
+            
+            vector<int> modifier_args;
+            for (auto& arg : call->arguments) {
+                int arg_reg = get<int>(arg->accept(*this));
+                emit(TurboOpCode::PushArg, arg_reg);
+                modifier_args.push_back(arg_reg);
+            }
+
+            emit(TurboOpCode::CallUIViewModifier, uiViewReg, emitConstant(ident->name));
+            
+            for (auto arg : modifier_args) {
+                freeRegister(arg);
+            }
+            
+        }
+    }
+    
+    for (auto arg : args) {
+        freeRegister(arg);
+    }
+
+    return uiViewReg;
+    
+}
+
+// Utils
+
+void InterpreterTurbo::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
+                          vector<ParameterInfo>& parameterInfos
+) {
+    if (parameters) {
+
+                if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(parameters)) {
+                    for (auto& p : seq->expressions) {
+                        if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
+                            paramNames.push_back(rest->token.lexeme);
+                            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+                        } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
+                                paramNames.push_back(ident->name);
+                                parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
+                            }
+                        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
+                            paramNames.push_back(ident->name);
+                            parameterInfos.emplace_back(ident->name, false, nullptr, false);
+                        }
+                    }
+                }
+                else if (auto* rest = dynamic_cast<RestParameter*>(parameters)) {
+                    paramNames.push_back(rest->token.lexeme);
+                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+                }
+                else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(parameters)) {
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                        paramNames.push_back(ident->name);
+                        parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+                    }
+                }
+                else if (auto* ident = dynamic_cast<IdentifierExpression*>(parameters)) {
+                    paramNames.push_back(ident->name);
+                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
+                }
+
+    }
+
+}
+
+
+void InterpreterTurbo::patchContinueStatement() {
+    
+    if (loopStack.back().continues.size() > 0) {
+        for (auto& continueAddr : loopStack.back().continues) {
+            patchJump(continueAddr);
+        }
+        
+        loopStack.back().continues.clear();
+    }
+
+}
+
+int InterpreterTurbo::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
+    
+    InterpreterTurbo nested(module_);
+    nested.cur = make_shared<TurboChunk>();
+    
+    int init_reg = -1;
+    
+    if (initExpr == nullptr) {
+        init_reg = allocRegister();
+        int idx = nested.emitConstant(Value::undefined());
+        nested.emit(TurboOpCode::LoadConst, init_reg, idx);
+    } else {
+        init_reg = get<int>(initExpr->accept(nested));
+    }
+    nested.emit(TurboOpCode::Return, init_reg);
+    
+    // Register the init as a constant for this module
+    auto fnChunk = nested.cur;
+    uint32_t chunkIndex = module_->addChunk(fnChunk);
+    nested.cur->name = fieldId;
+    
+    disassembleChunk(nested.cur.get(), classId + " : " + fieldId);
+
+    auto fnObj = make_shared<FunctionObject>();
+    fnObj->chunkIndex = chunkIndex;
+    fnObj->name = fieldId;
+
+    Value fnValue = Value::functionRef(fnObj);
+    int ci = module_->addConstant(fnValue);
+    
+    int constant_index = allocRegister();
+    emit(TurboOpCode::LoadConst,
+         constant_index,
+         emitConstant(Value(ci)));
+
+    return constant_index;
+
+}
+
+string InterpreterTurbo::evaluate_property(Expression* expr) {
+    if (auto member = dynamic_cast<MemberExpression*>(expr)) {
+        if (member->computed) {
+            return evaluate_property(member->property.get());
+        } else {
+            return member->name.lexeme;
+        }
+    }
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr)) {
+        return ident->name;
+    }
+    if (auto literal = dynamic_cast<LiteralExpression*>(expr)) {
+        return literal->token.lexeme; // Or whatever holds the property key
+    }
+    throw std::runtime_error("Unsupported expression type in evaluate_property");
+}
+
+// Try: catchOffset, finallyOffset, exception register
+int InterpreterTurbo::emitTryPlaceholder() {
+    emit(TurboOpCode::Try);
+
+    int pos = (int)cur->size() - 1;
+
+    return pos; // return position where we wrote the offsets
+    
+}
+
+void InterpreterTurbo::patchTryCatch(int tryPos, int target) {
+    
+    cur->code[tryPos].a = target;
+        
+}
+
+void InterpreterTurbo::patchTryFinally(int tryPos, int target) {
+    
+    cur->code[tryPos].b = target;
+    
+}
+
+void InterpreterTurbo::patchTry(int tryPos, int reg) {
+    cur->code[tryPos].c = reg;
+}
+
+void InterpreterTurbo::emit(TurboOpCode op, int a, int b = 0, int c = 0) {
+    if (!cur) throw std::runtime_error("No active chunk for code generation.");
+    cur->code.push_back({op, (uint8_t)a, (uint8_t)b, (uint8_t)c});
+}
+
+void InterpreterTurbo::emit(TurboOpCode op, int a) {
+    emit(op, a, 0, 0);
+}
+
+void InterpreterTurbo::emit(TurboOpCode op, int a, int b) {
+    emit(op, a, b, 0);
+}
+
+void InterpreterTurbo::emit(TurboOpCode op) {
+    emit(op, 0, 0, 0);
+}
+
+int InterpreterTurbo::allocRegister() {
+    return registerAllocator->alloc();
+}
+
+void InterpreterTurbo::freeRegister(uint32_t slot) {
+    registerAllocator->free(slot);
+}
+
+// Jump helpers
+void InterpreterTurbo::emitLoop(uint32_t loopStart) {
+    emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
+}
+
+int InterpreterTurbo::emitJump(TurboOpCode op, int cond_reg = 0) {
+    // Reserve space, return jump location to patch
+    // Implementation depends on code buffer layout
+    // Emit the jump instruction with placeholder offset
+    // We'll patch .b later to hold the actual jump offset
+    Instruction instr(op, (uint8_t)cond_reg, 0, 0); // b is offset placeholder
+    cur->code.push_back(instr);
+    return (int)cur->code.size() - 1; // Return index of this jump instruction
+}
+
+int InterpreterTurbo::emitJump(TurboOpCode op) {
+    Instruction instr(op, 0, 0, 0); // a is offset placeholder
+    cur->code.push_back(instr);
+    return (int)cur->code.size() - 1; // Return index of this jump instruction
+}
+
+// for TurboCode::JumpIfFalse
+void InterpreterTurbo::patchJump(int jumpPos, int target) {
+    // int offset = target - (jumpPos + 1);
+    int offset = (target - 1) - (jumpPos);
+    cur->code[jumpPos].b = (uint8_t)offset;
+}
+
+// for TurboCode::JumpIfFalse
+void InterpreterTurbo::patchJump(int jumpPos) {
+    int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
+    cur->code[jumpPos].b = (uint8_t)offset;
+}
+
+// for TurboCode::Jump
+void InterpreterTurbo::patchSingleJump(int jumpPos) {
+    int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
+    cur->code[jumpPos].a = (uint8_t)offset;
+}
+
+// Lookup helpers
+int InterpreterTurbo::lookupLocalSlot(const std::string& name) {
+    return paramSlot(name);
+}
+
+void InterpreterTurbo::beginScope() {
+    emit(TurboOpCode::PushLexicalEnv);
+    scopeDepth++;
+}
+
+void InterpreterTurbo::endScope() {
+
+    emit(TurboOpCode::PopLexicalEnv);
+
+    // Pop locals declared in this scope
+    while (!locals.empty() && locals.back().depth == scopeDepth) {
+        if (locals.back().isCaptured) {
+            // Local captured by closure → close it
+            emit(TurboOpCode::CloseUpvalue);
+        } else {
+            // Normal local → just pop
+            // emit(TurboOpCode::OP_POP);
+            
+        }
+        locals.pop_back();
+    }
+    scopeDepth--;
+}
+
+int InterpreterTurbo::resolveLocal(const string& name) {
+    for (int i = (int)locals.size() - 1; i >= 0; i--) {
+        if (locals[i].name == name) {
+            return locals[i].slot_index; // return slot index
+        }
+    }
+    return -1;
+}
+
+int InterpreterTurbo::paramSlot(const string& name) {
+    return resolveLocal(name); //locals[name].slot_index;
+}
+
+int InterpreterTurbo::emitConstant(const Value& v) {
+    cur->constants.push_back(v);
+    return (int)cur->constants.size() - 1;
+}
+
+bool InterpreterTurbo::hasLocal(const std::string& name) {
+    for (int i = (int)locals.size() - 1; i >= 0; --i) {
+        if (locals[i].name == name) return true;
+    }
+    return false;
+}
+
+int InterpreterTurbo::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
+//    for (int i = 0; i < (int)upvalues.size(); i++) {
+//        if (upvalues[i].isLocal == isLocal && upvalues[i].index == index) {
+//            return i;
+//        }
+//    }
+    upvalues.push_back({isLocal, (uint32_t)index, name, kind});
+    return (int)upvalues.size() - 1;
+}
+
+// resolve variable
+int InterpreterTurbo::resolveUpvalue(const string& name) {
+    if (enclosing) {
+        int localIndex = enclosing->lookupGlobal(name);
+        if (localIndex != -1) {
+            // enclosing->locals[localIndex].isCaptured = true;
+            return addUpvalue(true,
+                              localIndex,
+                              name,
+                              enclosing->globals[localIndex].kind);
+        }
+        
+        int upIndex = enclosing->resolveUpvalue(name);
+        if (upIndex != -1) {
+            
+            return addUpvalue(false,
+                              upIndex,
+                              enclosing->upvalues[upIndex].name,
+                              enclosing->upvalues[upIndex].kind);
+        }
+    }
+    return -1;
+}
+
+uint32_t InterpreterTurbo::getLocal(const std::string& name) {
+    for (int i = (int)locals.size() - 1; i >= 0; --i) {
+        if (locals[i].name == name) return locals[i].slot_index;
+    }
+    throw std::runtime_error("Local not found: " + name);
+}
+
+void InterpreterTurbo::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
+    locals.clear();
+    nextLocalSlot = 0;
+    for (uint32_t i = 0; i < paramCount; ++i) {
+        string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
+        Local local {
+            name,
+            /*depth=*/1,
+            /*isCaptured=*/false,
+            (uint32_t)i,
+            BindingKind::Let
+        }; // usually scopeDepth=1 for params
+        locals.push_back(local);
+        nextLocalSlot = i + 1;
+    }
+    
+    if (cur) cur->maxLocals = nextLocalSlot;
+}
+
+void InterpreterTurbo::declareLocal(const string& name, BindingKind kind) {
+    return;
+    if (scopeDepth == 0) return; // globals aren’t locals
+
+    // prevent shadowing in same scope
+    for (int i = (int)locals.size() - 1; i >= 0; i--) {
+        if (locals[i].depth != -1 && locals[i].depth < scopeDepth) break;
+        if (locals[i].name == name) {
+            throw runtime_error("Variable already declared in this scope");
+        }
+    }
+
+    uint32_t idx = (uint32_t)locals.size();
+
+    Local local { name, scopeDepth, false, (uint32_t)locals.size(), kind };
+    locals.push_back(local);
+    
+    if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
+
+}
+
+void InterpreterTurbo::declareGlobal(const string& name, BindingKind kind) {
+    
+    // if (scopeDepth > 0) return; // locals aren’t globals
+
+    for (int i = (int)globals.size() - 1; i >= 0; i--) {
+        if (globals[i].name == name) {
+            throw runtime_error("Variable " + name +" already declared in this scope");
+        }
+    }
+
+    Global global { name, kind };
+    globals.push_back(global);
+    
+}
+
+void InterpreterTurbo::declareVariableScoping(const string& name, BindingKind kind) {
+    
+    // do not declare as local if Var and its not inside a function body
+    // do not declare as local if its var and the scopedepth is > 0
+
+    // --------- let scoping check-----------
+//    bool IsVar = (kind == BindingKind::Var) ? true : false;
+//    
+//    if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
+//        
+//        int previousScopeDepth = scopeDepth;
+//        scopeDepth = 0;
+//        declareGlobal(name, kind);
+//        scopeDepth = previousScopeDepth;
+//
+//        return;
+//    }
+//    
+//    if (enclosing) {
+//        if (IsVar) {
+//            declareLocal(name, (kind));
+//            int idx = resolveLocal(name);
+//            locals[idx].depth = locals[idx].depth - 1;
+//            return;
+//        }
+//    }
+    // --------- end of let scoping check-----------
+    
+    declareLocal(name, (kind));
+    declareGlobal(name, (kind));
+    
+    // if the current scope depth is greater than 0, we must declare local
+
+}
+
+int InterpreterTurbo::lookupGlobal(const string& name) {
+    for (int i = (int)globals.size() - 1; i >= 0; i--) {
+        if (globals[i].name == name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void InterpreterTurbo::endLoop() {
+    LoopContext ctx = loopStack.back();
+    loopStack.pop_back();
+
+    // Patch all breaks to jump here
+    // int end = (int)cur->code.size() - 1;
+    for (int breakAddr : ctx.breaks) {
+        //patchJump(breakAddr, end);
+        patchSingleJump(breakAddr);
+    }
+}
+
+void InterpreterTurbo::beginLoop() {
+    LoopContext ctx;
+    ctx.loopStart = (int)cur->code.size();
+    loopStack.push_back(ctx);
+}
+
+InterpreterTurbo::BindingKind InterpreterTurbo::get_kind(string kind) {
+    if (kind == "CONST") {
+        return BindingKind::Const;
+    }
+    
+    if (kind == "LET") {
+        return BindingKind::Let;
+    }
+    
+    return BindingKind::Var;
+}
+
+bool InterpreterTurbo::isModuleLoaded(string importPath) {
+    
+    for (auto& module_ : registered_modules) {
+        if (module_ == importPath) {
+            return true;
+        }
+    }
+
+    return false;
+
+}
+
+void InterpreterTurbo::registerModule(string importPath) {
+    registered_modules.push_back(importPath);
+}
+
+size_t InterpreterTurbo::disassembleInstruction(const TurboChunk* chunk, size_t offset) {
+    if (offset >= chunk->code.size()) return offset + 1;
+
+    const Instruction& instr = chunk->code[offset];
+    std::cout << std::setw(4) << offset << " ";
+
+    // Print opcode name
+    std::string opName;
+    switch (instr.op) {
+        case TurboOpCode::Nop: opName = "Nop"; break;
+        case TurboOpCode::Add: opName = "Add"; break;
+        case TurboOpCode::Subtract: opName = "Subtract"; break;
+        case TurboOpCode::Multiply: opName = "Multiply"; break;
+        case TurboOpCode::Divide: opName = "Divide"; break;
+        case TurboOpCode::Modulo: opName = "Modulo"; break;
+        case TurboOpCode::Power: opName = "Power"; break;
+        case TurboOpCode::Equal: opName = "Equal"; break;
+        case TurboOpCode::StrictEqual: opName = "StrictEqual"; break;
+        case TurboOpCode::NotEqual: opName = "NotEqual"; break;
+        case TurboOpCode::StrictNotEqual: opName = "StrictNotEqual"; break;
+        case TurboOpCode::LessThan: opName = "LessThan"; break;
+        case TurboOpCode::LessThanOrEqual: opName = "LessThanOrEqual"; break;
+        case TurboOpCode::GreaterThan: opName = "GreaterThan"; break;
+        case TurboOpCode::GreaterThanOrEqual: opName = "GreaterThanOrEqual"; break;
+        case TurboOpCode::LogicalAnd: opName = "LogicalAnd"; break;
+        case TurboOpCode::LogicalOr: opName = "LogicalOr"; break;
+        case TurboOpCode::NullishCoalescing: opName = "NullishCoalescing"; break;
+        case TurboOpCode::BitAnd: opName = "BitAnd"; break;
+        case TurboOpCode::BitOr: opName = "BitOr"; break;
+        case TurboOpCode::BitXor: opName = "BitXor"; break;
+        case TurboOpCode::ShiftLeft: opName = "ShiftLeft"; break;
+        case TurboOpCode::ShiftRight: opName = "ShiftRight"; break;
+        case TurboOpCode::UnsignedShiftRight: opName = "UnsignedShiftRight"; break;
+        case TurboOpCode::LoadConst: opName = "LoadConst"; break;
+        case TurboOpCode::Move: opName = "Move"; break;
+        case TurboOpCode::StoreLocalLet: opName = "StoreLocalLet"; break;
+        case TurboOpCode::StoreLocalVar: opName = "StoreLocalVar"; break;
+        case TurboOpCode::StoreGlobalVar: opName = "StoreGlobalVar"; break;
+        case TurboOpCode::StoreGlobalLet: opName = "StoreGlobalLet"; break;
+        case TurboOpCode::LoadLocalVar: opName = "LoadLocalVar"; break;
+        case TurboOpCode::LoadGlobalVar: opName = "LoadGlobalVar"; break;
+        case TurboOpCode::CreateLocalVar: opName = "CreateLocalVar"; break;
+        case TurboOpCode::CreateLocalLet: opName = "CreateLocalLet"; break;
+        case TurboOpCode::CreateLocalConst: opName = "CreateLocalConst"; break;
+        case TurboOpCode::CreateGlobalVar: opName = "CreateGlobalVar"; break;
+        case TurboOpCode::CreateGlobalLet: opName = "CreateGlobalLet"; break;
+        case TurboOpCode::CreateGlobalConst: opName = "CreateGlobalConst"; break;
+        case TurboOpCode::JumpIfFalse: opName = "JumpIfFalse"; break;
+        case TurboOpCode::Jump: opName = "Jump"; break;
+        case TurboOpCode::Return: opName = "Return"; break;
+        case TurboOpCode::Call: opName = "Call"; break;
+        case TurboOpCode::PushArg: opName = "PushArg"; break;
+        case TurboOpCode::CreateClosure: opName = "CreateClosure"; break;
+        case TurboOpCode::CreateArrayLiteral: opName = "CreateArrayLiteral"; break;
+        case TurboOpCode::CreateObjectLiteral: opName = "CreateObjectLiteral"; break;
+        case TurboOpCode::CreateObjectLiteralProperty: opName = "CreateObjectLiteralProperty"; break;
+        case TurboOpCode::ArrayPush: opName = "ArrayPush"; break;
+        case TurboOpCode::GetProperty: opName = "GetProperty"; break;
+        case TurboOpCode::GetPropertyDynamic: opName = "GetPropertyDynamic"; break;
+        case TurboOpCode::GetThis: opName = "GetThis"; break;
+        case TurboOpCode::SetThisProperty: opName = "SetThisProperty"; break;
+        case TurboOpCode::Halt: opName = "Halt"; break;
+            
+        case TurboOpCode::Throw: opName = "Throw"; break;
+        case TurboOpCode::Try: opName = "Try"; break;
+        case TurboOpCode::EndTry: opName = "EndTry"; break;
+        case TurboOpCode::EndFinally: opName = "EndFinally"; break;
+        case TurboOpCode::LoadExceptionValue: opName = "LoadExceptionValue"; break;
+            
+        case TurboOpCode::LoadThisProperty: opName = "LoadThisProperty"; break;
+        case TurboOpCode::StoreThisProperty: opName = "StoreThisProperty"; break;
+        case TurboOpCode::StoreUpvalueVar: opName = "StoreUpvalueVar"; break;
+        case TurboOpCode::StoreUpvalueLet: opName = "StoreUpvalueLet"; break;
+        case TurboOpCode::StoreUpvalueConst: opName = "StoreUpvalueConst"; break;
+        case TurboOpCode::LoadUpvalue: opName = "LoadUpvalue"; break;
+        case TurboOpCode::SetClosureIsLocal: opName = "SetClosureIsLocal"; break;
+        case TurboOpCode::SetClosureIndex: opName = "SetClosureIndex"; break;
+
+        case TurboOpCode::Loop: opName = "Loop"; break;
+
+        case TurboOpCode::LoadArgumentsLength: opName = "LoadArgumentsLength"; break;
+        case TurboOpCode::LoadArguments: opName = "LoadArguments"; break;
+        case TurboOpCode::LoadArgument: opName = "LoadArgument"; break;
+
+        case TurboOpCode::NewClass: opName = "NewClass"; break;
+        case TurboOpCode::CreateInstance: opName = "CreateInstance"; break;
+        case TurboOpCode::InvokeConstructor: opName = "InvokeConstructor"; break;
+
+        case TurboOpCode::CreateClassPrivatePropertyVar: opName = "CreateClassPrivatePropertyVar"; break;
+        case TurboOpCode::CreateClassPublicPropertyVar: opName = "CreateClassPublicPropertyVar"; break;
+        case TurboOpCode::CreateClassProtectedPropertyVar: opName = "CreateClassProtectedPropertyVar"; break;
+        case TurboOpCode::CreateClassPrivatePropertyConst: opName = "CreateClassPrivatePropertyConst"; break;
+        case TurboOpCode::CreateClassPublicPropertyConst: opName = "CreateClassPublicPropertyConst"; break;
+        case TurboOpCode::CreateClassProtectedPropertyConst: opName = "CreateClassProtectedPropertyConst"; break;
+
+        case TurboOpCode::CreateClassPrivateStaticPropertyVar: opName = "CreateClassPrivateStaticPropertyVar"; break;
+        case TurboOpCode::CreateClassPublicStaticPropertyVar: opName = "CreateClassPublicStaticPropertyVar"; break;
+        case TurboOpCode::CreateClassProtectedStaticPropertyVar: opName = "CreateClassProtectedStaticPropertyVar"; break;
+        case TurboOpCode::CreateClassPrivateStaticPropertyConst: opName = "CreateClassPrivateStaticPropertyConst"; break;
+        case TurboOpCode::CreateClassPublicStaticPropertyConst: opName = "CreateClassPublicStaticPropertyConst"; break;
+        case TurboOpCode::CreateClassProtectedStaticPropertyConst: opName = "CreateClassProtectedStaticPropertyConst"; break;
+
+        case TurboOpCode::CreateClassProtectedStaticMethod: opName = "CreateClassProtectedStaticMethod"; break;
+        case TurboOpCode::CreateClassPrivateStaticMethod: opName = "CreateClassPrivateStaticMethod"; break;
+        case TurboOpCode::CreateClassPublicStaticMethod: opName = "CreateClassPublicStaticMethod"; break;
+        case TurboOpCode::CreateClassProtectedMethod: opName = "CreateClassProtectedMethod"; break;
+        case TurboOpCode::CreateClassPrivateMethod: opName = "CreateClassPrivateMethod"; break;
+        case TurboOpCode::CreateClassPublicMethod: opName = "CreateClassPublicMethod"; break;
+            
+        case TurboOpCode::CreateUIView: opName = "CreateUIView"; break;
+        case TurboOpCode::AddChildSubView: opName = "AddChildSubView"; break;
+        case TurboOpCode::SetUIViewArgument: opName = "SetUIViewArgument"; break;
+        case TurboOpCode::CallUIViewModifier: opName = "CallUIViewModifier"; break;
+            
+        case TurboOpCode::PushLexicalEnv: opName = "PushLexicalEnv"; break;
+        case TurboOpCode::PopLexicalEnv: opName = "PopLexicalEnv"; break;
+
+
+        // Add more opcodes as needed
+        default: opName = "Unknown"; break;
+    }
+
+    std::cout << std::left << std::setw(20) << opName;
+
+    // Print operands
+    std::cout << " a: " << (int)instr.a
+              << " b: " << (int)instr.b
+              << " c: " << (int)instr.c;
+
+    // For LoadConst, print constant value
+    if ((instr.op == TurboOpCode::LoadConst || instr.op == TurboOpCode::LoadGlobalVar || instr.op == TurboOpCode::LoadLocalVar) && instr.b < chunk->constants.size()) {
+        std::cout << " [const: " << chunk->constants[instr.b].toString() << "]";
+    }
+    
+    if ((instr.op == TurboOpCode::GetProperty) && instr.c < chunk->constants.size()) {
+        std::cout << " [const: " << chunk->constants[instr.c].toString() << "]";
+    }
+    
+    std::cout << std::endl;
+    return offset + 1;
+}
+
+void InterpreterTurbo::disassembleChunk(const TurboChunk* chunk, const std::string& name) {
+    std::cout << "== " << name << " ==\n";
+    for (size_t offset = 0; offset < chunk->code.size();) {
+        offset = disassembleInstruction(chunk, offset);
+    }
+}
+
