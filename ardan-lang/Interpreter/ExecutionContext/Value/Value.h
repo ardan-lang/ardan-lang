@@ -21,6 +21,7 @@ struct Chunk;
 class Env;
 struct Closure;
 class JSObject;
+class ExecutionContext;
 
 // A tiny Function object: holds chunk id/index and arity (and optional name)
 struct FunctionObject {
@@ -215,6 +216,7 @@ struct Closure {
     shared_ptr<FunctionObject> fn;
     vector<shared_ptr<Upvalue>> upvalues;
     shared_ptr<JSObject> js_object;
+    shared_ptr<ExecutionContext> ctx;
 };
 
 #endif /* Value_h */
