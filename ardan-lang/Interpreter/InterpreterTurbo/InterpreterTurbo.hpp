@@ -164,9 +164,6 @@ private:
     void emit(TurboOpCode op);
     int emitConstant(const Value &v);
     void emitLoop(uint32_t loopStart);
-    uint32_t makeLocal(const string &name); // allocate a local slot
-    bool hasLocal(const string &name);
-    void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
     
     int emitTryPlaceholder();
     void patchTry(int tryPos, int reg);

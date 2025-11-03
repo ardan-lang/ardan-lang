@@ -146,13 +146,11 @@ R InterpreterTurbo::store(string decl, uint32_t reg_slot) {
         int nameIdx = emitConstant(Value::str(decl));
         
         if (upvalueMeta.kind == BindingKind::Var) {
-            //                emit(TurboOpCode::StoreUpvalueVar, upvalue, reg_slot);
             emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
         } else if (upvalueMeta.kind == BindingKind::Let) {
-            //                emit(TurboOpCode::StoreUpvalueLet, upvalue, reg_slot);
             emit(TurboOpCode::StoreGlobalLet, (uint32_t)nameIdx, reg_slot);
         } else if (upvalueMeta.kind == BindingKind::Const) {
-            emit(TurboOpCode::StoreUpvalueConst, upvalue, reg_slot);
+            // emit(TurboOpCode::StoreUpvalueConst, upvalue, reg_slot);
         }
         
         return true;
@@ -190,9 +188,6 @@ R InterpreterTurbo::load(string decl, uint32_t reg_slot) {
         int nameIdx = emitConstant(Value::str(decl));
         emit(TurboOpCode::LoadThisProperty, reg_slot, nameIdx);
         
-        // emit(TurboOpCode::SetThisProperty);
-        // int nameIdx = emitConstant(Value::str(decl));
-        // emitUint32(nameIdx);
         return true;
     } else if (result.level == 2) {
         // exists in parent class
@@ -208,9 +203,7 @@ R InterpreterTurbo::load(string decl, uint32_t reg_slot) {
     
     int upvalue = resolveUpvalue(decl);
     if (upvalue != -1) {
-        // emit(TurboOpCode::SetUpvalue);
-        // emitUint32(upvalue);
-        // emit(TurboOpCode::LoadUpvalue, reg_slot, upvalue);
+
         int nameIdx = emitConstant(Value::str(decl));
         emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
         
@@ -258,8 +251,6 @@ R InterpreterTurbo::visitVariable(VariableStatement* stmt) {
         }
 
         declareVariableScoping(decl.id, bindingKind);
-        // declareLocal(decl.id, get_kind(kind));
-        // declareGlobal(decl.id, get_kind(kind));
         
         create(decl.id, slot, get_kind(kind));
         freeRegister(slot);
@@ -1021,10 +1012,6 @@ R InterpreterTurbo::visitUnary(UnaryExpression* expr) {
 R InterpreterTurbo::visitUpdate(UpdateExpression* expr) {
     
     int lhsReg = get<int>(expr->argument->accept(*this));
-    //    TurboOpCode op = expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract;
-    //    emit(op, reg, reg, emitConstant(Value(1)));
-    //    //freeRegister();
-    //    return reg;
     
     int returnReg = -1;
     
@@ -1034,7 +1021,6 @@ R InterpreterTurbo::visitUpdate(UpdateExpression* expr) {
         emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
         
         int opResultReg = allocRegister();
-        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
         emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
              opResultReg,
              lhsReg,
@@ -1050,13 +1036,10 @@ R InterpreterTurbo::visitUpdate(UpdateExpression* expr) {
         
     }
     else if (auto member = dynamic_cast<MemberExpression*>(expr->argument.get())) {
-        
-        // int oldValueReg = get<int>(visitMember(member));
-        
+                
         int rhsReg = allocRegister();
         emit(TurboOpCode::LoadConst, rhsReg, emitConstant(Value(1)));
         int opResultReg = allocRegister();
-        // TurboOpCode::Add, opResultReg, lhsReg, rhsReg
         emit(expr->op.type == TokenType::INCREMENT ? TurboOpCode::Add : TurboOpCode::Subtract,
              opResultReg,
              lhsReg,
@@ -1099,7 +1082,6 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
     nested.cur = make_shared<TurboChunk>();
     nested.enclosing = this;
     nested.cur->name = expr->name;
-    // nested.beginScope();
 
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
@@ -1109,124 +1091,7 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
         
         collectParameterInfo(expr->parameters.get(), paramNames, parameterInfos);
         
-//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(expr->parameters.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    // ...rest
-//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos
-//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//                    //}
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    // b = 90 or c = b
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    // Simple arg
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//                }
-//            }
-//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(expr->parameters.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//        } else if (auto* rest = dynamic_cast<RestParameter*>(expr->parameters.get())) {
-//            paramNames.push_back(rest->token.lexeme);
-//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-//        } else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(expr->parameters.get())) {
-//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-//                paramNames.push_back(ident->name);
-//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-//            }
-//        }
-
     }
-
-    // Allocate local slots for parameters
-    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-
-    // Emit parameter initialization logic
-//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
-//        const auto& info = parameterInfos[i];
-//        // For rest parameter
-//        if (info.isRest) {
-//
-//            // collect rest arguments as array: arguments.slice(i)
-//
-//            int arg_array_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
-//
-//            int i_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
-//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
-//
-//            nested.freeRegister(i_reg);
-//
-//            nested.store(info.name, arg_array_reg);
-//
-//            nested.freeRegister(arg_array_reg);
-//
-//            continue;
-//        }
-//        // For parameters with default value
-//        if (info.hasDefault) {
-//            // if (arguments.length > i) use argument; else use default expr
-//
-//            int store_reg = nested.allocRegister();
-//
-//            int args_len_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
-//
-//            int index_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
-//
-//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
-//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
-//
-//            // Use argument
-//            int reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
-//            nested.emit(TurboOpCode::LoadArgument, reg);
-//            nested.emit(TurboOpCode::Move, store_reg, reg);
-//
-//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
-//
-//            // Use default
-//            nested.patchJump(useArg);
-//
-//            // Evaluate default expression (can reference previous params!)
-//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
-//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
-//
-//            // Set local either way
-//            nested.patchSingleJump(setLocalJump);
-//
-//            nested.store(info.name, store_reg);
-//
-//            nested.freeRegister(store_reg);
-//            nested.freeRegister(default_expr_reg);
-//            nested.freeRegister(reg);
-//            nested.freeRegister(args_len_reg);
-//            nested.freeRegister(index_reg);
-//
-//        } else {
-//
-//            // Direct: assign argument i to local slot
-//
-//            int reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
-//
-//            nested.emit(TurboOpCode::LoadArgument, reg);
-//
-//            nested.store(info.name, reg);
-//
-//            nested.freeRegister(reg);
-//
-//        }
-//    }
 
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
@@ -1360,35 +1225,7 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
     emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
-    
-    // ClosureInfo closure_info = {};
-    // closure_info.ci = ci;
-    // closure_info.upvalues = nested.upvalues;
-
-//    for (auto& uv : nested.upvalues) {
-//        
-//        // emitUint8(uv.isLocal ? 1 : 0);
-//        // emitUint8(uv.index);
-//        
-//        int isLocalReg = allocRegister();
-//        int indexReg = allocRegister();
-//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-//
-//        if (uv.isLocal) {
-//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-//        } else {
-//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-//        }
-//        
-//        freeRegister(isLocalReg);
-//        freeRegister(indexReg);
-//
-//    }
-
-    // gather createclosure info for dissaemble
-    // closure_infos[to_string(ci)] = closure_info;
-        
+            
     disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return closureChunkIndexReg;
@@ -1407,7 +1244,6 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
     nested.cur->name = expr->name;
-    // nested.beginScope();
 
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
@@ -1416,127 +1252,8 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     for (auto& param : expr->params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
-        
-//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    // ...rest
-//                    //if (auto* ident = dynamic_cast<IdentifierExpression*>(rest->argument.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos
-//                        .push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//                    //}
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    // b = 90 or c = b
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    // Simple arg
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//                }
-//            }
-//        }
-//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-//            paramNames.push_back(rest->token.lexeme);
-//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-//        }
-//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
-//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-//                paramNames.push_back(ident->name);
-//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-//            }
-//        }
-//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//        }
-        
+                
     }
-
-    // Allocate local slots for parameters
-    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-
-    // Emit parameter initialization logic
-//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
-//        const auto& info = parameterInfos[i];
-//        // For rest parameter
-//        if (info.isRest) {
-//
-//            // collect rest arguments as array: arguments.slice(i)
-//
-//            int arg_array_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
-//
-//            int i_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
-//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
-//
-//            nested.freeRegister(i_reg);
-//
-//            nested.store(info.name, arg_array_reg);
-//
-//            nested.freeRegister(arg_array_reg);
-//
-//            continue;
-//        }
-//        // For parameters with default value
-//        if (info.hasDefault) {
-//            // if (arguments.length > i) use argument; else use default expr
-//
-//            int store_reg = nested.allocRegister();
-//
-//            int args_len_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
-//
-//            int index_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
-//
-//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
-//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
-//
-//            // Use argument
-//            int reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
-//            nested.emit(TurboOpCode::LoadArgument, reg);
-//            nested.emit(TurboOpCode::Move, store_reg, reg);
-//
-//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
-//
-//            // Use default
-//            nested.patchJump(useArg);
-//
-//            // Evaluate default expression (can reference previous params!)
-//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
-//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
-//
-//            // Set local either way
-//            nested.patchSingleJump(setLocalJump);
-//
-//            nested.store(info.name, store_reg);
-//
-//            nested.freeRegister(store_reg);
-//            nested.freeRegister(default_expr_reg);
-//            nested.freeRegister(reg);
-//            nested.freeRegister(args_len_reg);
-//            nested.freeRegister(index_reg);
-//
-//        } else {
-//
-//            // Direct: assign argument i to local slot
-//
-//            int reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
-//
-//            nested.emit(TurboOpCode::LoadArgument, reg);
-//
-//            nested.store(info.name, reg);
-//            nested.freeRegister(reg);
-//
-//        }
-//    }
 
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
@@ -1637,10 +1354,6 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
         }
         
         if (!is_return_avaialble) {
-//            nested.emit(OpCode::LoadConstant);
-//            int ud = nested.emitConstant(Value::undefined());
-//            nested.emitUint32(ud);
-//            nested.emit(OpCode::Return);
             
             int reg = nested.allocRegister();
             int ud = nested.emitConstant(Value::undefined());
@@ -1673,37 +1386,6 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
     emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
 
-    // emit(OpCode::CreateClosure);
-    // emitUint8((uint8_t)ci);
-
-    // ClosureInfo closure_info = {};
-    // closure_info.ci = ci;
-    // closure_info.upvalues = nested.upvalues;
-
-    // Emit upvalue descriptors
-//    for (auto& uv : nested.upvalues) {
-//        // emitUint8(uv.isLocal ? 1 : 0);
-//        // emitUint8(uv.index);
-//
-//        int isLocalReg = allocRegister();
-//        int indexReg = allocRegister();
-//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-//
-//        if (uv.isLocal) {
-//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-//        } else {
-//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-//        }
-//        
-//        freeRegister(isLocalReg);
-//        freeRegister(indexReg);
-//
-//    }
-    
-    // Bind function to its name in the global environment
-
-    // closure_infos[to_string(ci)] = closure_info;
     disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return closureChunkIndexReg;
@@ -1715,7 +1397,6 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
     nested.cur->name = stmt->id;
-    // nested.beginScope();
     
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
@@ -1724,42 +1405,8 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
     for (auto& param : stmt->params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
-        
-//        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.emplace_back(ident->name, false, nullptr, false);
-//                }
-//            }
-//        }
-//        else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-//            paramNames.push_back(rest->token.lexeme);
-//            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-//        }
-//        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(param.get())) {
-//            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
-//                paramNames.push_back(ident->name);
-//                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
-//            }
-//        }
-//        else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.emplace_back(ident->name, false, nullptr, false);
-//        }
-        
+                
     }
-
-    // Allocate local slots for parameters
-    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
@@ -1860,10 +1507,6 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
             }
         }
         if (!is_return_avaialble) {
-//            nested.emit(OpCode::LoadConstant);
-//            int ud = nested.emitConstant(Value::undefined());
-//            nested.emitUint32(ud);
-//            nested.emit(OpCode::Return);
             
             int reg = nested.allocRegister();
             int ud = nested.emitConstant(Value::undefined());
@@ -1890,56 +1533,13 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
 
-//    emit(OpCode::CreateClosure);
-//    emitUint8((uint8_t)ci);
-//
-//    ClosureInfo closure_info = {};
-//    closure_info.ci = ci;
-//    closure_info.upvalues = nested.upvalues;
     int closureChunkIndexReg = allocRegister();
     emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
     emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
 
-    // Emit upvalue descriptors
-//    for (auto& uv : nested.upvalues) {
-////        emitUint8(uv.isLocal ? 1 : 0);
-////        emitUint8(uv.index);
-//        
-//        int isLocalReg = allocRegister();
-//        int indexReg = allocRegister();
-//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-//
-//        if (uv.isLocal) {
-//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-//        } else {
-//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-//        }
-//        
-//        freeRegister(isLocalReg);
-//        freeRegister(indexReg);
-//
-//    }
-    
-    // Bind function to its name in the global environment
-//    if (scopeDepth == 0) {
-//        emit(OpCode::CreateGlobal);
-//         int nameIdx = emitConstant(Value::str(stmt->id));
-//         emitUint32(nameIdx);
-//    } else {
-//        declareLocal(stmt->id, BindingKind::Var);
-//        int slot = paramSlot(stmt->id);
-//        emit(OpCode::StoreLocal);
-//        // int nameIdx = emitConstant(Value::str(stmt->id));
-//        emitUint32(slot);
-//    }
-    
-    // closure_infos[to_string(ci)] = closure_info;
-
     BindingKind functionBinding = BindingKind::Let;
-    //declareLocal(stmt->id, functionBinding);
     declareGlobal(stmt->id, functionBinding);
     
     create(stmt->id, closureChunkIndexReg, functionBinding);
@@ -2190,89 +1790,6 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
         
     }
 
-    // Allocate local slots for parameters
-    nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
-
-    // Emit parameter initialization logic (rest/default)
-//    for (size_t i = 0; i < parameterInfos.size(); ++i) {
-//        const auto& info = parameterInfos[i];
-//        // For rest parameter
-//        if (info.isRest) {
-//
-//            // collect rest arguments as array: arguments.slice(i)
-//
-//            int arg_array_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
-//
-//            int i_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, i_reg, nested.emitConstant(Value::number(i))); // Push i
-//            nested.emit(TurboOpCode::Slice, arg_array_reg, i_reg); // arguments.slice(i)
-//
-//            nested.freeRegister(i_reg);
-//
-//            nested.store(info.name, arg_array_reg);
-//
-//            nested.freeRegister(arg_array_reg);
-//
-//            continue;
-//        }
-//        // For parameters with default value
-//        if (info.hasDefault) {
-//            // if (arguments.length > i) use argument; else use default expr
-//
-//            int store_reg = nested.allocRegister();
-//
-//            int args_len_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
-//
-//            int index_reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, index_reg, nested.emitConstant(Value::number(i)));
-//
-//            nested.emit(TurboOpCode::GreaterThan, args_len_reg, index_reg);
-//            int useArg = nested.emitJump(TurboOpCode::JumpIfFalse, args_len_reg); // false means to use default value
-//
-//            // Use argument
-//            int reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
-//            nested.emit(TurboOpCode::LoadArgument, reg);
-//            nested.emit(TurboOpCode::Move, store_reg, reg);
-//
-//            int setLocalJump = nested.emitJump(TurboOpCode::Jump);
-//
-//            // Use default
-//            nested.patchJump(useArg);
-//
-//            // Evaluate default expression (can reference previous params!)
-//            int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
-//            nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
-//
-//            // Set local either way
-//            nested.patchSingleJump(setLocalJump);
-//
-//            nested.store(info.name, store_reg);
-//
-//            nested.freeRegister(store_reg);
-//            nested.freeRegister(default_expr_reg);
-//            nested.freeRegister(reg);
-//            nested.freeRegister(args_len_reg);
-//            nested.freeRegister(index_reg);
-//
-//        } else {
-//
-//            // Direct: assign argument i to local slot
-//
-//            int reg = nested.allocRegister();
-//            nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
-//
-//            nested.emit(TurboOpCode::LoadArgument, reg);
-//
-//            nested.store(info.name, reg);
-//
-//            nested.freeRegister(reg);
-//
-//        }
-//    }
-
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
         // For rest parameter
@@ -2409,34 +1926,12 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
 
-    // Emit closure for this function (leaves closure object on stack)
-    // emit(OpCode::CreateClosure);
-    // emitUint8((uint8_t)ci);
+    // Emit closure for this function (leaves closure object on closureChunkIndexReg)
     int closureChunkIndexReg = allocRegister();
     emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
     emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
-
-//    for (auto& uv : nested.upvalues) {
-//        // emitUint8(uv.isLocal ? 1 : 0);
-//        // emitUint8(uv.index);
-//        
-//        int isLocalReg = allocRegister();
-//        int indexReg = allocRegister();
-//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-//
-//        if (uv.isLocal) {
-//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-//        } else {
-//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-//        }
-//        
-//        freeRegister(isLocalReg);
-//        freeRegister(indexReg);
-//
-//    }
     
     disassembleChunk(nested.cur.get(), method.name);
     
@@ -3696,11 +3191,6 @@ int InterpreterTurbo::emitConstant(const Value& v) {
 }
 
 int InterpreterTurbo::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
-//    for (int i = 0; i < (int)upvalues.size(); i++) {
-//        if (upvalues[i].isLocal == isLocal && upvalues[i].index == index) {
-//            return i;
-//        }
-//    }
     upvalues.push_back({isLocal, (uint32_t)index, name, kind});
     return (int)upvalues.size() - 1;
 }
@@ -3727,25 +3217,6 @@ int InterpreterTurbo::resolveUpvalue(const string& name) {
         }
     }
     return -1;
-}
-
-void InterpreterTurbo::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
-//    locals.clear();
-//    nextLocalSlot = 0;
-//    for (uint32_t i = 0; i < paramCount; ++i) {
-//        string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
-//        Local local {
-//            name,
-//            /*depth=*/1,
-//            /*isCaptured=*/false,
-//            (uint32_t)i,
-//            BindingKind::Let
-//        }; // usually scopeDepth=1 for params
-//        locals.push_back(local);
-//        nextLocalSlot = i + 1;
-//    }
-//    
-//    if (cur) cur->maxLocals = nextLocalSlot;
 }
 
 void InterpreterTurbo::declareGlobal(const string& name, BindingKind kind) {
@@ -3783,9 +3254,7 @@ void InterpreterTurbo::endLoop() {
     loopStack.pop_back();
 
     // Patch all breaks to jump here
-    // int end = (int)cur->code.size() - 1;
     for (int breakAddr : ctx.breaks) {
-        //patchJump(breakAddr, end);
         patchSingleJump(breakAddr);
     }
 }

@@ -47,7 +47,6 @@ using std::string;
 struct ExecutionContext {
     shared_ptr<Env> lexicalEnv;
     shared_ptr<Env> variableEnv;
-    Value thisBinding;
 };
 
 class InterpreterTurboVM : public BaseVM<InterpreterTurboVM, TurboModule, TurboChunk> {
