@@ -180,6 +180,11 @@ enum class TurboOpCode : uint8_t {
     AddChildSubView,
     SetUIViewArgument,
     CallUIViewModifier,
+    
+    PushLexicalEnv,
+    PopLexicalEnv,
+    SetExecutionContext,
+    CopyIterationBinding,
 
     Halt
     

@@ -3669,6 +3669,7 @@ void TurboCodeGen::endScope() {
         } else {
             // Normal local → just pop
             // emit(TurboOpCode::OP_POP);
+            
         }
         locals.pop_back();
     }

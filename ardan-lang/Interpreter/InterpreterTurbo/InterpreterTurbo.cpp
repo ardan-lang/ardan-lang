@@ -24,8 +24,6 @@
 size_t InterpreterTurbo::generate(const vector<unique_ptr<Statement>> &program) {
     cur = make_shared<TurboChunk>();
     cur->name = "BYTECODE";
-    locals.clear();
-    nextLocalSlot = 0;
     emit(TurboOpCode::PushLexicalEnv);
     
     for (const auto &s : program) {
@@ -61,75 +59,41 @@ R InterpreterTurbo::visitBlock(BlockStatement* stmt) {
 R InterpreterTurbo::create(string decl, uint32_t reg_slot, BindingKind kind) {
     
     TurboOpCode op;
-
+    
     // decide local or global
-    if (hasLocal(decl)) {
-        uint32_t idx = getLocal(decl);
-                
-        switch (kind) {
-            case BindingKind::Var:
-                
-                if (enclosing == nullptr) {
-                    op = TurboOpCode::CreateGlobalVar;
-                } else {
-                    op = TurboOpCode::CreateLocalVar;
-                }
-                
-                break;
-            case BindingKind::Let:
-                op = TurboOpCode::CreateLocalLet;
-                break;
-            case BindingKind::Const:
-                op = TurboOpCode::CreateLocalConst;
-                break;
-            default:
-                op = TurboOpCode::CreateLocalVar;
-                break;
-        }
-
-        emit(op, idx, reg_slot);
-
-    } else {
+    
+    // This has been done when the class was being created.
+    if (classInfo.fields.count(decl)) {
         
-        // This has been done when the class was being created.
-        if (classInfo.fields.count(decl)) {
-            
-            // Rewrite: legs = one;  ⇒  this.legs = one;
-            // Rewrite: legs;  ⇒  this.legs;
-            // emit(TurboOpCode::SetThisProperty);
-            // int nameIdx = emitConstant(Value::str(decl));
-            // emitUint32(nameIdx);
-            return R();
-        }
-        
-        // TODO: check if we need to create upvalues.
-        int upvalue = resolveUpvalue(decl);
-        if (upvalue != -1) {
-            // emit(TurboOpCode::SetUpvalue);
-            // emitUint32(upvalue);
-            return R();
-        }
-        
-        // top-level/global
-        int nameIdx = emitConstant(Value::str(decl));
-        switch (kind) {
-            case BindingKind::Var:
-                op = TurboOpCode::CreateGlobalVar;
-                break;
-            case BindingKind::Let:
-                op = TurboOpCode::CreateGlobalLet;
-                break;
-            case BindingKind::Const:
-                op = TurboOpCode::CreateGlobalConst;
-                break;
-            default:
-                op = TurboOpCode::CreateGlobalVar;
-                break;
-        }
-
-        emit(op, (uint32_t)nameIdx, reg_slot);
-                
+        // Rewrite: legs = one;  ⇒  this.legs = one;
+        // Rewrite: legs;  ⇒  this.legs;
+        return R();
     }
+    
+    // TODO: check if we need to create upvalues.
+    int upvalue = resolveUpvalue(decl);
+    if (upvalue != -1) {
+        return R();
+    }
+    
+    // top-level/global
+    int nameIdx = emitConstant(Value::str(decl));
+    switch (kind) {
+        case BindingKind::Var:
+            op = TurboOpCode::CreateGlobalVar;
+            break;
+        case BindingKind::Let:
+            op = TurboOpCode::CreateGlobalLet;
+            break;
+        case BindingKind::Const:
+            op = TurboOpCode::CreateGlobalConst;
+            break;
+        default:
+            op = TurboOpCode::CreateGlobalVar;
+            break;
+    }
+    
+    emit(op, (uint32_t)nameIdx, reg_slot);
     
     return true;
     
@@ -139,92 +103,73 @@ R InterpreterTurbo::create(string decl, uint32_t reg_slot, BindingKind kind) {
 R InterpreterTurbo::store(string decl, uint32_t reg_slot) {
     
     // decide local or global
-    if (hasLocal(decl)) {
+    
+    InterpreterTurbo::PropertyLookup classProperty = lookupClassProperty(decl);
+    if (classProperty.level > 0 && classProperty.meta.kind == BindingKind::Const) {
+        throw runtime_error("Cannot assign value to a const field.");
+    }
+    
+    if (classProperty.level == 1) {
         
-        uint32_t idx = getLocal(decl);
-        
-        Local local = locals[idx];
-        
-        if (locals[idx].kind == BindingKind::Const) {
-            throw std::runtime_error("Cannot assign value to constant variable.");
-        }
-        
-        if (local.kind == BindingKind::Var) {
-            emit(TurboOpCode::StoreLocalVar, idx, reg_slot);
-        } else if (local.kind == BindingKind::Let) {
-            emit(TurboOpCode::StoreLocalLet, idx, reg_slot);
-        }
-        
-    } else {
-        
-        InterpreterTurbo::PropertyLookup classProperty = lookupClassProperty(decl);
-        if (classProperty.level > 0 && classProperty.meta.kind == BindingKind::Const) {
-            throw runtime_error("Cannot assign value to a const field.");
-        }
-        
-        if (classProperty.level == 1) {
-            
-            // Rewrite: legs = one;  ⇒  this.legs = one;
-            // Rewrite: legs;  ⇒  this.legs;
-            int nameIdx = emitConstant(Value::str(decl));
-            emit(TurboOpCode::StoreThisProperty, nameIdx, reg_slot);
-            
-            // emit(TurboOpCode::SetThisProperty);
-            // int nameIdx = emitConstant(Value::str(decl));
-            // emitUint32(nameIdx);
-            
-            return true;
-            
-        } else if (classProperty.level == 2) {
-            
-            int nameIdx = emitConstant(Value::str(decl));
-            
-            int parent_obj_reg = allocRegister();
-            emit(TurboOpCode::GetParentObject, parent_obj_reg);
-            // SetProperty: objReg, nameIdx, valueReg
-            emit(TurboOpCode::SetProperty, parent_obj_reg, nameIdx, reg_slot);
-            freeRegister(parent_obj_reg);
-            
-            return true;
-
-        }
-        
-        int upvalue = resolveUpvalue(decl);
-        if (upvalue != -1) {
-            
-            UpvalueMeta upvalueMeta = upvalues[upvalue];
-            // emit(TurboOpCode::SetUpvalue);
-            // emitUint32(upvalue);
-
-            int nameIdx = emitConstant(Value::str(decl));
-
-            if (upvalueMeta.kind == BindingKind::Var) {
-//                emit(TurboOpCode::StoreUpvalueVar, upvalue, reg_slot);
-                emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
-            } else if (upvalueMeta.kind == BindingKind::Let) {
-//                emit(TurboOpCode::StoreUpvalueLet, upvalue, reg_slot);
-                emit(TurboOpCode::StoreGlobalLet, (uint32_t)nameIdx, reg_slot);
-            } else if (upvalueMeta.kind == BindingKind::Const) {
-                emit(TurboOpCode::StoreUpvalueConst, upvalue, reg_slot);
-            }
-            
-            return true;
-        }
-        
-        // top-level/global
+        // Rewrite: legs = one;  ⇒  this.legs = one;
+        // Rewrite: legs;  ⇒  this.legs;
         int nameIdx = emitConstant(Value::str(decl));
-        Global global = globals[lookupGlobal(decl)];
+        emit(TurboOpCode::StoreThisProperty, nameIdx, reg_slot);
         
-        if (global.kind == BindingKind::Const) {
-            throw runtime_error("Cannot assign value to a const expression");
-        }
+        // emit(TurboOpCode::SetThisProperty);
+        // int nameIdx = emitConstant(Value::str(decl));
+        // emitUint32(nameIdx);
         
-        if (global.kind == BindingKind::Var) {
+        return true;
+        
+    } else if (classProperty.level == 2) {
+        
+        int nameIdx = emitConstant(Value::str(decl));
+        
+        int parent_obj_reg = allocRegister();
+        emit(TurboOpCode::GetParentObject, parent_obj_reg);
+        // SetProperty: objReg, nameIdx, valueReg
+        emit(TurboOpCode::SetProperty, parent_obj_reg, nameIdx, reg_slot);
+        freeRegister(parent_obj_reg);
+        
+        return true;
+        
+    }
+    
+    int upvalue = resolveUpvalue(decl);
+    if (upvalue != -1) {
+        
+        UpvalueMeta upvalueMeta = upvalues[upvalue];
+        // emit(TurboOpCode::SetUpvalue);
+        // emitUint32(upvalue);
+        
+        int nameIdx = emitConstant(Value::str(decl));
+        
+        if (upvalueMeta.kind == BindingKind::Var) {
+            //                emit(TurboOpCode::StoreUpvalueVar, upvalue, reg_slot);
             emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
-        } else if (global.kind == BindingKind::Let) {
+        } else if (upvalueMeta.kind == BindingKind::Let) {
+            //                emit(TurboOpCode::StoreUpvalueLet, upvalue, reg_slot);
             emit(TurboOpCode::StoreGlobalLet, (uint32_t)nameIdx, reg_slot);
+        } else if (upvalueMeta.kind == BindingKind::Const) {
+            emit(TurboOpCode::StoreUpvalueConst, upvalue, reg_slot);
         }
         
+        return true;
+    }
+    
+    // top-level/global
+    int nameIdx = emitConstant(Value::str(decl));
+    Variable global = variables[lookupGlobal(decl)];
+    
+    if (global.kind == BindingKind::Const) {
+        throw runtime_error("Cannot assign value to a const expression");
+    }
+    
+    if (global.kind == BindingKind::Var) {
+        emit(TurboOpCode::StoreGlobalVar, (uint32_t)nameIdx, reg_slot);
+    } else if (global.kind == BindingKind::Let) {
+        emit(TurboOpCode::StoreGlobalLet, (uint32_t)nameIdx, reg_slot);
     }
     
     return true;
@@ -233,53 +178,47 @@ R InterpreterTurbo::store(string decl, uint32_t reg_slot) {
 
 // moves data from local/global into reg_slot
 R InterpreterTurbo::load(string decl, uint32_t reg_slot) {
-
+    
     // decide local or global
-    if (hasLocal(decl)) {
-        uint32_t idx = getLocal(decl);
-        emit(TurboOpCode::LoadLocalVar, reg_slot, idx);
-    } else {
+    
+    // search if decl is in class fields
+    InterpreterTurbo::PropertyLookup result = lookupClassProperty(decl);
+    if (result.level == 1) {
         
-        // search if decl is in class fields
-        InterpreterTurbo::PropertyLookup result = lookupClassProperty(decl);
-        if (result.level == 1) {
-            
-            // Rewrite: legs = one;  ⇒  this.legs = one;
-            // Rewrite: legs;  ⇒  this.legs;
-            int nameIdx = emitConstant(Value::str(decl));
-            emit(TurboOpCode::LoadThisProperty, reg_slot, nameIdx);
-            
-            // emit(TurboOpCode::SetThisProperty);
-            // int nameIdx = emitConstant(Value::str(decl));
-            // emitUint32(nameIdx);
-            return true;
-        } else if (result.level == 2) {
-            // exists in parent class
-            
-            int nameIdx = emitConstant(Value::str(decl));
-
-            int parent_obj_reg = allocRegister();
-            emit(TurboOpCode::GetParentObject, parent_obj_reg);
-            emit(TurboOpCode::GetProperty, reg_slot, parent_obj_reg, nameIdx);
-            freeRegister(parent_obj_reg);
-            return true;
-        }
+        // Rewrite: legs = one;  ⇒  this.legs = one;
+        // Rewrite: legs;  ⇒  this.legs;
+        int nameIdx = emitConstant(Value::str(decl));
+        emit(TurboOpCode::LoadThisProperty, reg_slot, nameIdx);
         
-        int upvalue = resolveUpvalue(decl);
-        if (upvalue != -1) {
-            // emit(TurboOpCode::SetUpvalue);
-            // emitUint32(upvalue);
-            // emit(TurboOpCode::LoadUpvalue, reg_slot, upvalue);
-            int nameIdx = emitConstant(Value::str(decl));
-            emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
-
-            return true;
-        }
+        // emit(TurboOpCode::SetThisProperty);
+        // int nameIdx = emitConstant(Value::str(decl));
+        // emitUint32(nameIdx);
+        return true;
+    } else if (result.level == 2) {
+        // exists in parent class
         
+        int nameIdx = emitConstant(Value::str(decl));
+        
+        int parent_obj_reg = allocRegister();
+        emit(TurboOpCode::GetParentObject, parent_obj_reg);
+        emit(TurboOpCode::GetProperty, reg_slot, parent_obj_reg, nameIdx);
+        freeRegister(parent_obj_reg);
+        return true;
+    }
+    
+    int upvalue = resolveUpvalue(decl);
+    if (upvalue != -1) {
+        // emit(TurboOpCode::SetUpvalue);
+        // emitUint32(upvalue);
+        // emit(TurboOpCode::LoadUpvalue, reg_slot, upvalue);
         int nameIdx = emitConstant(Value::str(decl));
         emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
         
+        return true;
     }
+    
+    int nameIdx = emitConstant(Value::str(decl));
+    emit(TurboOpCode::LoadGlobalVar, reg_slot, (uint32_t)nameIdx);
     
     return true;
     
@@ -351,7 +290,7 @@ R InterpreterTurbo::visitIf(IfStatement* stmt) {
     patchJump(elseJump);
     
     if (stmt->alternate) {
-        scopeDepth--;
+        // scopeDepth--;
         stmt->alternate->accept(*this);
         patchJump(endJump, (int)cur->code.size());
     }
@@ -395,22 +334,41 @@ R InterpreterTurbo::visitWhile(WhileStatement* stmt) {
 
 R InterpreterTurbo::visitFor(ForStatement* stmt) {
     
+    bool isLexical = false;
+    if (auto it_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
+        isLexical = get_kind(it_stmt->kind) != BindingKind::Var;
+    }
+    
     beginScope();
+    int iteration_reg = -1;
 
     if (stmt->init)
-        (stmt->init->accept(*this));
+        iteration_reg = get<int>(stmt->init->accept(*this));
     else throw runtime_error("For loop must have an initializer.");
     
     int loopStart = (int)cur->code.size();
     beginLoop();
 
     if (stmt->test) {
-        
+
         uint32_t testReg = get<int>(stmt->test->accept(*this));
         int exitJump = emitJump(TurboOpCode::JumpIfFalse, testReg);
         freeRegister(testReg);
+        
+        if (isLexical) {
+            emit(TurboOpCode::PushLexicalEnv);
+            // copy iteration binding
+            if (auto it_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
+                int idx = emitConstant(Value::str(it_stmt->declarations[0].id));
+                emit(TurboOpCode::CopyIterationBinding, idx);
+            }
+        }
 
         stmt->body->accept(*this);
+        
+        if (isLexical) {
+            emit(TurboOpCode::PopLexicalEnv);
+        }
 
         if (stmt->update) {
             
@@ -424,7 +382,7 @@ R InterpreterTurbo::visitFor(ForStatement* stmt) {
             
             stmt->update->accept(*this);
         }
-        
+
         // move up to test
         emitLoop(loopStart);
 
@@ -1278,6 +1236,8 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
             // collect rest arguments as array: arguments.slice(i)
             
             int arg_array_reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, arg_array_reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
             
             int i_reg = nested.allocRegister();
@@ -1297,7 +1257,9 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
             // if (arguments.length > i) use argument; else use default expr
             
             int store_reg = nested.allocRegister();
-     
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, store_reg, BindingKind::Let);
+
             int args_len_reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
@@ -1338,6 +1300,8 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
             // Direct: assign argument i to local slot
             
             int reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
             nested.emit(TurboOpCode::LoadArgument, reg);
@@ -1424,17 +1388,7 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
 
     // gather createclosure info for dissaemble
     // closure_infos[to_string(ci)] = closure_info;
-    
-    if (scopeDepth == 0) {
         
-    } else {
-        // declareLocal(stmt->id);
-        // int slot = paramSlot(stmt->id);
-        // emit(OpCode::StoreLocal);
-        // int nameIdx = emitConstant(Value::str(stmt->id));
-        // emitUint32(slot);
-    }
-    
     disassembleChunk(nested.cur.get(), nested.cur->name);
 
     return closureChunkIndexReg;
@@ -1592,6 +1546,8 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
             // collect rest arguments as array: arguments.slice(i)
             
             int arg_array_reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, arg_array_reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
             
             int i_reg = nested.allocRegister();
@@ -1611,7 +1567,9 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
             // if (arguments.length > i) use argument; else use default expr
             
             int store_reg = nested.allocRegister();
-     
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, store_reg, BindingKind::Let);
+
             int args_len_reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
@@ -1652,6 +1610,8 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
             // Direct: assign argument i to local slot
             
             int reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
             nested.emit(TurboOpCode::LoadArgument, reg);
@@ -1711,6 +1671,7 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+    emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
 
     // emit(OpCode::CreateClosure);
     // emitUint8((uint8_t)ci);
@@ -1741,17 +1702,6 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     }
     
     // Bind function to its name in the global environment
-    if (scopeDepth == 0) {
-        // emit(OpCode::CreateGlobal);
-         // int nameIdx = emitConstant(Value::str(expr->id));
-         // emitUint32(nameIdx);
-    } else {
-        // declareLocal(stmt->id);
-        // int slot = paramSlot(stmt->id);
-        // emit(OpCode::StoreLocal);
-        // int nameIdx = emitConstant(Value::str(stmt->id));
-        // emitUint32(slot);
-    }
 
     // closure_infos[to_string(ci)] = closure_info;
     disassembleChunk(nested.cur.get(), nested.cur->name);
@@ -1820,6 +1770,9 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
             // collect rest arguments as array: arguments.slice(i)
             
             int arg_array_reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, arg_array_reg, BindingKind::Let);
+
             nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
             
             int i_reg = nested.allocRegister();
@@ -1839,7 +1792,9 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
             // if (arguments.length > i) use argument; else use default expr
             
             int store_reg = nested.allocRegister();
-     
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, store_reg, BindingKind::Let);
+
             int args_len_reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
@@ -1878,8 +1833,9 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
         } else {
             
             // Direct: assign argument i to local slot
-            
             int reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
             nested.emit(TurboOpCode::LoadArgument, reg);
@@ -1982,8 +1938,8 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
     
     // closure_infos[to_string(ci)] = closure_info;
 
-    BindingKind functionBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
-    declareLocal(stmt->id, functionBinding);
+    BindingKind functionBinding = BindingKind::Let;
+    //declareLocal(stmt->id, functionBinding);
     declareGlobal(stmt->id, functionBinding);
     
     create(stmt->id, closureChunkIndexReg, functionBinding);
@@ -2325,6 +2281,8 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
             // collect rest arguments as array: arguments.slice(i)
             
             int arg_array_reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, arg_array_reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadArguments, arg_array_reg); // Push arguments array
             
             int i_reg = nested.allocRegister();
@@ -2344,7 +2302,9 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
             // if (arguments.length > i) use argument; else use default expr
             
             int store_reg = nested.allocRegister();
-     
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, store_reg, BindingKind::Let);
+
             int args_len_reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadArgumentsLength, args_len_reg);
             
@@ -2385,6 +2345,8 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
             // Direct: assign argument i to local slot
             
             int reg = nested.allocRegister();
+            nested.declareVariableScoping(info.name, BindingKind::Let);
+            nested.create(info.name, reg, BindingKind::Let);
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
             nested.emit(TurboOpCode::LoadArgument, reg);
@@ -2454,6 +2416,7 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
     emit(TurboOpCode::LoadConst, closureChunkIndexReg, emitConstant(Value(ci)));
     
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
+    emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
 
     for (auto& uv : nested.upvalues) {
         // emitUint8(uv.isLocal ? 1 : 0);
@@ -2504,9 +2467,9 @@ R InterpreterTurbo::visitClass(ClassDeclaration* stmt) {
     // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
 
-    BindingKind classBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    BindingKind classBinding = BindingKind::Let;
 
-    declareLocal(stmt->id, classBinding);
+    //declareLocal(stmt->id, classBinding);
     declareGlobal(stmt->id, classBinding);
     create(stmt->id, super_class_reg, classBinding);
 
@@ -3169,9 +3132,9 @@ R InterpreterTurbo::visitTry(TryStatement* stmt) {
         beginScope();
         
         // Bind catch parameter
-        declareLocal(stmt->handler->param, BindingKind::Let);
-        uint32_t idx = getLocal(stmt->handler->param);
-        emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
+//        declareLocal(stmt->handler->param, BindingKind::Let);
+//        uint32_t idx = getLocal(stmt->handler->param);
+        //emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
         
         stmt->handler->body->accept(*this);
         
@@ -3228,12 +3191,19 @@ R InterpreterTurbo::visitForIn(ForInStatement* stmt) {
     int keyReg = allocRegister();
     emit(TurboOpCode::GetPropertyDynamic, keyReg, keysReg, idxReg);
 
+    bool isLexical = false;
+    string name;
+
     // Assign keyReg to loop variable (var/let/const)
     // Assign value to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->init.get())) {
         store(ident->name, keyReg);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
         store(var_stmt->declarations[0].id, keyReg);
+        if (get_kind(var_stmt->kind) != BindingKind::Var) {
+            isLexical = true;
+            name = var_stmt->declarations[0].id;
+        }
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->init.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
@@ -3244,8 +3214,20 @@ R InterpreterTurbo::visitForIn(ForInStatement* stmt) {
         throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
     }
     
+    if (isLexical) {
+        emit(TurboOpCode::PushLexicalEnv);
+        // copy iteration binding
+        int idx = emitConstant(Value::str(name));
+        emit(TurboOpCode::CopyIterationBinding, idx);
+        
+    }
+
     // Loop body
     stmt->body->accept(*this);
+    
+    if (isLexical) {
+        emit(TurboOpCode::PopLexicalEnv);
+    }
 
     freeRegister(keyReg);
 
@@ -3313,11 +3295,18 @@ R InterpreterTurbo::visitForOf(ForOfStatement* stmt) {
     int elemReg = allocRegister();
     emit(TurboOpCode::GetPropertyDynamic, elemReg, arrReg, idxReg);
 
+    bool isLexical = false;
+    string name;
+    
     // Assign element to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
         store(ident->name, elemReg);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
         store(var_stmt->declarations[0].id, elemReg);
+        if (get_kind(var_stmt->kind) != BindingKind::Var) {
+            isLexical = true;
+            name = var_stmt->declarations[0].id;
+        }
     } else if (auto* expr_stmt = dynamic_cast<ExpressionStatement*>(stmt->left.get())) {
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(expr_stmt->expression.get())) {
@@ -3328,9 +3317,21 @@ R InterpreterTurbo::visitForOf(ForOfStatement* stmt) {
         throw std::runtime_error("For...of only supports identifier/variable statement loop variables in codegen.");
     }
     
+    if (isLexical) {
+        emit(TurboOpCode::PushLexicalEnv);
+        // copy iteration binding
+        int idx = emitConstant(Value::str(name));
+        emit(TurboOpCode::CopyIterationBinding, idx);
+        
+    }
+
     // Loop body
     stmt->body->accept(*this);
-
+    
+    if (isLexical) {
+        emit(TurboOpCode::PopLexicalEnv);
+    }
+    
     if (loopStack.back().continues.size() > 0) {
         
         for (auto& continueAddr : loopStack.back().continues) {
@@ -3403,9 +3404,8 @@ R InterpreterTurbo::visitEnumDeclaration(EnumDeclaration* stmt) {
         
     }
     
-    BindingKind enumBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
+    BindingKind enumBinding = BindingKind::Let;
     
-    declareLocal(stmt->name, enumBinding);
     declareGlobal(stmt->name, enumBinding);
     
     create(stmt->name, enumNameReg, enumBinding);
@@ -3679,57 +3679,20 @@ void InterpreterTurbo::patchSingleJump(int jumpPos) {
 }
 
 // Lookup helpers
-int InterpreterTurbo::lookupLocalSlot(const std::string& name) {
-    return paramSlot(name);
-}
 
 void InterpreterTurbo::beginScope() {
     emit(TurboOpCode::PushLexicalEnv);
-    scopeDepth++;
 }
 
 void InterpreterTurbo::endScope() {
-
+    
     emit(TurboOpCode::PopLexicalEnv);
-
-    // Pop locals declared in this scope
-    while (!locals.empty() && locals.back().depth == scopeDepth) {
-        if (locals.back().isCaptured) {
-            // Local captured by closure → close it
-            emit(TurboOpCode::CloseUpvalue);
-        } else {
-            // Normal local → just pop
-            // emit(TurboOpCode::OP_POP);
-            
-        }
-        locals.pop_back();
-    }
-    scopeDepth--;
-}
-
-int InterpreterTurbo::resolveLocal(const string& name) {
-    for (int i = (int)locals.size() - 1; i >= 0; i--) {
-        if (locals[i].name == name) {
-            return locals[i].slot_index; // return slot index
-        }
-    }
-    return -1;
-}
-
-int InterpreterTurbo::paramSlot(const string& name) {
-    return resolveLocal(name); //locals[name].slot_index;
+    
 }
 
 int InterpreterTurbo::emitConstant(const Value& v) {
     cur->constants.push_back(v);
     return (int)cur->constants.size() - 1;
-}
-
-bool InterpreterTurbo::hasLocal(const std::string& name) {
-    for (int i = (int)locals.size() - 1; i >= 0; --i) {
-        if (locals[i].name == name) return true;
-    }
-    return false;
 }
 
 int InterpreterTurbo::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
@@ -3751,7 +3714,7 @@ int InterpreterTurbo::resolveUpvalue(const string& name) {
             return addUpvalue(true,
                               localIndex,
                               name,
-                              enclosing->globals[localIndex].kind);
+                              enclosing->variables[localIndex].kind);
         }
         
         int upIndex = enclosing->resolveUpvalue(name);
@@ -3766,106 +3729,49 @@ int InterpreterTurbo::resolveUpvalue(const string& name) {
     return -1;
 }
 
-uint32_t InterpreterTurbo::getLocal(const std::string& name) {
-    for (int i = (int)locals.size() - 1; i >= 0; --i) {
-        if (locals[i].name == name) return locals[i].slot_index;
-    }
-    throw std::runtime_error("Local not found: " + name);
-}
-
 void InterpreterTurbo::resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames) {
-    locals.clear();
-    nextLocalSlot = 0;
-    for (uint32_t i = 0; i < paramCount; ++i) {
-        string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
-        Local local {
-            name,
-            /*depth=*/1,
-            /*isCaptured=*/false,
-            (uint32_t)i,
-            BindingKind::Let
-        }; // usually scopeDepth=1 for params
-        locals.push_back(local);
-        nextLocalSlot = i + 1;
-    }
-    
-    if (cur) cur->maxLocals = nextLocalSlot;
-}
-
-void InterpreterTurbo::declareLocal(const string& name, BindingKind kind) {
-    return;
-    if (scopeDepth == 0) return; // globals aren’t locals
-
-    // prevent shadowing in same scope
-    for (int i = (int)locals.size() - 1; i >= 0; i--) {
-        if (locals[i].depth != -1 && locals[i].depth < scopeDepth) break;
-        if (locals[i].name == name) {
-            throw runtime_error("Variable already declared in this scope");
-        }
-    }
-
-    uint32_t idx = (uint32_t)locals.size();
-
-    Local local { name, scopeDepth, false, (uint32_t)locals.size(), kind };
-    locals.push_back(local);
-    
-    if (idx + 1 > cur->maxLocals) cur->maxLocals = idx + 1;
-
+//    locals.clear();
+//    nextLocalSlot = 0;
+//    for (uint32_t i = 0; i < paramCount; ++i) {
+//        string name = (i < paramNames.size()) ? paramNames[i] : ("_p" + std::to_string(i));
+//        Local local {
+//            name,
+//            /*depth=*/1,
+//            /*isCaptured=*/false,
+//            (uint32_t)i,
+//            BindingKind::Let
+//        }; // usually scopeDepth=1 for params
+//        locals.push_back(local);
+//        nextLocalSlot = i + 1;
+//    }
+//    
+//    if (cur) cur->maxLocals = nextLocalSlot;
 }
 
 void InterpreterTurbo::declareGlobal(const string& name, BindingKind kind) {
     
     // if (scopeDepth > 0) return; // locals aren’t globals
 
-    for (int i = (int)globals.size() - 1; i >= 0; i--) {
-        if (globals[i].name == name) {
+    for (int i = (int)variables.size() - 1; i >= 0; i--) {
+        if (variables[i].name == name) {
             throw runtime_error("Variable " + name +" already declared in this scope");
         }
     }
 
-    Global global { name, kind };
-    globals.push_back(global);
+    Variable global { name, kind };
+    variables.push_back(global);
     
 }
 
 void InterpreterTurbo::declareVariableScoping(const string& name, BindingKind kind) {
     
-    // do not declare as local if Var and its not inside a function body
-    // do not declare as local if its var and the scopedepth is > 0
-
-    // --------- let scoping check-----------
-//    bool IsVar = (kind == BindingKind::Var) ? true : false;
-//    
-//    if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
-//        
-//        int previousScopeDepth = scopeDepth;
-//        scopeDepth = 0;
-//        declareGlobal(name, kind);
-//        scopeDepth = previousScopeDepth;
-//
-//        return;
-//    }
-//    
-//    if (enclosing) {
-//        if (IsVar) {
-//            declareLocal(name, (kind));
-//            int idx = resolveLocal(name);
-//            locals[idx].depth = locals[idx].depth - 1;
-//            return;
-//        }
-//    }
-    // --------- end of let scoping check-----------
-    
-    declareLocal(name, (kind));
     declareGlobal(name, (kind));
     
-    // if the current scope depth is greater than 0, we must declare local
-
 }
 
 int InterpreterTurbo::lookupGlobal(const string& name) {
-    for (int i = (int)globals.size() - 1; i >= 0; i--) {
-        if (globals[i].name == name) {
+    for (int i = (int)variables.size() - 1; i >= 0; i--) {
+        if (variables[i].name == name) {
             return i;
         }
     }

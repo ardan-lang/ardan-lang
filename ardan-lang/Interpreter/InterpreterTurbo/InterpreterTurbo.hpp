@@ -128,15 +128,7 @@ class InterpreterTurbo : public ExpressionVisitor, public StatementVisitor {
         BindingKind kind;
     };
 
-    struct Local {
-        string name;
-        int depth;        // scope depth
-        bool isCaptured;  // true if used by an inner function
-        uint32_t slot_index;
-        BindingKind kind;
-    };
-
-    struct Global {
+    struct Variable {
         string name;
         BindingKind kind;
     };
@@ -144,9 +136,6 @@ class InterpreterTurbo : public ExpressionVisitor, public StatementVisitor {
 private:
     TurboVM* vm;
     shared_ptr<TurboChunk> cur; // current chunk being emitted
-    // locals map for current function: name -> slot index
-    // unordered_map<string, uint32_t> locals;
-    int scopeDepth = 0;
     InterpreterTurbo* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
     R store(string decl, uint32_t reg_slot);
@@ -177,7 +166,6 @@ private:
     void emitLoop(uint32_t loopStart);
     uint32_t makeLocal(const string &name); // allocate a local slot
     bool hasLocal(const string &name);
-    uint32_t getLocal(const string &name);
     void resetLocalsForFunction(uint32_t paramCount, const vector<string>& paramNames);
     
     int emitTryPlaceholder();
@@ -186,11 +174,7 @@ private:
     void patchTryCatch(int tryPos, int target);
     
     void declareVariableScoping(const std::string& name, BindingKind kind);
-    void declareLocal(const string& name, BindingKind kind);
     void emitSetLocal(int slot);
-    int paramSlot(const string& name);
-    int resolveLocal(const string& name);
-    int lookupLocalSlot(const std::string& name);
     
     void declareGlobal(const string& name, BindingKind kind);
     int lookupGlobal(const string& name);
@@ -230,8 +214,7 @@ public:
     shared_ptr<TurboModule> module_;
     int nextRegister = 0;
     
-    vector<Local> locals;
-    vector<Global> globals;
+    vector<Variable> variables;
     uint32_t nextLocalSlot = 0;
     vector<UpvalueMeta> upvalues;
     

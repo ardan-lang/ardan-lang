@@ -62,19 +62,18 @@ void InterpreterTurboVM::init_builtins() {
 }
 
 Value InterpreterTurboVM::getVariable(const string& key) const {
-    Value value = toValue(executionCtx->lexicalEnv->getValueWithoutThrow(key));
+    R value = (executionCtx->lexicalEnv->getValueWithoutThrow(key));
     
-    if (value.type != ValueType::UNDEFINED) {
-        return value;
+    if (std::holds_alternative<std::nullptr_t>(value)) {
+        value = (executionCtx->variableEnv->getValueWithoutThrow(key));
+        
+        if (std::holds_alternative<std::nullptr_t>(value)) {
+            throw runtime_error("Undefined variable: " + key);
+        }
     }
     
-    value = toValue(executionCtx->variableEnv->getValueWithoutThrow(key));
+    return toValue(value);
     
-    if (value.type != ValueType::UNDEFINED) {
-        return value;
-    }
-    
-    throw runtime_error("Undefined variable: " + key);
 }
 
 void InterpreterTurboVM::putVariable(const string& key, Value v) const {
@@ -567,7 +566,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 string name = name_val.stringValue;
                 
                 /*env->set_let*/executionCtx
-                    ->lexicalEnv->set_var(name, frame->registers[data_reg]);
+                    ->lexicalEnv->set_let(name, frame->registers[data_reg]);
                 
                 break;
             }
@@ -943,7 +942,8 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 Value val = frame->chunk->constants[idx];
                 string name = val.stringValue;
 
-                env->set_let(name, frame->registers[reg_slot]);
+                // env->set_let(name, frame->registers[reg_slot]);
+                putVariable(name, frame->registers[reg_slot]);
 
                 break;
             }
@@ -1760,6 +1760,13 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::Halt:
                 return Value::undefined();
                 break;
+                
+            case TurboOpCode::CopyIterationBinding: {
+                Value name_value = frame->chunk->constants[instruction.a];
+                R prev = executionCtx->lexicalEnv->parent->getValue(name_value.toString());
+                executionCtx->lexicalEnv->set_let(name_value.toString(), toValue(prev));
+                break;
+            }
                 
             case TurboOpCode::PushLexicalEnv: {
                 
