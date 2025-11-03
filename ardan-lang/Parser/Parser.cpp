@@ -93,14 +93,14 @@ unique_ptr<Statement> Parser::parseIfStatement() {
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'");
     auto test = parseExpression();
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after if condition");
-    auto consequent = parseStatement();
+    auto consequent = parseBlockStatement();
 
     unique_ptr<Statement> alternate = nullptr;
     if (matchKeyword("ELSE")) {
         if (checkKeyword("IF")) {
             alternate = parseIfStatement();
         } else {
-            alternate = parseStatement();
+            alternate = parseBlockStatement();
         }
     }
 
@@ -119,7 +119,7 @@ unique_ptr<Statement> Parser::parseWhileStatement() {
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'");
     auto test = parseExpression();
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
-    auto body = parseStatement();
+    auto body = parseBlockStatement();
     return make_unique<WhileStatement>(std::move(test), std::move(body));
 }
 
@@ -196,7 +196,7 @@ unique_ptr<Statement> Parser::parseTraditionalForStatement(unique_ptr<Statement>
     }
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
 
-    auto body = parseStatement();
+    auto body = parseBlockStatement();
 
     return make_unique<ForStatement>(std::move(init), std::move(test), std::move(update), std::move(body));
 
@@ -211,7 +211,7 @@ unique_ptr<Statement> Parser::parseForInStatement(unique_ptr<Statement>& init) {
 
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')'");
     
-    auto body = parseStatement();
+    auto body = parseBlockStatement();
 
     return make_unique<ForInStatement>(std::move(init),
                                        std::move(objectExpr),
@@ -227,7 +227,7 @@ unique_ptr<Statement> Parser::parseForOfStatement(unique_ptr<Statement>& init) {
     auto iterableExpr = parseExpression();
 
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after iterable");
-    auto body = parseStatement();
+    auto body = parseBlockStatement();
 
     return make_unique<ForOfStatement>(std::move(init),
                                        std::move(iterableExpr),
@@ -392,7 +392,7 @@ unique_ptr<Statement> Parser::parseContinueStatement() {
 // ---------------------
 unique_ptr<Statement> Parser::parseDoWhileStatement() {
     consumeKeyword("DO");
-    auto body = parseStatement();
+    auto body = parseBlockStatement();
     consumeKeyword("WHILE", "Expect 'while' after do-while body.");
     consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after while.");
     auto condition = parseExpression();
