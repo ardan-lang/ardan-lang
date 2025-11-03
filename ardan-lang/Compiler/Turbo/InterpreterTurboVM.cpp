@@ -76,7 +76,7 @@ Value InterpreterTurboVM::getVariable(const string& key) const {
     
 }
 
-void InterpreterTurboVM::putVariable(const string& key, Value v) const {
+void InterpreterTurboVM::putVariable(const string& key, const Value& v) const {
     
     Env* target = executionCtx->lexicalEnv->resolveBinding(key, executionCtx->lexicalEnv.get());
     if (target) {
@@ -91,34 +91,6 @@ void InterpreterTurboVM::putVariable(const string& key, Value v) const {
         return;
     }
 
-}
-
-shared_ptr<Upvalue> InterpreterTurboVM::captureUpvalue(Value* local) {
-    Upvalue* prev = nullptr;
-    Upvalue* up = openUpvalues;
-    while (up && up->location > local) {
-        prev = up;
-        up = up->next;
-    }
-    if (up && up->location == local) {
-        // Return shared_ptr wrapping the existing raw pointer - dangerous if we don't manage lifetime properly
-        // But for now, assume we keep lifetime with shared_ptr elsewhere
-        // We'll create a shared_ptr aliasing same pointer
-        return std::shared_ptr<Upvalue>(up, [](Upvalue*){}); // no-op deleter
-    }
-    auto created = std::make_shared<Upvalue>();
-    created->location = local;
-    created->next = up;
-    if (prev) prev->next = created.get(); else openUpvalues = created.get();
-    return created;
-}
-
-void InterpreterTurboVM::closeUpvalues(Value* last) {
-    while (openUpvalues && openUpvalues->location >= last) {
-        openUpvalues->closed = *openUpvalues->location;
-        openUpvalues->location = &openUpvalues->closed;
-        openUpvalues = openUpvalues->next;
-    }
 }
 
 Instruction InterpreterTurboVM::readInstruction() {
@@ -340,7 +312,7 @@ shared_ptr<JSObject> InterpreterTurboVM::createJSObject(shared_ptr<JSClass> klas
 
 }
 
-void InterpreterTurboVM::CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object) {
+void InterpreterTurboVM::CreateObjectLiteralProperty(const Value& obj_val, const string& prop_name, const Value& object) {
     if (obj_val.type == ValueType::CLOSURE) {
         
         shared_ptr<Closure> new_closure = make_shared<Closure>();
@@ -413,7 +385,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
 
 }
 
-void InterpreterTurboVM::invokeMethod(Value obj_value, string name, vector<Value> args) {
+void InterpreterTurboVM::invokeMethod(const Value& obj_value, const string& name, const vector<Value>& args) {
     
     if (obj_value.type == ValueType::OBJECT) {
         Value constructor = obj_value.objectValue->get(name);
@@ -425,7 +397,7 @@ void InterpreterTurboVM::invokeMethod(Value obj_value, string name, vector<Value
     
 }
 
-void InterpreterTurboVM::InvokeConstructor(Value obj_value, vector<Value> args) {
+void InterpreterTurboVM::InvokeConstructor(const Value& obj_value, const vector<Value>& args) {
     
     invokeMethod(obj_value, "constructor", args);
     
@@ -1650,30 +1622,12 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
             }
                 
                 // --- Upvalue access ---
-                //case TurboOpCode::GetUpvalue: {
-//                    uint32_t idx = readUint32();
-//                    push(*frame->closure->upvalues[idx]->location);
-                //    break;
-                //}
-                //case TurboOpCode::SetUpvalue: {
-//                    uint32_t idx = readUint32();
-//                    *frame->closure->upvalues[idx]->location = pop();
-                //    break;
-                //}
-                    
             case TurboOpCode::CloseUpvalue: {
-                //                    closeUpvalues(stack.empty() ? nullptr : &stack.back());
-                //                    pop();
-                // TODO: check this works
-                closeUpvalues(nullptr);
                 break;
             }
                 
                 // LoadUpvalue, reg_slot, upvalue
             case TurboOpCode::LoadUpvalue: {
-                uint32_t idx = instruction.b;
-                //frame->registers[instruction.a] = *frame->closure->upvalues[idx]->location;
-
                 break;
             }
                 
@@ -1693,23 +1647,11 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 
                 // SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg
             case TurboOpCode::SetClosureIsLocal: {
-                //int idx = frame->registers[instruction.b].numberValue;
-                //frame->registers[instruction.c].closureValue->upvalues.push_back(captureUpvalue(&frame->locals[idx]));
                 break;
             }
 
                 // TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg
             case TurboOpCode::SetClosureIndex: {
-                
-//                int indexReg = instruction.a;
-//                int closureChunkIndexReg = instruction.b;
-//                
-//                int idx = frame->registers[indexReg].numberValue;
-//                
-//                auto up = frame->closure->upvalues[idx];
-//                
-//                frame->registers[closureChunkIndexReg].closureValue->upvalues.push_back(up);
-
                 break;
             }
                 
@@ -1831,13 +1773,26 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
     
 }
 
-Value InterpreterTurboVM::callMethod(Value callee, vector<Value>& args, Value js_object) {
+Value InterpreterTurboVM::callMethod(const Value& callee, const vector<Value>& args, const Value& js_object) {
 
     return callFunction(callee, args);
     
 }
 
-Value InterpreterTurboVM::callFunction(Value callee, const vector<Value>& args) {
+ExecutionContext* InterpreterTurboVM::createNewExecutionContext(const Value& callee) const  {
+    
+    ExecutionContext* funcCtx = new ExecutionContext();
+    funcCtx->lexicalEnv = make_shared<Env>();
+    funcCtx->lexicalEnv->setParentEnv(callee.closureValue->ctx->lexicalEnv);
+    
+    funcCtx->variableEnv = make_shared<Env>();
+    funcCtx->variableEnv->setParentEnv(callee.closureValue->ctx->variableEnv);
+    
+    return funcCtx;
+
+}
+
+Value InterpreterTurboVM::callFunction(const Value& callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
         Value result = callee.functionValue(args);
@@ -1859,12 +1814,7 @@ Value InterpreterTurboVM::callFunction(Value callee, const vector<Value>& args) 
 
         callStack.push_back(std::move(new_frame));
 
-        ExecutionContext* funcCtx = new ExecutionContext();
-        funcCtx->lexicalEnv = make_shared<Env>();
-        funcCtx->lexicalEnv->setParentEnv(callee.closureValue->ctx->lexicalEnv);
-        
-        funcCtx->variableEnv = make_shared<Env>();
-        funcCtx->variableEnv->setParentEnv(callee.closureValue->ctx->variableEnv);
+        ExecutionContext* funcCtx = createNewExecutionContext(callee);
         
         contextStack.push_back(funcCtx);
         executionCtx = contextStack.back();

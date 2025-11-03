@@ -83,7 +83,7 @@ public:
 
     InterpreterTurboVM(shared_ptr<TurboModule> module_ = nullptr);
     ~InterpreterTurboVM();
-    Value callFunction(Value callee, const vector<Value>& args);
+    Value callFunction(const Value& callee, const vector<Value>& args);
     
 private:
     shared_ptr<TurboModule> module_ = nullptr; // set at construction or by caller
@@ -96,16 +96,13 @@ private:
     Value addCtor();
     void set_js_object_closure(Value objVal);
     void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
-    void invokeConstructor(Value obj_value, vector<Value> args);
-    void invokeMethod(Value obj_value, string name, vector<Value> args);
-    Value callMethod(Value callee, vector<Value>& args, Value js_object);
-
-    Upvalue* openUpvalues = nullptr;
+    void invokeMethod(const Value& obj_value, const string& name, const vector<Value>& args);
+    Value callMethod(const Value& callee, const vector<Value>& args, const Value& js_object);
 
     // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame(CallFrame &current_frame);
     void handleRethrow();
-    bool running = true;
+
     vector<TryFrame> tryStack;
     deque<Value> argStack;
     
@@ -116,14 +113,13 @@ private:
     Instruction readInstruction();
     void init_builtins();
     Value getProperty(const Value &objVal, const string &propName);
-    void closeUpvalues(Value* last);
-    shared_ptr<Upvalue> captureUpvalue(Value* local);
     
     Value CreateInstance(Value klass);
-    void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
-    void InvokeConstructor(Value obj_value, vector<Value> args);
+    void CreateObjectLiteralProperty(const Value& obj_val, const string& prop_name, const Value& object);
+    void InvokeConstructor(const Value& obj_value, const vector<Value>& args);
     Value getVariable(const string& key) const;
-    void putVariable(const string& key, Value v) const;
+    void putVariable(const string& key, const Value& v) const;
+    ExecutionContext* createNewExecutionContext(const Value& callee) const;
     
     // UI
 //    void runCreateUIView(Instruction i);
