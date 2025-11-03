@@ -29,8 +29,11 @@ public:
     Env(Env* parent = nullptr);
     ~Env();
 
-    R getValue(const string& key);
-    
+    R getValue(const string& key) const;
+    R getValueWithoutThrow(const string& key) const;
+    R getParentValue(const string& key) const;
+    void setParentEnv(shared_ptr<Env> parent);
+
     R get(const string& key);
 
     void set_var(const string& key, R value);
@@ -68,7 +71,8 @@ public:
     shared_ptr<JSObject> this_binding;
     shared_ptr<JSObject> global_object = make_shared<JSObject>();
     void debugPrint() const;
-
+    Env* resolveBinding(const string& name, Env* env);
+    
 private:
     unordered_map<string, R> variables = {};
     unordered_map<string, R> let_variables = {};
@@ -79,8 +83,7 @@ private:
     unordered_map<string, vector<unique_ptr<Expression>>> params;
     unordered_map<string, unique_ptr<Statement>> body;
 
-    // Env* parent;
-    shared_ptr<Env> parent;
+    Env* parent;
     
 };
 

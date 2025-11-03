@@ -38,9 +38,13 @@ public:
 class BlockStatement : public Statement {
 public:
     vector<unique_ptr<Statement>> body;
+    bool standalone = false;
 
     BlockStatement(vector<unique_ptr<Statement>> body)
         : body(std::move(body)) {}
+
+    BlockStatement(vector<unique_ptr<Statement>> body, bool standalone)
+    : body(std::move(body)), standalone(standalone) {}
 
     R accept(StatementVisitor& visitor) override {
         return visitor.visitBlock(this);

@@ -1763,7 +1763,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 
             case TurboOpCode::CopyIterationBinding: {
                 Value name_value = frame->chunk->constants[instruction.a];
-                R prev = executionCtx->lexicalEnv->parent->getValue(name_value.toString());
+                R prev = executionCtx->lexicalEnv->getParentValue(name_value.toString());
                 executionCtx->lexicalEnv->set_let(name_value.toString(), toValue(prev));
                 break;
             }
@@ -1772,7 +1772,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 
                 ExecutionContext* ctx = new ExecutionContext();
                 ctx->lexicalEnv = make_shared<Env>();
-                ctx->lexicalEnv->parent = executionCtx->lexicalEnv;
+                ctx->lexicalEnv->setParentEnv(executionCtx->lexicalEnv);
                 ctx->variableEnv = executionCtx->variableEnv;
                 
                 // ctx.lexicalEnv->parent = executionCtx.lexicalEnv;
@@ -1856,9 +1856,11 @@ Value InterpreterTurboVM::callFunction(Value callee, const vector<Value>& args) 
 
         ExecutionContext* funcCtx = new ExecutionContext();
         funcCtx->lexicalEnv = make_shared<Env>();
-        funcCtx->lexicalEnv->parent = callee.closureValue->ctx->lexicalEnv;
+        funcCtx->lexicalEnv->setParentEnv(callee.closureValue->ctx->lexicalEnv);
+        
         funcCtx->variableEnv = make_shared<Env>();
-        funcCtx->variableEnv->parent = callee.closureValue->ctx->variableEnv;
+        funcCtx->variableEnv->setParentEnv(callee.closureValue->ctx->variableEnv);
+        
         contextStack.push_back(funcCtx);
         executionCtx = contextStack.back();
 

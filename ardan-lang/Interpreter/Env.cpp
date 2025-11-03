@@ -13,7 +13,7 @@ Env::Env(Env* parent) : parent(parent) {}
 
 Env::~Env() {}
 
-R Env::getValue(const string& key) {
+R Env::getValue(const string& key) const {
     auto it = variables.find(key);
     if (it != variables.end()) {
         return it->second;
@@ -33,6 +33,41 @@ R Env::getValue(const string& key) {
 
     if (parent) return parent->getValue(key);
     throw runtime_error("Undefined variable: " + key);
+}
+
+R Env::getParentValue(const string& key) const {
+    if (parent) {
+        return parent->getValue(key);
+    }
+    throw runtime_error("Undefined variable in parent env: " + key);
+}
+
+void Env::setParentEnv(shared_ptr<Env> _parent) {
+    parent = _parent.get();
+}
+
+R Env::getValueWithoutThrow(const string& key) const {
+    auto it = variables.find(key);
+    if (it != variables.end()) {
+        return it->second;
+    }
+
+    // search in let.
+    auto it_let = let_variables.find(key);
+    if (it_let != let_variables.end()) {
+        return it_let->second;
+    }
+    
+    // search in const.
+    auto it_const = const_variables.find(key);
+    if (it_const != const_variables.end()) {
+        return it_const->second;
+    }
+
+    if (parent) return parent->getValueWithoutThrow(key);
+    
+    return nullptr;
+    
 }
 
 R Env::get_var_value(const string& key) {
@@ -285,4 +320,14 @@ void Env::debugPrint() const {
     }
 
     cout << "========================\n";
+}
+
+Env* Env::resolveBinding(const string& name, Env* env) {
+    if (env->variables.count(name) ||
+        env->let_variables.count(name) ||
+        env->const_variables.count(name)) {
+        return env;
+    }
+    if (env->parent) return resolveBinding(name, env->parent);
+    return nullptr;
 }
