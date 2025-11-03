@@ -347,6 +347,7 @@ void InterpreterTurboVM::CreateObjectLiteralProperty(Value obj_val, string prop_
         new_closure->fn = obj_val.closureValue->fn;
         new_closure->upvalues = obj_val.closureValue->upvalues;
         new_closure->js_object = object.objectValue;
+        new_closure->ctx = obj_val.closureValue->ctx;
 
         object.objectValue->set(prop_name, Value::closure(new_closure), "VAR", { "public" });
 
@@ -368,6 +369,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
             new_closure->fn = protoProp.second.value.closureValue->fn;
             new_closure->upvalues = protoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
+            new_closure->ctx = protoProp.second.value.closureValue->ctx;
 
             obj->set(protoProp.first, Value::closure(new_closure), "VAR", protoProp.second.modifiers);
 
@@ -392,6 +394,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
             new_closure->fn = constProtoProp.second.value.closureValue->fn;
             new_closure->upvalues = constProtoProp.second.value.closureValue->upvalues;
             new_closure->js_object = obj;
+            new_closure->ctx = constProtoProp.second.value.closureValue->ctx;
 
             obj->set(constProtoProp.first, Value::closure(new_closure), "CONST", {});
 
@@ -466,7 +469,9 @@ Value InterpreterTurboVM::addCtor() {
     shared_ptr<Closure> new_closure = make_shared<Closure>();
     new_closure->fn = fnObj;
     new_closure->upvalues = {};
-    
+    shared_ptr<ExecutionContext> ctx = make_shared<ExecutionContext>();
+    new_closure->ctx = ctx;
+
     return Value::closure(new_closure);
 
 }

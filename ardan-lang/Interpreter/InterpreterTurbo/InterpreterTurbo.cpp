@@ -807,7 +807,7 @@ R InterpreterTurbo::visitNew(NewExpression* expr) {
 
     }
     
-    throw runtime_error("New must be called on an exting class.");
+    throw runtime_error("New must be called on an existing class.");
     
 }
 
@@ -1365,26 +1365,26 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
     // closure_info.ci = ci;
     // closure_info.upvalues = nested.upvalues;
 
-    for (auto& uv : nested.upvalues) {
-        
-        // emitUint8(uv.isLocal ? 1 : 0);
-        // emitUint8(uv.index);
-        
-        int isLocalReg = allocRegister();
-        int indexReg = allocRegister();
-        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-
-        if (uv.isLocal) {
-            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-        } else {
-            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-        }
-        
-        freeRegister(isLocalReg);
-        freeRegister(indexReg);
-
-    }
+//    for (auto& uv : nested.upvalues) {
+//        
+//        // emitUint8(uv.isLocal ? 1 : 0);
+//        // emitUint8(uv.index);
+//        
+//        int isLocalReg = allocRegister();
+//        int indexReg = allocRegister();
+//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+//
+//        if (uv.isLocal) {
+//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+//        } else {
+//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+//        }
+//        
+//        freeRegister(isLocalReg);
+//        freeRegister(indexReg);
+//
+//    }
 
     // gather createclosure info for dissaemble
     // closure_infos[to_string(ci)] = closure_info;
@@ -1681,25 +1681,25 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     // closure_info.upvalues = nested.upvalues;
 
     // Emit upvalue descriptors
-    for (auto& uv : nested.upvalues) {
-        // emitUint8(uv.isLocal ? 1 : 0);
-        // emitUint8(uv.index);
-
-        int isLocalReg = allocRegister();
-        int indexReg = allocRegister();
-        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-
-        if (uv.isLocal) {
-            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-        } else {
-            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-        }
-        
-        freeRegister(isLocalReg);
-        freeRegister(indexReg);
-
-    }
+//    for (auto& uv : nested.upvalues) {
+//        // emitUint8(uv.isLocal ? 1 : 0);
+//        // emitUint8(uv.index);
+//
+//        int isLocalReg = allocRegister();
+//        int indexReg = allocRegister();
+//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+//
+//        if (uv.isLocal) {
+//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+//        } else {
+//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+//        }
+//        
+//        freeRegister(isLocalReg);
+//        freeRegister(indexReg);
+//
+//    }
     
     // Bind function to its name in the global environment
 
@@ -1903,25 +1903,25 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
     emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
 
     // Emit upvalue descriptors
-    for (auto& uv : nested.upvalues) {
-//        emitUint8(uv.isLocal ? 1 : 0);
-//        emitUint8(uv.index);
-        
-        int isLocalReg = allocRegister();
-        int indexReg = allocRegister();
-        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-
-        if (uv.isLocal) {
-            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-        } else {
-            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-        }
-        
-        freeRegister(isLocalReg);
-        freeRegister(indexReg);
-
-    }
+//    for (auto& uv : nested.upvalues) {
+////        emitUint8(uv.isLocal ? 1 : 0);
+////        emitUint8(uv.index);
+//        
+//        int isLocalReg = allocRegister();
+//        int indexReg = allocRegister();
+//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+//
+//        if (uv.isLocal) {
+//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+//        } else {
+//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+//        }
+//        
+//        freeRegister(isLocalReg);
+//        freeRegister(indexReg);
+//
+//    }
     
     // Bind function to its name in the global environment
 //    if (scopeDepth == 0) {
@@ -2148,7 +2148,7 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
     InterpreterTurbo nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<TurboChunk>();
-    nested.beginScope();
+    // nested.beginScope();
     nested.classInfo = classInfo;
     nested.classes = classes;
 
@@ -2418,25 +2418,25 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
     emit(TurboOpCode::CreateClosure, closureChunkIndexReg);
     emit(TurboOpCode::SetExecutionContext, closureChunkIndexReg);
 
-    for (auto& uv : nested.upvalues) {
-        // emitUint8(uv.isLocal ? 1 : 0);
-        // emitUint8(uv.index);
-        
-        int isLocalReg = allocRegister();
-        int indexReg = allocRegister();
-        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
-        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
-
-        if (uv.isLocal) {
-            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
-        } else {
-            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
-        }
-        
-        freeRegister(isLocalReg);
-        freeRegister(indexReg);
-
-    }
+//    for (auto& uv : nested.upvalues) {
+//        // emitUint8(uv.isLocal ? 1 : 0);
+//        // emitUint8(uv.index);
+//        
+//        int isLocalReg = allocRegister();
+//        int indexReg = allocRegister();
+//        emit(TurboOpCode::LoadConst, indexReg, emitConstant(Value(uv.index)));
+//        emit(TurboOpCode::LoadConst, isLocalReg, emitConstant(Value(uv.isLocal ? 1 : 0)));
+//
+//        if (uv.isLocal) {
+//            emit(TurboOpCode::SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg);
+//        } else {
+//            emit(TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg);
+//        }
+//        
+//        freeRegister(isLocalReg);
+//        freeRegister(indexReg);
+//
+//    }
     
     disassembleChunk(nested.cur.get(), method.name);
     
@@ -3940,6 +3940,7 @@ size_t InterpreterTurbo::disassembleInstruction(const TurboChunk* chunk, size_t 
             
         case TurboOpCode::PushLexicalEnv: opName = "PushLexicalEnv"; break;
         case TurboOpCode::PopLexicalEnv: opName = "PopLexicalEnv"; break;
+        case TurboOpCode::SetExecutionContext: opName = "SetExecutionContext"; break;
 
 
         // Add more opcodes as needed
