@@ -28,7 +28,7 @@ unique_ptr<Statement> Parser::parseStatement() {
 
     switch (token.type) {
         case TokenType::SEMI_COLON:       return parseEmptyStatement();
-        case TokenType::LEFT_BRACKET:     return parseBlockStatement();
+        case TokenType::LEFT_BRACKET:     return parseBlockStatement(true);
         case TokenType::KEYWORD: {
             if (peek().lexeme == ("IF"))       return parseIfStatement();
             if (peek().lexeme == ("WHILE"))    return parseWhileStatement();
@@ -69,14 +69,14 @@ unique_ptr<Statement> Parser::parseEmptyStatement() {
 // ---------------------
 // Block Statement
 // ---------------------
-unique_ptr<Statement> Parser::parseBlockStatement() {
+unique_ptr<Statement> Parser::parseBlockStatement(bool standalone) {
     consume(TokenType::LEFT_BRACKET, "Expected '{'");
     vector<unique_ptr<Statement>> body;
     while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
         body.push_back(parseStatement());
     }
     consume(TokenType::RIGHT_BRACKET, "Expected '}'");
-    return make_unique<BlockStatement>(std::move(body));
+    return make_unique<BlockStatement>(std::move(body), standalone);
 }
 
 unique_ptr<Statement> Parser::parseExpressionStatement() {

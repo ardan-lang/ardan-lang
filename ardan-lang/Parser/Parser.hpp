@@ -31,7 +31,7 @@ private:
     // Statements declarations
     unique_ptr<Statement> parseStatement();
     unique_ptr<Statement> parseEmptyStatement();
-    unique_ptr<Statement> parseBlockStatement();
+    unique_ptr<Statement> parseBlockStatement(bool standalone = false);
     unique_ptr<Statement> parseIfStatement();
     unique_ptr<Statement> parseWhileStatement();
     
