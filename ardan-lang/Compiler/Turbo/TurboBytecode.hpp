@@ -181,10 +181,12 @@ enum class TurboOpCode : uint8_t {
     SetUIViewArgument,
     CallUIViewModifier,
     
+    // for PeregrineVM
     PushLexicalEnv,
     PopLexicalEnv,
     SetExecutionContext,
     CopyIterationBinding,
+    // end for PeregrineVM
 
     Halt
     

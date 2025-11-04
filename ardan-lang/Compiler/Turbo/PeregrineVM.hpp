@@ -1,5 +1,5 @@
 //
-//  TurboVM.hpp
+//  PeregrineVM.hpp
 //  ardan-lang
 //
 //  Created by Chidume Nnamdi on 19/09/2025.
@@ -49,7 +49,7 @@ struct ExecutionContext {
     shared_ptr<Env> variableEnv;
 };
 
-class InterpreterTurboVM : public BaseVM<InterpreterTurboVM, TurboModule, TurboChunk> {
+class PeregrineVM : public BaseVM<PeregrineVM, TurboModule, TurboChunk> {
     
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;
@@ -69,7 +69,7 @@ class InterpreterTurboVM : public BaseVM<InterpreterTurboVM, TurboModule, TurboC
     };
 
 public:
-    InterpreterTurboVM();
+    PeregrineVM();
     
     // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<TurboChunk> chunk, const vector<Value>& args = {});
@@ -79,8 +79,8 @@ public:
     ExecutionContext* executionCtx;
     EventLoop* event_loop;
 
-    InterpreterTurboVM(shared_ptr<TurboModule> module_ = nullptr);
-    ~InterpreterTurboVM();
+    PeregrineVM(shared_ptr<TurboModule> module_ = nullptr);
+    ~PeregrineVM();
     Value callFunction(const Value& callee, const vector<Value>& args);
     
 private:

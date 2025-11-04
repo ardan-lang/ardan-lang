@@ -5,22 +5,22 @@
 //  Created by Chidume Nnamdi on 19/09/2025.
 //
 
-#include "InterpreterTurboVM.hpp"
+#include "PeregrineVM.hpp"
 
-InterpreterTurboVM::InterpreterTurboVM() {
+PeregrineVM::PeregrineVM() {
     env = new Env();
     init_builtins();
 
 }
 
-InterpreterTurboVM::InterpreterTurboVM(shared_ptr<TurboModule> module_) : module_(module_) {
+PeregrineVM::PeregrineVM(shared_ptr<TurboModule> module_) : module_(module_) {
 
     env = new Env();
     init_builtins();
     
 }
 
-InterpreterTurboVM::~InterpreterTurboVM() {
+PeregrineVM::~PeregrineVM() {
     
     if (env != nullptr) {
         delete env;
@@ -36,7 +36,7 @@ InterpreterTurboVM::~InterpreterTurboVM() {
     
 }
 
-void InterpreterTurboVM::init_builtins() {
+void PeregrineVM::init_builtins() {
     
     event_loop = new EventLoop();
     
@@ -71,7 +71,7 @@ void InterpreterTurboVM::init_builtins() {
 
 }
 
-Value InterpreterTurboVM::getVariable(const string& key) const {
+Value PeregrineVM::getVariable(const string& key) const {
     R value = (executionCtx->lexicalEnv->getValueWithoutThrow(key));
     
     if (std::holds_alternative<std::nullptr_t>(value)) {
@@ -86,7 +86,7 @@ Value InterpreterTurboVM::getVariable(const string& key) const {
     
 }
 
-void InterpreterTurboVM::putVariable(const string& key, const Value& v) const {
+void PeregrineVM::putVariable(const string& key, const Value& v) const {
     
     Env* target = executionCtx->lexicalEnv->resolveBinding(key, executionCtx->lexicalEnv.get());
     if (target) {
@@ -103,13 +103,13 @@ void InterpreterTurboVM::putVariable(const string& key, const Value& v) const {
 
 }
 
-Instruction InterpreterTurboVM::readInstruction() {
+Instruction PeregrineVM::readInstruction() {
     if (frame->ip >= frame->chunk->code.size())
         throw runtime_error("Empty instruction.");
     return frame->chunk->code[frame->ip++];
 }
 
-Value InterpreterTurboVM::CreateInstance(Value klass) {
+Value PeregrineVM::CreateInstance(Value klass) {
     
     if (klass.classValue->is_native == true) {
         
@@ -143,7 +143,7 @@ Value InterpreterTurboVM::CreateInstance(Value klass) {
 
 }
 
-Value InterpreterTurboVM::getProperty(const Value &objVal, const string &propName) {
+Value PeregrineVM::getProperty(const Value &objVal, const string &propName) {
     
     if (objVal.type == ValueType::OBJECT) {
         // perform privacy check
@@ -288,7 +288,7 @@ Value InterpreterTurboVM::getProperty(const Value &objVal, const string &propNam
     return Value::undefined();
 }
 
-void InterpreterTurboVM::set_js_object_closure(Value objVal) {
+void PeregrineVM::set_js_object_closure(Value objVal) {
     if (objVal.type == ValueType::OBJECT) {
 
         //objVal.objectValue->turboVM = this;
@@ -302,7 +302,7 @@ void InterpreterTurboVM::set_js_object_closure(Value objVal) {
     }
 }
 
-shared_ptr<JSObject> InterpreterTurboVM::createJSObject(shared_ptr<JSClass> klass) {
+shared_ptr<JSObject> PeregrineVM::createJSObject(shared_ptr<JSClass> klass) {
     
     shared_ptr<JSObject> object = make_shared<JSObject>();
     //object->turboVM = this;
@@ -322,7 +322,7 @@ shared_ptr<JSObject> InterpreterTurboVM::createJSObject(shared_ptr<JSClass> klas
 
 }
 
-void InterpreterTurboVM::CreateObjectLiteralProperty(const Value& obj_val, const string& prop_name, const Value& object) {
+void PeregrineVM::CreateObjectLiteralProperty(const Value& obj_val, const string& prop_name, const Value& object) {
     if (obj_val.type == ValueType::CLOSURE) {
         
         shared_ptr<Closure> new_closure = make_shared<Closure>();
@@ -341,7 +341,7 @@ void InterpreterTurboVM::CreateObjectLiteralProperty(const Value& obj_val, const
 
 }
 
-void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
+void PeregrineVM::makeObjectInstance(Value klass, shared_ptr<JSObject> obj) {
     
     for (auto& protoProp : klass.classValue->var_proto_props) {
                 
@@ -395,7 +395,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
 
 }
 
-void InterpreterTurboVM::invokeMethod(const Value& obj_value, const string& name, const vector<Value>& args) {
+void PeregrineVM::invokeMethod(const Value& obj_value, const string& name, const vector<Value>& args) {
     
     if (obj_value.type == ValueType::OBJECT) {
         Value constructor = obj_value.objectValue->get(name);
@@ -407,7 +407,7 @@ void InterpreterTurboVM::invokeMethod(const Value& obj_value, const string& name
     
 }
 
-void InterpreterTurboVM::InvokeConstructor(const Value& obj_value, const vector<Value>& args) {
+void PeregrineVM::InvokeConstructor(const Value& obj_value, const vector<Value>& args) {
     
     invokeMethod(obj_value, "constructor", args);
     
@@ -418,7 +418,7 @@ void InterpreterTurboVM::InvokeConstructor(const Value& obj_value, const vector<
     }
 }
 
-Value InterpreterTurboVM::addCtor() {
+Value PeregrineVM::addCtor() {
 
     shared_ptr<TurboChunk> fnChunk = make_shared<TurboChunk>();
     fnChunk->arity = 0;
@@ -458,7 +458,7 @@ Value InterpreterTurboVM::addCtor() {
 
 }
 
-Value InterpreterTurboVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>& args) {
+Value PeregrineVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>& args) {
     
     auto closure = make_shared<Closure>();
 
@@ -476,7 +476,7 @@ Value InterpreterTurboVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>
     
 }
 
-Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
+Value PeregrineVM::runFrame(CallFrame &current_frame) {
     
     if (callStack.empty()) return Value::undefined();
     
@@ -1662,13 +1662,13 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
     
 }
 
-Value InterpreterTurboVM::callMethod(const Value& callee, const vector<Value>& args, const Value& js_object) {
+Value PeregrineVM::callMethod(const Value& callee, const vector<Value>& args, const Value& js_object) {
 
     return callFunction(callee, args);
     
 }
 
-ExecutionContext* InterpreterTurboVM::createNewExecutionContext(const Value& callee) const  {
+ExecutionContext* PeregrineVM::createNewExecutionContext(const Value& callee) const  {
     
     ExecutionContext* funcCtx = new ExecutionContext();
     funcCtx->lexicalEnv = make_shared<Env>();
@@ -1681,7 +1681,7 @@ ExecutionContext* InterpreterTurboVM::createNewExecutionContext(const Value& cal
 
 }
 
-Value InterpreterTurboVM::callFunction(const Value& callee, const vector<Value>& args) {
+Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) {
     
     if (callee.type == ValueType::FUNCTION) {
         Value result = callee.functionValue(args);
@@ -1771,7 +1771,7 @@ Value InterpreterTurboVM::callFunction(const Value& callee, const vector<Value>&
     
 }
 
-void InterpreterTurboVM::handleRethrow() {
+void PeregrineVM::handleRethrow() {
     // simplified: pop pending exception and re-run OP_THROW-like unwinding
 //    if (stack.empty()) { /*running = false;*/ return; }
 //    Value pending = pop();

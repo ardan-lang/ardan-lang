@@ -21,7 +21,7 @@
 #include "../Promise/Promise.hpp"
 #include "../../builtin/Server/Server.hpp"
 
-size_t InterpreterTurbo::generate(const vector<unique_ptr<Statement>> &program) {
+size_t PeregrineCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = make_shared<TurboChunk>();
     cur->name = "BYTECODE";
     emit(TurboOpCode::PushLexicalEnv);
@@ -41,11 +41,11 @@ size_t InterpreterTurbo::generate(const vector<unique_ptr<Statement>> &program) 
     return idx;
 }
 
-R InterpreterTurbo::visitExpression(ExpressionStatement* stmt) {
+R PeregrineCodeGen::visitExpression(ExpressionStatement* stmt) {
     return stmt->expression->accept(*this);
 }
 
-R InterpreterTurbo::visitBlock(BlockStatement* stmt) {
+R PeregrineCodeGen::visitBlock(BlockStatement* stmt) {
     
     if(stmt->standalone) beginScope();
     for (auto& s : stmt->body) {
@@ -56,7 +56,7 @@ R InterpreterTurbo::visitBlock(BlockStatement* stmt) {
     return 0;
 }
 
-R InterpreterTurbo::create(string decl, uint32_t reg_slot, BindingKind kind) {
+R PeregrineCodeGen::create(string decl, uint32_t reg_slot, BindingKind kind) {
     
     TurboOpCode op;
     
@@ -100,11 +100,11 @@ R InterpreterTurbo::create(string decl, uint32_t reg_slot, BindingKind kind) {
 }
 
 // moves data from reg_slot into local/global
-R InterpreterTurbo::store(string decl, uint32_t reg_slot) {
+R PeregrineCodeGen::store(string decl, uint32_t reg_slot) {
     
     // decide local or global
     
-    InterpreterTurbo::PropertyLookup classProperty = lookupClassProperty(decl);
+    PeregrineCodeGen::PropertyLookup classProperty = lookupClassProperty(decl);
     if (classProperty.level > 0 && classProperty.meta.kind == BindingKind::Const) {
         throw runtime_error("Cannot assign value to a const field.");
     }
@@ -168,12 +168,12 @@ R InterpreterTurbo::store(string decl, uint32_t reg_slot) {
 }
 
 // moves data from local/global into reg_slot
-R InterpreterTurbo::load(string decl, uint32_t reg_slot) {
+R PeregrineCodeGen::load(string decl, uint32_t reg_slot) {
     
     // decide local or global
     
     // search if decl is in class fields
-    InterpreterTurbo::PropertyLookup result = lookupClassProperty(decl);
+    PeregrineCodeGen::PropertyLookup result = lookupClassProperty(decl);
     if (result.level == 1) {
         
         // Rewrite: legs = one;  ⇒  this.legs = one;
@@ -210,7 +210,7 @@ R InterpreterTurbo::load(string decl, uint32_t reg_slot) {
     
 }
 
-R InterpreterTurbo::visitVariable(VariableStatement* stmt) {
+R PeregrineCodeGen::visitVariable(VariableStatement* stmt) {
     
     string kind = stmt->kind;
     
@@ -255,7 +255,7 @@ R InterpreterTurbo::visitVariable(VariableStatement* stmt) {
     
 }
 
-R InterpreterTurbo::visitIf(IfStatement* stmt) {
+R PeregrineCodeGen::visitIf(IfStatement* stmt) {
 
     beginScope();
 
@@ -286,7 +286,7 @@ R InterpreterTurbo::visitIf(IfStatement* stmt) {
     return 0;
 }
 
-R InterpreterTurbo::visitWhile(WhileStatement* stmt) {
+R PeregrineCodeGen::visitWhile(WhileStatement* stmt) {
     
     beginScope();
     beginLoop();
@@ -316,7 +316,7 @@ R InterpreterTurbo::visitWhile(WhileStatement* stmt) {
     return 0;
 }
 
-R InterpreterTurbo::visitFor(ForStatement* stmt) {
+R PeregrineCodeGen::visitFor(ForStatement* stmt) {
     
     bool isLexical = false;
     if (auto it_stmt = dynamic_cast<VariableStatement*>(stmt->init.get())) {
@@ -384,7 +384,7 @@ R InterpreterTurbo::visitFor(ForStatement* stmt) {
     return 0;
 }
 
-R InterpreterTurbo::visitReturn(ReturnStatement* stmt) {
+R PeregrineCodeGen::visitReturn(ReturnStatement* stmt) {
     
     uint32_t value = allocRegister();
     
@@ -401,7 +401,7 @@ R InterpreterTurbo::visitReturn(ReturnStatement* stmt) {
     
 }
 
-TurboOpCode InterpreterTurbo::getBinaryOp(const Token& op) {
+TurboOpCode PeregrineCodeGen::getBinaryOp(const Token& op) {
     
     switch (op.type) {
             // --- Arithmetic ---
@@ -444,7 +444,7 @@ TurboOpCode InterpreterTurbo::getBinaryOp(const Token& op) {
     
 }
 
-R InterpreterTurbo::visitBinary(BinaryExpression* expr) {
+R PeregrineCodeGen::visitBinary(BinaryExpression* expr) {
     switch (expr->op.type) {
         case TokenType::ASSIGN:
         case TokenType::ASSIGN_ADD:
@@ -483,7 +483,7 @@ R InterpreterTurbo::visitBinary(BinaryExpression* expr) {
     
 }
 
-void InterpreterTurbo::emitAssignment(BinaryExpression* expr) {
+void PeregrineCodeGen::emitAssignment(BinaryExpression* expr) {
     auto left = expr->left.get();
     
     // ----------- Plain assignment (=) -----------
@@ -652,31 +652,31 @@ void InterpreterTurbo::emitAssignment(BinaryExpression* expr) {
     freeRegister(lhsReg); // lhsReg if not reused
 }
 
-R InterpreterTurbo::visitLiteral(LiteralExpression* expr) {
+R PeregrineCodeGen::visitLiteral(LiteralExpression* expr) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(expr->token.lexeme));
     return reg;
 }
 
-R InterpreterTurbo::visitNumericLiteral(NumericLiteral* expr) {
+R PeregrineCodeGen::visitNumericLiteral(NumericLiteral* expr) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(toValue(expr->value))); // load from constant into reg register
     return reg;
 }
 
-R InterpreterTurbo::visitStringLiteral(StringLiteral* expr) {
+R PeregrineCodeGen::visitStringLiteral(StringLiteral* expr) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value(expr->text)));
     return reg;
 }
 
-R InterpreterTurbo::visitIdentifier(IdentifierExpression* expr) {
+R PeregrineCodeGen::visitIdentifier(IdentifierExpression* expr) {
     int reg = allocRegister();
     load(expr->name, reg);
     return reg;
 }
 
-R InterpreterTurbo::visitCall(CallExpression* expr) {
+R PeregrineCodeGen::visitCall(CallExpression* expr) {
 
     int funcReg = get<int>(expr->callee->accept(*this));
     // auto funcGuard = makeRegGuard(funcReg, *this);
@@ -720,7 +720,7 @@ R InterpreterTurbo::visitCall(CallExpression* expr) {
 }
 
 // object.property access
-R InterpreterTurbo::visitMember(MemberExpression* expr) {
+R PeregrineCodeGen::visitMember(MemberExpression* expr) {
     
     // Evaluate the object expression
     int objectReg = get<int>(expr->object->accept(*this));
@@ -753,7 +753,7 @@ R InterpreterTurbo::visitMember(MemberExpression* expr) {
     
 }
 
-R InterpreterTurbo::visitNew(NewExpression* expr) {
+R PeregrineCodeGen::visitNew(NewExpression* expr) {
     
     if (expr->arguments.size() > 255) {
         throw runtime_error("Arguments to constructor must not exceed 255.");
@@ -795,7 +795,7 @@ R InterpreterTurbo::visitNew(NewExpression* expr) {
     
 }
 
-R InterpreterTurbo::visitArray(ArrayLiteralExpression* expr) {
+R PeregrineCodeGen::visitArray(ArrayLiteralExpression* expr) {
     int arr = allocRegister();
     emit(TurboOpCode::CreateArrayLiteral, arr);
     for (auto& el : expr->elements) {
@@ -811,7 +811,7 @@ R InterpreterTurbo::visitArray(ArrayLiteralExpression* expr) {
     return arr;
 }
 
-R InterpreterTurbo::visitObject(ObjectLiteralExpression* expr) {
+R PeregrineCodeGen::visitObject(ObjectLiteralExpression* expr) {
     
     int obj = allocRegister();
     emit(TurboOpCode::CreateObjectLiteral, obj);
@@ -846,7 +846,7 @@ R InterpreterTurbo::visitObject(ObjectLiteralExpression* expr) {
     
 }
 
-R InterpreterTurbo::visitConditional(ConditionalExpression* expr) {
+R PeregrineCodeGen::visitConditional(ConditionalExpression* expr) {
     
     int finally_reg = allocRegister();
     
@@ -873,7 +873,7 @@ R InterpreterTurbo::visitConditional(ConditionalExpression* expr) {
 }
 
 // --x, ++x, !x, -x
-R InterpreterTurbo::visitUnary(UnaryExpression* expr) {
+R PeregrineCodeGen::visitUnary(UnaryExpression* expr) {
     
     if (expr->op.type == TokenType::DELETE) {
         
@@ -1002,7 +1002,7 @@ R InterpreterTurbo::visitUnary(UnaryExpression* expr) {
 }
 
 // returns old value
-R InterpreterTurbo::visitUpdate(UpdateExpression* expr) {
+R PeregrineCodeGen::visitUpdate(UpdateExpression* expr) {
     
     int lhsReg = get<int>(expr->argument->accept(*this));
     
@@ -1068,7 +1068,7 @@ R InterpreterTurbo::visitUpdate(UpdateExpression* expr) {
     
 }
 
-R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
+R PeregrineCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
     // Create a nested CodeGen for the function body
     InterpreterTurbo nested(module_);
@@ -1225,7 +1225,7 @@ R InterpreterTurbo::visitArrowFunction(ArrowFunction* expr) {
     
 }
 
-R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
+R PeregrineCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     
 //    Token token;
 //    vector<unique_ptr<Expression>> params;
@@ -1384,7 +1384,7 @@ R InterpreterTurbo::visitFunctionExpression(FunctionExpression* expr) {
     return closureChunkIndexReg;
 }
 
-R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
+R PeregrineCodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Create a nested code generator for the function body
     InterpreterTurbo nested(module_);
     nested.enclosing = this;
@@ -1545,7 +1545,7 @@ R InterpreterTurbo::visitFunction(FunctionDeclaration* stmt) {
     return true;
 }
 
-R InterpreterTurbo::visitTemplateLiteral(TemplateLiteral* expr) {
+R PeregrineCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     // Concatenate all pieces
     int reg = allocRegister();
     
@@ -1568,7 +1568,7 @@ R InterpreterTurbo::visitTemplateLiteral(TemplateLiteral* expr) {
     return reg;
 }
 
-string InterpreterTurbo::resolveImportPath(ImportDeclaration* stmt) {
+string PeregrineCodeGen::resolveImportPath(ImportDeclaration* stmt) {
     
     namespace fs = std::filesystem;
     
@@ -1586,7 +1586,7 @@ string InterpreterTurbo::resolveImportPath(ImportDeclaration* stmt) {
     
 }
 
-R InterpreterTurbo::visitImportDeclaration(ImportDeclaration* stmt) {
+R PeregrineCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     
     // Resolve the path (relative or absolute)
     std::string importPath = resolveImportPath(stmt);
@@ -1619,11 +1619,11 @@ R InterpreterTurbo::visitImportDeclaration(ImportDeclaration* stmt) {
     
 }
 
-R InterpreterTurbo::visitAssignment(AssignmentExpression* expr) {
+R PeregrineCodeGen::visitAssignment(AssignmentExpression* expr) {
     return 0;
 }
 
-R InterpreterTurbo::visitLogical(LogicalExpression* expr) {
+R PeregrineCodeGen::visitLogical(LogicalExpression* expr) {
     expr->left->accept(*this);
     int endJump = emitJump(TurboOpCode::JumpIfFalse);
     expr->right->accept(*this);
@@ -1631,24 +1631,24 @@ R InterpreterTurbo::visitLogical(LogicalExpression* expr) {
     return 0;
 }
 
-R InterpreterTurbo::visitThis(ThisExpression* expr) {
+R PeregrineCodeGen::visitThis(ThisExpression* expr) {
     int this_reg = allocRegister();
     emit(TurboOpCode::GetThis, this_reg);
     return this_reg;
 }
 
-R InterpreterTurbo::visitSuper(SuperExpression* expr) {
+R PeregrineCodeGen::visitSuper(SuperExpression* expr) {
     int parent_reg = allocRegister();
     emit(TurboOpCode::GetParentObject, parent_reg);
     return parent_reg;
 }
 
-R InterpreterTurbo::visitProperty(PropertyExpression* expr) {
+R PeregrineCodeGen::visitProperty(PropertyExpression* expr) {
     // see Member visitor
     return 0;
 }
 
-R InterpreterTurbo::visitSequence(SequenceExpression* expr) {
+R PeregrineCodeGen::visitSequence(SequenceExpression* expr) {
     int last_seq_reg = -1;
     for (auto& seq : expr->expressions) {
         last_seq_reg = get<int>(seq->accept(*this));
@@ -1656,39 +1656,39 @@ R InterpreterTurbo::visitSequence(SequenceExpression* expr) {
     return last_seq_reg;
 }
 
-R InterpreterTurbo::visitFalseKeyword(FalseKeyword* expr) {
+R PeregrineCodeGen::visitFalseKeyword(FalseKeyword* expr) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::boolean(false)));
     return reg;
 }
 
-R InterpreterTurbo::visitTrueKeyword(TrueKeyword* expr) {
+R PeregrineCodeGen::visitTrueKeyword(TrueKeyword* expr) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::boolean(true)));
     return reg;
 }
 
-R InterpreterTurbo::visitPublicKeyword(PublicKeyword*) { return 0; }
-R InterpreterTurbo::visitPrivateKeyword(PrivateKeyword*) { return 0; }
-R InterpreterTurbo::visitProtectedKeyword(ProtectedKeyword*) { return 0; }
-R InterpreterTurbo::visitStaticKeyword(StaticKeyword*) { return 0; }
-R InterpreterTurbo::visitRestParameter(RestParameter*) { return 0; }
+R PeregrineCodeGen::visitPublicKeyword(PublicKeyword*) { return 0; }
+R PeregrineCodeGen::visitPrivateKeyword(PrivateKeyword*) { return 0; }
+R PeregrineCodeGen::visitProtectedKeyword(ProtectedKeyword*) { return 0; }
+R PeregrineCodeGen::visitStaticKeyword(StaticKeyword*) { return 0; }
+R PeregrineCodeGen::visitRestParameter(RestParameter*) { return 0; }
 
-R InterpreterTurbo::visitNullKeyword(NullKeyword*) {
+R PeregrineCodeGen::visitNullKeyword(NullKeyword*) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::nullVal()));
     return reg;
 }
 
-R InterpreterTurbo::visitUndefinedKeyword(UndefinedKeyword*) {
+R PeregrineCodeGen::visitUndefinedKeyword(UndefinedKeyword*) {
     int reg = allocRegister();
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::undefined()));
     return reg;
 }
 
-R InterpreterTurbo::visitAwaitExpression(AwaitExpression*) { return 0; }
+R PeregrineCodeGen::visitAwaitExpression(AwaitExpression*) { return 0; }
 
-R InterpreterTurbo::visitBreak(BreakStatement*) {
+R PeregrineCodeGen::visitBreak(BreakStatement*) {
     // Usually: emit a jump to end of current loop
     if (loopStack.empty()) {
         throw ("Break outside loop");
@@ -1700,7 +1700,7 @@ R InterpreterTurbo::visitBreak(BreakStatement*) {
     return true;
 }
 
-R InterpreterTurbo::visitContinue(ContinueStatement*) {
+R PeregrineCodeGen::visitContinue(ContinueStatement*) {
 
     if (loopStack.empty()) {
         throw ("Continue outside loop");
@@ -1718,9 +1718,9 @@ R InterpreterTurbo::visitContinue(ContinueStatement*) {
     return true;
 }
 
-R InterpreterTurbo::visitEmpty(EmptyStatement*) { return 0; }
+R PeregrineCodeGen::visitEmpty(EmptyStatement*) { return 0; }
 
-InterpreterTurbo::PropertyLookup InterpreterTurbo::lookupClassProperty(string prop_name) {
+PeregrineCodeGen::PropertyLookup PeregrineCodeGen::lookupClassProperty(string prop_name) {
     
     if(classInfo.fields.count(prop_name)) {
         return { 1, classInfo.fields[prop_name] };
@@ -1736,7 +1736,7 @@ InterpreterTurbo::PropertyLookup InterpreterTurbo::lookupClassProperty(string pr
     return { -1 , {} };
 }
 
-int InterpreterTurbo::compileMethod(MethodDefinition& method) {
+int PeregrineCodeGen::compileMethod(MethodDefinition& method) {
     // Create a nested CodeGen for the method body (closure)
     InterpreterTurbo nested(module_);
     nested.enclosing = this;
@@ -1932,7 +1932,7 @@ int InterpreterTurbo::compileMethod(MethodDefinition& method) {
 
 }
 
-R InterpreterTurbo::visitClass(ClassDeclaration* stmt) {
+R PeregrineCodeGen::visitClass(ClassDeclaration* stmt) {
         
     classInfo.name = stmt->id;
 
@@ -2212,7 +2212,7 @@ R InterpreterTurbo::visitClass(ClassDeclaration* stmt) {
     return true;
 }
 
-R InterpreterTurbo::visitClassExpression(ClassExpression* stmt) {
+R PeregrineCodeGen::visitClassExpression(ClassExpression* stmt) {
     
     classInfo.name = stmt->name;
     
@@ -2487,9 +2487,9 @@ R InterpreterTurbo::visitClassExpression(ClassExpression* stmt) {
     
 }
 
-R InterpreterTurbo::visitMethodDefinition(MethodDefinition*) { return 0; }
+R PeregrineCodeGen::visitMethodDefinition(MethodDefinition*) { return 0; }
 
-R InterpreterTurbo::visitDoWhile(DoWhileStatement* stmt) {
+R PeregrineCodeGen::visitDoWhile(DoWhileStatement* stmt) {
     
     beginLoop();
     beginScope();
@@ -2528,7 +2528,7 @@ R InterpreterTurbo::visitDoWhile(DoWhileStatement* stmt) {
 
 }
 
-R InterpreterTurbo::visitSwitchCase(SwitchCase* stmt) {
+R PeregrineCodeGen::visitSwitchCase(SwitchCase* stmt) {
     // Each case's test should have already been checked in visitSwitch
     // Emit the body of this case
     for (auto& s : stmt->consequent) {
@@ -2537,7 +2537,7 @@ R InterpreterTurbo::visitSwitchCase(SwitchCase* stmt) {
     return true;
 }
 
-R InterpreterTurbo::visitSwitch(SwitchStatement* stmt) {
+R PeregrineCodeGen::visitSwitch(SwitchStatement* stmt) {
     
     beginScope();
     beginLoop();
@@ -2584,19 +2584,19 @@ R InterpreterTurbo::visitSwitch(SwitchStatement* stmt) {
     return true;
 }
 
-R InterpreterTurbo::visitThrow(ThrowStatement* stmt) {
+R PeregrineCodeGen::visitThrow(ThrowStatement* stmt) {
     int arg_reg = get<int>(stmt->argument->accept(*this));
     emit(TurboOpCode::Throw, arg_reg);
     freeRegister(arg_reg);
     return 0;
 }
 
-R InterpreterTurbo::visitCatch(CatchClause* stmt) {
+R PeregrineCodeGen::visitCatch(CatchClause* stmt) {
     stmt->body->accept(*this);
     return true;
 }
 
-R InterpreterTurbo::visitTry(TryStatement* stmt) {
+R PeregrineCodeGen::visitTry(TryStatement* stmt) {
     
     // Mark start of try
     int ex_val_reg = allocRegister();
@@ -2647,7 +2647,7 @@ R InterpreterTurbo::visitTry(TryStatement* stmt) {
     
 }
 
-R InterpreterTurbo::visitForIn(ForInStatement* stmt) {
+R PeregrineCodeGen::visitForIn(ForInStatement* stmt) {
 
     beginScope();
     beginLoop();
@@ -2752,7 +2752,7 @@ R InterpreterTurbo::visitForIn(ForInStatement* stmt) {
     return 0;
 }
 
-R InterpreterTurbo::visitForOf(ForOfStatement* stmt) {
+R PeregrineCodeGen::visitForOf(ForOfStatement* stmt) {
     
     beginScope();
     beginLoop();
@@ -2856,7 +2856,7 @@ R InterpreterTurbo::visitForOf(ForOfStatement* stmt) {
     return 0;
 }
 
-R InterpreterTurbo::visitEnumDeclaration(EnumDeclaration* stmt) {
+R PeregrineCodeGen::visitEnumDeclaration(EnumDeclaration* stmt) {
     
     int nameIdx = emitConstant(Value::str(stmt->name));
     
@@ -2906,19 +2906,19 @@ R InterpreterTurbo::visitEnumDeclaration(EnumDeclaration* stmt) {
     
 }
 
-R InterpreterTurbo::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
+R PeregrineCodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) {
     return true;
 }
 
-R InterpreterTurbo::visitYieldExpression(YieldExpression* visitor) {
+R PeregrineCodeGen::visitYieldExpression(YieldExpression* visitor) {
     return true;
 }
 
-R InterpreterTurbo::visitSpreadExpression(SpreadExpression* expr) {
+R PeregrineCodeGen::visitSpreadExpression(SpreadExpression* expr) {
     return expr->expression->accept(*this);
 }
 
-R InterpreterTurbo::visitUIExpression(UIViewExpression* expr) {
+R PeregrineCodeGen::visitUIExpression(UIViewExpression* expr) {
     
     vector<int> args;
     for (auto& arg : expr->args) {
@@ -2966,7 +2966,7 @@ R InterpreterTurbo::visitUIExpression(UIViewExpression* expr) {
 
 // Utils
 
-void InterpreterTurbo::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
+void PeregrineCodeGen::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
                           vector<ParameterInfo>& parameterInfos
 ) {
     if (parameters) {
@@ -3007,7 +3007,7 @@ void InterpreterTurbo::collectParameterInfo(Expression* parameters, vector<strin
 }
 
 
-void InterpreterTurbo::patchContinueStatement() {
+void PeregrineCodeGen::patchContinueStatement() {
     
     if (loopStack.back().continues.size() > 0) {
         for (auto& continueAddr : loopStack.back().continues) {
@@ -3019,7 +3019,7 @@ void InterpreterTurbo::patchContinueStatement() {
 
 }
 
-int InterpreterTurbo::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
+int PeregrineCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
     
     InterpreterTurbo nested(module_);
     nested.cur = make_shared<TurboChunk>();
@@ -3058,7 +3058,7 @@ int InterpreterTurbo::recordInstanceField(const string& classId, const string& f
 
 }
 
-string InterpreterTurbo::evaluate_property(Expression* expr) {
+string PeregrineCodeGen::evaluate_property(Expression* expr) {
     if (auto member = dynamic_cast<MemberExpression*>(expr)) {
         if (member->computed) {
             return evaluate_property(member->property.get());
@@ -3076,7 +3076,7 @@ string InterpreterTurbo::evaluate_property(Expression* expr) {
 }
 
 // Try: catchOffset, finallyOffset, exception register
-int InterpreterTurbo::emitTryPlaceholder() {
+int PeregrineCodeGen::emitTryPlaceholder() {
     emit(TurboOpCode::Try);
 
     int pos = (int)cur->size() - 1;
@@ -3085,53 +3085,53 @@ int InterpreterTurbo::emitTryPlaceholder() {
     
 }
 
-void InterpreterTurbo::patchTryCatch(int tryPos, int target) {
+void PeregrineCodeGen::patchTryCatch(int tryPos, int target) {
     
     cur->code[tryPos].a = target;
         
 }
 
-void InterpreterTurbo::patchTryFinally(int tryPos, int target) {
+void PeregrineCodeGen::patchTryFinally(int tryPos, int target) {
     
     cur->code[tryPos].b = target;
     
 }
 
-void InterpreterTurbo::patchTry(int tryPos, int reg) {
+void PeregrineCodeGen::patchTry(int tryPos, int reg) {
     cur->code[tryPos].c = reg;
 }
 
-void InterpreterTurbo::emit(TurboOpCode op, int a, int b = 0, int c = 0) {
+void PeregrineCodeGen::emit(TurboOpCode op, int a, int b = 0, int c = 0) {
     if (!cur) throw std::runtime_error("No active chunk for code generation.");
     cur->code.push_back({op, (uint8_t)a, (uint8_t)b, (uint8_t)c});
 }
 
-void InterpreterTurbo::emit(TurboOpCode op, int a) {
+void PeregrineCodeGen::emit(TurboOpCode op, int a) {
     emit(op, a, 0, 0);
 }
 
-void InterpreterTurbo::emit(TurboOpCode op, int a, int b) {
+void PeregrineCodeGen::emit(TurboOpCode op, int a, int b) {
     emit(op, a, b, 0);
 }
 
-void InterpreterTurbo::emit(TurboOpCode op) {
+void PeregrineCodeGen::emit(TurboOpCode op) {
     emit(op, 0, 0, 0);
 }
 
-int InterpreterTurbo::allocRegister() {
+int PeregrineCodeGen::allocRegister() {
     return registerAllocator->alloc();
 }
 
-void InterpreterTurbo::freeRegister(uint32_t slot) {
+void PeregrineCodeGen::freeRegister(uint32_t slot) {
     registerAllocator->free(slot);
 }
 
 // Jump helpers
-void InterpreterTurbo::emitLoop(uint32_t loopStart) {
+void PeregrineCodeGen::emitLoop(uint32_t loopStart) {
     emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
 }
 
-int InterpreterTurbo::emitJump(TurboOpCode op, int cond_reg = 0) {
+int PeregrineCodeGen::emitJump(TurboOpCode op, int cond_reg = 0) {
     // Reserve space, return jump location to patch
     // Implementation depends on code buffer layout
     // Emit the jump instruction with placeholder offset
@@ -3141,55 +3141,55 @@ int InterpreterTurbo::emitJump(TurboOpCode op, int cond_reg = 0) {
     return (int)cur->code.size() - 1; // Return index of this jump instruction
 }
 
-int InterpreterTurbo::emitJump(TurboOpCode op) {
+int PeregrineCodeGen::emitJump(TurboOpCode op) {
     Instruction instr(op, 0, 0, 0); // a is offset placeholder
     cur->code.push_back(instr);
     return (int)cur->code.size() - 1; // Return index of this jump instruction
 }
 
 // for TurboCode::JumpIfFalse
-void InterpreterTurbo::patchJump(int jumpPos, int target) {
+void PeregrineCodeGen::patchJump(int jumpPos, int target) {
     // int offset = target - (jumpPos + 1);
     int offset = (target - 1) - (jumpPos);
     cur->code[jumpPos].b = (uint8_t)offset;
 }
 
 // for TurboCode::JumpIfFalse
-void InterpreterTurbo::patchJump(int jumpPos) {
+void PeregrineCodeGen::patchJump(int jumpPos) {
     int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].b = (uint8_t)offset;
 }
 
 // for TurboCode::Jump
-void InterpreterTurbo::patchSingleJump(int jumpPos) {
+void PeregrineCodeGen::patchSingleJump(int jumpPos) {
     int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].a = (uint8_t)offset;
 }
 
 // Lookup helpers
 
-void InterpreterTurbo::beginScope() {
+void PeregrineCodeGen::beginScope() {
     emit(TurboOpCode::PushLexicalEnv);
 }
 
-void InterpreterTurbo::endScope() {
+void PeregrineCodeGen::endScope() {
     
     emit(TurboOpCode::PopLexicalEnv);
     
 }
 
-int InterpreterTurbo::emitConstant(const Value& v) {
+int PeregrineCodeGen::emitConstant(const Value& v) {
     cur->constants.push_back(v);
     return (int)cur->constants.size() - 1;
 }
 
-int InterpreterTurbo::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
+int PeregrineCodeGen::addUpvalue(bool isLocal, int index, string name, BindingKind kind) {
     upvalues.push_back({isLocal, (uint32_t)index, name, kind});
     return (int)upvalues.size() - 1;
 }
 
 // resolve variable
-int InterpreterTurbo::resolveUpvalue(const string& name) {
+int PeregrineCodeGen::resolveUpvalue(const string& name) {
     if (enclosing) {
         int localIndex = enclosing->lookupGlobal(name);
         if (localIndex != -1) {
@@ -3212,7 +3212,7 @@ int InterpreterTurbo::resolveUpvalue(const string& name) {
     return -1;
 }
 
-void InterpreterTurbo::declareGlobal(const string& name, BindingKind kind) {
+void PeregrineCodeGen::declareGlobal(const string& name, BindingKind kind) {
     
     // if (scopeDepth > 0) return; // locals aren’t globals
 
@@ -3227,13 +3227,13 @@ void InterpreterTurbo::declareGlobal(const string& name, BindingKind kind) {
     
 }
 
-void InterpreterTurbo::declareVariableScoping(const string& name, BindingKind kind) {
+void PeregrineCodeGen::declareVariableScoping(const string& name, BindingKind kind) {
     
     declareGlobal(name, (kind));
     
 }
 
-int InterpreterTurbo::lookupGlobal(const string& name) {
+int PeregrineCodeGen::lookupGlobal(const string& name) {
     for (int i = (int)variables.size() - 1; i >= 0; i--) {
         if (variables[i].name == name) {
             return i;
@@ -3242,7 +3242,7 @@ int InterpreterTurbo::lookupGlobal(const string& name) {
     return -1;
 }
 
-void InterpreterTurbo::endLoop() {
+void PeregrineCodeGen::endLoop() {
     LoopContext ctx = loopStack.back();
     loopStack.pop_back();
 
@@ -3252,25 +3252,25 @@ void InterpreterTurbo::endLoop() {
     }
 }
 
-void InterpreterTurbo::beginLoop() {
+void PeregrineCodeGen::beginLoop() {
     LoopContext ctx;
     ctx.loopStart = (int)cur->code.size();
     loopStack.push_back(ctx);
 }
 
-InterpreterTurbo::BindingKind InterpreterTurbo::get_kind(string kind) {
-    if (kind == "CONST") {
+PeregrineCodeGen::BindingKind PeregrineCodeGen::get_kind(string kind) {
+    if (kind == CONST) {
         return BindingKind::Const;
     }
     
-    if (kind == "LET") {
+    if (kind == LET) {
         return BindingKind::Let;
     }
     
     return BindingKind::Var;
 }
 
-bool InterpreterTurbo::isModuleLoaded(string importPath) {
+bool PeregrineCodeGen::isModuleLoaded(string importPath) {
     
     for (auto& module_ : registered_modules) {
         if (module_ == importPath) {
@@ -3282,11 +3282,11 @@ bool InterpreterTurbo::isModuleLoaded(string importPath) {
 
 }
 
-void InterpreterTurbo::registerModule(string importPath) {
+void PeregrineCodeGen::registerModule(string importPath) {
     registered_modules.push_back(importPath);
 }
 
-size_t InterpreterTurbo::disassembleInstruction(const TurboChunk* chunk, size_t offset) {
+size_t PeregrineCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offset) {
     if (offset >= chunk->code.size()) return offset + 1;
 
     const Instruction& instr = chunk->code[offset];
@@ -3429,7 +3429,7 @@ size_t InterpreterTurbo::disassembleInstruction(const TurboChunk* chunk, size_t 
     return offset + 1;
 }
 
-void InterpreterTurbo::disassembleChunk(const TurboChunk* chunk, const std::string& name) {
+void PeregrineCodeGen::disassembleChunk(const TurboChunk* chunk, const std::string& name) {
     std::cout << "== " << name << " ==\n";
     for (size_t offset = 0; offset < chunk->code.size();) {
         offset = disassembleInstruction(chunk, offset);

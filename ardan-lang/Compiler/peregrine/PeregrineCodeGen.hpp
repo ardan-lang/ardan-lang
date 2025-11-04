@@ -36,7 +36,7 @@ using std::unordered_map;
 using std::string;
 using std::vector;
 
-class InterpreterTurbo : public ExpressionVisitor, public StatementVisitor {
+class PeregrineCodeGen : public ExpressionVisitor, public StatementVisitor {
 
     class RegisterAllocator {
         uint32_t nextReg = 0; // reserve 0 for special uses if needed
@@ -205,14 +205,13 @@ private:
     Token createToken(TokenType type);
 
 public:
-    InterpreterTurbo();
-    InterpreterTurbo(shared_ptr<TurboModule> m) : module_(m), cur(nullptr), nextLocalSlot(0) {}
+    PeregrineCodeGen();
+    PeregrineCodeGen(shared_ptr<TurboModule> m) : module_(m), cur(nullptr) {}
     
     shared_ptr<TurboModule> module_;
     int nextRegister = 0;
     
     vector<Variable> variables;
-    uint32_t nextLocalSlot = 0;
     vector<UpvalueMeta> upvalues;
     
     int allocRegister();
