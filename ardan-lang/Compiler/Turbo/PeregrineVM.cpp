@@ -21,9 +21,19 @@ InterpreterTurboVM::InterpreterTurboVM(shared_ptr<TurboModule> module_) : module
 }
 
 InterpreterTurboVM::~InterpreterTurboVM() {
+    
     if (env != nullptr) {
         delete env;
     }
+    
+    if (executionCtx != nullptr) {
+        delete executionCtx;
+    }
+    
+    if (event_loop != nullptr) {
+        delete event_loop;
+    }
+    
 }
 
 void InterpreterTurboVM::init_builtins() {
@@ -321,11 +331,11 @@ void InterpreterTurboVM::CreateObjectLiteralProperty(const Value& obj_val, const
         new_closure->js_object = object.objectValue;
         new_closure->ctx = obj_val.closureValue->ctx;
 
-        object.objectValue->set(prop_name, Value::closure(new_closure), "VAR", { "public" });
+        object.objectValue->set(prop_name, Value::closure(new_closure), VAR, { PUBLIC });
 
     } else {
                     
-        object.objectValue->set(prop_name, obj_val, "VAR", { "public" });
+        object.objectValue->set(prop_name, obj_val, VAR, { PUBLIC });
 
     }
 
@@ -343,7 +353,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
             new_closure->js_object = obj;
             new_closure->ctx = protoProp.second.value.closureValue->ctx;
 
-            obj->set(protoProp.first, Value::closure(new_closure), "VAR", protoProp.second.modifiers);
+            obj->set(protoProp.first, Value::closure(new_closure), VAR, protoProp.second.modifiers);
 
         } else {
             
@@ -352,7 +362,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
             Value fnValue = module_->constants[field_reg];
             Value val = callFunction(fnValue, {});
                         
-            obj->set(protoProp.first, val, "VAR", protoProp.second.modifiers);
+            obj->set(protoProp.first, val, VAR, protoProp.second.modifiers);
 
         }
 
@@ -368,7 +378,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
             new_closure->js_object = obj;
             new_closure->ctx = constProtoProp.second.value.closureValue->ctx;
 
-            obj->set(constProtoProp.first, Value::closure(new_closure), "CONST", {});
+            obj->set(constProtoProp.first, Value::closure(new_closure), CONST, {});
 
         } else {
             
@@ -377,7 +387,7 @@ void InterpreterTurboVM::makeObjectInstance(Value klass, shared_ptr<JSObject> ob
             Value fnValue = module_->constants[field_reg];
             Value val = callFunction(fnValue, {});
 
-            obj->set(constProtoProp.first, constProtoProp.second.value, "CONST", constProtoProp.second.modifiers);
+            obj->set(constProtoProp.first, constProtoProp.second.value, CONST, constProtoProp.second.modifiers);
 
         }
 
@@ -456,13 +466,9 @@ Value InterpreterTurboVM::run(shared_ptr<TurboChunk> chunk_, const vector<Value>
     CallFrame new_frame;
     new_frame.chunk = chunk_;
     new_frame.ip = 0;
-    new_frame.locals.resize(chunk_->maxLocals, Value::undefined());
     new_frame.args = args;
     new_frame.closure = closure;
-    
-    uint32_t ncopy = std::min((uint32_t)args.size(), chunk_->maxLocals);
-    for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
-    
+        
     callStack.push_back(std::move(new_frame));
     Value result = runFrame(callStack.back());
     callStack.pop_back();
@@ -498,30 +504,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 frame->registers[dest] = frame->registers[src];
                 break;
             }
-                
-                // TODO: check if we are in function scope
-                // make it function local else make it global var
-            case TurboOpCode::CreateLocalVar: {
-                uint8_t local_index = instruction.a;
-                uint8_t data_reg = instruction.b;
-                frame->locals[local_index] = frame->registers[data_reg];
-                break;
-            }
-                
-            case TurboOpCode::CreateLocalLet:{
-                uint8_t local_index = instruction.a;
-                uint8_t data_reg = instruction.b;
-                frame->locals[local_index] = frame->registers[data_reg];
-                break;
-            }
-                
-            case TurboOpCode::CreateLocalConst:{
-                uint8_t local_index = instruction.a;
-                uint8_t data_reg = instruction.b;
-                frame->locals[local_index] = frame->registers[data_reg];
-                break;
-            }
-                
+                                
             case TurboOpCode::CreateGlobalVar:{
                 uint8_t constant_index = instruction.a;
                 uint8_t data_reg = instruction.b;
@@ -856,15 +839,6 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
 
                 break;
             }
-
-            case TurboOpCode::LoadLocalVar: {
-                // LoadLocalVar, reg_slot, idx
-                int reg = instruction.a;
-                int idx = instruction.b;
-                
-                frame->registers[reg] = frame->locals[idx];
-                break;
-            }
                 
             case TurboOpCode::LoadGlobalVar: {
                 
@@ -874,28 +848,6 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 
                 frame->registers[reg] = getVariable(name); //toValue(executionCtx->variableEnv->get(name)/*env->get(name)*/);
 
-                break;
-            }
-                
-                // TODO: we need to store via var, let, const
-                // emit(TurboOpCode::StoreLocal, idx, reg_slot);
-            case TurboOpCode::StoreLocalVar: {
-                
-                uint8_t idx = instruction.a;
-                uint8_t reg_slot = instruction.b;
-                
-                frame->locals[idx] = frame->registers[reg_slot];
-
-                break;
-            }
-                
-            case TurboOpCode::StoreLocalLet: {
-                
-                uint8_t idx = instruction.a;
-                uint8_t reg_slot = instruction.b;
-                
-                frame->locals[idx] = frame->registers[reg_slot];
-                
                 break;
             }
 
@@ -1520,7 +1472,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 Value throw_value = frame->registers[exception_value_register];
                 
                 // load above into local index
-                frame->locals[exception_value_index] = throw_value;
+                // frame->locals[exception_value_index] = throw_value;
                 
                 break;
             }
@@ -1620,49 +1572,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
 
                 break;
             }
-                
-                // --- Upvalue access ---
-            case TurboOpCode::CloseUpvalue: {
-                break;
-            }
-                
-                // LoadUpvalue, reg_slot, upvalue
-            case TurboOpCode::LoadUpvalue: {
-                break;
-            }
-                
-                // StoreUpvalueVar, upvalue, reg_slot
-            case TurboOpCode::StoreUpvalueVar: {
-                *frame->closure->upvalues[instruction.a]->location = frame->registers[instruction.b];
-                break;
-            }
-            case TurboOpCode::StoreUpvalueLet: {
-                *frame->closure->upvalues[instruction.a]->location = frame->registers[instruction.b];
-                break;
-            }
-            case TurboOpCode::StoreUpvalueConst: {
-                *frame->closure->upvalues[instruction.a]->location = frame->registers[instruction.b];
-                break;
-            }
-                
-                // SetClosureIsLocal, isLocalReg, indexReg, closureChunkIndexReg
-            case TurboOpCode::SetClosureIsLocal: {
-                break;
-            }
-
-                // TurboOpCode::SetClosureIndex, indexReg, closureChunkIndexReg
-            case TurboOpCode::SetClosureIndex: {
-                break;
-            }
-                
-                // emit(TurboOpCode::Call, result, funcReg, (int)argRegs.size());
-//            Where:
-//
-//            funcReg → register containing the function (the callable object or closure)
-//            argStart → the index of the first argument register
-//            argCount → how many arguments are being passed
-                
-                
+                                
             case TurboOpCode::Call: {
                 
                 int resultReg = instruction.a;
@@ -1689,7 +1599,7 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 Value obj_value = frame->registers[instruction.b];
 
                 // call the constructor
-                invokeMethod(obj_value, "constructor", const_args);
+                invokeMethod(obj_value, CONSTRUCTOR, const_args);
 
                 frame->registers[instruction.a] = obj_value;
 
@@ -1697,7 +1607,6 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
             }
 
             case TurboOpCode::Return: {
-                //closeUpvalues(nullptr);
 
                 Value v = frame->registers[instruction.a];
                                 
@@ -1744,26 +1653,6 @@ Value InterpreterTurboVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
-                // UI
-//            case TurboOpCode::CreateUIView: {
-//                runCreateUIView(instruction);
-//                break;
-//            }
-//                
-//            case TurboOpCode::AddChildSubView: {
-//                runAddChildSubView(instruction);
-//                break;
-//            }
-//                
-//            case TurboOpCode::SetUIViewArgument: {
-//                break;
-//            }
-//                
-//            case TurboOpCode::CallUIViewModifier: {
-//                runCallUIViewModifier(instruction);
-//                break;
-//            }
-
             default:
                 throw std::runtime_error("Unknown opcode in VM");
         }
@@ -1807,8 +1696,6 @@ Value InterpreterTurboVM::callFunction(const Value& callee, const vector<Value>&
         CallFrame new_frame;
         new_frame.chunk = calleeChunk;
         new_frame.ip = 0;
-        // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
-        new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
 
@@ -1865,8 +1752,6 @@ Value InterpreterTurboVM::callFunction(const Value& callee, const vector<Value>&
     CallFrame new_frame;
     new_frame.chunk = calleeChunk;
     new_frame.ip = 0;
-    // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
-    new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
     new_frame.args = args;
     
     new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
@@ -1874,10 +1759,6 @@ Value InterpreterTurboVM::callFunction(const Value& callee, const vector<Value>&
     // save current frame
     CallFrame prev_frame = callStack.back();
         
-    // copy args into frame.locals[0..]
-    uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
-    for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
-
     // push frame and execute it
     callStack.push_back(std::move(new_frame));
 

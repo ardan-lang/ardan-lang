@@ -54,8 +54,6 @@ class InterpreterTurboVM : public BaseVM<InterpreterTurboVM, TurboModule, TurboC
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;
         size_t ip = 0;                    // instruction pointer for this frame
-        deque<Value> locals;        // local slots for this frame
-        size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
         
         vector<Value> args;
         shared_ptr<Closure> closure;
@@ -90,8 +88,6 @@ private:
     
     vector<CallFrame> callStack; // call frames stack
     
-    // helper to pop N args into a vector (left-to-right order)
-    vector<Value> popArgs(size_t count);
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     Value addCtor();
     void set_js_object_closure(Value objVal);
@@ -121,12 +117,6 @@ private:
     void putVariable(const string& key, const Value& v) const;
     ExecutionContext* createNewExecutionContext(const Value& callee) const;
     
-    // UI
-//    void runCreateUIView(Instruction i);
-//    void runAddChildSubView(Instruction i);
-//    void runSetUIViewArgument(Instruction i);
-//    void runCallUIViewModifier(Instruction i);
-
 };
 
 #endif /* TurboVM_hpp */
