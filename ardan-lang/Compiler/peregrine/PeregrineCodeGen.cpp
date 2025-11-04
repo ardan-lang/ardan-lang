@@ -5,20 +5,19 @@
 //  Created by Chidume Nnamdi on 01/11/2025.
 //
 
-#include "InterpreterTurbo.hpp"
+#include "PeregrineCodeGen.hpp"
 #include <memory>
 
 #include "../../Statements/Statements.hpp"
 #include "../../Expression/Expression.hpp"
-#include "../../Visitor/AstPrinter/AstPrinter.h"
-#include "../Utils/Utils.h"
-#include "../ExecutionContext/JSArray/JSArray.h"
-#include "../ExecutionContext/Value/Value.h"
+#include "../../Interpreter/Utils/Utils.h"
+#include "../../Interpreter/ExecutionContext/JSArray/JSArray.h"
+#include "../../Interpreter/ExecutionContext/Value/Value.h"
 #include "../../builtin/Print/Print.hpp"
 #include "../../builtin/builtin-includes.h"
 #include "../../Scanner/Scanner.hpp"
 #include "../../Parser/Parser.hpp"
-#include "../Promise/Promise.hpp"
+#include "../../Interpreter/Promise/Promise.hpp"
 #include "../../builtin/Server/Server.hpp"
 
 size_t PeregrineCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
@@ -1071,7 +1070,7 @@ R PeregrineCodeGen::visitUpdate(UpdateExpression* expr) {
 R PeregrineCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
     // Create a nested CodeGen for the function body
-    InterpreterTurbo nested(module_);
+    PeregrineCodeGen nested(module_);
     nested.cur = make_shared<TurboChunk>();
     nested.enclosing = this;
     nested.cur->name = expr->name;
@@ -1233,7 +1232,7 @@ R PeregrineCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //    bool is_async;
 
     // Create a nested CodeGen for the function body
-    InterpreterTurbo nested(module_);
+    PeregrineCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
     nested.cur->name = expr->name;
@@ -1386,7 +1385,7 @@ R PeregrineCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
 R PeregrineCodeGen::visitFunction(FunctionDeclaration* stmt) {
     // Create a nested code generator for the function body
-    InterpreterTurbo nested(module_);
+    PeregrineCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
     nested.cur->name = stmt->id;
@@ -1738,7 +1737,7 @@ PeregrineCodeGen::PropertyLookup PeregrineCodeGen::lookupClassProperty(string pr
 
 int PeregrineCodeGen::compileMethod(MethodDefinition& method) {
     // Create a nested CodeGen for the method body (closure)
-    InterpreterTurbo nested(module_);
+    PeregrineCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<TurboChunk>();
     // nested.beginScope();
@@ -1752,34 +1751,6 @@ int PeregrineCodeGen::compileMethod(MethodDefinition& method) {
     for (auto& param : method.params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
-        
-//        if (auto* seq = dynamic_cast<SequenceExpression*>(param.get())) {
-//            for (auto& p : seq->expressions) {
-//                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-//                    paramNames.push_back(rest->token.lexeme);
-//                    parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-//                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                        paramNames.push_back(ident->name);
-//                        parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//                    }
-//                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-//                    paramNames.push_back(ident->name);
-//                    parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//                }
-//            }
-//        } else if (auto* rest = dynamic_cast<RestParameter*>(param.get())) {
-//            paramNames.push_back(rest->token.lexeme);
-//            parameterInfos.push_back(ParameterInfo{rest->token.lexeme, false, nullptr, true});
-//        } else if (auto* assign = dynamic_cast<BinaryExpression*>(param.get())) {
-//            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-//                paramNames.push_back(ident->name);
-//                parameterInfos.push_back(ParameterInfo{ident->name, true, assign->right.get(), false});
-//            }
-//        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(param.get())) {
-//            paramNames.push_back(ident->name);
-//            parameterInfos.push_back(ParameterInfo{ident->name, false, nullptr, false});
-//        }
         
     }
 
@@ -3021,7 +2992,7 @@ void PeregrineCodeGen::patchContinueStatement() {
 
 int PeregrineCodeGen::recordInstanceField(const string& classId, const string& fieldId, Expression* initExpr, const PropertyMeta& propMeta) {
     
-    InterpreterTurbo nested(module_);
+    PeregrineCodeGen nested(module_);
     nested.cur = make_shared<TurboChunk>();
     
     int init_reg = -1;

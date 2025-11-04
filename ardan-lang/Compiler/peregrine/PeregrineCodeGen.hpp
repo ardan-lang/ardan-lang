@@ -1,5 +1,5 @@
 //
-//  InterpreterTurbo.hpp
+//  PeregrineCodeGen.hpp
 //  ardan-lang
 //
 //  Created by Chidume Nnamdi on 01/11/2025.
@@ -24,10 +24,11 @@
 #include "../../Scanner/Scanner.hpp"
 #include "../../Parser/Parser.hpp"
 
-#include "../../Compiler/Turbo/TurboBytecode.hpp"
-#include "../../Compiler/Turbo/TurboChunk.hpp"
-#include "../../Compiler/Turbo/TurboVM.hpp"
-#include "../../Compiler/Turbo/TurboModule.hpp"
+#include "../Turbo/TurboBytecode.hpp"
+#include "../Turbo/TurboChunk.hpp"
+#include "../Turbo/TurboVM.hpp"
+#include "../Turbo/TurboModule.hpp"
+// #include "../Turbo/PeregrineVM.hpp"
 
 using namespace std;
 
@@ -129,7 +130,6 @@ class PeregrineCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
 private:
-    PeregrineVM* vm;
     shared_ptr<TurboChunk> cur; // current chunk being emitted
     PeregrineCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
