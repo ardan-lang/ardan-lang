@@ -186,6 +186,7 @@ enum class TurboOpCode : uint8_t {
     PopLexicalEnv,
     SetExecutionContext,
     CopyIterationBinding,
+    Await,
     // end for PeregrineVM
 
     Halt

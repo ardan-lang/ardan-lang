@@ -1487,6 +1487,19 @@ R PeregrineCodeGen::visitFunction(FunctionDeclaration* stmt) {
 
     // Compile function body
     if (stmt->body) {
+        
+        if (stmt->is_async) {
+            
+            if (BlockStatement* block = dynamic_cast<BlockStatement*>(stmt->body.get())) {
+                for (auto& body : block->body) {
+                    if (auto return_stmt = dynamic_cast<ReturnStatement*>(body.get())) {
+                        // wrap the return value in Promise
+                    }
+                }
+            }
+
+        }
+        
         stmt->body->accept(nested);
         // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
         // TODO: we need to check if return is the last statement.
@@ -1521,6 +1534,7 @@ R PeregrineCodeGen::visitFunction(FunctionDeclaration* stmt) {
     fnObj->arity = fnChunk->arity;
     fnObj->name = stmt->id;
     fnObj->upvalues_size = (uint32_t)nested.upvalues.size();
+    fnObj->isAsync = stmt->is_async;
 
     Value fnValue = Value::functionRef(fnObj);
     int ci = module_->addConstant(fnValue);
@@ -1685,7 +1699,12 @@ R PeregrineCodeGen::visitUndefinedKeyword(UndefinedKeyword*) {
     return reg;
 }
 
-R PeregrineCodeGen::visitAwaitExpression(AwaitExpression*) { return 0; }
+R PeregrineCodeGen::visitAwaitExpression(AwaitExpression* expr) {
+    int promiseReg = get<int>(expr->inner->accept(*this));
+    emit(TurboOpCode::Await, promiseReg);
+    freeRegister(promiseReg);
+    return true;
+}
 
 R PeregrineCodeGen::visitBreak(BreakStatement*) {
     // Usually: emit a jump to end of current loop
@@ -2569,6 +2588,8 @@ R PeregrineCodeGen::visitCatch(CatchClause* stmt) {
 
 R PeregrineCodeGen::visitTry(TryStatement* stmt) {
     
+    beginScope();
+    
     // Mark start of try
     int ex_val_reg = allocRegister();
     int tryPos = emitTryPlaceholder();
@@ -2580,6 +2601,8 @@ R PeregrineCodeGen::visitTry(TryStatement* stmt) {
     // End of try
     emit(TurboOpCode::EndTry);
 
+    endScope();
+    
     int endJump = -1;
 
     // If there's a catch, emit jump over it for normal completion
@@ -2591,9 +2614,10 @@ R PeregrineCodeGen::visitTry(TryStatement* stmt) {
         beginScope();
         
         // Bind catch parameter
-//        declareLocal(stmt->handler->param, BindingKind::Let);
-//        uint32_t idx = getLocal(stmt->handler->param);
-        //emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
+        declareVariableScoping(stmt->handler->param, BindingKind::Let);
+        create(stmt->handler->param, ex_val_reg, BindingKind::Let);
+        int idx = emitConstant(Value::str(stmt->handler->param));
+        emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
         
         stmt->handler->body->accept(*this);
         
@@ -2609,9 +2633,11 @@ R PeregrineCodeGen::visitTry(TryStatement* stmt) {
     // If there's a finally, patch and emit it
     if (stmt->finalizer) {
         patchTryFinally(tryPos, (int)cur->code.size() - 1);
+        beginScope();
 
         stmt->finalizer->accept(*this);
         emit(TurboOpCode::EndFinally);
+        endScope();
     }
     
     return true;

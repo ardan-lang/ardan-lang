@@ -409,7 +409,7 @@ void PeregrineVM::invokeMethod(const Value& obj_value, const string& name, const
 
 void PeregrineVM::InvokeConstructor(const Value& obj_value, const vector<Value>& args) {
     
-    invokeMethod(obj_value, "constructor", args);
+    invokeMethod(obj_value, CONSTRUCTOR, args);
     
     // call super class constructor
     
@@ -423,17 +423,11 @@ Value PeregrineVM::addCtor() {
     shared_ptr<TurboChunk> fnChunk = make_shared<TurboChunk>();
     fnChunk->arity = 0;
 
-    // fnChunk->writeByte(static_cast<uint8_t>(OpCode::Nop));
     fnChunk->code.push_back({TurboOpCode::Nop, 0,0,0});
-    // fnChunk->writeByte(static_cast<uint8_t>((OpCode::SuperCall)));
-    // fnChunk->writeUint8((uint8_t)0);
     fnChunk->code.push_back({TurboOpCode::SuperCall, 0,0,0});
 
     int constant_index = fnChunk->addConstant(Value::undefined());
     
-    // fnChunk->writeByte(static_cast<uint8_t>(OpCode::LoadConstant));
-    // fnChunk->writeUint32(constant_index);
-    // fnChunk->writeByte(static_cast<uint8_t>(OpCode::Return));
     fnChunk->code
         .push_back({TurboOpCode::LoadConst, 0, (uint8_t)constant_index});
     fnChunk->code.push_back({TurboOpCode::Return, 0});
@@ -512,7 +506,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 Value name_val = frame->chunk->constants[constant_index];
                 string name = name_val.stringValue;
                 
-                /*env*/executionCtx->variableEnv->set_var(name,
+                executionCtx->variableEnv->set_var(name,
                                                          frame->registers[data_reg]);
                 
                 break;
@@ -525,7 +519,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 Value name_val = frame->chunk->constants[constant_index];
                 string name = name_val.stringValue;
                 
-                /*env->set_let*/executionCtx
+                executionCtx
                     ->lexicalEnv->set_let(name, frame->registers[data_reg]);
                 
                 break;
@@ -538,7 +532,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 Value name_val = frame->chunk->constants[constant_index];
                 string name = name_val.stringValue;
                 
-                /*env*/executionCtx->lexicalEnv->set_const(name,
+                executionCtx->lexicalEnv->set_const(name,
                                                frame->registers[data_reg]);
                 
                 break;
@@ -1350,7 +1344,6 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 TryFrame f;
                 f.catchIP = (catchOffset == 0) ? -1 : (base + (int)catchOffset);
                 f.finallyIP = (finallyOffset == 0) ? -1 : (base + (int)finallyOffset);
-                // f.stackDepth = (int)stack.size();
                 // ipAfterTry can be filled later by codegen if you want; keep -1 if unused
                 f.ipAfterTry = -1;
                 f.regCatch = instruction.c;
@@ -1360,8 +1353,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
 
             case TurboOpCode::EndTry: {
                 if (tryStack.empty()) {
-                    // runtime error: unmatched END_TRY
-                    // running = false;
+                    // runtime error: unmatched EndTry
                     break;
                 }
                 tryStack.pop_back();
@@ -1379,21 +1371,15 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 while (!tryStack.empty()) {
                     TryFrame f = tryStack.back();
                     tryStack.pop_back();
-                    
-                    // first, unwind the value stack to the depth at try entry
-                    // while ((int)stack.size() > f.stackDepth) stack.pop_back();
-                    
+                                        
                     // If there is a finally, run it first.
                     if (f.catchIP != -1) {
-                        // push pending exception so finalizer can see it if needed
-                        // stack.push_back(pending);
                         
                         // Record a special marker frame to indicate we are resuming a throw after finally
                         // We'll push a synthetic TryFrame with catchIP = original catchIP, finallyIP = -1
                         TryFrame resume;
                         resume.catchIP = -1;
                         resume.finallyIP = f.finallyIP;
-                        // resume.stackDepth = f.stackDepth; // after finally resumes, stack depth should be this
                         resume.ipAfterTry = -1;
                         
                         frame->registers[f.regCatch] = exc;
@@ -1421,9 +1407,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 if (!handled) {
                     // uncaught
                     // Here: runtime uncaught exception -> abort or print error
-                    // For demo, we stop the VM
                     printf("Uncaught exception, halting VM\n");
-                    // running = false;
                 }
                 break;
             }
@@ -1444,13 +1428,13 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                             break;
                         } else {
                             // no catch for the pending exception, continue unwinding:
-                            // emulate throwing again: pop pending exception and re-run OP_THROW logic
+                            // emulate throwing again: pop pending exception and re-run Throw logic
                             // Value pending = pop();
                             // continue throw loop by re-inserting pending on stack and handling next frame
                             // simplest approach: directly re-run THROW handling by pushing pending and continuing
                             // For clarity, we will set a special behaviour: re-insert pending and emulate OP_THROW
                             // stack.push_back(pending);
-                            // simulate OP_THROW logic by jumping back one step: decrement ip so we re-execute OP_THROW
+                            // simulate Throw logic by jumping back one step: decrement ip so we re-execute OP_THROW
                             // But cleaner: call a helper to handle rethrow. For brevity we perform a manual loop here.
                             // (In production you would share the throw-handling code.)
                             // For now: we'll call a helper:
@@ -1470,9 +1454,11 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 int exception_value_index = instruction.b;
                 
                 Value throw_value = frame->registers[exception_value_register];
+                Value v = frame->chunk->constants[exception_value_index];
                 
                 // load above into local index
                 // frame->locals[exception_value_index] = throw_value;
+                executionCtx->lexicalEnv->set_let(v.toString(), throw_value);
                 
                 break;
             }
@@ -1630,10 +1616,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 ctx->lexicalEnv = make_shared<Env>();
                 ctx->lexicalEnv->setParentEnv(executionCtx->lexicalEnv);
                 ctx->variableEnv = executionCtx->variableEnv;
-                
-                // ctx.lexicalEnv->parent = executionCtx.lexicalEnv;
-                // ctx.variableEnv->parent = executionCtx.variableEnv;
-                
+                                
                 contextStack.push_back(ctx);
                 
                 executionCtx = contextStack.back();

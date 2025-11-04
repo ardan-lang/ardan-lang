@@ -29,6 +29,7 @@ struct FunctionObject {
     uint32_t arity;
     string name;
     uint32_t upvalues_size;
+    bool isAsync;
 };
 
 enum class ValueType {

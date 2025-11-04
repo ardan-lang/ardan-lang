@@ -56,6 +56,7 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
                     fn->arity = readU32();
                     fn->name = readString();
                     fn->upvalues_size = readU32();
+                    fn->isAsync = readDouble() == 0 ? false : true;
                     v.fnRef = fn;
                     break;
                 }
@@ -93,6 +94,7 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
                 fn->arity = readU32();
                 fn->name = readString();
                 fn->upvalues_size = readU32();
+                fn->isAsync = readDouble() == 0 ? false : true;
                 v.fnRef = fn;
                 break;
             }
@@ -156,6 +158,7 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
                     val.fnRef->arity = readU32(in);
                     val.fnRef->name = readString(in);
                     val.fnRef->upvalues_size = readU32(in);
+                    val.fnRef->isAsync = readDouble(in) == 0 ? false : true;
                     break;
                 }
                 default:
@@ -192,6 +195,7 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
                 val.fnRef->arity = readU32(in);
                 val.fnRef->name = readString(in);
                 val.fnRef->upvalues_size = readU32(in);
+                val.fnRef->isAsync = readDouble(in) == 0 ? false : true;
                 break;
             }
             default:

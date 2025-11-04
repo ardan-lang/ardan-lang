@@ -65,6 +65,7 @@ void WriteArdarFile::writing() {
                     writeU32(v.fnRef->arity);
                     writeString(v.fnRef->name);
                     writeU32(v.fnRef->upvalues_size);
+                    writeDouble(v.fnRef->isAsync);
                     
                     break;
                 default:
@@ -96,6 +97,7 @@ void WriteArdarFile::writing() {
             writeU32(v.fnRef->arity);
             writeString(v.fnRef->name);
             writeU32(v.fnRef->upvalues_size);
+            writeDouble(v.fnRef->isAsync);
 
             break;
         default:
@@ -146,6 +148,7 @@ void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
                     writeU32(v.fnRef->arity);
                     writeString(v.fnRef->name);
                     writeU32(v.fnRef->upvalues_size);
+                    writeDouble(v.fnRef->isAsync);
                     break;
                 default:
                     break;
@@ -177,6 +180,7 @@ void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
                 writeU32(v.fnRef->arity);
                 writeString(v.fnRef->name);
                 writeU32(v.fnRef->upvalues_size);
+                writeDouble(v.fnRef->isAsync);
                 break;
             default:
                 break;
