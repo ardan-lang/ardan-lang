@@ -7,7 +7,7 @@
 
 #include "CallStackManager.hpp"
 
-void CallStackManager::pushFrame(CallFrame&& frame) {
+void CallStackManager::pushFrame(TurboCallFrame&& frame) {
     stack.push_back(std::move(frame));
 }
 
@@ -15,7 +15,7 @@ void CallStackManager::popFrame() {
     if (!stack.empty()) stack.pop_back();
 }
 
-CallFrame* CallStackManager::top() {
+TurboCallFrame* CallStackManager::top() {
     return stack.empty() ? nullptr : &stack.back();
 }
 

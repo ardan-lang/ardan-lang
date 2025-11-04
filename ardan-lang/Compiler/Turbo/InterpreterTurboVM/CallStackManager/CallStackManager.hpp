@@ -23,24 +23,36 @@ using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
-struct CallFrame {
+struct TurboCallFrame {
     std::shared_ptr<TurboChunk> chunk;
     size_t ip = 0;
-    std::deque<Value> locals;
-    std::vector<Value> args;
-    std::shared_ptr<Closure> closure;
+    vector<Value> args;
+    shared_ptr<Closure> closure;
     Value registers[256];
 };
 
 class CallStackManager {
 public:
-    void pushFrame(CallFrame&& frame);
+    void pushFrame(TurboCallFrame&& frame);
     void popFrame();
-    CallFrame* top();
+    TurboCallFrame* top();
     bool empty() const;
 
+    void pushArg(Value arg) {
+        argStack.push_back(arg);
+    }
+    
+    void clearArgStack() { argStack.clear(); }
+    
+    deque<Value> getArgStack() { return argStack; }
+    vector<Value> getVectorArgStack() {
+        return { argStack.begin(), argStack.end() };
+    }
+
 private:
-    std::vector<CallFrame> stack;
+    vector<TurboCallFrame> stack;
+    deque<Value> argStack;
+
 };
 
 #endif /* CallStackManager_hpp */

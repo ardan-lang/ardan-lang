@@ -24,6 +24,14 @@
 
 using namespace std;
 
+const string CONST = "CONST";
+const string LET = "LET";
+const string VAR = "VAR";
+const string PRIVATE = "private";
+const string PROTECTED = "protected";
+const string PUBLIC = "public";
+const string CONSTRUCTOR = "constructor";
+
 Value toValue(const R& r);
 string toString(const R& val);
 bool isNullish(const R& value);

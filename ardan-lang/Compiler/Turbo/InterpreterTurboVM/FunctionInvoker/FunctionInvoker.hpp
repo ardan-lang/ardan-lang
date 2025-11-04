@@ -23,18 +23,23 @@ using std::shared_ptr;
 
 class FunctionInvoker {
 public:
-    FunctionInvoker(std::shared_ptr<TurboModule> module,
+    
+    using Runner = std::function<Value(TurboCallFrame*)>;
+    
+    FunctionInvoker(std::shared_ptr<TurboModule> module_,
                     CallStackManager* callStack,
-                    EnvironmentManager* envManager);
+                    EnvironmentManager* envManager,
+                    Runner runner);
 
     Value call(const Value& callee, const std::vector<Value>& args);
 
 private:
-    std::shared_ptr<TurboModule> module;
+    std::shared_ptr<TurboModule> module_;
     CallStackManager* callStack;
     EnvironmentManager* envManager;
-
-    ExecutionContext* createExecutionContext(const Value& callee) const;
+    Runner runner_;
+    
+    unique_ptr<ExecutionContext> createExecutionContextForClosure(const Value& callee) const;
 };
 
 #endif /* FunctionInvoker_hpp */

@@ -14,18 +14,26 @@
 #include <memory>
 #include <vector>
 #include "../../../../Interpreter/Env.h"
+#include "../../../../Interpreter/Utils/Utils.h"
 #include "../ExecutionContext/ExecutionContext.hpp"
 
 class EnvironmentManager {
 public:
-    EnvironmentManager();
+    EnvironmentManager() = default;
+    ~EnvironmentManager();
     
     ExecutionContext* current() const;
-    void pushLexicalEnv(std::shared_ptr<Env> parentLexical, std::shared_ptr<Env> variableEnv);
+//    void pushLexicalEnv(std::shared_ptr<Env> parentLexical, std::shared_ptr<Env> variableEnv);
+    void pushLexicalEnv();
+    void pushContext(unique_ptr<ExecutionContext> ctx);
     void popLexicalEnv();
-
+    
+    void initRoot(std::shared_ptr<Env> rootEnv);
+    Value getVariable(const std::string& key) const;
+    void putVariable(const std::string& key, const Value& v) const;
+    
 private:
-    std::vector<ExecutionContext*> contextStack;
+    std::vector<unique_ptr<ExecutionContext>> contextStack;
 };
 
 #endif /* EnvironmentManager_hpp */

@@ -80,11 +80,11 @@ class PeregrineCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
     class RegGuard {
-        InterpreterTurbo& codegen;
+        PeregrineCodeGen& codegen;
         int reg;
         bool active;
     public:
-        RegGuard(int r, InterpreterTurbo& cg, bool autoFree = true)
+        RegGuard(int r, PeregrineCodeGen& cg, bool autoFree = true)
             : codegen(cg), reg(r), active(autoFree) {}
 
         void release() { active = false; }
@@ -94,14 +94,9 @@ class PeregrineCodeGen : public ExpressionVisitor, public StatementVisitor {
         }
     };
 
-    inline RegGuard makeRegGuard(int r, InterpreterTurbo& cg, bool autoFree = true) {
+    inline RegGuard makeRegGuard(int r, PeregrineCodeGen& cg, bool autoFree = true) {
         return RegGuard(r, cg, autoFree);
     }
-
-    struct LocalScope {
-        unordered_map<string, Value> locals;
-        LocalScope* parent = nullptr;
-    };
 
     struct LoopContext {
         int loopStart;         // address of loop condition start
@@ -134,9 +129,9 @@ class PeregrineCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
 private:
-    TurboVM* vm;
+    PeregrineVM* vm;
     shared_ptr<TurboChunk> cur; // current chunk being emitted
-    InterpreterTurbo* enclosing;
+    PeregrineCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
     R store(string decl, uint32_t reg_slot);
     R load(string decl, uint32_t reg_slot);
