@@ -15,5 +15,6 @@
 #include "JSNumber/JSNumber.hpp"
 #include "JSBoolean/JSBoolean.hpp"
 #include "Array/Array.hpp"
+#include "JSPromise/JSPromise.hpp"
 
 #endif /* builtin_includes_h */
