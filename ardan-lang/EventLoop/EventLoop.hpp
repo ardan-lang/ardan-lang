@@ -65,21 +65,26 @@ class EventLoop {
 public:
     EventLoop();
     ~EventLoop();
-
+    
     // scheduling
     void post(std::function<Value(std::vector<Value>)> fn, std::vector<Value> args);
-
+    
     // socket management (register/unregister)
     void addSocket(int fd,
                    std::function<void(int)> onReadable,
                    std::function<void(int)> onWritable = nullptr);
-
+    
     // remove socket and close FD
     void removeSocket(int fd);
-
+    
     // loop control (run blocks on current thread)
     void run();
     void stop();
+    
+    static EventLoop& getInstance() {
+        static EventLoop* instance = new EventLoop(); // created once, thread-safe since C++11
+        return *instance;
+    }
 
 private:
     // tasks
