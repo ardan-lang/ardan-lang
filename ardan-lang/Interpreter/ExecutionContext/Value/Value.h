@@ -139,6 +139,13 @@ public:
         return v;
     }
     
+    static Value promise(shared_ptr<Promise> promise_value) {
+        Value v;
+        v.type = ValueType::PROMISE;
+        v.promiseValue = promise_value;
+        return v;
+    }
+
     static Value functionRef(std::shared_ptr<FunctionObject> f) {
         Value v; v.type = ValueType::FUNCTION_REF; v.fnRef = f; return v;
     }
