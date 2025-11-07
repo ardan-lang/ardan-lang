@@ -5,6 +5,7 @@
 //  Created by Chidume Nnamdi on 19/09/2025.
 //
 
+#include <thread>
 #include "PeregrineVM.hpp"
 
 PeregrineVM::PeregrineVM() {
@@ -22,6 +23,16 @@ PeregrineVM::PeregrineVM(shared_ptr<TurboModule> module_) : module_(module_) {
 
 PeregrineVM::~PeregrineVM() {
     
+    thread stopper([this]() {
+        sleep(0);
+        cout << "[Stopper] Calling stop()" << endl;
+        event_loop->stop();
+    });
+    
+    event_loop->run();
+    
+    stopper.join();
+    
     if (env != nullptr) {
         delete env;
     }
@@ -30,21 +41,22 @@ PeregrineVM::~PeregrineVM() {
         delete executionCtx;
     }
     
-    if (event_loop != nullptr) {
-        delete event_loop;
-    }
+//    if (event_loop != nullptr) {
+//        delete event_loop;
+//    }
     
 }
 
 void PeregrineVM::init_builtins() {
     
-    event_loop = new EventLoop();
-    
+    event_loop = &EventLoop::getInstance();
+
     env->set_var("Math", make_shared<Math>());
     env->set_var("console", make_shared<Print>());
     env->set_var("fs", make_shared<File>());
     env->set_var("Server", make_shared<Server>(event_loop));
-    
+    env->set_var("Promise", make_shared<JSPromise>(this));
+
     env->set_var("String", make_shared<JSString>());
     env->set_var("Number", make_shared<JSNumber>());
     env->set_var("Boolean", make_shared<JSBoolean>());
@@ -259,6 +271,10 @@ Value PeregrineVM::getProperty(const Value &objVal, const string &propName) {
         }
         
         return objVal.classValue->get(propName, false);
+    }
+    
+    if (objVal.type == ValueType::PROMISE) {
+        return objVal.promiseValue->get(propName);
     }
     
     // primitives -> string -> property? For now, undefined
@@ -1456,8 +1472,6 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 Value throw_value = frame->registers[exception_value_register];
                 Value v = frame->chunk->constants[exception_value_index];
                 
-                // load above into local index
-                // frame->locals[exception_value_index] = throw_value;
                 executionCtx->lexicalEnv->set_let(v.toString(), throw_value);
                 
                 break;
@@ -1636,6 +1650,57 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 break;
             }
                 
+                // CreatePromise, reg, promise_reg
+            case TurboOpCode::CreatePromise: {
+                
+                auto promise = make_shared<Promise>(this);
+                //std::function<Value(vector<Value>)>;
+                //promise->then_callbacks.push_back([]()->Value {});
+                frame->registers[instruction.b] = Value::promise(promise);
+                
+                break;
+                
+            }
+                
+            case TurboOpCode::Await: {
+                //                auto& promise = registers[instr.a];
+                //                auto* currentTask = this->currentCoroutine();
+                //
+                //                // Suspend coroutine
+                //                currentTask->suspend();
+                //
+                //                // Register resume callback when promise resolves
+                //                promise->then(
+                //                    [currentTask](Value result) {
+                //                        currentTask->resumeWith(result);
+                //                    },
+                //                    [currentTask](Value error) {
+                //                        currentTask->resumeWithException(error);
+                //                    });
+                
+                Value result = frame->registers[instruction.a];
+                auto index = frame->closure->fn->chunkIndex;
+                auto closure = frame->closure;
+                auto this_frame = frame;
+                
+                auto callback = [this, this_frame, index, closure](vector<Value> args) -> Value {
+
+                    shared_ptr<TurboChunk> calleeChunk = module_->chunks[index];
+
+                    callStack.push_back(*this_frame);
+                    frame = this_frame;
+                    Value result = runFrame(callStack.back());
+                    
+                    return result;
+                    
+                };
+                
+                event_loop->post(callback, frame->args);
+                                
+                return Value();
+
+            }
+                
             default:
                 throw std::runtime_error("Unknown opcode in VM");
         }
@@ -1692,7 +1757,9 @@ Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) 
         Value result = runFrame(callStack.back());
         
         callStack.pop_back();
-        frame = &callStack.back();
+        if (callStack.size() > 0) {
+            frame = &callStack.back();
+        }
         
         contextStack.pop_back();
         executionCtx = contextStack.back();
@@ -1756,23 +1823,17 @@ Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) 
 
 void PeregrineVM::handleRethrow() {
     // simplified: pop pending exception and re-run OP_THROW-like unwinding
-//    if (stack.empty()) { /*running = false;*/ return; }
-//    Value pending = pop();
     // Re-run throw loop: same as OP_THROW handling but without recursion here.
     bool handled = false;
     while (!tryStack.empty()) {
         TryFrame f = tryStack.back();
         tryStack.pop_back();
-        //while ((int)stack.size() > f.stackDepth) stack.pop_back();
         
         if (f.catchIP != -1) {
-            
-            //stack.push_back(pending);
-            
+                        
             TryFrame resume;
             resume.catchIP = -1;
             resume.finallyIP = f.finallyIP;
-            // resume.stackDepth = f.stackDepth;
             tryStack.push_back(resume);
             
             frame->ip = f.catchIP;
@@ -1782,7 +1843,6 @@ void PeregrineVM::handleRethrow() {
         }
         
         if (f.finallyIP != -1) {
-            //stack.push_back(pending);
             frame->ip = f.finallyIP;
             handled = true;
             break;
@@ -1791,6 +1851,5 @@ void PeregrineVM::handleRethrow() {
     }
     if (!handled) {
         printf("Uncaught exception after finally, halting VM\n");
-        //running = false;
     }
 }

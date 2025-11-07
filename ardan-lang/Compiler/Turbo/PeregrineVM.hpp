@@ -44,6 +44,38 @@ using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
+//struct Coroutine {
+//    PeregrineVM* vm;
+//    shared_ptr<TurboChunk> chunk;
+//    vector<Value> args;
+//    std::shared_ptr<Promise> promise;
+//    int ip = 0;
+//    // Add any state you need (registers, etc.)
+//
+//    Coroutine(PeregrineVM* vm_, shared_ptr<TurboChunk> chunk_, vector<Value> args_)
+//        : vm(vm_), chunk(chunk_), args(args_), promise(std::make_shared<Promise>()) {}
+//
+//    void resume(Value resumeValue = Value::undefined()) {
+//        // Run until next await or return
+//        try {
+//            Value result = vm->runFrame(*this /*or via a special coroutine frame*/);
+//            promise->resolve(result);
+//        } catch (const std::exception& e) {
+//            promise->reject(Value::str(e.what()));
+//        }
+//    }
+//    // More: suspend(), handling of yields, etc.
+//};
+//
+//struct Coroutine {
+//    // ...
+//    void resume(Value resumeValue = Value::undefined()) {
+//        // Set up VM state (registers, etc.)
+//        // Loop: interpret bytecode until return/await
+//        // On await, yield control, and resume later
+//    }
+//};
+
 struct ExecutionContext {
     shared_ptr<Env> lexicalEnv;
     shared_ptr<Env> variableEnv;
