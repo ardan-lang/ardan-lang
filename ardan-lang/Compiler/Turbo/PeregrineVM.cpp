@@ -9,14 +9,11 @@
 #include "PeregrineVM.hpp"
 
 PeregrineVM::PeregrineVM() {
-    env = new Env();
     init_builtins();
-
 }
 
 PeregrineVM::PeregrineVM(shared_ptr<TurboModule> module_) : module_(module_) {
 
-    env = new Env();
     init_builtins();
     
 }
@@ -25,7 +22,7 @@ PeregrineVM::~PeregrineVM() {
     
     thread stopper([this]() {
         sleep(0);
-        cout << "[Stopper] Calling stop()" << endl;
+        cout << "[Event Loop]..." << endl;
         event_loop->stop();
     });
     
@@ -48,7 +45,9 @@ PeregrineVM::~PeregrineVM() {
 }
 
 void PeregrineVM::init_builtins() {
-    
+
+    env = new Env();
+
     event_loop = &EventLoop::getInstance();
 
     env->set_var("Math", make_shared<Math>());
@@ -1655,7 +1654,6 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 
                 auto promise = make_shared<Promise>(this);
                 promise->resolve(frame->registers[instruction.a]);
-                //promise->then_callbacks.push_back([]()->Value {});
                 frame->registers[instruction.b] = Value::promise(promise);
                 
                 break;
@@ -1680,15 +1678,20 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 
                 Value result = frame->registers[instruction.a];
                 auto index = frame->closure->fn->chunkIndex;
-                auto closure = frame->closure;
                 auto this_frame = frame;
                 auto i = instruction;
                 auto executionContext = executionCtx;
-
-                auto value = result.promiseValue->then([this, this_frame, index, closure, i, executionContext](vector<Value> args)->Value {
+                
+                if (result.type != ValueType::PROMISE) {
+                    auto promise = make_shared<Promise>(this);
+                    promise->resolve(result);
+                    result = Value::promise(promise);
+                }
+                
+                auto value = result.promiseValue->then([this, this_frame, index, i, executionContext](vector<Value> args)->Value {
                     
                     shared_ptr<TurboChunk> calleeChunk = module_->chunks[index];
-
+                    
                     callStack.push_back(*this_frame);
                     callStack.back().registers[i.b] = args[0];
                     Value result = runFrameContext(callStack.back(), executionContext);
@@ -1696,9 +1699,10 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                     return result;
                     
                 });
-
+                
+                
                 return Value();
-
+                
             }
                 
             default:
@@ -1773,7 +1777,7 @@ Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) 
         contextStack.pop_back();
         executionCtx = contextStack.back();
         
-        if (callee.closureValue->fn->isAsync) {
+        if (callee.closureValue->fn->isAsync && result.type != ValueType::PROMISE) {
             auto promise = make_shared<Promise>(this);
             promise->resolve(result);
             return Value::promise(promise);
