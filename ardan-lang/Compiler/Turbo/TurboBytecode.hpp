@@ -187,6 +187,7 @@ enum class TurboOpCode : uint8_t {
     SetExecutionContext,
     CopyIterationBinding,
     Await,
+    CreatePromise,
     // end for PeregrineVM
 
     Halt
