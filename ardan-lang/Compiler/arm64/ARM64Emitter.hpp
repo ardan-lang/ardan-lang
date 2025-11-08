@@ -93,6 +93,28 @@ public:
         emit(0x14000000); // B placeholder, patched in resolveLabels
     }
 
+    // ARM64 encoding for STR Xn, [Xm, #imm12]
+    void str(int reg, int base, int offset) {
+        // Only for offset divisible by 8 and in range [0, 32760]
+        // Encoding: base 0xF9000000 | (offset/8)<<10 | reg<<5 | base
+        uint32_t instr = 0xF9000000
+                       | (((offset / 8) & 0x7FF) << 10)
+                       | ((base & 0x1F) << 5)
+                       | (reg & 0x1F);
+        code.push_back(instr);
+    }
+
+    // For global storage, you’d typically generate address in a register, then STR to [reg]
+    // This stub assumes you have preallocated global addresses and store their base in a register
+    void str_global(int reg, int global_addr_reg) {
+        // STR Xreg, [Xglobal_addr_reg]
+        // Encoding: STR Xn, [Xm, #0]
+        uint32_t instr = 0xF9000000
+                       | ((global_addr_reg & 0x1F) << 5)
+                       | (reg & 0x1F);
+        code.push_back(instr);
+    }
+
     int genLabel() {
         return labelCounter++;
     }
