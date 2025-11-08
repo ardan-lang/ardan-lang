@@ -3401,6 +3401,8 @@ size_t PeregrineCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t 
         case TurboOpCode::PushLexicalEnv: opName = "PushLexicalEnv"; break;
         case TurboOpCode::PopLexicalEnv: opName = "PopLexicalEnv"; break;
         case TurboOpCode::SetExecutionContext: opName = "SetExecutionContext"; break;
+            
+        case TurboOpCode::Await: opName = "Await"; break;
 
 
         // Add more opcodes as needed

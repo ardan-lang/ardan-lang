@@ -1683,14 +1683,15 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 auto closure = frame->closure;
                 auto this_frame = frame;
                 auto i = instruction;
+                auto executionContext = executionCtx;
 
-                auto value = result.promiseValue->then([this, this_frame, index, closure, i](vector<Value> args)->Value {
+                auto value = result.promiseValue->then([this, this_frame, index, closure, i, executionContext](vector<Value> args)->Value {
                     
                     shared_ptr<TurboChunk> calleeChunk = module_->chunks[index];
-                    
+
                     callStack.push_back(*this_frame);
                     callStack.back().registers[i.b] = args[0];
-                    Value result = runFrame(callStack.back());
+                    Value result = runFrameContext(callStack.back(), executionContext);
                     
                     return result;
                     
@@ -1726,6 +1727,15 @@ ExecutionContext* PeregrineVM::createNewExecutionContext(const Value& callee) co
     
     return funcCtx;
 
+}
+
+Value PeregrineVM::runFrameContext(CallFrame& frame, ExecutionContext* ctx) {
+    
+    contextStack.push_back(ctx);
+    executionCtx = ctx;
+    
+    return runFrame(frame);
+    
 }
 
 Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) {

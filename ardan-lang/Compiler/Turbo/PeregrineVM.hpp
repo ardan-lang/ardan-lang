@@ -148,6 +148,7 @@ private:
     Value getVariable(const string& key) const;
     void putVariable(const string& key, const Value& v) const;
     ExecutionContext* createNewExecutionContext(const Value& callee) const;
+    Value runFrameContext(CallFrame& frame, ExecutionContext* ctx);
     
 };
 
