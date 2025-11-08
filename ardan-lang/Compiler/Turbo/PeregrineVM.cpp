@@ -1654,7 +1654,7 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
             case TurboOpCode::CreatePromise: {
                 
                 auto promise = make_shared<Promise>(this);
-                //std::function<Value(vector<Value>)>;
+                promise->resolve(frame->registers[instruction.a]);
                 //promise->then_callbacks.push_back([]()->Value {});
                 frame->registers[instruction.b] = Value::promise(promise);
                 
@@ -1682,21 +1682,20 @@ Value PeregrineVM::runFrame(CallFrame &current_frame) {
                 auto index = frame->closure->fn->chunkIndex;
                 auto closure = frame->closure;
                 auto this_frame = frame;
-                
-                auto callback = [this, this_frame, index, closure](vector<Value> args) -> Value {
+                auto i = instruction;
 
+                auto value = result.promiseValue->then([this, this_frame, index, closure, i](vector<Value> args)->Value {
+                    
                     shared_ptr<TurboChunk> calleeChunk = module_->chunks[index];
-
+                    
                     callStack.push_back(*this_frame);
-                    frame = this_frame;
+                    callStack.back().registers[i.b] = args[0];
                     Value result = runFrame(callStack.back());
                     
                     return result;
                     
-                };
-                
-                event_loop->post(callback, frame->args);
-                                
+                });
+
                 return Value();
 
             }
@@ -1763,6 +1762,13 @@ Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) 
         
         contextStack.pop_back();
         executionCtx = contextStack.back();
+        
+        if (callee.closureValue->fn->isAsync) {
+            auto promise = make_shared<Promise>(this);
+            promise->resolve(result);
+            return Value::promise(promise);
+
+        }
         
         return result;
         

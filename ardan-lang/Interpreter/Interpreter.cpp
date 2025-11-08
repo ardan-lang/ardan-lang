@@ -490,7 +490,7 @@ R Interpreter::create_func_expr(FunctionDeclaration* stmt) {
     // Build a closure Value that can be called
     Value closureValue = Value::function([stmt, closureEnv, lexicalThis, intr, this](vector<Value> args) mutable -> Value {
 
-        auto promise = std::make_shared<Promise>();
+        auto promise = std::make_shared<Promise>(nullptr);
 
         auto callback_func = [stmt, closureEnv, lexicalThis, intr, promise](vector<Value> args) -> Value {
             
@@ -2221,7 +2221,7 @@ R Interpreter::visitArrowFunction(ArrowFunction* expr) {
     // Return a callable Value (assuming Value supports callable lambdas)
     return Value::function([closure, lexicalThis, expr, intr, this](vector<Value> args) mutable -> Value {
 
-        auto promise = std::make_shared<Promise>();
+        auto promise = std::make_shared<Promise>(nullptr);
 
         auto callback_func = [closure, lexicalThis, expr, intr, promise](vector<Value> args) -> Value {
             
@@ -2628,7 +2628,7 @@ R Interpreter::visitFunctionExpression(FunctionExpression* expr) {
     // Return a callable Value (assuming Value supports callable lambdas)
     return Value::function([closure, lexicalThis, expr, intr, this](vector<Value> args) mutable -> Value {
         
-        auto promise = std::make_shared<Promise>();
+        auto promise = std::make_shared<Promise>(nullptr);
                 
         auto callback_func = [closure, lexicalThis, expr, intr, promise](vector<Value> args) -> Value {
             

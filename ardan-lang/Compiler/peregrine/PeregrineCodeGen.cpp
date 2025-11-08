@@ -1700,10 +1700,11 @@ R PeregrineCodeGen::visitUndefinedKeyword(UndefinedKeyword*) {
 }
 
 R PeregrineCodeGen::visitAwaitExpression(AwaitExpression* expr) {
+    int resultReg = allocRegister();
     int promiseReg = get<int>(expr->inner->accept(*this));
-    emit(TurboOpCode::Await, promiseReg);
+    emit(TurboOpCode::Await, promiseReg, resultReg);
     freeRegister(promiseReg);
-    return true;
+    return resultReg;
 }
 
 R PeregrineCodeGen::visitBreak(BreakStatement*) {
