@@ -7,6 +7,8 @@
 
 #include "ARM64CodeGen.hpp"
 
+#define FP 29
+
 //void emitSimpleAddFunc(ARM64Emitter& emitter) {
 //    emitter.mov_reg_imm(0, 3); // MOV X0, #3
 //    emitter.mov_reg_imm(1, 5); // MOV X1, #5
@@ -47,9 +49,9 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 
         // Evaluate initializer or default value
         if (decl.init) {
-            R initValue = decl.init->accept(this);
-            emitter.mov_reg_reg(reg, initValue.reg);
-            regAlloc.free(initValue.reg);
+            int initReg = get<int>(decl.init->accept(*this));
+            emitter.mov_reg_reg(reg, initReg);
+            regAlloc.free(initReg);
         } else {
             // For uninitialized, store zero (undefined)
             emitter.mov_reg_imm(reg, 0);
@@ -160,11 +162,11 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    return {result, 0};
 //}
 
-//R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
-//    int reg = regAlloc.alloc();
-//    emitter.mov_reg_imm(reg, expr->asInt());
-//    return {reg, 0};
-//}
+R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
+    int reg = regAlloc.alloc();
+    // emitter.mov_reg_imm(reg, expr->asInt());
+    return reg;
+}
 
 R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     int reg = regAlloc.alloc();
@@ -185,7 +187,9 @@ R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
     // Look up address of local/global, load to reg
     int reg = regAlloc.alloc();
+    emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
     // emitter.ldr(reg, FP, offset_of(expr->name));
+
     return reg;
 }
 
@@ -216,3 +220,4 @@ R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
 //    regAlloc.free(objReg);
 //    return {result, 0};
 //}
+

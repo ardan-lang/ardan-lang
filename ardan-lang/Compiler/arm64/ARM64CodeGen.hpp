@@ -29,7 +29,6 @@
 
 #include "ARM64Emitter.hpp"
 
-
 class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
     
     class ARM64RegisterAllocator {
@@ -129,6 +128,9 @@ public:
     RegisterAllocator regAlloc;
     vector<Local> locals;
     vector<Global> globals;
+    int scopeDepth = 0;
+    SymbolTable symbolTable;
+    StackFrame stackFrame;
 
 private:
 
@@ -141,7 +143,7 @@ private:
 //    R visitReturn(ReturnStatement* stmt) override;
 //    R visitFunction(FunctionDeclaration* stmt) override;
 //    R visitBinary(BinaryExpression* expr) override;
-//    R visitLiteral(LiteralExpression* expr) override;
+    R visitLiteral(LiteralExpression* expr) override;
     R visitNumericLiteral(NumericLiteral* expr) override;
     R visitStringLiteral(StringLiteral* expr) override;
     R visitIdentifier(IdentifierExpression* expr) override;

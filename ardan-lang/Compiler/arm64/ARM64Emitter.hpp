@@ -104,6 +104,10 @@ public:
         code.push_back(instr);
     }
 
+    // Load Xreg from [Xbase, #offset]
+    // Mirrors the encoding of str but with opcode 0xF9400000
+    void ldr(int reg, int base, int offset);
+
     // For global storage, you’d typically generate address in a register, then STR to [reg]
     // This stub assumes you have preallocated global addresses and store their base in a register
     void str_global(int reg, int global_addr_reg) {
@@ -197,3 +201,4 @@ private:
 };
 
 #endif /* ARM64Emitter_hpp */
+
