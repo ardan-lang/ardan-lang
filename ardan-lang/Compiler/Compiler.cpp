@@ -56,7 +56,8 @@ void Compiler::test_compile(const std::vector<std::unique_ptr<Statement>>& ast) 
 void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>& ast) {
 
     shared_ptr<TurboModule> module_ = make_shared<TurboModule>();
-    auto codegen = make_shared<TurboCodeGen>(module_);
+    // auto codegen = make_shared<TurboCodeGen>(module_);
+    auto codegen = make_shared<PeregrineCodeGen>(module_);
 
     // generate fills module_->chunks and module_->constants
     auto entryChunkIndex = codegen->generate(ast);
@@ -75,7 +76,8 @@ void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>&
 
 void Compiler::runTurbo(shared_ptr<TurboModule> module_) {
     
-    TurboVM vm(module_);
+    PeregrineVM vm(module_);
+    // TurboVM vm(module_);
 
     Value ret = vm.run(module_->chunks[module_->entryChunkIndex], {});
 

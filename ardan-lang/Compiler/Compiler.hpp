@@ -9,6 +9,10 @@
 #ifndef Compiler_hpp
 #define Compiler_hpp
 
+#include "Turbo/PeregrineVM.hpp"
+// #include "Turbo/InterpreterTurboVM/InterpreterTurboVMV2.hpp"
+#include "peregrine/PeregrineCodeGen.hpp"
+
 #include "VM/VM.hpp"
 #include "CodeGenerator.hpp"
 #include "VM/Module.hpp"
