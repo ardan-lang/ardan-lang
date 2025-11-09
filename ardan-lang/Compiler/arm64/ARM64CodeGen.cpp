@@ -16,19 +16,46 @@
 //    emitter.ret();             // RET
 //}
 
+ARM64CodeGen::ARM64CodeGen() {}
+
+size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
+    // cur = make_shared<TurboChunk>();
+    // cur->name = "BYTECODE";
+    // emit(TurboOpCode::PushLexicalEnv);
+    
+    for (const auto &s : program) {
+        s->accept(*this);
+    }
+    
+//    emit(TurboOpCode::PopLexicalEnv);
+    
+    disassemble();
+    
+    // emit(TurboOpCode::Halt);
+//    disassembleChunk(cur.get(), cur->name);
+//    
+//    uint32_t idx = module_->addChunk(cur);
+//    module_->entryChunkIndex = idx;
+    
+//    return idx;
+    return 0;
+}
+
 // --- STATEMENTS ---
 
-//R ARM64CodeGen::visitExpression(ExpressionStatement* stmt) {
+R ARM64CodeGen::visitExpression(ExpressionStatement* stmt) {
 //    R value = stmt->expr->accept(this);
 //    // Result is in a register, typically discard or use for side-effects
 //    regAlloc.free(value.reg);
 //    return {};
-//}
+return true;
+}
 
-//R ARM64CodeGen::visitBlock(BlockStatement* stmt) {
+R ARM64CodeGen::visitBlock(BlockStatement* stmt) {
 //    for (auto& s : stmt->statements) s->accept(this);
 //    return {};
-//}
+return true;
+}
 
 //R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    int reg = regAlloc.alloc();
@@ -76,7 +103,7 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
     return {};
 }
 
-//R ARM64CodeGen::visitIf(IfStatement* stmt) {
+R ARM64CodeGen::visitIf(IfStatement* stmt) {
 //    int condReg = stmt->test->accept(this).reg;
 //    int endLabel = emitter.genLabel();
 //    emitter.cmp_imm(condReg, 0);
@@ -93,9 +120,10 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    }
 //    regAlloc.free(condReg);
 //    return {};
-//}
+return true;
+}
 
-//R ARM64CodeGen::visitWhile(WhileStatement* stmt) {
+R ARM64CodeGen::visitWhile(WhileStatement* stmt) {
 //    int condLabel = emitter.genLabel();
 //    int bodyLabel = emitter.genLabel();
 //    emitter.setLabel(condLabel);
@@ -107,9 +135,10 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    emitter.setLabel(bodyLabel);
 //    regAlloc.free(condReg);
 //    return {};
-//}
+return true;
+}
 
-//R ARM64CodeGen::visitFor(ForStatement* stmt) {
+R ARM64CodeGen::visitFor(ForStatement* stmt) {
 //    // Pseudo: for (init; cond; step) body
 //    if (stmt->init) stmt->init->accept(this);
 //    int condLabel = emitter.genLabel();
@@ -124,17 +153,19 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    emitter.setLabel(endLabel);
 //    regAlloc.free(condReg);
 //    return {};
-//}
+return true;
+}
 
-//R ARM64CodeGen::visitReturn(ReturnStatement* stmt) {
+R ARM64CodeGen::visitReturn(ReturnStatement* stmt) {
 //    R val = stmt->argument ? stmt->argument->accept(this) : R{-1, 0};
 //    if (val.reg != -1)
 //        emitter.mov_reg_reg(0, val.reg); // x0 = return value
 //    emitter.ret();
 //    return {};
-//}
+    return true;
+}
 
-//R ARM64CodeGen::visitFunction(FunctionDeclaration* stmt) {
+R ARM64CodeGen::visitFunction(FunctionDeclaration* stmt) {
 //    // New frame, prologue: push FP, LR, allocate locals, etc.
 //    emitter.push_fp_lr();
 //    // Compile body
@@ -143,11 +174,12 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    emitter.pop_fp_lr();
 //    emitter.ret();
 //    return {};
-//}
+return true;
+}
 
 // --- EXPRESSIONS ---
 
-//R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
+R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
 //    // Example: a + b
 //    R left = expr->left->accept(this);
 //    R right = expr->right->accept(this);
@@ -160,7 +192,8 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 //    regAlloc.free(left.reg);
 //    regAlloc.free(right.reg);
 //    return {result, 0};
-//}
+    return true;
+}
 
 R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
     int reg = regAlloc.alloc();
@@ -170,7 +203,7 @@ R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
 
 R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     int reg = regAlloc.alloc();
-    emitter.mov_reg_imm(reg, get<int>(expr->value));
+    emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
     // return {reg, 0};
     return reg;
 }
@@ -187,13 +220,21 @@ R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
     // Look up address of local/global, load to reg
     int reg = regAlloc.alloc();
-    emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
+    // emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
     // emitter.ldr(reg, FP, offset_of(expr->name));
+    
+    if (stackFrame.hasLocal(expr->name)) {
+        emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
+    } else {
+        // it is in global
+        int globalAddr = symbolTable.getGlobal(expr->name);
+        emitter.str_global(reg, globalAddr); // Store reg to global memory address
+    }
 
     return reg;
 }
 
-//R ARM64CodeGen::visitCall(CallExpression* expr) {
+R ARM64CodeGen::visitCall(CallExpression* expr) {
 //    // Evaluate arguments (left-to-right)
 //    std::vector<int> argRegs;
 //    for (auto* a : expr->arguments) argRegs.push_back(a->accept(this).reg);
@@ -210,14 +251,293 @@ R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
 //    for (auto r : argRegs) regAlloc.free(r);
 //    regAlloc.free(fnReg);
 //    return {result, 0};
-//}
+    return true;
+}
 
-//R ARM64CodeGen::visitMember(MemberExpression* expr) {
+R ARM64CodeGen::visitMember(MemberExpression* expr) {
 //    // Address computation, usually for objects/structs/arrays
 //    int objReg = expr->object->accept(this).reg;
 //    int result = regAlloc.alloc();
 //    // emitter.ldr(result, objReg, offset_of(expr->property));
 //    regAlloc.free(objReg);
 //    return {result, 0};
-//}
+    return true;
+}
 
+R ARM64CodeGen::visitUnary(UnaryExpression* expr) { return true; }
+R ARM64CodeGen::visitArrowFunction(ArrowFunction* expr) { return true; }
+R ARM64CodeGen::visitFunctionExpression(FunctionExpression* expr) { return true; }
+R ARM64CodeGen::visitTemplateLiteral(TemplateLiteral* expr) { return true; }
+R ARM64CodeGen::visitImportDeclaration(ImportDeclaration* stmt) { return true; }
+
+R ARM64CodeGen::visitAssignment(AssignmentExpression* expr) { return true; }
+R ARM64CodeGen::visitLogical(LogicalExpression* expr) { return true; }
+R ARM64CodeGen::visitThis(ThisExpression* expr) { return true; }
+R ARM64CodeGen::visitSuper(SuperExpression* expr) { return true; }
+R ARM64CodeGen::visitProperty(PropertyExpression* expr) { return true; }
+R ARM64CodeGen::visitSequence(SequenceExpression* expr) { return true; }
+R ARM64CodeGen::visitUpdate(UpdateExpression* expr) { return true; }
+R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) { return true; }
+R ARM64CodeGen::visitTrueKeyword(TrueKeyword* expr) { return true; }
+R ARM64CodeGen::visitPublicKeyword(PublicKeyword* expr) { return true; }
+R ARM64CodeGen::visitPrivateKeyword(PrivateKeyword* expr) { return true; }
+R ARM64CodeGen::visitProtectedKeyword(ProtectedKeyword* expr) { return true; }
+R ARM64CodeGen::visitStaticKeyword(StaticKeyword* expr) { return true; }
+R ARM64CodeGen::visitRestParameter(RestParameter* expr) { return true; }
+R ARM64CodeGen::visitClassExpression(ClassExpression* expr) { return true; }
+R ARM64CodeGen::visitNullKeyword(NullKeyword* expr) { return true; }
+R ARM64CodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) { return true; }
+R ARM64CodeGen::visitAwaitExpression(AwaitExpression* expr) { return true; }
+R ARM64CodeGen::visitUIExpression(UIViewExpression* visitor) { return true; }
+
+R ARM64CodeGen::visitBreak(BreakStatement* stmt) { return true; }
+R ARM64CodeGen::visitContinue(ContinueStatement* stmt) { return true; }
+R ARM64CodeGen::visitThrow(ThrowStatement* stmt) { return true; }
+R ARM64CodeGen::visitEmpty(EmptyStatement* stmt) { return true; }
+R ARM64CodeGen::visitClass(ClassDeclaration* stmt) { return true; }
+R ARM64CodeGen::visitMethodDefinition(MethodDefinition* stmt) { return true; }
+R ARM64CodeGen::visitDoWhile(DoWhileStatement* stmt) { return true; }
+R ARM64CodeGen::visitSwitchCase(SwitchCase* stmt) { return true; }
+R ARM64CodeGen::visitSwitch(SwitchStatement* stmt) { return true; }
+R ARM64CodeGen::visitCatch(CatchClause* stmt) { return true; }
+R ARM64CodeGen::visitTry(TryStatement* stmt) { return true; }
+R ARM64CodeGen::visitForIn(ForInStatement* stmt) { return true; }
+R ARM64CodeGen::visitForOf(ForOfStatement* stmt) { return true; }
+R ARM64CodeGen::visitEnumDeclaration(EnumDeclaration* stmt) { return true; }
+R ARM64CodeGen::visitInterfaceDeclaration(InterfaceDeclaration* stmt) { return true; }
+
+R ARM64CodeGen::visitYieldExpression(YieldExpression* visitor) {
+    return true;
+}
+
+R ARM64CodeGen::visitSpreadExpression(SpreadExpression* visitor) {
+    return true;
+}
+
+R ARM64CodeGen::visitNew(NewExpression* expr) {
+    return true;
+}
+
+R ARM64CodeGen::visitArray(ArrayLiteralExpression* expr) {
+    return true;
+}
+
+R ARM64CodeGen::visitObject(ObjectLiteralExpression* expr) {
+    return true;
+}
+
+R ARM64CodeGen::visitConditional(ConditionalExpression* expr) {
+    return true;
+}
+
+void ARM64CodeGen::disassemble() {
+    // --- Disassemble ARM64 code section ---
+    printf("== ARM64 Code ==\n");
+    const auto& code = emitter.getCode();
+//    size_t offset = 0;
+//    while (offset + 4 <= code.size()) {
+//        // Read 4 bytes (little-endian)
+//        uint32_t instr = (uint32_t)code[offset]
+//                       | ((uint32_t)code[offset+1] << 8)
+//                       | ((uint32_t)code[offset+2] << 16)
+//                       | ((uint32_t)code[offset+3] << 24);
+//        printf("%04zx: %08x    ", offset, instr);
+//
+//        // Decode known patterns (add more as you support more ops)
+//        if ((instr & 0xFFC00000) == 0xD2800000) {
+//            // MOVZ Xd, #imm16
+//            uint8_t reg = instr & 0x1F;
+//            uint16_t imm = (instr >> 5) & 0xFFFF;
+//            printf("movz x%d, #%u", reg, imm);
+//        } else if ((instr & 0xFF2003E0) == 0x8B000000) {
+//            // ADD Xd, Xn, Xm
+//            uint8_t dst = instr & 0x1F;
+//            uint8_t src1 = (instr >> 5) & 0x1F;
+//            uint8_t src2 = (instr >> 16) & 0x1F;
+//            printf("add x%d, x%d, x%d", dst, src1, src2);
+//        } else if ((instr & 0xFF2003E0) == 0xCB000000) {
+//            // SUB Xd, Xn, Xm
+//            uint8_t dst = instr & 0x1F;
+//            uint8_t src1 = (instr >> 5) & 0x1F;
+//            uint8_t src2 = (instr >> 16) & 0x1F;
+//            printf("sub x%d, x%d, x%d", dst, src1, src2);
+//        } else if (instr == 0xD65F03C0) {
+//            // RET
+//            printf("ret");
+//        } else if ((instr & 0xFFC00000) == 0xF9000000) {
+//            // STR Xn, [Xm, #imm12]
+//            uint8_t reg = instr & 0x1F;
+//            uint8_t base = (instr >> 5) & 0x1F;
+//            uint32_t offset12 = (instr >> 10) & 0x7FF;
+//            printf("str x%d, [x%d, #%u]", reg, base, offset12 * 8);
+//        } else if ((instr & 0xFFC00000) == 0xF9400000) {
+//            // LDR Xn, [Xm, #imm12]
+//            uint8_t reg = instr & 0x1F;
+//            uint8_t base = (instr >> 5) & 0x1F;
+//            uint32_t offset12 = (instr >> 10) & 0x7FF;
+//            printf("ldr x%d, [x%d, #%u]", reg, base, offset12 * 8);
+//        } else {
+//            // Unknown, print raw
+//            printf("unknown");
+//        }
+//        printf("\n");
+//        offset += 4;
+//    }
+    // --- Disassemble data section ---
+    const auto& data = emitter.getDataSection();
+    printf("-- Data Section --\n");
+    size_t dpos = 0;
+    while (dpos < data.size()) {
+        // Try to print as a null-terminated ASCII string if possible
+        if (isprint(data[dpos]) && data[dpos] != 0) {
+            size_t start = dpos;
+            while (dpos < data.size() && isprint(data[dpos]) && data[dpos] != 0) dpos++;
+            printf("[%04zx] \"%.*s\"\n", start, (int)(dpos - start), (const char*)&data[start]);
+            // Skip over null terminator if present
+            if (dpos < data.size() && data[dpos] == 0) dpos++;
+        } else {
+            // Print as hex
+            printf("[%04zx] %02x\n", dpos, data[dpos]);
+            dpos++;
+        }
+    }
+}
+
+//void ARM64CodeGen::disassemble()  {
+//
+//    const auto& code = emitter.getCode();
+//
+//    std::vector<std::string> out;
+//    size_t n = code.size();
+//    auto read32 = [&](size_t pos)->uint32_t {
+//        if (pos + 4 > n) throw std::runtime_error("read32 out of range");
+//        // little-endian recompose
+//        uint32_t b0 = code[pos];
+//        uint32_t b1 = code[pos+1];
+//        uint32_t b2 = code[pos+2];
+//        uint32_t b3 = code[pos+3];
+//        return (b3 << 24) | (b2 << 16) | (b1 << 8) | b0;
+//    };
+//    
+//    auto regName = [](int r)->std::string {
+//        std::ostringstream s;
+//        s << "X" << r;
+//        return s.str();
+//    };
+//    
+//    auto signExtend = [](uint32_t val, int bits)->int32_t {
+//        // sign-extend 'bits' size value in uint32_t to int32_t
+//        uint32_t m = 1u << (bits - 1);
+//        return (val ^ m) - m;
+//    };
+//    
+//    for (size_t pos = 0; pos + 4 <= n; pos += 4) {
+//        uint32_t inst = read32(pos);
+//        std::ostringstream line;
+//        line << std::setw(4) << std::setfill('0') << std::hex << pos << ": ";
+//        line << std::setw(8) << std::setfill('0') << std::hex << inst << std::dec << "  ";
+//        
+//        // Match known patterns produced by emitter
+//        // MOVZ (MOV immediate)
+//        if ((inst & 0xFFC00000) == 0xD2800000) {
+//            uint32_t imm = (inst >> 5) & 0xFFFF;
+//            uint32_t rd  = inst & 0x1F;
+//            line << "MOVZ " << regName(rd) << ", #" << imm;
+//        }
+//        // ADD (register)
+//        else if ((inst & 0xFF000000) == 0x8B000000) {
+//            uint32_t rd = inst & 0x1F;
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            uint32_t rm = (inst >> 16) & 0x1F;
+//            line << "ADD " << regName(rd) << ", " << regName(rn) << ", " << regName(rm);
+//        }
+//        // SUB (register)
+//        else if ((inst & 0xFF000000) == 0xCB000000) {
+//            uint32_t rd = inst & 0x1F;
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            uint32_t rm = (inst >> 16) & 0x1F;
+//            line << "SUB " << regName(rd) << ", " << regName(rn) << ", " << regName(rm);
+//        }
+//        // ORR / Move (the pattern used by mov_reg_reg)
+//        else if ((inst & 0xFF000000) == 0xAA000000) {
+//            uint32_t rd = inst & 0x1F;
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            uint32_t rm = (inst >> 16) & 0x1F;
+//            // If operand uses XZR in one operand we can nicely print MOV
+//            if (rn == 31) {
+//                line << "MOV " << regName(rd) << ", " << regName(rm);
+//            } else {
+//                line << "ORR " << regName(rd) << ", " << regName(rn) << ", " << regName(rm);
+//            }
+//        }
+//        // STR scaled (your encoding uses scaled by 8)
+//        else if ((inst & 0xFF800000) == 0xF9000000) {
+//            uint32_t rt = inst & 0x1F;
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            uint32_t imm11 = (inst >> 10) & 0x7FF;
+//            uint32_t imm = imm11 * 8;
+//            line << "STR " << regName(rt) << ", [" << regName(rn) << ", #" << imm << "]";
+//        }
+//        // LDR scaled
+//        else if ((inst & 0xFF800000) == 0xF9400000) {
+//            uint32_t rt = inst & 0x1F;
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            uint32_t imm11 = (inst >> 10) & 0x7FF;
+//            uint32_t imm = imm11 * 8;
+//            line << "LDR " << regName(rt) << ", [" << regName(rn) << ", #" << imm << "]";
+//        }
+//        // CMP immediate pattern used by emitter (SUBS XZR, Xn, #imm)
+//        else if ((inst & 0xFFE0001F) == 0xF100001F) {
+//            uint32_t imm12 = (inst >> 10) & 0xFFF;
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            line << "CMP " << regName(rn) << ", #" << imm12;
+//        }
+//        // BEQ (conditional branch)
+//        else if ((inst & 0xFF000000) == 0x54000000) {
+//            uint32_t imm19 = (inst >> 5) & 0x7FFFF; // 19 bits
+//            int32_t s = signExtend(imm19, 19);
+//            int32_t byteOffset = s * 4;
+//            line << "BEQ " << (byteOffset >= 0 ? "+" : "") << byteOffset << " (PC relative)";
+//        }
+//        // B (unconditional)
+//        else if ((inst & 0x7C000000) == 0x14000000) {
+//            uint32_t imm26 = inst & 0x03FFFFFF;
+//            int32_t s = signExtend(imm26, 26);
+//            int32_t byteOffset = s * 4;
+//            line << "B " << (byteOffset >= 0 ? "+" : "") << byteOffset << " (PC relative)";
+//        }
+//        // BLR (branch to register)
+//        else if ((inst & 0xFFFFFE00) == 0xD63F0000) {
+//            uint32_t rn = (inst >> 5) & 0x1F;
+//            line << "BLR " << regName(rn);
+//        }
+//        // RET
+//        else if (inst == 0xD65F03C0) {
+//            line << "RET LR";
+//        }
+//        // STP FP, LR, [SP, #-16]!  (function prologue pattern emitted by push_fp_lr)
+//        else if (inst == 0xA9BF7BF0) {
+//            line << "STP FP, LR, [SP, #-16]!";
+//        }
+//        // MOV FP, SP (typical sequence after STP in push_fp_lr)
+//        else if (inst == 0x910003FD) {
+//            line << "MOV FP, SP";
+//        }
+//        // LDP FP, LR, [SP], #16  (pop_fp_lr)
+//        else if (inst == 0xA8C17BF0) {
+//            line << "LDP FP, LR, [SP], #16";
+//        }
+//        // Fallback: unknown
+//        else {
+//            line << "UNKN";
+//        }
+//        
+//        out.push_back(line.str());
+//    }
+//    
+//    auto listing = out;
+//    for (auto &ln : listing) {
+//        std::cout << ln << '\n';
+//    }
+//    
+//}

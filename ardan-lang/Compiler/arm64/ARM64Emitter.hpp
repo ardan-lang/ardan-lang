@@ -16,6 +16,9 @@
 #include <cstring>
 #include <unordered_map>
 #include <cstdint>
+#include <iostream>
+
+using namespace std;
 
 class ARM64EmitterV2 {
 public:
@@ -73,6 +76,7 @@ public:
     }
 
     void ret() {
+        cout << "ret" << '\n';
         emit(0xD65F03C0); // RET LR
     }
 
@@ -97,6 +101,7 @@ public:
     void str(int reg, int base, int offset) {
         // Only for offset divisible by 8 and in range [0, 32760]
         // Encoding: base 0xF9000000 | (offset/8)<<10 | reg<<5 | base
+        std::cout << "str x" << reg  << ", " << base << " : " << offset << '\n';
         uint32_t instr = 0xF9000000
                        | (((offset / 8) & 0x7FF) << 10)
                        | ((base & 0x1F) << 5)
@@ -113,6 +118,8 @@ public:
     void str_global(int reg, int global_addr_reg) {
         // STR Xreg, [Xglobal_addr_reg]
         // Encoding: STR Xn, [Xm, #0]
+        std::cout << "str x" << reg  << ", [" << global_addr_reg << "]" << '\n';
+
         uint32_t instr = 0xF9000000
                        | ((global_addr_reg & 0x1F) << 5)
                        | (reg & 0x1F);
@@ -182,12 +189,15 @@ private:
     // ARM64 encoding helpers
     static inline uint32_t encodeMOV(uint8_t reg, uint16_t imm) {
         // MOVZ Xd, #imm (16-bit), LSL #0
+        cout << "movz x" << (int)reg << ", " << (int)imm << '\n';
         return 0xD2800000 | ((imm & 0xFFFF) << 5) | (reg & 0x1F);
     }
     static inline uint32_t encodeADD(uint8_t dst, uint8_t src1, uint8_t src2) {
+        cout << "add x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
         return 0x8B000000 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
     }
     static inline uint32_t encodeSUB(uint8_t dst, uint8_t src1, uint8_t src2) {
+        cout << "sub x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
         return 0xCB000000 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
     }
 

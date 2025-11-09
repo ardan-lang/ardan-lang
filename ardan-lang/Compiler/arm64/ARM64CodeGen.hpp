@@ -29,10 +29,13 @@
 
 #include "ARM64Emitter.hpp"
 
+using namespace std;
+
 class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
     
     class ARM64RegisterAllocator {
-        std::vector<int> freeRegs;
+    private:
+        vector<int> freeRegs;
     public:
         ARM64RegisterAllocator() {
             // ARM64 has x0-x30, but reserve x0-x7 for ABI/args/returns. Use x9-x15 for temporaries.
@@ -52,10 +55,11 @@ class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
     };
     
     class SymbolTable {
-        std::unordered_map<std::string, int> globals;
+    private:
+        unordered_map<string, int> globals;
         int nextGlobalAddr = 0;
     public:
-        int addGlobal(const std::string& name) {
+        int addGlobal(const string& name) {
             if (globals.count(name) == 0)
                 globals[name] = nextGlobalAddr++;
             return globals[name];
@@ -67,13 +71,22 @@ class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
                 throw std::runtime_error("No such global: " + name);
             return it->second;
         }
+        
+        bool hasGlobal(string name) {
+            auto it = globals.find(name);
+            if (it == globals.end())
+                return false;
+            return true;
+        }
+
     };
     
     class StackFrame {
-        std::unordered_map<std::string, int> locals;
+    private:
+        unordered_map<std::string, int> locals;
         int nextOffset = -8; // Assume negative offset, 8 bytes per local (64 bits)
     public:
-        int addLocal(const std::string& name) {
+        int addLocal(const string& name) {
             if (locals.count(name) == 0) {
                 locals[name] = nextOffset;
                 nextOffset -= 8;
@@ -86,6 +99,14 @@ class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
                 throw std::runtime_error("No such local: " + name);
             return it->second;
         }
+        
+        bool hasLocal(string name) {
+            auto it = locals.find(name);
+            if (it == locals.end())
+                return false;
+            return true;
+        }
+        
     };
     
     class RegisterAllocator {
@@ -125,75 +146,81 @@ class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
 
 public:
     ARM64Emitter emitter;
-    RegisterAllocator regAlloc;
+    ARM64RegisterAllocator regAlloc;
     vector<Local> locals;
     vector<Global> globals;
     int scopeDepth = 0;
     SymbolTable symbolTable;
     StackFrame stackFrame;
+    
+    ARM64CodeGen();
+    
+    size_t generate(const vector<unique_ptr<Statement>> &program);
+    void disassemble();
+    
 
-private:
-
-//    R visitExpression(ExpressionStatement* stmt) override;
-//    R visitBlock(BlockStatement* stmt) override;
+    R visitExpression(ExpressionStatement* stmt) override;
+    R visitBlock(BlockStatement* stmt) override;
     R visitVariable(VariableStatement* stmt) override;
-//    R visitIf(IfStatement* stmt) override;
-//    R visitWhile(WhileStatement* stmt) override;
-//    R visitFor(ForStatement* stmt) override;
-//    R visitReturn(ReturnStatement* stmt) override;
-//    R visitFunction(FunctionDeclaration* stmt) override;
-//    R visitBinary(BinaryExpression* expr) override;
+    R visitIf(IfStatement* stmt) override;
+    R visitWhile(WhileStatement* stmt) override;
+    R visitFor(ForStatement* stmt) override;
+    R visitReturn(ReturnStatement* stmt) override;
+    R visitFunction(FunctionDeclaration* stmt) override;
+    R visitBinary(BinaryExpression* expr) override;
     R visitLiteral(LiteralExpression* expr) override;
     R visitNumericLiteral(NumericLiteral* expr) override;
     R visitStringLiteral(StringLiteral* expr) override;
     R visitIdentifier(IdentifierExpression* expr) override;
-//    R visitCall(CallExpression* expr) override;
-//    R visitMember(MemberExpression* expr) override;
-//    R visitNew(NewExpression* expr) override;
-//    R visitArray(ArrayLiteralExpression* expr) override;
-//    R visitObject(ObjectLiteralExpression* expr) override;
-//    R visitConditional(ConditionalExpression* expr) override;
-//    R visitUnary(UnaryExpression* expr) override;
-//    R visitArrowFunction(ArrowFunction* expr) override;
-//    R visitFunctionExpression(FunctionExpression* expr) override;
-//    R visitTemplateLiteral(TemplateLiteral* expr) override;
-//    R visitImportDeclaration(ImportDeclaration* stmt) override;
+    R visitCall(CallExpression* expr) override;
+    R visitMember(MemberExpression* expr) override;
+    R visitNew(NewExpression* expr) override;
+    R visitArray(ArrayLiteralExpression* expr) override;
+    R visitObject(ObjectLiteralExpression* expr) override;
+    R visitConditional(ConditionalExpression* expr) override;
+    R visitUnary(UnaryExpression* expr) override;
+    R visitArrowFunction(ArrowFunction* expr) override;
+    R visitFunctionExpression(FunctionExpression* expr) override;
+    R visitTemplateLiteral(TemplateLiteral* expr) override;
+    R visitImportDeclaration(ImportDeclaration* stmt) override;
 
-//    R visitAssignment(AssignmentExpression* expr) override;
-//    R visitLogical(LogicalExpression* expr) override;
-//    R visitThis(ThisExpression* expr) override;
-//    R visitSuper(SuperExpression* expr) override;
-//    R visitProperty(PropertyExpression* expr) override;
-//    R visitSequence(SequenceExpression* expr) override;
-//    R visitUpdate(UpdateExpression* expr) override;
-//    R visitFalseKeyword(FalseKeyword* expr) override;
-//    R visitTrueKeyword(TrueKeyword* expr) override;
-//    R visitPublicKeyword(PublicKeyword* expr) override;
-//    R visitPrivateKeyword(PrivateKeyword* expr) override;
-//    R visitProtectedKeyword(ProtectedKeyword* expr) override;
-//    R visitStaticKeyword(StaticKeyword* expr) override;
-//    R visitRestParameter(RestParameter* expr) override;
-//    R visitClassExpression(ClassExpression* expr) override;
-//    R visitNullKeyword(NullKeyword* expr) override;
-//    R visitUndefinedKeyword(UndefinedKeyword* expr) override;
-//    R visitAwaitExpression(AwaitExpression* expr) override;
-//    R visitUIExpression(UIViewExpression* visitor) override;
+    R visitAssignment(AssignmentExpression* expr) override;
+    R visitLogical(LogicalExpression* expr) override;
+    R visitThis(ThisExpression* expr) override;
+    R visitSuper(SuperExpression* expr) override;
+    R visitProperty(PropertyExpression* expr) override;
+    R visitSequence(SequenceExpression* expr) override;
+    R visitUpdate(UpdateExpression* expr) override;
+    R visitFalseKeyword(FalseKeyword* expr) override;
+    R visitTrueKeyword(TrueKeyword* expr) override;
+    R visitPublicKeyword(PublicKeyword* expr) override;
+    R visitPrivateKeyword(PrivateKeyword* expr) override;
+    R visitProtectedKeyword(ProtectedKeyword* expr) override;
+    R visitStaticKeyword(StaticKeyword* expr) override;
+    R visitRestParameter(RestParameter* expr) override;
+    R visitClassExpression(ClassExpression* expr) override;
+    R visitNullKeyword(NullKeyword* expr) override;
+    R visitUndefinedKeyword(UndefinedKeyword* expr) override;
+    R visitAwaitExpression(AwaitExpression* expr) override;
+    R visitUIExpression(UIViewExpression* visitor) override;
     
-//    R visitBreak(BreakStatement* stmt) override;
-//    R visitContinue(ContinueStatement* stmt) override;
-//    R visitThrow(ThrowStatement* stmt) override;
-//    R visitEmpty(EmptyStatement* stmt) override;
-//    R visitClass(ClassDeclaration* stmt) override;
-//    R visitMethodDefinition(MethodDefinition* stmt) override;
-//    R visitDoWhile(DoWhileStatement* stmt) override;
-//    R visitSwitchCase(SwitchCase* stmt) override;
-//    R visitSwitch(SwitchStatement* stmt) override;
-//    R visitCatch(CatchClause* stmt) override;
-//    R visitTry(TryStatement* stmt) override;
-//    R visitForIn(ForInStatement* stmt) override;
-//    R visitForOf(ForOfStatement* stmt) override;
-//    R visitEnumDeclaration(EnumDeclaration* stmt) override;
-//    R visitInterfaceDeclaration(InterfaceDeclaration* stmt) override;
+    R visitBreak(BreakStatement* stmt) override;
+    R visitContinue(ContinueStatement* stmt) override;
+    R visitThrow(ThrowStatement* stmt) override;
+    R visitEmpty(EmptyStatement* stmt) override;
+    R visitClass(ClassDeclaration* stmt) override;
+    R visitMethodDefinition(MethodDefinition* stmt) override;
+    R visitDoWhile(DoWhileStatement* stmt) override;
+    R visitSwitchCase(SwitchCase* stmt) override;
+    R visitSwitch(SwitchStatement* stmt) override;
+    R visitCatch(CatchClause* stmt) override;
+    R visitTry(TryStatement* stmt) override;
+    R visitForIn(ForInStatement* stmt) override;
+    R visitForOf(ForOfStatement* stmt) override;
+    R visitEnumDeclaration(EnumDeclaration* stmt) override;
+    R visitInterfaceDeclaration(InterfaceDeclaration* stmt) override;
+    R visitYieldExpression(YieldExpression* visitor) override;
+    R visitSpreadExpression(SpreadExpression* visitor) override;
 
 };
 
