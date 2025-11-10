@@ -5,6 +5,9 @@
 //  Created by Chidume Nnamdi on 30/10/2025.
 //
 
+#include <sys/mman.h>
+#include <cstring>
+
 #include "ARM64CodeGen.hpp"
 
 #define FP 29
@@ -18,26 +21,69 @@
 
 ARM64CodeGen::ARM64CodeGen() {}
 
+void ARM64CodeGen::run() {
+    auto dataSection = emitter.getDataSection();
+
+    // Allocate and copy data
+    void* data = mmap(nullptr, dataSection.size(),
+                      PROT_READ | PROT_WRITE,
+                      MAP_PRIVATE | MAP_ANONYMOUS,
+                      -1, 0);
+
+    // Allocate executable memory
+    auto code = emitter.getCode();
+    size_t pageSize = sysconf(_SC_PAGESIZE);
+    size_t codeSize = ((code.size() + pageSize - 1) / pageSize) * pageSize;
+
+    void* exec_mem = mmap(nullptr, codeSize,
+                          PROT_READ | PROT_WRITE ,
+                          MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
+    
+    if (exec_mem == MAP_FAILED) {
+        perror("mmap");
+        return;
+    }
+    
+    // cout << code.data() << endl;
+
+    memcpy(exec_mem, code.data(), code.size());
+
+    // Flush instruction cache
+    //__builtin___clear_cache((char*)exec_mem, (char*)exec_mem + code.size());
+
+    if (mprotect(exec_mem, codeSize, PROT_READ | PROT_EXEC) != 0) {
+        perror("mprotect");
+    }
+
+    // Call code
+    auto func = reinterpret_cast<int(*)()>(exec_mem);
+
+    std::memcpy(data, dataSection.data(), dataSection.size());
+    register void* dataAddr asm("x0") = data;
+    asm volatile("" :: "r"(dataAddr));
+
+    int result = func();
+
+    std::cout << result << std::endl;
+    uint64_t* globalBase = (uint64_t*)data;
+    cout << globalBase[0] << endl;
+
+    munmap(exec_mem, codeSize);
+    munmap(data, dataSection.size());
+}
+
 size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
-    // cur = make_shared<TurboChunk>();
-    // cur->name = "BYTECODE";
-    // emit(TurboOpCode::PushLexicalEnv);
     
     for (const auto &s : program) {
         s->accept(*this);
     }
     
-//    emit(TurboOpCode::PopLexicalEnv);
-    
+    emitter.ret();
+        
     disassemble();
     
-    // emit(TurboOpCode::Halt);
-//    disassembleChunk(cur.get(), cur->name);
-//    
-//    uint32_t idx = module_->addChunk(cur);
-//    module_->entryChunkIndex = idx;
+    run();
     
-//    return idx;
     return 0;
 }
 
@@ -87,6 +133,8 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
         if (isGlobal) {
             // Global variable: store in a static/global storage area
             int globalAddr = symbolTable.addGlobal(decl.id);
+            emitter.addData(decl.id);
+            
             emitter.str_global(reg, globalAddr); // Store reg to global memory address
         } else {
             // Local variable: store in stack frame, tracked by offset
@@ -228,7 +276,8 @@ R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
     } else {
         // it is in global
         int globalAddr = symbolTable.getGlobal(expr->name);
-        emitter.str_global(reg, globalAddr); // Store reg to global memory address
+        // emitter.str_global(reg, globalAddr); // Store reg to global memory address
+        emitter.ldr_global(reg, globalAddr);
     }
 
     return reg;

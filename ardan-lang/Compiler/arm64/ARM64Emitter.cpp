@@ -43,17 +43,3 @@ void ARM64EmitterV2::ret() {
     emit(encodeRET());
     
 }
-
-// After the definition for str(int reg, int base, int offset), add the following definition for ldr:
-
-void ARM64Emitter::ldr(int reg, int base, int offset) {
-    // LDR Xn, [Xm, #imm12] (offset must be multiple of 8, in range [0, 32760])
-    // Encoding: 0xF9400000 | (offset/8)<<10 | base<<5 | reg
-    uint32_t instr = 0xF9400000
-                   | (((offset / 8) & 0x7FF) << 10)
-                   | ((base & 0x1F) << 5)
-                   | (reg & 0x1F);
-    code.push_back(instr);
-}
-
-// This mirrors str() but uses the LDR opcode (0xF9400000) instead of STR (0xF9000000).

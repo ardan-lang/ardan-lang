@@ -64,6 +64,7 @@ public:
 
     void mov_reg_reg(uint8_t dst, uint8_t src) {
         // ORR Xd, XZR, Xn (move Xn to Xd)
+        cout << "mov x" << (int)dst << ", x" << (int)src << endl;
         emit(0xAA0003E0 | ((src & 0x1F) << 16) | ((dst & 0x1F)));
     }
 
@@ -111,19 +112,102 @@ public:
 
     // Load Xreg from [Xbase, #offset]
     // Mirrors the encoding of str but with opcode 0xF9400000
-    void ldr(int reg, int base, int offset);
+    // After the definition for str(int reg, int base, int offset), add the following definition for ldr:
+
+    void ldr(int reg, int base, int offset) {
+        // LDR Xn, [Xm, #imm12] (offset must be multiple of 8, in range [0, 32760])
+        // Encoding: 0xF9400000 | (offset/8)<<10 | base<<5 | reg
+        uint32_t instr = 0xF9400000
+                       | (((offset / 8) & 0x7FF) << 10)
+                       | ((base & 0x1F) << 5)
+                       | (reg & 0x1F);
+        code.push_back(instr);
+    }
+
+    // This mirrors str() but uses the LDR opcode (0xF9400000) instead of STR (0xF9000000).
+
+    void ldr_global(int dstReg, int globalIndex) {
+        int scratchReg = 21; // temporary register for address computation
+        int offset = globalIndex * 8; // 8-byte slots
+
+        // ADD X21, X20, #offset
+        uint32_t addInstr = 0x91000000                       // ADD (immediate)
+                          | ((offset & 0xFFF) << 10)         // imm12
+                          | ((20 & 0x1F) << 5)               // X20 = base
+                          | (scratchReg & 0x1F);             // X21 = destination
+        code.push_back(addInstr);
+
+        // LDR Xdst, [X21]
+        uint32_t ldrInstr = 0xF9400000                        // base opcode for LDR 64-bit
+                          | ((scratchReg & 0x1F) << 5)       // address register
+                          | (dstReg & 0x1F);                 // destination register
+        code.push_back(ldrInstr);
+
+        std::cout << "ldr x" << dstReg << ", [x20 + #" << offset << "]" << std::endl;
+    }
 
     // For global storage, you’d typically generate address in a register, then STR to [reg]
     // This stub assumes you have preallocated global addresses and store their base in a register
-    void str_global(int reg, int global_addr_reg) {
-        // STR Xreg, [Xglobal_addr_reg]
-        // Encoding: STR Xn, [Xm, #0]
-        std::cout << "str x" << reg  << ", [" << global_addr_reg << "]" << '\n';
+//    void _str_global(int reg, int global_addr_reg) {
+//        // STR Xreg, [Xglobal_addr_reg]
+//        // Encoding: STR Xn, [Xm, #0]
+//        std::cout << "str x" << reg  << ", [" << global_addr_reg << "]" << '\n';
+//
+//        uint32_t instr = 0xF9000000
+//                       | ((global_addr_reg & 0x1F) << 5)
+//                       | (reg & 0x1F);
+//        code.push_back(instr);
+//    }
+//
+//    void str_global(int srcReg, int offsetIndex) {
+//        int scratchReg = 21; // e.g., x21 for address computation
+//
+//        int offset = offsetIndex * 8; // 8-byte slots
+//
+//        // ADD X21, X20, #offset
+//        uint32_t addInstr = 0x91000000                       // base opcode for ADD (immediate)
+//                          | ((offset & 0xFFF) << 10)         // imm12 (limited to 12 bits)
+//                          | ((20 & 0x1F) << 5)               // source register (X20)
+//                          | (scratchReg & 0x1F);             // destination (X21)
+//        code.push_back(addInstr);
+//        std::cout << "add x" << (int)scratchReg << ", x20, #" << offset << "" << std::endl;
+//
+//        // STR Xsrc, [Xscratch]
+//        uint32_t strInstr = 0xF9000000
+//                          | ((scratchReg & 0x1F) << 5)
+//                          | (srcReg & 0x1F);
+//        code.push_back(strInstr);
+//
+//        std::cout << "str x" << srcReg << ", [x20 + #" << offset << "]" << std::endl;
+//    }
 
-        uint32_t instr = 0xF9000000
-                       | ((global_addr_reg & 0x1F) << 5)
-                       | (reg & 0x1F);
-        code.push_back(instr);
+    void str_global(int srcReg, int offsetIndex) {
+        int scratchReg = 10; // x21 for address computation
+        int offset = offsetIndex * 8; // 8-byte slots
+        int base = 0;
+
+        if (offset > 0xFFF) {
+            std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
+            return;
+        }
+
+        // ADD Xscratch, X0, #offset
+        // Encoding: 0x91000000 | (imm12 << 10) | (Rn << 5) | Rd
+        uint32_t addInstr = 0x91000000
+                          | ((offset & 0xFFF) << 10)  // imm12
+                          | ((base & 0x1F) << 5)         // base = x0
+                          | (scratchReg & 0x1F);      // destination = x21
+        emit(addInstr);
+        std::cout << "add x" << scratchReg << ", x0, #" << offset << std::endl;
+
+        // STR Xsrc, [Xscratch]
+        // Encoding: 0xF9000000 | (imm12 << 10) | (Rn << 5) | Rt
+        uint32_t strInstr = 0xF9000000
+                          | (0 << 10)                 // imm12 = 0, offset already in x21
+                          | ((scratchReg & 0x1F) << 5)  // base = x21
+                          | (srcReg & 0x1F);             // source = srcReg
+        emit(strInstr);
+        std::cout << "str x" << srcReg << ", [x" << scratchReg << "]" << std::endl;
     }
 
     int genLabel() {

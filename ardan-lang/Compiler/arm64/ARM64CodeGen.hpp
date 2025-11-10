@@ -157,7 +157,7 @@ public:
     
     size_t generate(const vector<unique_ptr<Statement>> &program);
     void disassemble();
-    
+    void run();
 
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
