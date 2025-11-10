@@ -81,7 +81,8 @@ public:
                        | (((offset / 8) & 0x7FF) << 10)
                        | ((base & 0x1F) << 5)
                        | (reg & 0x1F);
-        code.push_back(instr);
+        // code.push_back(instr);
+        emit(instr);
     }
 
     // Load Xreg from [Xbase, #offset]
@@ -95,36 +96,16 @@ public:
                        | (((offset / 8) & 0x7FF) << 10)
                        | ((base & 0x1F) << 5)
                        | (reg & 0x1F);
-        code.push_back(instr);
+        // code.push_back(instr);
+        emit(instr);
     }
 
     // This mirrors str() but uses the LDR opcode (0xF9400000) instead of STR (0xF9000000).
 
-//    void ldr_global(int dstReg, int globalIndex) {
-//        int scratchReg = 10; // temporary register for address computation
-//        int offset = globalIndex * 8; // 8-byte slots
-//        int base = 0;
-//
-//        // ADD X21, X20, #offset
-//        uint32_t addInstr = 0x91000000                       // ADD (immediate)
-//                          | ((offset & 0xFFF) << 10)         // imm12
-//                          | ((base & 0x1F) << 5)               // X20 = base
-//                          | (scratchReg & 0x1F);             // X21 = destination
-//        //code.push_back(addInstr);
-//
-//        // LDR Xdst, [X21]
-//        uint32_t ldrInstr = 0xF9400000                        // base opcode for LDR 64-bit
-//                          | ((scratchReg & 0x1F) << 5)       // address register
-//                          | (dstReg & 0x1F);                 // destination register
-//        //code.push_back(ldrInstr);
-//
-//        std::cout << "ldr x" << dstReg << ", [x20 + #" << offset << "]" << std::endl;
-//    }
-
     void ldr_global(int destReg, int offsetIndex) {
-        int scratchReg = 16; // x10 for address computation
+        int scratchReg = 9; // x10 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 17; // x0 = base of globals
+        int base = 0; // x0 = base of globals
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -152,43 +133,11 @@ public:
 
     // For global storage, you’d typically generate address in a register, then STR to [reg]
     // This stub assumes you have preallocated global addresses and store their base in a register
-//    void _str_global(int reg, int global_addr_reg) {
-//        // STR Xreg, [Xglobal_addr_reg]
-//        // Encoding: STR Xn, [Xm, #0]
-//        std::cout << "str x" << reg  << ", [" << global_addr_reg << "]" << '\n';
-//
-//        uint32_t instr = 0xF9000000
-//                       | ((global_addr_reg & 0x1F) << 5)
-//                       | (reg & 0x1F);
-//        code.push_back(instr);
-//    }
-//
-//    void str_global(int srcReg, int offsetIndex) {
-//        int scratchReg = 21; // e.g., x21 for address computation
-//
-//        int offset = offsetIndex * 8; // 8-byte slots
-//
-//        // ADD X21, X20, #offset
-//        uint32_t addInstr = 0x91000000                       // base opcode for ADD (immediate)
-//                          | ((offset & 0xFFF) << 10)         // imm12 (limited to 12 bits)
-//                          | ((20 & 0x1F) << 5)               // source register (X20)
-//                          | (scratchReg & 0x1F);             // destination (X21)
-//        code.push_back(addInstr);
-//        std::cout << "add x" << (int)scratchReg << ", x20, #" << offset << "" << std::endl;
-//
-//        // STR Xsrc, [Xscratch]
-//        uint32_t strInstr = 0xF9000000
-//                          | ((scratchReg & 0x1F) << 5)
-//                          | (srcReg & 0x1F);
-//        code.push_back(strInstr);
-//
-//        std::cout << "str x" << srcReg << ", [x20 + #" << offset << "]" << std::endl;
-//    }
 
     void str_global(int srcReg, int offsetIndex) {
-        int scratchReg = 16; // x21 for address computation
+        int scratchReg = 9; // x21 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 17;
+        int base = 0;
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -244,30 +193,6 @@ public:
     }
 
     // Load a 64-bit absolute address or constant into a register
-//    void mov_abs(uint8_t reg, uint64_t value) {
-//        uint16_t imm16[4] = {
-//            static_cast<uint16_t>((value >> 0) & 0xFFFF),
-//            static_cast<uint16_t>((value >> 16) & 0xFFFF),
-//            static_cast<uint16_t>((value >> 32) & 0xFFFF),
-//            static_cast<uint16_t>((value >> 48) & 0xFFFF)
-//        };
-//
-//        // MOVZ Xd, imm16, LSL #0
-//        emit(0xD2800000 | (imm16[0] << 5) | reg);
-//
-//        // MOVK Xd, imm16, LSL #16
-//        emit(0xF2800000 | (imm16[1] << 5) | reg | (1 << 21));
-//
-//        // MOVK Xd, imm16, LSL #32
-//        emit(0xF2800000 | (imm16[2] << 5) | reg | (2 << 21));
-//
-//        // MOVK Xd, imm16, LSL #48
-//        emit(0xF2800000 | (imm16[3] << 5) | reg | (3 << 21));
-//
-//        std::cout << "mov_abs x" << (int)reg << ", 0x"
-//                  << std::hex << value << std::dec << std::endl;
-//    }
-
     void mov_abs(uint8_t reg, uint64_t value) {
         uint16_t imm16[4] = {
             static_cast<uint16_t>((value >> 0) & 0xFFFF),

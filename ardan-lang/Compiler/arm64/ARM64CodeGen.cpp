@@ -69,8 +69,8 @@ void ARM64CodeGen::run() {
     auto func = reinterpret_cast<int(*)()>(exec_mem);
 
     std::memcpy(data, dataSection.data(), dataSection.size());
-    register void* dataAddr asm("x17") = data;
-    asm volatile("" :: "r"(dataAddr));
+    // register void* dataAddr asm("x17") = data;
+    // asm volatile("" :: "r"(dataAddr));
 
     int result = func();
     
@@ -90,8 +90,6 @@ size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     
     emitter.ret();
         
-    // disassemble();
-
     run();
     
     return 0;
