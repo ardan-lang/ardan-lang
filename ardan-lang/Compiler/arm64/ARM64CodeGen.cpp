@@ -12,31 +12,41 @@
 
 #define FP 29
 
-//void emitSimpleAddFunc(ARM64Emitter& emitter) {
-//    emitter.mov_reg_imm(0, 3); // MOV X0, #3
-//    emitter.mov_reg_imm(1, 5); // MOV X1, #5
-//    emitter.add(0, 0, 1);      // ADD X0, X0, X1
-//    emitter.ret();             // RET
-//}
+void ARM64CodeGen::dump(int result, int* data) {
+     std::cout << result << std::endl;
+     uint64_t* globalBase = (uint64_t*)data;
+     cout << globalBase[0] << endl;
+}
 
-ARM64CodeGen::ARM64CodeGen() {}
+extern "C" {
+    inline void jit_print_int(int value) {
+        printf("%d\n", value);
+    }
+
+    inline void jit_print_str(const char* str) {
+        printf("%s\n", str);
+    }
+}
 
 void ARM64CodeGen::run() {
+
+    size_t pageSize = sysconf(_SC_PAGESIZE);
+
     auto dataSection = emitter.getDataSection();
 
     // Allocate and copy data
-    void* data = mmap(nullptr, dataSection.size(),
+    size_t dataSize = ((dataSection.size() + pageSize - 1) / pageSize) * pageSize;
+    void* data = mmap(nullptr, dataSize,
                       PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS,
+                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,
                       -1, 0);
 
     // Allocate executable memory
     auto code = emitter.getCode();
-    size_t pageSize = sysconf(_SC_PAGESIZE);
     size_t codeSize = ((code.size() + pageSize - 1) / pageSize) * pageSize;
 
     void* exec_mem = mmap(nullptr, codeSize,
-                          PROT_READ | PROT_WRITE ,
+                          PROT_READ | PROT_WRITE,
                           MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
     
     if (exec_mem == MAP_FAILED) {
@@ -44,44 +54,44 @@ void ARM64CodeGen::run() {
         return;
     }
     
-    // cout << code.data() << endl;
-
     memcpy(exec_mem, code.data(), code.size());
 
     // Flush instruction cache
-    //__builtin___clear_cache((char*)exec_mem, (char*)exec_mem + code.size());
+    __builtin___clear_cache((char*)exec_mem, (char*)exec_mem + code.size());
 
     if (mprotect(exec_mem, codeSize, PROT_READ | PROT_EXEC) != 0) {
         perror("mprotect");
     }
 
+    cout << "========= Running... =========" << endl;
+
     // Call code
     auto func = reinterpret_cast<int(*)()>(exec_mem);
 
     std::memcpy(data, dataSection.data(), dataSection.size());
-    register void* dataAddr asm("x0") = data;
+    register void* dataAddr asm("x17") = data;
     asm volatile("" :: "r"(dataAddr));
 
     int result = func();
-
-    std::cout << result << std::endl;
-    uint64_t* globalBase = (uint64_t*)data;
-    cout << globalBase[0] << endl;
+    
+    cout << result << endl;
 
     munmap(exec_mem, codeSize);
-    munmap(data, dataSection.size());
+    munmap(data, dataSize);
+    
+    return;
 }
 
 size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
-    
+
     for (const auto &s : program) {
         s->accept(*this);
     }
     
     emitter.ret();
         
-    disassemble();
-    
+    // disassemble();
+
     run();
     
     return 0;
@@ -90,11 +100,10 @@ size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
 // --- STATEMENTS ---
 
 R ARM64CodeGen::visitExpression(ExpressionStatement* stmt) {
-//    R value = stmt->expr->accept(this);
-//    // Result is in a register, typically discard or use for side-effects
-//    regAlloc.free(value.reg);
-//    return {};
-return true;
+    int value = get<int>(stmt->expression->accept(*this));
+    // Result is in a register, typically discard or use for side-effects
+    regAlloc.free(value);
+    return {};
 }
 
 R ARM64CodeGen::visitBlock(BlockStatement* stmt) {
@@ -214,15 +223,17 @@ R ARM64CodeGen::visitReturn(ReturnStatement* stmt) {
 }
 
 R ARM64CodeGen::visitFunction(FunctionDeclaration* stmt) {
-//    // New frame, prologue: push FP, LR, allocate locals, etc.
-//    emitter.push_fp_lr();
-//    // Compile body
-//    stmt->body->accept(this);
-//    // Epilogue: pop FP, LR, ret
-//    emitter.pop_fp_lr();
-//    emitter.ret();
-//    return {};
-return true;
+        
+    // New frame, prologue: push FP, LR, allocate locals, etc.
+    emitter.push_fp_lr();
+
+    emitter.defineLabel(stmt->id);
+    // Compile body
+    stmt->body->accept(*this);
+    // Epilogue: pop FP, LR, ret
+    emitter.pop_fp_lr();
+    emitter.ret();
+    return {};
 }
 
 // --- EXPRESSIONS ---
@@ -252,9 +263,21 @@ R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
 R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     int reg = regAlloc.alloc();
     emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
-    // return {reg, 0};
     return reg;
 }
+
+//R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
+//    int reg = regAlloc.alloc();
+//
+//    // x86-style: mov_reg_imm only works for 16-bit constants
+//    // For larger numbers, mov_abs is safer
+//    emitter.mov_abs(reg, static_cast<uint64_t>((toValue(expr->value).numberValue)));
+//
+//    std::cout << "[JIT] Loaded numeric literal " << (toValue(expr->value).numberValue)
+//              << " into x" << reg << std::endl;
+//
+//    return reg;
+//}
 
 R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
     // Place string in data section, emit pointer to reg
@@ -284,23 +307,47 @@ R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
 }
 
 R ARM64CodeGen::visitCall(CallExpression* expr) {
-//    // Evaluate arguments (left-to-right)
-//    std::vector<int> argRegs;
-//    for (auto* a : expr->arguments) argRegs.push_back(a->accept(this).reg);
-//    // Call: move args to x0-x7, bl function address
-//    for (size_t i = 0; i < argRegs.size(); ++i)
-//        emitter.mov_reg_reg(i, argRegs[i]);
-//    // Get address of callee
-//    int fnReg = expr->callee->accept(this).reg;
-//    emitter.blr(fnReg);
-//    // Result in x0
-//    int result = regAlloc.alloc();
-//    emitter.mov_reg_reg(result, 0);
-//    // Free arg regs
-//    for (auto r : argRegs) regAlloc.free(r);
-//    regAlloc.free(fnReg);
-//    return {result, 0};
-    return true;
+    
+    emitter.push_fp_lr();
+    
+    // Evaluate arguments
+    vector<int> argRegs;
+    for (auto& a : expr->arguments) {
+        int reg = get<int>(a->accept(*this));
+        argRegs.push_back(reg);
+    }
+
+    // Move args into x0-x7 according to AArch64 ABI
+    for (size_t i = 0; i < argRegs.size() && i < 8; ++i) {
+        emitter.mov_reg_reg(static_cast<uint8_t>(i), argRegs[i]);
+    }
+
+    int fnReg = regAlloc.alloc(); // register to hold function pointer
+
+    // Determine function
+    auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get());
+    if (ident && ident->name == "print") {
+        emitter.mov_abs(fnReg, reinterpret_cast<uint64_t>(&jit_print_int));
+    } else {
+        int calleeReg = get<int>(expr->callee->accept(*this));
+        emitter.mov_reg_reg(fnReg, calleeReg);
+        regAlloc.free(calleeReg);
+    }
+
+    // Call the function
+    emitter.blr(fnReg);
+
+    // Result in x0
+    int result = regAlloc.alloc();
+    emitter.mov_reg_reg(result, 0);
+
+    emitter.pop_fp_lr();
+
+    // Free argument registers
+    for (auto r : argRegs) regAlloc.free(r);
+    regAlloc.free(fnReg);
+    
+    return result;
 }
 
 R ARM64CodeGen::visitMember(MemberExpression* expr) {
@@ -381,8 +428,8 @@ R ARM64CodeGen::visitConditional(ConditionalExpression* expr) {
 
 void ARM64CodeGen::disassemble() {
     // --- Disassemble ARM64 code section ---
-    printf("== ARM64 Code ==\n");
-    const auto& code = emitter.getCode();
+//    printf("== ARM64 Code ==\n");
+//    const auto& code = emitter.getCode();
 //    size_t offset = 0;
 //    while (offset + 4 <= code.size()) {
 //        // Read 4 bytes (little-endian)

@@ -27,19 +27,3 @@ static inline uint32_t encodeRET() {
     // RET LR: 11010110010111110000001111100000
     return 0xD65F03C0;
 }
-
-void ARM64EmitterV2::mov_reg_imm(uint8_t reg, uint16_t imm) {
-    emit(encodeMOV(reg, imm));
-}
-
-void ARM64EmitterV2::add(uint8_t dst, uint8_t src1, uint8_t src2) {
-    
-    emit(encodeADD(dst, src1, src2));
-    
-}
-
-void ARM64EmitterV2::ret() {
-    
-    emit(encodeRET());
-    
-}

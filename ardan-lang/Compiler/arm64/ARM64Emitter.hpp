@@ -20,32 +20,6 @@
 
 using namespace std;
 
-class ARM64EmitterV2 {
-public:
-    std::vector<uint8_t> code;
-
-    // Emit a 32-bit ARM64 instruction
-    void emit(uint32_t instr) {
-        code.push_back(instr & 0xFF);
-        code.push_back((instr >> 8) & 0xFF);
-        code.push_back((instr >> 16) & 0xFF);
-        code.push_back((instr >> 24) & 0xFF);
-    }
-
-    // Add helpers for common instructions
-    void mov_reg_imm(uint8_t reg, uint16_t imm);
-    void add(uint8_t dst, uint8_t src1, uint8_t src2);
-    void sub(uint8_t dst, uint8_t src1, uint8_t src2);
-    void ret();
-    
-    std::vector<std::string> data;
-    int addData(const std::string& str) {
-        data.push_back(str);
-        return 0/* address in memory or offset */;
-    }
-    
-};
-
 class ARM64Emitter {
 public:
     ARM64Emitter() : labelCounter(0) {}
@@ -126,24 +100,54 @@ public:
 
     // This mirrors str() but uses the LDR opcode (0xF9400000) instead of STR (0xF9000000).
 
-    void ldr_global(int dstReg, int globalIndex) {
-        int scratchReg = 21; // temporary register for address computation
-        int offset = globalIndex * 8; // 8-byte slots
+//    void ldr_global(int dstReg, int globalIndex) {
+//        int scratchReg = 10; // temporary register for address computation
+//        int offset = globalIndex * 8; // 8-byte slots
+//        int base = 0;
+//
+//        // ADD X21, X20, #offset
+//        uint32_t addInstr = 0x91000000                       // ADD (immediate)
+//                          | ((offset & 0xFFF) << 10)         // imm12
+//                          | ((base & 0x1F) << 5)               // X20 = base
+//                          | (scratchReg & 0x1F);             // X21 = destination
+//        //code.push_back(addInstr);
+//
+//        // LDR Xdst, [X21]
+//        uint32_t ldrInstr = 0xF9400000                        // base opcode for LDR 64-bit
+//                          | ((scratchReg & 0x1F) << 5)       // address register
+//                          | (dstReg & 0x1F);                 // destination register
+//        //code.push_back(ldrInstr);
+//
+//        std::cout << "ldr x" << dstReg << ", [x20 + #" << offset << "]" << std::endl;
+//    }
 
-        // ADD X21, X20, #offset
-        uint32_t addInstr = 0x91000000                       // ADD (immediate)
-                          | ((offset & 0xFFF) << 10)         // imm12
-                          | ((20 & 0x1F) << 5)               // X20 = base
-                          | (scratchReg & 0x1F);             // X21 = destination
-        code.push_back(addInstr);
+    void ldr_global(int destReg, int offsetIndex) {
+        int scratchReg = 16; // x10 for address computation
+        int offset = offsetIndex * 8; // 8-byte slots
+        int base = 17; // x0 = base of globals
 
-        // LDR Xdst, [X21]
-        uint32_t ldrInstr = 0xF9400000                        // base opcode for LDR 64-bit
-                          | ((scratchReg & 0x1F) << 5)       // address register
-                          | (dstReg & 0x1F);                 // destination register
-        code.push_back(ldrInstr);
+        if (offset > 0xFFF) {
+            std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
+            return;
+        }
 
-        std::cout << "ldr x" << dstReg << ", [x20 + #" << offset << "]" << std::endl;
+        // ADD Xscratch, X0, #offset
+        // Encoding: 0x91000000 | (imm12 << 10) | (Rn << 5) | Rd
+        uint32_t addInstr = 0x91000000
+                          | ((offset & 0xFFF) << 10)    // imm12
+                          | ((base & 0x1F) << 5)        // base = x0
+                          | (scratchReg & 0x1F);        // destination = x10
+        emit(addInstr);
+        std::cout << "add x" << scratchReg << ", x0, #" << offset << std::endl;
+
+        // LDR Xdest, [Xscratch]
+        // Encoding: 0xF9400000 | (imm12 << 10) | (Rn << 5) | Rt
+        uint32_t ldrInstr = 0xF9400000
+                          | (0 << 10)                   // imm12 = 0, offset already in x10
+                          | ((scratchReg & 0x1F) << 5)  // base = x10
+                          | (destReg & 0x1F);           // destination = destReg
+        emit(ldrInstr);
+        std::cout << "ldr x" << destReg << ", [x" << scratchReg << "]" << std::endl;
     }
 
     // For global storage, you’d typically generate address in a register, then STR to [reg]
@@ -182,9 +186,9 @@ public:
 //    }
 
     void str_global(int srcReg, int offsetIndex) {
-        int scratchReg = 10; // x21 for address computation
+        int scratchReg = 16; // x21 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 0;
+        int base = 17;
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -220,18 +224,85 @@ public:
 
     void push_fp_lr() {
         // STP FP, LR, [SP, #-16]!
+        cout << "stp x29, x30, [sp, #-16]!" << endl;
         emit(0xA9BF7BF0);
+
         // MOV FP, SP
+        cout << "mov x29, sp" << endl;
         emit(0x910003FD);
     }
 
     void pop_fp_lr() {
         // LDP FP, LR, [SP], #16
+        cout << "ldp x29, x30, [sp], #16" << endl;
         emit(0xA8C17BF0);
     }
 
     void blr(uint8_t reg) {
+        cout << "blr x" << (int)reg << endl;
         emit(0xD63F0000 | ((reg & 0x1F) << 5));
+    }
+
+    // Load a 64-bit absolute address or constant into a register
+//    void mov_abs(uint8_t reg, uint64_t value) {
+//        uint16_t imm16[4] = {
+//            static_cast<uint16_t>((value >> 0) & 0xFFFF),
+//            static_cast<uint16_t>((value >> 16) & 0xFFFF),
+//            static_cast<uint16_t>((value >> 32) & 0xFFFF),
+//            static_cast<uint16_t>((value >> 48) & 0xFFFF)
+//        };
+//
+//        // MOVZ Xd, imm16, LSL #0
+//        emit(0xD2800000 | (imm16[0] << 5) | reg);
+//
+//        // MOVK Xd, imm16, LSL #16
+//        emit(0xF2800000 | (imm16[1] << 5) | reg | (1 << 21));
+//
+//        // MOVK Xd, imm16, LSL #32
+//        emit(0xF2800000 | (imm16[2] << 5) | reg | (2 << 21));
+//
+//        // MOVK Xd, imm16, LSL #48
+//        emit(0xF2800000 | (imm16[3] << 5) | reg | (3 << 21));
+//
+//        std::cout << "mov_abs x" << (int)reg << ", 0x"
+//                  << std::hex << value << std::dec << std::endl;
+//    }
+
+    void mov_abs(uint8_t reg, uint64_t value) {
+        uint16_t imm16[4] = {
+            static_cast<uint16_t>((value >> 0) & 0xFFFF),
+            static_cast<uint16_t>((value >> 16) & 0xFFFF),
+            static_cast<uint16_t>((value >> 32) & 0xFFFF),
+            static_cast<uint16_t>((value >> 48) & 0xFFFF)
+        };
+
+        // MOVZ Xd, imm16, LSL #0
+        uint32_t movz = 0xD2800000 | (imm16[0] << 5) | reg;
+        emit(movz);
+        std::cout << "movz x" << (int)reg << ", 0x" << std::hex << imm16[0]
+                  << ", lsl #0 -> " << std::hex << movz << std::dec << std::endl;
+
+        // MOVK Xd, imm16, LSL #16
+        uint32_t movk16 = 0xF2800000 | (imm16[1] << 5) | reg | (1 << 21);
+        emit(movk16);
+        std::cout << "movk x" << (int)reg << ", 0x" << std::hex << imm16[1]
+                  << ", lsl #16 -> " << std::hex << movk16 << std::dec << std::endl;
+
+        // MOVK Xd, imm16, LSL #32
+        uint32_t movk32 = 0xF2800000 | (imm16[2] << 5) | reg | (2 << 21);
+        emit(movk32);
+        std::cout << "movk x" << (int)reg << ", 0x" << std::hex << imm16[2]
+                  << ", lsl #32 -> " << std::hex << movk32 << std::dec << std::endl;
+
+        // MOVK Xd, imm16, LSL #48
+        uint32_t movk48 = 0xF2800000 | (imm16[3] << 5) | reg | (3 << 21);
+        emit(movk48);
+        std::cout << "movk x" << (int)reg << ", 0x" << std::hex << imm16[3]
+                  << ", lsl #48 -> " << std::hex << movk48 << std::dec << std::endl;
+        
+        std::cout << "mov_abs x" << (int)reg << ", 0x"
+                          << std::hex << value << std::dec << std::endl;
+
     }
 
     int addData(const std::string& value) {
@@ -258,11 +329,62 @@ public:
         }
     }
 
+    void defineLabel(const std::string& name) {
+        auto& lbl = _labels[name];
+        lbl.name = name;
+        lbl.offset = code.size() * 4;
+        lbl.defined = true;
+    }
+    
+    void emitBranchToLabel(const std::string& label, bool isCall) {
+        size_t pos = code.size() * 4;
+
+        uint32_t placeholder = isCall ? 0x94000000 : 0x14000000; // BL or B base opcode
+        code.push_back(placeholder);
+
+        relocations.push_back({ pos, label, isCall });
+    }
+
+    void patchRelocations(uint64_t baseAddress) {
+        for (auto& reloc : relocations) {
+            auto it = _labels.find(reloc.targetLabel);
+            if (it == _labels.end() || !it->second.defined) {
+                fprintf(stderr, "Undefined label: %s\n", reloc.targetLabel.c_str());
+                continue;
+            }
+
+            uint64_t sourceAddr = baseAddress + reloc.sourceOffset;
+            uint64_t targetAddr = baseAddress + it->second.offset;
+
+            int64_t offset = (int64_t(targetAddr) - int64_t(sourceAddr)) >> 2;
+
+            uint32_t opcode = reloc.isCall ? 0x94000000 : 0x14000000;
+            uint32_t patched = opcode | (offset & 0x03FFFFFF);
+
+            // Patch instruction in textSection
+            size_t instrIndex = reloc.sourceOffset / 4;
+            code[instrIndex] = patched;
+        }
+    }
+
     // Access raw code/data for output or execution
     const std::vector<uint8_t>& getCode() const { return code; }
     const std::vector<uint8_t>& getDataSection() const { return dataSection; }
 
 private:
+    
+    struct Label {
+        string name;
+        size_t offset;   // offset in textSection (in bytes)
+        bool defined = false;
+    };
+
+    struct Relocation {
+        size_t sourceOffset;     // where the branch instruction is
+        string targetLabel; // the name of the label it jumps to
+        bool isCall;             // true = BL, false = B
+    };
+
     enum Cond { CondAL, CondEQ };
     struct Branch {
         int pos;
@@ -288,6 +410,8 @@ private:
     int labelCounter;
     std::unordered_map<int, int> labels;
     std::vector<Branch> pendingBranches;
+    std::unordered_map<std::string, Label> _labels;
+    std::vector<Relocation> relocations;
 
     std::vector<uint8_t> code;
     std::vector<uint8_t> dataSection;

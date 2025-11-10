@@ -153,10 +153,9 @@ public:
     SymbolTable symbolTable;
     StackFrame stackFrame;
     
-    ARM64CodeGen();
-    
     size_t generate(const vector<unique_ptr<Statement>> &program);
     void disassemble();
+    void dump(int result, int* data);
     void run();
 
     R visitExpression(ExpressionStatement* stmt) override;
