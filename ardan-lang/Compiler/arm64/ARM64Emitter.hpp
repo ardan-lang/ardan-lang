@@ -20,6 +20,13 @@
 
 using namespace std;
 
+enum ValueTag : uint8_t {
+    TAG_NUMBER    = 0b00,
+    TAG_STRING    = 0b01,
+    TAG_BOOLEAN   = 0b10,
+    TAG_UNDEFINED = 0b11
+};
+
 class ARM64Emitter {
 public:
     ARM64Emitter() : labelCounter(0) {}
@@ -105,7 +112,7 @@ public:
     void ldr_global(int destReg, int offsetIndex) {
         int scratchReg = 9; // x10 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 0; // x0 = base of globals
+        int base = 17; // x0 = base of globals
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -119,7 +126,7 @@ public:
                           | ((base & 0x1F) << 5)        // base = x0
                           | (scratchReg & 0x1F);        // destination = x10
         emit(addInstr);
-        std::cout << "add x" << scratchReg << ", x0, #" << offset << std::endl;
+        std::cout << "add x" << scratchReg << ", x" << base << ", #" << offset << std::endl;
 
         // LDR Xdest, [Xscratch]
         // Encoding: 0xF9400000 | (imm12 << 10) | (Rn << 5) | Rt
@@ -130,14 +137,22 @@ public:
         emit(ldrInstr);
         std::cout << "ldr x" << destReg << ", [x" << scratchReg << "]" << std::endl;
     }
+    
+    void ldr_global_reg_reg(int destReg, int Reg) {
+        uint32_t ldrInstr = 0xF9400000
+                          | (0 << 10)                   // imm12 = 0, offset already in x10
+                          | ((Reg & 0x1F) << 5)  // base = x10
+                          | (destReg & 0x1F);           // destination = destReg
+        emit(ldrInstr);
+        std::cout << "ldr x" << destReg << ", [x" << Reg << "]" << std::endl;
 
-    // For global storage, you’d typically generate address in a register, then STR to [reg]
-    // This stub assumes you have preallocated global addresses and store their base in a register
-
-    void str_global(int srcReg, int offsetIndex) {
+    }
+    
+    void abs_addr(int reg, int offsetIndex) {
+        
         int scratchReg = 9; // x21 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 0;
+        int base = 17;
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -151,7 +166,33 @@ public:
                           | ((base & 0x1F) << 5)         // base = x0
                           | (scratchReg & 0x1F);      // destination = x21
         emit(addInstr);
-        std::cout << "add x" << scratchReg << ", x0, #" << offset << std::endl;
+        std::cout << "add x" << scratchReg << ", x" << base << ", #" << offset << std::endl;
+        
+        mov_reg_reg(reg, scratchReg);
+
+    }
+
+    // For global storage, you’d typically generate address in a register, then STR to [reg]
+    // This stub assumes you have preallocated global addresses and store their base in a register
+
+    void str_global(int srcReg, int offsetIndex) {
+        int scratchReg = 9; // x21 for address computation
+        int offset = offsetIndex * 8; // 8-byte slots
+        int base = 17;
+
+        if (offset > 0xFFF) {
+            std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
+            return;
+        }
+
+        // ADD Xscratch, X0, #offset
+        // Encoding: 0x91000000 | (imm12 << 10) | (Rn << 5) | Rd
+        uint32_t addInstr = 0x91000000
+                          | ((offset & 0xFFF) << 10)  // imm12
+                          | ((base & 0x1F) << 5)         // base = x0
+                          | (scratchReg & 0x1F);      // destination = x21
+        emit(addInstr);
+        std::cout << "add x" << scratchReg << ", x" << base << ", #" << offset << std::endl;
 
         // STR Xsrc, [Xscratch]
         // Encoding: 0xF9000000 | (imm12 << 10) | (Rn << 5) | Rt
@@ -238,6 +279,24 @@ public:
         dataSection.insert(dataSection.end(), value.begin(), value.end());
         dataSection.push_back('\0');
         return addr;
+    }
+
+    int addValue(int dataAddr, ValueTag type) {
+        // Address of the new Value struct in dataSection
+        int valueAddr = static_cast<int>(dataSection.size());
+
+        // Emit the type tag (8 bytes, uint64_t)
+        uint64_t tag = static_cast<uint64_t>(type);
+        uint8_t* tagPtr = reinterpret_cast<uint8_t*>(&tag);
+        dataSection.insert(dataSection.end(), tagPtr, tagPtr + 8);
+
+        // Emit the value pointer (8 bytes, uint64_t)
+        uint64_t ptr = static_cast<uint64_t>(dataAddr); // offset of string in dataSection
+        uint8_t* ptrBytes = reinterpret_cast<uint8_t*>(&ptr);
+        dataSection.insert(dataSection.end(), ptrBytes, ptrBytes + 8);
+
+        // Return the offset of the Value struct for later use
+        return valueAddr;
     }
 
     // Patch branch offsets after full emission
