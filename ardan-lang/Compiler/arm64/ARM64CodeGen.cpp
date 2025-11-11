@@ -18,14 +18,40 @@ void ARM64CodeGen::dump(int result, int* data) {
      cout << globalBase[0] << endl;
 }
 
-extern "C" {
-    inline void jit_print_int(int value) {
-        printf("%d\n", value);
+void printTaggedValue(uint64_t tagged) {
+    ValueTag tag = static_cast<ValueTag>(tagged & 0b11);
+    switch(tag) {
+        case TAG_NUMBER: {
+            double d;
+            memcpy(&d, &tagged, sizeof(d));
+            printf("%f\n", d);
+            break;
+        }
+        case TAG_STRING: {
+            const char* s = reinterpret_cast<const char*>(tagged & ~0b11ULL);
+            printf("%s\n", s);
+            break;
+        }
+        case TAG_BOOLEAN: {
+            bool b = (tagged >> 2) & 1;
+            printf("%s\n", b ? "true" : "false");
+            break;
+        }
+        case TAG_UNDEFINED:
+            printf("undefined\n");
+            break;
     }
+}
 
-    inline void jit_print_str(const char* str) {
-        printf("%s\n", str);
-    }
+extern "C" {
+inline void jit_print_int(int value) {
+    printf("%d\n", value);
+}
+
+inline void jit_print_str(const char* str) {
+    printf("%s\n", str);
+}
+
 }
 
 void ARM64CodeGen::run() {
@@ -95,7 +121,9 @@ size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     emitter.pop_fp_lr();
     
     emitter.ret();
-        
+    
+    disassemble();
+    
     run();
     
     return 0;
@@ -111,19 +139,9 @@ R ARM64CodeGen::visitExpression(ExpressionStatement* stmt) {
 }
 
 R ARM64CodeGen::visitBlock(BlockStatement* stmt) {
-//    for (auto& s : stmt->statements) s->accept(this);
-//    return {};
-return true;
+    for (auto& s : stmt->body) s->accept(*this);
+    return {};
 }
-
-//R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
-//    int reg = regAlloc.alloc();
-//    // R value = stmt->init ? stmt->init->accept(this) : R{reg, 0};
-//    // Store to stack offset for this local
-//    // emitter.str(reg, FP, local_offset);
-//    // ... bookkeeping for scope
-//    return {};
-//}
 
 R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
     for (auto& decl : stmt->declarations) {
@@ -157,7 +175,6 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 
         regAlloc.free(reg);
 
-        // Optionally: update symbol table for debugging or further codegen use
         // symbolTable.bind(decl.id, isGlobal ? SymbolKind::Global : SymbolKind::Local, localOffset or globalAddr);
     }
 
@@ -270,26 +287,16 @@ R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     return reg;
 }
 
-//R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
-//    int reg = regAlloc.alloc();
-//
-//    // x86-style: mov_reg_imm only works for 16-bit constants
-//    // For larger numbers, mov_abs is safer
-//    emitter.mov_abs(reg, static_cast<uint64_t>((toValue(expr->value).numberValue)));
-//
-//    std::cout << "[JIT] Loaded numeric literal " << (toValue(expr->value).numberValue)
-//              << " into x" << reg << std::endl;
-//
-//    return reg;
-//}
-
 R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
     // Place string in data section, emit pointer to reg
     int reg = regAlloc.alloc();
-    int addr = emitter.addData(expr->text);
-    emitter.mov_reg_imm(reg, addr); // Address of string
-    // return {reg, 0};
+    emitter.addData(expr->text);
+    int globalAddr = symbolTable.addGlobal(expr->text);
+    
+    emitter.abs_addr(reg, globalAddr);
+    
     return reg;
+    
 }
 
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
@@ -303,7 +310,6 @@ R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
     } else {
         // it is in global
         int globalAddr = symbolTable.getGlobal(expr->name);
-        // emitter.str_global(reg, globalAddr); // Store reg to global memory address
         emitter.ldr_global(reg, globalAddr);
     }
 
@@ -331,7 +337,7 @@ R ARM64CodeGen::visitCall(CallExpression* expr) {
     // Determine function
     auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get());
     if (ident && ident->name == "print") {
-        emitter.mov_abs(fnReg, reinterpret_cast<uint64_t>(&jit_print_int));
+        emitter.mov_abs(fnReg, reinterpret_cast<uint64_t>(&jit_print_str));
     } else {
         int calleeReg = get<int>(expr->callee->accept(*this));
         emitter.mov_reg_reg(fnReg, calleeReg);

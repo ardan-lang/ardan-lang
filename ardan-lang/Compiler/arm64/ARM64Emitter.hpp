@@ -27,6 +27,8 @@ enum ValueTag : uint8_t {
     TAG_UNDEFINED = 0b11
 };
 
+#define BASE 0
+
 class ARM64Emitter {
 public:
     ARM64Emitter() : labelCounter(0) {}
@@ -112,7 +114,6 @@ public:
     void ldr_global(int destReg, int offsetIndex) {
         int scratchReg = 9; // x10 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 17; // x0 = base of globals
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -123,10 +124,10 @@ public:
         // Encoding: 0x91000000 | (imm12 << 10) | (Rn << 5) | Rd
         uint32_t addInstr = 0x91000000
                           | ((offset & 0xFFF) << 10)    // imm12
-                          | ((base & 0x1F) << 5)        // base = x0
+                          | ((BASE & 0x1F) << 5)        // base = x0
                           | (scratchReg & 0x1F);        // destination = x10
         emit(addInstr);
-        std::cout << "add x" << scratchReg << ", x" << base << ", #" << offset << std::endl;
+        std::cout << "add x" << scratchReg << ", x" << BASE << ", #" << offset << std::endl;
 
         // LDR Xdest, [Xscratch]
         // Encoding: 0xF9400000 | (imm12 << 10) | (Rn << 5) | Rt
@@ -152,7 +153,6 @@ public:
         
         int scratchReg = 9; // x21 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 17;
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -163,10 +163,10 @@ public:
         // Encoding: 0x91000000 | (imm12 << 10) | (Rn << 5) | Rd
         uint32_t addInstr = 0x91000000
                           | ((offset & 0xFFF) << 10)  // imm12
-                          | ((base & 0x1F) << 5)         // base = x0
+                          | ((BASE & 0x1F) << 5)         // base = x0
                           | (scratchReg & 0x1F);      // destination = x21
         emit(addInstr);
-        std::cout << "add x" << scratchReg << ", x" << base << ", #" << offset << std::endl;
+        std::cout << "add x" << scratchReg << ", x" << BASE << ", #" << offset << std::endl;
         
         mov_reg_reg(reg, scratchReg);
 
@@ -178,7 +178,6 @@ public:
     void str_global(int srcReg, int offsetIndex) {
         int scratchReg = 9; // x21 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
-        int base = 17;
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -189,10 +188,10 @@ public:
         // Encoding: 0x91000000 | (imm12 << 10) | (Rn << 5) | Rd
         uint32_t addInstr = 0x91000000
                           | ((offset & 0xFFF) << 10)  // imm12
-                          | ((base & 0x1F) << 5)         // base = x0
+                          | ((BASE & 0x1F) << 5)         // base = x0
                           | (scratchReg & 0x1F);      // destination = x21
         emit(addInstr);
-        std::cout << "add x" << scratchReg << ", x" << base << ", #" << offset << std::endl;
+        std::cout << "add x" << scratchReg << ", x" << BASE << ", #" << offset << std::endl;
 
         // STR Xsrc, [Xscratch]
         // Encoding: 0xF9000000 | (imm12 << 10) | (Rn << 5) | Rt
@@ -274,8 +273,8 @@ public:
 
     }
 
-    int addData(const std::string& value) {
-        int addr = static_cast<int>(dataSection.size());
+    size_t addData(const std::string& value) {
+        size_t addr = (uint64_t)(dataSection.size());
         dataSection.insert(dataSection.end(), value.begin(), value.end());
         dataSection.push_back('\0');
         return addr;
