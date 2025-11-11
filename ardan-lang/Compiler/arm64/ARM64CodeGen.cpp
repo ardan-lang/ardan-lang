@@ -29,35 +29,40 @@ extern "C" {
 }
 
 void ARM64CodeGen::run() {
-
+    
     size_t pageSize = sysconf(_SC_PAGESIZE);
 
     auto dataSection = emitter.getDataSection();
+    auto code = emitter.getCode();
 
     // Allocate and copy data
     size_t dataSize = ((dataSection.size() + pageSize - 1) / pageSize) * pageSize;
+    size_t codeSize = ((code.size() + pageSize - 1) / pageSize) * pageSize;
+
     void* data = mmap(nullptr, dataSize,
                       PROT_READ | PROT_WRITE,
                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,
                       -1, 0);
+        
+    if (data == MAP_FAILED) {
+        perror("mmap (data)");
+        return;
+    }
 
     // Allocate executable memory
-    auto code = emitter.getCode();
-    size_t codeSize = ((code.size() + pageSize - 1) / pageSize) * pageSize;
-
     void* exec_mem = mmap(nullptr, codeSize,
                           PROT_READ | PROT_WRITE,
                           MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
     
     if (exec_mem == MAP_FAILED) {
-        perror("mmap");
+        perror("mmap (code");
         return;
     }
     
-    memcpy(exec_mem, code.data(), code.size());
+    memcpy(exec_mem, code.data(), codeSize);
 
     // Flush instruction cache
-    __builtin___clear_cache((char*)exec_mem, (char*)exec_mem + code.size());
+    __builtin___clear_cache((char*)exec_mem, (char*)exec_mem + codeSize);
 
     if (mprotect(exec_mem, codeSize, PROT_READ | PROT_EXEC) != 0) {
         perror("mprotect");
@@ -68,25 +73,26 @@ void ARM64CodeGen::run() {
     // Call code
     auto func = reinterpret_cast<int(*)()>(exec_mem);
 
-    std::memcpy(data, dataSection.data(), dataSection.size());
+    std::memcpy(data, dataSection.data(), dataSize);
     // register void* dataAddr asm("x17") = data;
     // asm volatile("" :: "r"(dataAddr));
 
-    int result = func();
+    func();
     
-    cout << result << endl;
-
     munmap(exec_mem, codeSize);
     munmap(data, dataSize);
     
-    return;
 }
 
 size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
 
+    emitter.push_fp_lr();
+    
     for (const auto &s : program) {
         s->accept(*this);
     }
+    
+    emitter.pop_fp_lr();
     
     emitter.ret();
         

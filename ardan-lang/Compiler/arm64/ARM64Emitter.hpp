@@ -174,17 +174,20 @@ public:
     void push_fp_lr() {
         // STP FP, LR, [SP, #-16]!
         cout << "stp x29, x30, [sp, #-16]!" << endl;
-        emit(0xA9BF7BF0);
+        // emit(0xA9BF7BF0);
+        emit(0xA9BF7BFD);
 
         // MOV FP, SP
         cout << "mov x29, sp" << endl;
-        emit(0x910003FD);
+        // emit(0x910003FD);
+        emit(0xAA1F03FD);
     }
 
     void pop_fp_lr() {
         // LDP FP, LR, [SP], #16
         cout << "ldp x29, x30, [sp], #16" << endl;
-        emit(0xA8C17BF0);
+        //emit(0xA8C17BF0);
+        emit(0xA8C17BFD);
     }
 
     void blr(uint8_t reg) {
