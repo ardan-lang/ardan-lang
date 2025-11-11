@@ -40,6 +40,33 @@ public:
                     reinterpret_cast<uint8_t*>(&inst) + 4);
     }
 
+    // ---- Arithmetic ----
+    
+    // ARM64 encoding helpers
+    static inline uint32_t encodeMOV(uint8_t reg, uint16_t imm) {
+        // MOVZ Xd, #imm (16-bit), LSL #0
+        cout << "movz x" << (int)reg << ", " << (int)imm << '\n';
+        return 0xD2800000 | ((imm & 0xFFFF) << 5) | (reg & 0x1F);
+    }
+    static inline uint32_t encodeADD(uint8_t dst, uint8_t src1, uint8_t src2) {
+        cout << "add x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
+        return 0x8B000000 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
+    }
+    static inline uint32_t encodeSUB(uint8_t dst, uint8_t src1, uint8_t src2) {
+        cout << "sub x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
+        return 0xCB000000 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
+    }
+    
+    static inline uint32_t encodeDIV(uint8_t dst, uint8_t src1, uint8_t src2) {
+        cout << "div x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
+        return 0x9AC00800 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
+    }
+    
+    static inline uint32_t encodeMUL(uint8_t dst, uint8_t src1, uint8_t src2) {
+        cout << "mul x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
+        return 0x9B007C00 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
+    }
+
     // --- Register and immediate moves ---
     void mov_reg_imm(uint8_t reg, uint16_t imm) {
         emit(encodeMOV(reg, imm));
@@ -377,21 +404,6 @@ private:
         int label;
         Cond cond;
     };
-
-    // ARM64 encoding helpers
-    static inline uint32_t encodeMOV(uint8_t reg, uint16_t imm) {
-        // MOVZ Xd, #imm (16-bit), LSL #0
-        cout << "movz x" << (int)reg << ", " << (int)imm << '\n';
-        return 0xD2800000 | ((imm & 0xFFFF) << 5) | (reg & 0x1F);
-    }
-    static inline uint32_t encodeADD(uint8_t dst, uint8_t src1, uint8_t src2) {
-        cout << "add x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
-        return 0x8B000000 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
-    }
-    static inline uint32_t encodeSUB(uint8_t dst, uint8_t src1, uint8_t src2) {
-        cout << "sub x" << (int)dst << ", x" << (int)src1 << ", x" << (int)src2 << '\n';
-        return 0xCB000000 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
-    }
 
     int labelCounter;
     std::unordered_map<int, int> labels;
