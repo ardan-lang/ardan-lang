@@ -67,6 +67,8 @@ public:
         return 0x9B007C00 | ((src2 & 0x1F) << 16) | ((src1 & 0x1F) << 5) | (dst & 0x1F);
     }
 
+    // ---- End Arithmetic ----
+
     // --- Register and immediate moves ---
     void mov_reg_imm(uint8_t reg, uint16_t imm) {
         emit(encodeMOV(reg, imm));
@@ -106,6 +108,105 @@ public:
     void b(int label) {
         pendingBranches.push_back({static_cast<int>(code.size()), label, CondAL});
         emit(0x14000000); // B placeholder, patched in resolveLabels
+    }
+    
+    // ------------- LDRB basic (no offset) --------------
+    void ldrb(int destReg, int baseReg) {
+        // LDRB Rt, [Rn]  (pre-indexed, no offset)
+        uint32_t cond = 0b1110 << 28; // AL
+        uint32_t opcode = cond | (0b01 << 26); // Load/store class
+        opcode |= (1 << 24); // P = pre-indexed
+        opcode |= (1 << 23); // U = add offset
+        opcode |= (1 << 22); // B = byte
+        opcode |= (0 << 21); // W = no writeback
+        opcode |= (1 << 20); // L = load
+        opcode |= (baseReg & 0xF) << 16; // Rn
+        opcode |= (destReg & 0xF) << 12; // Rt
+        opcode |= 0; // imm12 = 0
+        emit(opcode);
+    }
+
+    // ------------- LDRB with immediate offset (imm12 * 8? or just imm12) --------------
+    void ldrb_offset(int destReg, int baseReg, int offset) {
+        uint32_t cond = 0b1110 << 28;
+        uint32_t opcode = cond | (0b01 << 26);
+        opcode |= (1 << 24); // P = pre-indexed
+        opcode |= (1 << 23); // U = add offset
+        opcode |= (1 << 22); // B = byte
+        opcode |= (0 << 21); // W = no writeback
+        opcode |= (1 << 20); // L = load
+        opcode |= (baseReg & 0xF) << 16;
+        opcode |= (destReg & 0xF) << 12;
+        opcode |= offset & 0xFFF; // 12-bit offset
+        emit(opcode);
+    }
+
+    // ------------- LDRB with register offset --------------
+    void ldrb_reg_reg(int destReg, int baseReg, int offsetReg) {
+        uint32_t cond = 0b1110 << 28;
+        uint32_t opcode = cond | (0b01 << 26);
+        opcode |= (1 << 25); // I = 1 -> register offset
+        opcode |= (1 << 24); // P = pre-indexed
+        opcode |= (1 << 23); // U = add
+        opcode |= (1 << 22); // B = byte
+        opcode |= (0 << 21); // W = no writeback
+        opcode |= (1 << 20); // L = load
+        opcode |= (baseReg & 0xF) << 16;
+        opcode |= (destReg & 0xF) << 12;
+        opcode |= (offsetReg & 0xF); // Rm in lower 4 bits (simplified, no shift)
+        emit(opcode);
+    }
+
+    // ------------- LDRB with post-increment --------------
+    void ldrb_increment(int destReg, int baseReg, int increment) {
+        uint32_t cond = 0b1110 << 28;
+        uint32_t opcode = cond | (0b01 << 26);
+        opcode |= (0 << 24); // P = 0 -> post-index
+        opcode |= (1 << 23); // U = add
+        opcode |= (1 << 22); // B = byte
+        opcode |= (1 << 21); // W = writeback (mandatory for post-index)
+        opcode |= (1 << 20); // L = load
+        opcode |= (baseReg & 0xF) << 16;
+        opcode |= (destReg & 0xF) << 12;
+        opcode |= increment & 0xFFF; // imm12
+        emit(opcode);
+    }
+
+    // ------------- LDRB with pre-increment (writeback) --------------
+    void ldrb_pre_increment(int destReg, int baseReg, int increment) {
+        uint32_t cond = 0b1110 << 28;
+        uint32_t opcode = cond | (0b01 << 26);
+        opcode |= (1 << 24); // P = 1 -> pre-index
+        opcode |= (1 << 23); // U = add
+        opcode |= (1 << 22); // B = byte
+        opcode |= (1 << 21); // W = writeback
+        opcode |= (1 << 20); // L = load
+        opcode |= (baseReg & 0xF) << 16;
+        opcode |= (destReg & 0xF) << 12;
+        opcode |= increment & 0xFFF; // imm12
+        emit(opcode);
+    }
+
+    // shiftType: 0 = LSL, 1 = LSR, 2 = ASR, 3 = ROR
+    void ldrb_reg_reg_shift(int destReg, int baseReg, int offsetReg, int shiftType = 0, int shiftAmount = 0) {
+        uint32_t cond = 0b1110 << 28;
+        uint32_t opcode = cond | (0b01 << 26); // Load/store class
+        opcode |= (1 << 25);  // I = 1 -> register offset
+        opcode |= (1 << 24);  // P = pre-index
+        opcode |= (1 << 23);  // U = add offset
+        opcode |= (1 << 22);  // B = byte
+        opcode |= (0 << 21);  // W = no writeback
+        opcode |= (1 << 20);  // L = load
+
+        opcode |= (baseReg & 0xF) << 16;  // Rn
+        opcode |= (destReg & 0xF) << 12;  // Rt
+
+        // Build shift encoding
+        uint32_t shift = ((shiftAmount & 0x1F) << 7) | ((shiftType & 0x3) << 5);
+        opcode |= shift;                 // bits 11–5
+        opcode |= (offsetReg & 0xF);     // bits 3–0: Rm
+
+        emit(opcode);
     }
 
     // ARM64 encoding for STR Xn, [Xm, #imm12]
@@ -176,7 +277,7 @@ public:
 
     }
     
-    void abs_addr(int reg, int offsetIndex) {
+    void calc_abs_addr_mov_reg_offset(int reg, int offsetIndex) {
         
         int scratchReg = 9; // x21 for address computation
         int offset = offsetIndex * 8; // 8-byte slots
@@ -304,6 +405,14 @@ public:
         size_t addr = (uint64_t)(dataSection.size());
         dataSection.insert(dataSection.end(), value.begin(), value.end());
         dataSection.push_back('\0');
+        return addr;
+    }
+    
+    size_t addNumericData(const int value) {
+        dataSection.push_back(value);
+        dataSection.push_back('\0');
+        size_t addr = (uint64_t)(dataSection.size());
+
         return addr;
     }
 
