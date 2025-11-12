@@ -99,6 +99,23 @@ public:
         if (imm < 0 || imm > 4095) throw std::runtime_error("Immediate too large for CMP");
         emit(0xF100001F | ((imm & 0xFFF) << 10) | ((reg & 0x1F) << 5));
     }
+    
+    void cmp_reg_reg(int reg1, int reg2) {
+        // ARMv7-A CMP encoding (A32)
+        //  cond(31-28) = 1110 (AL)
+        //  bits 27-26 = 00 (data processing)
+        //  opcode = 1010 (CMP)
+        //  S = 1
+        //  Rn = reg1
+        //  Operand2 = reg2
+        uint32_t cond = 0b1110 << 28;
+        uint32_t opcode = cond | (0b00 << 26);      // data processing
+        opcode |= (0b1010 << 21);                   // opcode = CMP
+        opcode |= (1 << 20);                        // S bit = 1 (update flags)
+        opcode |= (reg1 & 0xF) << 16;              // Rn
+        opcode |= (reg2 & 0xF);                     // Operand2 = Rm (no shift)
+        emit(opcode);
+    }
 
     void b_eq(int label) {
         pendingBranches.push_back({static_cast<int>(code.size()), label, CondEQ});

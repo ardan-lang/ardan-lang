@@ -43,6 +43,15 @@ void printTaggedValue(uint64_t tagged) {
     }
 }
 
+//void jit_print(ValueTag* v) {
+//    switch (v->tag) {
+//        case 0: printf("%lld\n", v->intValue); break;
+//        case 1: printf("%f\n", v->doubleValue); break;
+//        case 2: printf("%s\n", (char*)v->stringPtr); break;
+//        default: printf("<unknown>\n");
+//    }
+//}
+
 extern "C" {
 inline void jit_print_int(int value) {
     printf("%d\n", value);
@@ -122,6 +131,8 @@ size_t ARM64CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     
     emitter.ret();
     
+    emitter.resolveLabels();
+    
     disassemble();
     
     run();
@@ -182,64 +193,60 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
 }
 
 R ARM64CodeGen::visitIf(IfStatement* stmt) {
-//    int condReg = stmt->test->accept(this).reg;
-//    int endLabel = emitter.genLabel();
-//    emitter.cmp_imm(condReg, 0);
-//    emitter.b_eq(endLabel); // If false, jump to end
-//    stmt->consequent->accept(this);
-//    if (stmt->alternate) {
-//        int elseLabel = emitter.genLabel();
-//        emitter.b(elseLabel); // skip else
-//        emitter.setLabel(endLabel);
-//        stmt->alternate->accept(this);
-//        emitter.setLabel(elseLabel);
-//    } else {
-//        emitter.setLabel(endLabel);
-//    }
-//    regAlloc.free(condReg);
-//    return {};
-return true;
+    int condReg = get<int>(stmt->test->accept(*this));
+    int endLabel = emitter.genLabel();
+    emitter.cmp_imm(condReg, 0);
+    emitter.b_eq(endLabel); // If false, jump to end
+    stmt->consequent->accept(*this);
+    if (stmt->alternate) {
+        int elseLabel = emitter.genLabel();
+        emitter.b(elseLabel); // skip else
+        emitter.setLabel(endLabel);
+        stmt->alternate->accept(*this);
+        emitter.setLabel(elseLabel);
+    } else {
+        emitter.setLabel(endLabel);
+    }
+    regAlloc.free(condReg);
+    return {};
 }
 
 R ARM64CodeGen::visitWhile(WhileStatement* stmt) {
-//    int condLabel = emitter.genLabel();
-//    int bodyLabel = emitter.genLabel();
-//    emitter.setLabel(condLabel);
-//    int condReg = stmt->test->accept(this).reg;
-//    emitter.cmp_imm(condReg, 0);
-//    emitter.b_eq(bodyLabel); // exit if false
-//    stmt->body->accept(this);
-//    emitter.b(condLabel);
-//    emitter.setLabel(bodyLabel);
-//    regAlloc.free(condReg);
-//    return {};
-return true;
+    int condLabel = emitter.genLabel();
+    int bodyLabel = emitter.genLabel();
+    emitter.setLabel(condLabel);
+    int condReg = get<int>(stmt->test->accept(*this));
+    emitter.cmp_imm(condReg, 0);
+    emitter.b_eq(bodyLabel); // exit if false
+    stmt->body->accept(*this);
+    emitter.b(condLabel);
+    emitter.setLabel(bodyLabel);
+    regAlloc.free(condReg);
+    return {};
 }
 
 R ARM64CodeGen::visitFor(ForStatement* stmt) {
-//    // Pseudo: for (init; cond; step) body
-//    if (stmt->init) stmt->init->accept(this);
-//    int condLabel = emitter.genLabel();
-//    int endLabel = emitter.genLabel();
-//    emitter.setLabel(condLabel);
-//    int condReg = stmt->test->accept(this).reg;
-//    emitter.cmp_imm(condReg, 0);
-//    emitter.b_eq(endLabel);
-//    stmt->body->accept(*this);
-//    if (stmt->update) stmt->update->accept(*this);
-//    emitter.b(condLabel);
-//    emitter.setLabel(endLabel);
-//    regAlloc.free(condReg);
-//    return {};
-return true;
+    // Pseudo: for (init; cond; step) body
+    if (stmt->init) stmt->init->accept(*this);
+    int condLabel = emitter.genLabel();
+    int endLabel = emitter.genLabel();
+    emitter.setLabel(condLabel);
+    int condReg = get<int>(stmt->test->accept(*this));
+    emitter.cmp_imm(condReg, 0);
+    emitter.b_eq(endLabel);
+    stmt->body->accept(*this);
+    if (stmt->update) stmt->update->accept(*this);
+    emitter.b(condLabel);
+    emitter.setLabel(endLabel);
+    regAlloc.free(condReg);
+    return {};
 }
 
 R ARM64CodeGen::visitReturn(ReturnStatement* stmt) {
-//    R val = stmt->argument ? stmt->argument->accept(this) : R{-1, 0};
-//    if (val.reg != -1)
-//        emitter.mov_reg_reg(0, val.reg); // x0 = return value
-//    emitter.ret();
-//    return {};
+    int valReg = stmt->argument ? get<int>(stmt->argument->accept(*this)) : -1;
+    if (valReg != -1)
+        emitter.mov_reg_reg(0, valReg); // x0 = return value
+    emitter.ret();
     return true;
 }
 
@@ -260,19 +267,187 @@ R ARM64CodeGen::visitFunction(FunctionDeclaration* stmt) {
 // --- EXPRESSIONS ---
 
 R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
-//    // Example: a + b
-//    R left = expr->left->accept(this);
-//    R right = expr->right->accept(this);
-//    int result = regAlloc.alloc();
-//    if (expr->op == "+")
-//        emitter.add(result, left.reg, right.reg);
-//    else if (expr->op == "-")
-//        emitter.sub(result, left.reg, right.reg);
-//    // ...other ops
-//    regAlloc.free(left.reg);
-//    regAlloc.free(right.reg);
-//    return {result, 0};
-    return true;
+    
+    switch (expr->op.type) {
+        case TokenType::ASSIGN:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_MINUS:
+        case TokenType::ASSIGN_MUL:
+        case TokenType::ASSIGN_DIV:
+        case TokenType::MODULI_ASSIGN:
+        case TokenType::POWER_ASSIGN:
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN:
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_AND_ASSIGN:
+        case TokenType::BITWISE_OR_ASSIGN:
+        case TokenType::BITWISE_XOR_ASSIGN:
+        case TokenType::LOGICAL_AND_ASSIGN:
+        case TokenType::LOGICAL_OR_ASSIGN:
+        case TokenType::NULLISH_COALESCING_ASSIGN:
+            // emitAssignment(expr);
+            return true;
+        default:
+            break;
+    }
+    
+    int left = get<int>(expr->left->accept(*this));
+    int right = get<int>(expr->right->accept(*this));
+    
+    int result = regAlloc.alloc();
+    
+    switch (expr->op.type) {
+            
+            // --- Arithmetic ---
+            
+        case TokenType::ADD:
+            // ADD X0, X0, X1
+            emitter.encodeADD(result, left, right);
+            break;
+            
+        case TokenType::MINUS:
+            // SUB X0, X0, X1
+            emitter.encodeSUB(result, left, right);
+            break;
+            
+        case TokenType::MUL:
+            // MUL X0, X0, X1 (using MADD X0, X0, X1, XZR)
+            emitter.encodeMUL(result, left, right);
+            break;
+            
+        case TokenType::DIV:
+            // UDIV X0, X0, X1
+            emitter.encodeDIV(result, left, right);
+            break;
+            
+        case TokenType::MODULI:
+            // remainder = a - (a / b) * b
+            // compute div first
+            
+            // result = left / right
+            emitter.encodeDIV(result, left, right);  // result = left / right
+            
+            // result = result * right
+            emitter.encodeMUL(result, result, right); // result = (left / right) * right
+            
+            // result = left - result
+            emitter.encodeSUB(result, left, result);  // result = left - ((left / right) * right)
+            
+            std::cout << "mod x" << (int)result << ", x" << (int)left << ", x" << (int)right << "\n";
+            break;
+            
+            // --- Comparisons ---
+        case TokenType::VALUE_EQUAL: {
+            // CMP X0, X1; CSET X0, EQ
+            
+            // emit32(0xEB01001F); // cmp x0, x1
+            // emit32(0x9A9F07E0); // cset x0, eq
+            
+            int resultReg = regAlloc.alloc();
+            emitter.mov_reg_imm(resultReg, 1);
+            
+            const string loop = "loop";
+            emitter.defineLabel(loop);
+            
+            int reg = regAlloc.alloc();
+            int reg2 = regAlloc.alloc();
+            
+            emitter.ldrb_increment(reg, left, 1);
+            emitter.ldrb_increment(reg2, right, 1);
+            
+            emitter.cmp_reg_reg(reg, reg2);
+            
+            emitter.emitBranchToLabel(loop, false);
+            
+            emitter.cmp_imm(reg, 0);
+            
+            const string not_equal = "not_equal";
+            emitter.defineLabel(not_equal);
+            
+//            MOV     x2, #1         ; result = 1 (assume equal)
+//            loop:
+//                LDRB    w3, [x0], #1   ; load byte from string A, increment pointer
+//                LDRB    w4, [x1], #1   ; load byte from string B, increment pointer
+//                CMP     w3, w4
+//                B.NE    not_equal
+//                CMP     w3, #0         ; check if end of string (null terminator)
+//                B.NE    loop           ; if not zero, continue
+//                B       done
+//
+//            not_equal:
+//                MOV     x2, #0
+//
+//            done:
+//                ; x2 has the result (1 = equal, 0 = not equal)
+            
+            break;
+        }
+            
+        case TokenType::INEQUALITY:
+            // emit32(0xEB01001F); // cmp x0, x1
+            // emit32(0x9A9F07E0 | (1 << 12)); // cset x0, ne
+            std::cout << "cmp ne\n";
+            break;
+            
+        case TokenType::LESS_THAN:
+//            emit32(0xEB01001F); // cmp x0, x1
+//            emit32(0x9A9F07E0 | (0xB << 12)); // cset x0, lt
+            std::cout << "cmp lt\n";
+            break;
+            
+        case TokenType::LESS_THAN_EQUAL:
+//            emit32(0xEB01001F);
+//            emit32(0x9A9F07E0 | (0xD << 12)); // le
+            std::cout << "cmp le\n";
+            break;
+            
+        case TokenType::GREATER_THAN:
+//            emit32(0xEB01001F);
+//            emit32(0x9A9F07E0 | (0xC << 12)); // gt
+            std::cout << "cmp gt\n";
+            break;
+            
+        case TokenType::GREATER_THAN_EQUAL:
+//            emit32(0xEB01001F);
+//            emit32(0x9A9F07E0 | (0xA << 12)); // ge
+            std::cout << "cmp ge\n";
+            break;
+            
+            // --- Bitwise ---
+        case TokenType::BITWISE_AND:
+//            emit32(0x8A010000 | ((0 & 0x1F) << 5) | (0 & 0x1F)); // AND X0, X0, X1
+            std::cout << "and x0, x0, x1\n";
+            break;
+            
+        case TokenType::BITWISE_OR:
+//            emit32(0xAA010000 | ((0 & 0x1F) << 5) | (0 & 0x1F)); // ORR X0, X0, X1
+            std::cout << "orr x0, x0, x1\n";
+            break;
+            
+        case TokenType::BITWISE_XOR:
+//            emit32(0xCA010000 | ((0 & 0x1F) << 5) | (0 & 0x1F)); // EOR X0, X0, X1
+            std::cout << "eor x0, x0, x1\n";
+            break;
+            
+        case TokenType::BITWISE_LEFT_SHIFT:
+//            emit32(0x9AC02000 | ((0 & 0x1F) << 5) | (0 & 0x1F)); // LSL X0, X0, X1
+            std::cout << "lsl x0, x0, x1\n";
+            break;
+            
+        case TokenType::BITWISE_RIGHT_SHIFT:
+//            emit32(0x9AC02400 | ((0 & 0x1F) << 5) | (0 & 0x1F)); // LSR X0, X0, X1
+            std::cout << "lsr x0, x0, x1\n";
+            break;
+            
+        default:
+            std::cerr << "Unsupported binary operator.\n";
+            break;
+    }
+    
+    regAlloc.free(result);
+    
+    return result;
+    
 }
 
 R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
@@ -283,7 +458,12 @@ R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
 
 R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     int reg = regAlloc.alloc();
-    emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
+    // emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
+    emitter.addNumericData((toValue(expr->value).numberValue));
+    int addrOffset = symbolTable.addGlobal(to_string((toValue(expr->value).numberValue)));
+    
+    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
+
     return reg;
 }
 
@@ -291,12 +471,25 @@ R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
     // Place string in data section, emit pointer to reg
     int reg = regAlloc.alloc();
     emitter.addData(expr->text);
-    int globalAddr = symbolTable.addGlobal(expr->text);
+    int addrOffset = symbolTable.addGlobal(expr->text);
     
-    emitter.abs_addr(reg, globalAddr);
+    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
+    // reg contains the address to the string global memory region
     
     return reg;
     
+}
+
+R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) {
+    int reg = regAlloc.alloc();
+    emitter.mov_reg_imm(reg, 0); // set register to 0 (false)
+    return reg;
+}
+
+R ARM64CodeGen::visitTrueKeyword(TrueKeyword* expr) {
+    int reg = regAlloc.alloc();
+    emitter.mov_reg_imm(reg, 1); // set register to 1 (true)
+    return reg;
 }
 
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
@@ -383,8 +576,6 @@ R ARM64CodeGen::visitSuper(SuperExpression* expr) { return true; }
 R ARM64CodeGen::visitProperty(PropertyExpression* expr) { return true; }
 R ARM64CodeGen::visitSequence(SequenceExpression* expr) { return true; }
 R ARM64CodeGen::visitUpdate(UpdateExpression* expr) { return true; }
-R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) { return true; }
-R ARM64CodeGen::visitTrueKeyword(TrueKeyword* expr) { return true; }
 R ARM64CodeGen::visitPublicKeyword(PublicKeyword* expr) { return true; }
 R ARM64CodeGen::visitPrivateKeyword(PrivateKeyword* expr) { return true; }
 R ARM64CodeGen::visitProtectedKeyword(ProtectedKeyword* expr) { return true; }
