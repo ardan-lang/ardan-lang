@@ -505,6 +505,12 @@ public:
         v.raw = ((uint64_t)i << 3) | TAG_BOOLEAN;
         return v;
     }
+    
+    ValueTag makeUndefined() {
+        ValueTag v;
+        v.raw = ((uint64_t)0 << 3) | TAG_UNDEFINED;
+        return v;
+    }
 
     const char* getStringPtr(ValueTag v) {
         return (const char*)&dataSection[getPayload(v)];

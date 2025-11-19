@@ -196,12 +196,10 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
             emitter.mov_reg_reg(reg, initReg);
             regAlloc.free(initReg);
         } else {
-            // Store undefined ValueTagStruct
-            ValueTag v{};
-            v.tag = TAG_UNDEFINED;
-            v.val = 0;
-            value_offset = emitter.addValueTagStruct(v);
-            emitter.calc_abs_addr_mov_reg_offset(reg, value_offset / 8);
+            // Store undefined ValueTag
+            ValueTag v = emitter.makeUndefined();
+            value_offset = emitter.addValue(v);
+            emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset);
         }
         if (isGlobal) {
             size_t globalAddr = emitter.allocSpace();
@@ -215,44 +213,6 @@ R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
     }
     return {};
 }
-
-//R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
-//    for (auto& decl : stmt->declarations) {
-//        // Determine if this is a local or global variable
-//        bool isGlobal = (scopeDepth == 0);
-//
-//        // Allocate a register for the variable's value
-//        int reg = regAlloc.alloc();
-//
-//        // Evaluate initializer or default value
-//        if (decl.init) {
-//            int initReg = get<int>(decl.init->accept(*this));
-//            emitter.mov_reg_reg(reg, initReg);
-//            regAlloc.free(initReg);
-//        } else {
-//            // For uninitialized, store zero (undefined)
-//            emitter.mov_reg_imm(reg, 0);
-//        }
-//
-//        if (isGlobal) {
-//            // Global variable: store in a static/global storage area
-//            int globalAddr = symbolTable.addGlobal(decl.id);
-//            emitter.addData(decl.id);
-//            
-//            emitter.str_global(reg, globalAddr); // Store reg to global memory address
-//        } else {
-//            // Local variable: store in stack frame, tracked by offset
-//            int localOffset = stackFrame.addLocal(decl.id);
-//            emitter.str(reg, FP, localOffset); // Store reg to [FP, #offset]
-//        }
-//
-//        regAlloc.free(reg);
-//
-//        // symbolTable.bind(decl.id, isGlobal ? SymbolKind::Global : SymbolKind::Local, localOffset or globalAddr);
-//    }
-//
-//    return {};
-//}
 
 R ARM64CodeGen::visitIf(IfStatement* stmt) {
     int condReg = get<int>(stmt->test->accept(*this));
