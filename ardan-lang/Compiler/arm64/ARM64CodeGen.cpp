@@ -652,7 +652,9 @@ R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
 }
 
 R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
-    
+
+    cout << "Begin ====== " << endl;
+
     ValueTag v = emitter.addString(expr->text);
     
     size_t value_offset = emitter.addValue(v);
@@ -683,19 +685,29 @@ R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
 
 R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) {
     int reg = regAlloc.alloc();
-    emitter.mov_reg_imm(reg, 0); // set register to 0 (false)
+    
+    ValueTag v = emitter.makeBool(0);
+    size_t value_offset = emitter.addValue(v);
+
+    emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset);
+
     return reg;
 }
 
 R ARM64CodeGen::visitTrueKeyword(TrueKeyword* expr) {
     int reg = regAlloc.alloc();
-    emitter.mov_reg_imm(reg, 1); // set register to 1 (true)
+    
+    ValueTag v = emitter.makeBool(1);
+    size_t value_offset = emitter.addValue(v);
+
+    emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset);
+
     return reg;
 }
 
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
     int reg = regAlloc.alloc();
-    // Check if it's local or global (pseudo logic; adapt as needed)
+
     if (stackFrame.hasLocal(expr->name)) {
         int offset = stackFrame.getLocal(expr->name);
         emitter.ldr(reg, FP, offset);
