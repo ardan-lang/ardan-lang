@@ -31,6 +31,53 @@
 
 using namespace std;
 
+class TypeDetector {
+    
+public:
+    bool isNumber(const Expression* expr) const {
+        auto number_expr = dynamic_cast<const NumericLiteral*>(expr);
+        if (number_expr) {
+            return true;
+        }
+        return false;
+    }
+    
+    bool isString(const Expression* expr) const {
+        auto string_expr = dynamic_cast<const StringLiteral*>(expr);
+        if (string_expr) {
+            return true;
+        }
+        return false;
+    }
+    
+    bool isNull(const Expression* expr) const {
+        auto null_expr = dynamic_cast<const NullKeyword*>(expr);
+        if (null_expr) {
+            return true;
+        }
+        return false;
+    }
+
+    bool isUndefined(const Expression* expr) const {
+        auto undefined_expr = dynamic_cast<const UndefinedKeyword*>(expr);
+        if (undefined_expr) {
+            return true;
+        }
+        return false;
+    }
+
+    bool isBoolean(const Expression* expr) const {
+        auto true_expr = dynamic_cast<const TrueKeyword*>(expr);
+        auto false_expr = dynamic_cast<const FalseKeyword*>(expr);
+
+        if (true_expr || false_expr) {
+            return true;
+        }
+        return false;
+    }
+
+};
+
 class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
     
     class ARM64RegisterAllocator {
@@ -64,6 +111,13 @@ class ARM64CodeGen : public ExpressionVisitor, public StatementVisitor {
                 globals[name] = nextGlobalAddr++;
             return globals[name];
         }
+
+        int addGlobal(const string& name, const int addr) {
+            if (globals.count(name) == 0)
+                globals[name] = addr;
+            return globals[name];
+        }
+
         // For debugging or lookups
         int getGlobal(const std::string& name) const {
             auto it = globals.find(name);
@@ -152,6 +206,7 @@ public:
     int scopeDepth = 0;
     SymbolTable symbolTable;
     StackFrame stackFrame;
+    TypeDetector detector;
     
     size_t generate(const vector<unique_ptr<Statement>> &program);
     void disassemble();

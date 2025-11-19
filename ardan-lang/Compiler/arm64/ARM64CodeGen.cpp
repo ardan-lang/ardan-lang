@@ -12,55 +12,85 @@
 
 #define FP 29
 
+void* g_data_section_base = nullptr;
+
+extern "C" const char* string_concat_runtime(const char* a, const char* b) {
+    if (!a) a = "";
+    if (!b) b = "";
+    size_t lenA = strlen(a);
+    size_t lenB = strlen(b);
+
+    // +1 for the null terminator
+    char* result = (char*)malloc(lenA + lenB + 1);
+    if (!result) return nullptr; // handle allocation failure
+
+    memcpy(result, a, lenA);
+    memcpy(result + lenA, b, lenB);
+    result[lenA + lenB] = '\0';
+    return result;
+}
+
 void ARM64CodeGen::dump(int result, int* data) {
      std::cout << result << std::endl;
      uint64_t* globalBase = (uint64_t*)data;
      cout << globalBase[0] << endl;
 }
 
-void printTaggedValue(uint64_t tagged) {
-    ValueTag tag = static_cast<ValueTag>(tagged & 0b11);
-    switch(tag) {
+#define TAG_BITS 3
+#define TAG_MASK ((1ULL << TAG_BITS) - 1) // (2^3) - 1 = 7, or 0b111
+
+extern "C" void print_value(ValueTag* v)
+{
+    uint8_t tag = /*v.raw & (~TAG_MASK);*/ v->raw & 0b111;     // extract tag
+    uint64_t payload = v->raw >> TAG_BITS;   // extract pointer or int
+
+    switch (tag)
+    {
         case TAG_NUMBER: {
-            double d;
-            memcpy(&d, &tagged, sizeof(d));
-            printf("%f\n", d);
+            int64_t num = (int64_t)payload;
+            printf("%lld\n", (long long)num);
             break;
         }
-        case TAG_STRING: {
-            const char* s = reinterpret_cast<const char*>(tagged & ~0b11ULL);
-            printf("%s\n", s);
-            break;
-        }
+
         case TAG_BOOLEAN: {
-            bool b = (tagged >> 2) & 1;
-            printf("%s\n", b ? "true" : "false");
+            printf("%s\n", payload ? "true" : "false");
             break;
         }
-        case TAG_UNDEFINED:
-            printf("undefined\n");
+
+        case TAG_NULL: {
+            printf("null\n");
             break;
+        }
+
+        case TAG_STRING: {
+            const char* s = (const char*)((char*)g_data_section_base + payload);
+            printf("\"%s\"\n", s);
+            break;
+        }
+
+        case TAG_OBJECT: {
+            printf("[Object @ 0x%llx]\n",
+                   (unsigned long long)payload);
+            break;
+        }
+
+        case TAG_ARRAY: {
+            printf("[Array @ 0x%llx]\n",
+                   (unsigned long long)payload);
+            break;
+        }
+
+//        case TAG_FUNC: {
+//            printf("[Function @ 0x%llx]\n",
+//                   (unsigned long long)payload);
+//            break;
+//        }
+
+        default: {
+//            printf("[Unknown tag: %u raw=0x%llx]\n",
+//                   tag, (unsigned long long)v.raw);
+        }
     }
-}
-
-//void jit_print(ValueTag* v) {
-//    switch (v->tag) {
-//        case 0: printf("%lld\n", v->intValue); break;
-//        case 1: printf("%f\n", v->doubleValue); break;
-//        case 2: printf("%s\n", (char*)v->stringPtr); break;
-//        default: printf("<unknown>\n");
-//    }
-//}
-
-extern "C" {
-inline void jit_print_int(int value) {
-    printf("%d\n", value);
-}
-
-inline void jit_print_str(const char* str) {
-    printf("%s\n", str);
-}
-
 }
 
 void ARM64CodeGen::run() {
@@ -109,9 +139,10 @@ void ARM64CodeGen::run() {
     auto func = reinterpret_cast<int(*)()>(exec_mem);
 
     std::memcpy(data, dataSection.data(), dataSize);
-    // register void* dataAddr asm("x17") = data;
-    // asm volatile("" :: "r"(dataAddr));
-
+     register void* dataAddr asm("x19") = data;
+     asm volatile("" :: "r"(dataAddr));
+    g_data_section_base = data;
+    
     func();
     
     munmap(exec_mem, codeSize);
@@ -156,41 +187,72 @@ R ARM64CodeGen::visitBlock(BlockStatement* stmt) {
 
 R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
     for (auto& decl : stmt->declarations) {
-        // Determine if this is a local or global variable
         bool isGlobal = (scopeDepth == 0);
-
-        // Allocate a register for the variable's value
         int reg = regAlloc.alloc();
-
+        size_t value_offset = 0;
         // Evaluate initializer or default value
         if (decl.init) {
             int initReg = get<int>(decl.init->accept(*this));
             emitter.mov_reg_reg(reg, initReg);
             regAlloc.free(initReg);
         } else {
-            // For uninitialized, store zero (undefined)
-            emitter.mov_reg_imm(reg, 0);
+            // Store undefined ValueTagStruct
+            ValueTag v{};
+            v.tag = TAG_UNDEFINED;
+            v.val = 0;
+            value_offset = emitter.addValueTagStruct(v);
+            emitter.calc_abs_addr_mov_reg_offset(reg, value_offset / 8);
         }
-
         if (isGlobal) {
-            // Global variable: store in a static/global storage area
-            int globalAddr = symbolTable.addGlobal(decl.id);
-            emitter.addData(decl.id);
-            
-            emitter.str_global(reg, globalAddr); // Store reg to global memory address
+            size_t globalAddr = emitter.allocSpace();
+            symbolTable.addGlobal(decl.id, (int)globalAddr);
+            emitter.str_global(reg, (int)globalAddr);
         } else {
-            // Local variable: store in stack frame, tracked by offset
             int localOffset = stackFrame.addLocal(decl.id);
-            emitter.str(reg, FP, localOffset); // Store reg to [FP, #offset]
+            emitter.str(reg, FP, localOffset);
         }
-
         regAlloc.free(reg);
-
-        // symbolTable.bind(decl.id, isGlobal ? SymbolKind::Global : SymbolKind::Local, localOffset or globalAddr);
     }
-
     return {};
 }
+
+//R ARM64CodeGen::visitVariable(VariableStatement* stmt) {
+//    for (auto& decl : stmt->declarations) {
+//        // Determine if this is a local or global variable
+//        bool isGlobal = (scopeDepth == 0);
+//
+//        // Allocate a register for the variable's value
+//        int reg = regAlloc.alloc();
+//
+//        // Evaluate initializer or default value
+//        if (decl.init) {
+//            int initReg = get<int>(decl.init->accept(*this));
+//            emitter.mov_reg_reg(reg, initReg);
+//            regAlloc.free(initReg);
+//        } else {
+//            // For uninitialized, store zero (undefined)
+//            emitter.mov_reg_imm(reg, 0);
+//        }
+//
+//        if (isGlobal) {
+//            // Global variable: store in a static/global storage area
+//            int globalAddr = symbolTable.addGlobal(decl.id);
+//            emitter.addData(decl.id);
+//            
+//            emitter.str_global(reg, globalAddr); // Store reg to global memory address
+//        } else {
+//            // Local variable: store in stack frame, tracked by offset
+//            int localOffset = stackFrame.addLocal(decl.id);
+//            emitter.str(reg, FP, localOffset); // Store reg to [FP, #offset]
+//        }
+//
+//        regAlloc.free(reg);
+//
+//        // symbolTable.bind(decl.id, isGlobal ? SymbolKind::Global : SymbolKind::Local, localOffset or globalAddr);
+//    }
+//
+//    return {};
+//}
 
 R ARM64CodeGen::visitIf(IfStatement* stmt) {
     int condReg = get<int>(stmt->test->accept(*this));
@@ -291,97 +353,230 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             break;
     }
     
-    int left = get<int>(expr->left->accept(*this));
-    int right = get<int>(expr->right->accept(*this));
-    
+    // Evaluate operands
+    int leftReg = get<int>(expr->left->accept(*this));
+    int rightReg = get<int>(expr->right->accept(*this));
+    int resultReg = regAlloc.alloc();
+
+    // We need scratch registers for tag checking
+    int leftTagReg = regAlloc.alloc();
+    int rightTagReg = regAlloc.alloc();
+
+    // Load the tag of each operand (byte at [reg, #0])
+    emitter.ldrb_offset(leftTagReg, leftReg, 0);   // leftTag = *(uint8_t*)leftReg
+    emitter.ldrb_offset(rightTagReg, rightReg, 0); // rightTag = *(uint8_t*)rightReg
+
     int result = regAlloc.alloc();
     
     switch (expr->op.type) {
             
             // --- Arithmetic ---
-            
-        case TokenType::ADD:
+        case TokenType::ADD: {
             // ADD X0, X0, X1
-            emitter.encodeADD(result, left, right);
+            // we need to detect the types of left and right
+            
+            // Dispatch: if tags are number => add, if either is string => concat
+            int numberCase = emitter.genLabel();
+            int stringCase = emitter.genLabel();
+            int done = emitter.genLabel();
+            
+            // Check if leftTag==TAG_STRING or rightTag==TAG_STRING
+            emitter.cmp_imm(leftTagReg, TAG_STRING);
+            emitter.b_eq(stringCase);
+            emitter.cmp_imm(rightTagReg, TAG_STRING);
+            emitter.b_eq(stringCase);
+            
+            // Check if both are TAG_NUMBER
+            emitter.cmp_imm(leftTagReg, TAG_NUMBER);
+            emitter.bne(done); // Fallback/unsupported
+            emitter.cmp_imm(rightTagReg, TAG_NUMBER);
+            emitter.bne(done);
+            
+            // --- Number addition ---
+            emitter.setLabel(numberCase);
+            // Load int values: the 8 bytes at [reg, #8]
+            int lval = regAlloc.alloc();
+            int rval = regAlloc.alloc();
+            emitter.ldr(lval, leftReg, 8);
+            emitter.ldr(rval, rightReg, 8);
+            emitter.add(resultReg, lval, rval);
+            
+            // Store TAG_NUMBER
+            emitter.mov_reg_imm(leftTagReg, TAG_NUMBER); // reuse leftTagReg as tag
+            emitter.strb(leftTagReg, resultReg, 0);
+            emitter.str(resultReg, resultReg, 8); // store value at offset 8
+            emitter.b(done);
+            
+            regAlloc.free(lval);
+            regAlloc.free(rval);
+            
+            // --- String concatenation ---
+            emitter.setLabel(stringCase);
+            // Load pointers to C strings from [reg, #8]
+            int lp = regAlloc.alloc();
+            int rp = regAlloc.alloc();
+            emitter.ldr(lp, leftReg, 8);
+            emitter.ldr(rp, rightReg, 8);
+            
+            // Call runtime string_concat_runtime(lp, rp)
+            emitter.mov_reg_reg(0, lp);
+            emitter.mov_reg_reg(1, rp);
+            emitter.mov_abs(10, (uint64_t)&string_concat_runtime);
+            emitter.blr(10);
+            
+            // Build tagged string value struct in resultReg
+            emitter.mov_reg_imm(leftTagReg, TAG_STRING); // reuse leftTagReg as tag
+            emitter.strb(leftTagReg, resultReg, 0);
+            emitter.str(0, resultReg, 8);   // store pointer result in struct
+            
+            emitter.b(done);
+            
+            regAlloc.free(lp);
+            regAlloc.free(rp);
+            
+            // --- Done / fallback ---
+            emitter.setLabel(done);
             break;
+            
+        }
             
         case TokenType::MINUS:
             // SUB X0, X0, X1
-            emitter.encodeSUB(result, left, right);
+            // emitter.encodeSUB(result, left, right);
             break;
             
         case TokenType::MUL:
             // MUL X0, X0, X1 (using MADD X0, X0, X1, XZR)
-            emitter.encodeMUL(result, left, right);
+            // emitter.encodeMUL(result, left, right);
             break;
             
         case TokenType::DIV:
             // UDIV X0, X0, X1
-            emitter.encodeDIV(result, left, right);
+            // emitter.encodeDIV(result, left, right);
             break;
             
-        case TokenType::MODULI:
+        case TokenType::MODULI: {
             // remainder = a - (a / b) * b
             // compute div first
             
             // result = left / right
-            emitter.encodeDIV(result, left, right);  // result = left / right
+//            emitter.encodeDIV(result, left, right);  // result = left / right
             
-            // result = result * right
-            emitter.encodeMUL(result, result, right); // result = (left / right) * right
+//            // result = result * right
+//            emitter.encodeMUL(result, result, right); // result = (left / right) * right
+
+//            // result = left - result
+//            emitter.encodeSUB(result, left, result);  // result = left - ((left / right) * right)
             
-            // result = left - result
-            emitter.encodeSUB(result, left, result);  // result = left - ((left / right) * right)
-            
-            std::cout << "mod x" << (int)result << ", x" << (int)left << ", x" << (int)right << "\n";
+//            std::cout << "mod x" << (int)result << ", x" << (int)left << ", x" << (int)right << "\n";
             break;
+        }
             
             // --- Comparisons ---
         case TokenType::VALUE_EQUAL: {
-            // CMP X0, X1; CSET X0, EQ
-            
-            // emit32(0xEB01001F); // cmp x0, x1
-            // emit32(0x9A9F07E0); // cset x0, eq
-            
-            int resultReg = regAlloc.alloc();
+            // Check if both are numbers, both are strings, fallback to 0 (not equal)
+            int eqNumber = emitter.genLabel();
+            int eqString = emitter.genLabel();
+            int done = emitter.genLabel();
+
+            emitter.cmp_imm(leftTagReg, TAG_NUMBER);
+            emitter.bne(eqString);
+            emitter.cmp_imm(rightTagReg, TAG_NUMBER);
+            emitter.bne(eqString);
+
+            // Both numbers: compare value at [reg, #8]
+            int lval = regAlloc.alloc();
+            int rval = regAlloc.alloc();
+            emitter.ldr(lval, leftReg, 8);
+            emitter.ldr(rval, rightReg, 8);
+            emitter.cmp_reg_reg(lval, rval);
+            emitter.mov_reg_imm(resultReg, 0);
+            emitter.bne(done);
             emitter.mov_reg_imm(resultReg, 1);
-            
-            const string loop = "loop";
-            emitter.defineLabel(loop);
-            
-            int reg = regAlloc.alloc();
-            int reg2 = regAlloc.alloc();
-            
-            emitter.ldrb_increment(reg, left, 1);
-            emitter.ldrb_increment(reg2, right, 1);
-            
-            emitter.cmp_reg_reg(reg, reg2);
-            
-            emitter.emitBranchToLabel(loop, false);
-            
-            emitter.cmp_imm(reg, 0);
-            
-            const string not_equal = "not_equal";
-            emitter.defineLabel(not_equal);
-            
-//            MOV     x2, #1         ; result = 1 (assume equal)
-//            loop:
-//                LDRB    w3, [x0], #1   ; load byte from string A, increment pointer
-//                LDRB    w4, [x1], #1   ; load byte from string B, increment pointer
-//                CMP     w3, w4
-//                B.NE    not_equal
-//                CMP     w3, #0         ; check if end of string (null terminator)
-//                B.NE    loop           ; if not zero, continue
-//                B       done
-//
-//            not_equal:
-//                MOV     x2, #0
-//
-//            done:
-//                ; x2 has the result (1 = equal, 0 = not equal)
-            
+            emitter.b(done);
+            regAlloc.free(lval);
+            regAlloc.free(rval);
+
+            // Both strings: call strcmp
+            emitter.setLabel(eqString);
+            emitter.cmp_imm(leftTagReg, TAG_STRING);
+            emitter.bne(done);
+            emitter.cmp_imm(rightTagReg, TAG_STRING);
+            emitter.bne(done);
+
+            int lp = regAlloc.alloc();
+            int rp = regAlloc.alloc();
+            emitter.ldr(lp, leftReg, 8);
+            emitter.ldr(rp, rightReg, 8);
+            emitter.mov_reg_reg(0, lp);
+            emitter.mov_reg_reg(1, rp);
+            emitter.mov_abs(10, (uint64_t)&strcmp);
+            emitter.blr(10);
+            emitter.cmp_imm(0, 0);
+            emitter.mov_reg_imm(resultReg, 1);
+            emitter.b_eq(done);
+            emitter.mov_reg_imm(resultReg, 0);
+
+            emitter.setLabel(done);
+            regAlloc.free(lp);
+            regAlloc.free(rp);
             break;
         }
+
+//        case TokenType::VALUE_EQUAL: {
+//            // 45 == 67; 65 == "name";
+//            // CMP X0, X1; CSET X0, EQ
+//            
+//            // emit32(0xEB01001F); // cmp x0, x1
+//            // emit32(0x9A9F07E0); // cset x0, eq
+//            
+//            int resultReg = regAlloc.alloc();
+//            emitter.mov_reg_imm(resultReg, 1);
+//            
+//            const int loop = emitter.genLabel();
+//            const int not_equal = emitter.genLabel();
+//            const int done = emitter.genLabel();
+//
+//            emitter.setLabel(loop);
+//            
+//            int reg = regAlloc.alloc();
+//            int reg2 = regAlloc.alloc();
+//            
+//            emitter.ldrb_increment(reg, left, 1);
+//            emitter.ldrb_increment(reg2, right, 1);
+//            emitter.cmp_reg_reg(reg, reg2);
+//            emitter.bne(not_equal);
+//            emitter.cmp_imm(reg, 0);
+//
+//            emitter.b(loop);
+//
+//            emitter.setLabel(not_equal);
+//            emitter.mov_reg_imm(resultReg, 0);
+//            
+//            emitter.setLabel(done);
+//            
+//            regAlloc.free(resultReg);
+//            regAlloc.free(reg);
+//            regAlloc.free(reg2);
+//            
+////            MOV     x2, #1         ; result = 1 (assume equal)
+////            loop:
+////                LDRB    w3, [x0], #1   ; load byte from string A, increment pointer
+////                LDRB    w4, [x1], #1   ; load byte from string B, increment pointer
+////                CMP     w3, w4
+////                B.NE    not_equal
+////                CMP     w3, #0         ; check if end of string (null terminator)
+////                B.NE    loop           ; if not zero, continue
+////                B       done
+////
+////            not_equal:
+////                MOV     x2, #0
+////
+////            done:
+////                ; x2 has the result (1 = equal, 0 = not equal)
+//            
+//            break;
+//        }
             
         case TokenType::INEQUALITY:
             // emit32(0xEB01001F); // cmp x0, x1
@@ -456,29 +651,79 @@ R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
     return reg;
 }
 
-R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
-    int reg = regAlloc.alloc();
-    // emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
-    emitter.addNumericData((toValue(expr->value).numberValue));
-    int addrOffset = symbolTable.addGlobal(to_string((toValue(expr->value).numberValue)));
-    
-    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
-
-    return reg;
-}
+//R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
+//    // 1. Add string data to data section
+//    size_t str_offset = emitter.addData(expr->text);
+//    // 2. Create a tagged ValueTagStruct for the string
+//    ValueTagStruct v = make_ptr(TAG_STRING, reinterpret_cast<void*>(str_offset));
+//    
+//    symbolTable.addGlobal("____________");
+//    symbolTable.addGlobal(expr->text);
+//
+//    // 3. Add the tagged value to the data section
+//    size_t value_offset = emitter.addValueTagStruct(v);
+//    symbolTable.addGlobal(to_string(value_offset));
+//
+//    // 4. Allocate a register and move the address (BASE + value_offset) into it
+//    int reg = regAlloc.alloc();
+//    emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset); // Assuming 8-byte slots
+//    cout << "====== " << expr->text << endl;
+//    return reg;
+//}
 
 R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
-    // Place string in data section, emit pointer to reg
-    int reg = regAlloc.alloc();
-    emitter.addData(expr->text);
-    int addrOffset = symbolTable.addGlobal(expr->text);
     
-    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
-    // reg contains the address to the string global memory region
+    ValueTag v = emitter.addString(expr->text);
+    
+    size_t value_offset = emitter.addValue(v);
+
+    int reg = regAlloc.alloc();
+    emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset); // Assuming 8-byte slots
+    
+    cout << "====== " << expr->text << endl;
     
     return reg;
-    
 }
+
+R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
+    cout << "Begin ====== " << endl;
+
+    int64_t intVal = (toValue(expr->value).numberValue); // Ensure expr->value is the string representation
+
+    ValueTag v = emitter.makeIntValue(intVal);
+
+    size_t value_offset = emitter.addValue(v);
+
+    int reg = regAlloc.alloc();
+    emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset);
+    cout << "====== " << intVal << endl;
+
+    return reg;
+}
+
+//R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
+//    int reg = regAlloc.alloc();
+//    // emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
+//    emitter.addNumericData((toValue(expr->value).numberValue));
+//    int addrOffset = symbolTable.addGlobal(to_string((toValue(expr->value).numberValue)));
+//    
+//    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
+//
+//    return reg;
+//}
+
+//R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
+//    // Place string in data section, emit pointer to reg
+//    int reg = regAlloc.alloc();
+//    emitter.addData(expr->text);
+//    int addrOffset = symbolTable.addGlobal(expr->text);
+//    
+//    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
+//    // reg contains the address to the string global memory region
+//    
+//    return reg;
+//    
+//}
 
 R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) {
     int reg = regAlloc.alloc();
@@ -492,20 +737,33 @@ R ARM64CodeGen::visitTrueKeyword(TrueKeyword* expr) {
     return reg;
 }
 
+//R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
+//    // Look up address of local/global, load to reg
+//    int reg = regAlloc.alloc();
+//    // emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
+//    // emitter.ldr(reg, FP, offset_of(expr->name));
+//    
+//    if (stackFrame.hasLocal(expr->name)) {
+//        emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
+//    } else {
+//        // it is in global
+//        int globalAddr = symbolTable.getGlobal(expr->name);
+//        emitter.ldr_global(reg, globalAddr);
+//    }
+//
+//    return reg;
+//}
+
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
-    // Look up address of local/global, load to reg
     int reg = regAlloc.alloc();
-    // emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
-    // emitter.ldr(reg, FP, offset_of(expr->name));
-    
+    // Check if it's local or global (pseudo logic; adapt as needed)
     if (stackFrame.hasLocal(expr->name)) {
-        emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
+        int offset = stackFrame.getLocal(expr->name);
+        emitter.ldr(reg, FP, offset);
     } else {
-        // it is in global
         int globalAddr = symbolTable.getGlobal(expr->name);
         emitter.ldr_global(reg, globalAddr);
     }
-
     return reg;
 }
 
@@ -530,7 +788,7 @@ R ARM64CodeGen::visitCall(CallExpression* expr) {
     // Determine function
     auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get());
     if (ident && ident->name == "print") {
-        emitter.mov_abs(fnReg, reinterpret_cast<uint64_t>(&jit_print_str));
+        emitter.mov_abs(fnReg, reinterpret_cast<uint64_t>(&print_value));
     } else {
         int calleeReg = get<int>(expr->callee->accept(*this));
         emitter.mov_reg_reg(fnReg, calleeReg);
@@ -626,6 +884,200 @@ R ARM64CodeGen::visitObject(ObjectLiteralExpression* expr) {
 R ARM64CodeGen::visitConditional(ConditionalExpression* expr) {
     return true;
 }
+
+//R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) {
+//    // 1. Create a boolean ValueTagStruct for `false`
+//    ValueTagStruct v = make_bool(false);
+//    // 2. Add to data section
+//    size_t value_offset = emitter.addValueTagStruct(v);
+//    // 3. Allocate register and move address
+//    int reg = regAlloc.alloc();
+//    emitter.calc_abs_addr_mov_reg_offset(reg, value_offset / 8);
+//    return reg;
+//}
+
+//R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
+//    // Evaluate operands
+//    int leftReg = get<int>(expr->left->accept(*this));
+//    int rightReg = get<int>(expr->right->accept(*this));
+//    int resultReg = regAlloc.alloc();
+//
+//    // We need scratch registers for tag checking
+//    int leftTagReg = regAlloc.alloc();
+//    int rightTagReg = regAlloc.alloc();
+//
+//    // Load the tag of each operand (byte at [reg, #0])
+//    emitter.ldrb_offset(leftTagReg, leftReg, 0);   // leftTag = *(uint8_t*)leftReg
+//    emitter.ldrb_offset(rightTagReg, rightReg, 0); // rightTag = *(uint8_t*)rightReg
+//
+//    switch (expr->op.type) {
+//        case TokenType::ADD: {
+//            // Dispatch: if tags are number => add, if either is string => concat
+//            int numberCase = emitter.genLabel();
+//            int stringCase = emitter.genLabel();
+//            int done = emitter.genLabel();
+//
+//            // Check if leftTag==TAG_STRING or rightTag==TAG_STRING
+//            emitter.cmp_imm(leftTagReg, TAG_STRING);
+//            emitter.b_eq(stringCase);
+//            emitter.cmp_imm(rightTagReg, TAG_STRING);
+//            emitter.b_eq(stringCase);
+//
+//            // Check if both are TAG_NUMBER
+//            emitter.cmp_imm(leftTagReg, TAG_NUMBER);
+//            emitter.bne(done); // Fallback/unsupported
+//            emitter.cmp_imm(rightTagReg, TAG_NUMBER);
+//            emitter.bne(done);
+//
+//            // --- Number addition ---
+//            emitter.setLabel(numberCase);
+//            // Load int values: the 8 bytes at [reg, #8]
+//            int lval = regAlloc.alloc();
+//            int rval = regAlloc.alloc();
+//            emitter.ldr(lval, leftReg, 8);
+//            emitter.ldr(rval, rightReg, 8);
+//            emitter.add(resultReg, lval, rval);
+//
+//            // Store TAG_NUMBER
+//            emitter.mov_reg_imm(leftTagReg, TAG_NUMBER); // reuse leftTagReg as tag
+//            emitter.strb(leftTagReg, resultReg, 0);
+//            emitter.str(resultReg, resultReg, 8); // store value at offset 8
+//            emitter.b(done);
+//
+//            regAlloc.free(lval);
+//            regAlloc.free(rval);
+//
+//            // --- String concatenation ---
+//            emitter.setLabel(stringCase);
+//            // Load pointers to C strings from [reg, #8]
+//            int lp = regAlloc.alloc();
+//            int rp = regAlloc.alloc();
+//            emitter.ldr(lp, leftReg, 8);
+//            emitter.ldr(rp, rightReg, 8);
+//
+//            // Call runtime string_concat_runtime(lp, rp)
+//            emitter.mov_reg_reg(0, lp);
+//            emitter.mov_reg_reg(1, rp);
+//            emitter.mov_abs(10, (uint64_t)&string_concat_runtime);
+//            emitter.blr(10);
+//
+//            // Build tagged string value struct in resultReg
+//            emitter.mov_reg_imm(leftTagReg, TAG_STRING); // reuse leftTagReg as tag
+//            emitter.strb(leftTagReg, resultReg, 0);
+//            emitter.str(0, resultReg, 8);   // store pointer result in struct
+//
+//            emitter.b(done);
+//
+//            regAlloc.free(lp);
+//            regAlloc.free(rp);
+//
+//            // --- Done / fallback ---
+//            emitter.setLabel(done);
+//            break;
+//        }
+//
+//        case TokenType::VALUE_EQUAL: {
+//            // Check if both are numbers, both are strings, fallback to 0 (not equal)
+//            int eqNumber = emitter.genLabel();
+//            int eqString = emitter.genLabel();
+//            int done = emitter.genLabel();
+//
+//            emitter.cmp_imm(leftTagReg, TAG_NUMBER);
+//            emitter.bne(eqString);
+//            emitter.cmp_imm(rightTagReg, TAG_NUMBER);
+//            emitter.bne(eqString);
+//
+//            // Both numbers: compare value at [reg, #8]
+//            int lval = regAlloc.alloc();
+//            int rval = regAlloc.alloc();
+//            emitter.ldr(lval, leftReg, 8);
+//            emitter.ldr(rval, rightReg, 8);
+//            emitter.cmp_reg_reg(lval, rval);
+//            emitter.mov_reg_imm(resultReg, 0);
+//            emitter.bne(done);
+//            emitter.mov_reg_imm(resultReg, 1);
+//            emitter.b(done);
+//            regAlloc.free(lval);
+//            regAlloc.free(rval);
+//
+//            // Both strings: call strcmp
+//            emitter.setLabel(eqString);
+//            emitter.cmp_imm(leftTagReg, TAG_STRING);
+//            emitter.bne(done);
+//            emitter.cmp_imm(rightTagReg, TAG_STRING);
+//            emitter.bne(done);
+//
+//            int lp = regAlloc.alloc();
+//            int rp = regAlloc.alloc();
+//            emitter.ldr(lp, leftReg, 8);
+//            emitter.ldr(rp, rightReg, 8);
+//            emitter.mov_reg_reg(0, lp);
+//            emitter.mov_reg_reg(1, rp);
+//            emitter.mov_abs(10, (uint64_t)&strcmp);
+//            emitter.blr(10);
+//            emitter.cmp_imm(0, 0);
+//            emitter.mov_reg_imm(resultReg, 1);
+//            emitter.b_eq(done);
+//            emitter.mov_reg_imm(resultReg, 0);
+//
+//            emitter.setLabel(done);
+//            regAlloc.free(lp);
+//            regAlloc.free(rp);
+//            break;
+//        }
+//
+//        // Add more operators and type checks here as needed.
+//
+//        default:
+//            // Fallback: unsupported types or operation, set undefined/zero
+//            emitter.mov_reg_imm(resultReg, 0);
+//            break;
+//    }
+//
+//    regAlloc.free(leftReg);
+//    regAlloc.free(rightReg);
+//    regAlloc.free(leftTagReg);
+//    regAlloc.free(rightTagReg);
+//
+//    return resultReg;
+//}
+
+//R ARM64CodeGen::visitIf(IfStatement* stmt) {
+//    // We need to check the tag of the condition and ensure it's a boolean or treat as truthy/falsy value
+//
+//    int condReg = get<int>(stmt->test->accept(*this));
+//    int tagReg = regAlloc.alloc();
+//    emitter.ldrb_offset(tagReg, condReg, 0);
+//
+//    int elseLabel = emitter.genLabel();
+//    int endLabel = emitter.genLabel();
+//
+//    // If tag != TAG_BOOLEAN, treat as (value != 0)
+//    emitter.cmp_imm(tagReg, TAG_BOOLEAN);
+//    emitter.bne(elseLabel);
+//
+//    // Compare boolean value: [condReg, #8] == 0?
+//    int boolValReg = regAlloc.alloc();
+//    emitter.ldr(boolValReg, condReg, 8);
+//    emitter.cmp_imm(boolValReg, 0);
+//    emitter.b_eq(elseLabel);
+//
+//    stmt->consequent->accept(*this);
+//    emitter.b(endLabel);
+//
+//    emitter.setLabel(elseLabel);
+//    if (stmt->alternate) {
+//        stmt->alternate->accept(*this);
+//    }
+//    emitter.setLabel(endLabel);
+//
+//    regAlloc.free(condReg);
+//    regAlloc.free(tagReg);
+//    regAlloc.free(boolValReg);
+//
+//    return {};
+//}
+
 
 void ARM64CodeGen::disassemble() {
     // --- Disassemble ARM64 code section ---
