@@ -651,26 +651,6 @@ R ARM64CodeGen::visitLiteral(LiteralExpression* expr) {
     return reg;
 }
 
-//R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
-//    // 1. Add string data to data section
-//    size_t str_offset = emitter.addData(expr->text);
-//    // 2. Create a tagged ValueTagStruct for the string
-//    ValueTagStruct v = make_ptr(TAG_STRING, reinterpret_cast<void*>(str_offset));
-//    
-//    symbolTable.addGlobal("____________");
-//    symbolTable.addGlobal(expr->text);
-//
-//    // 3. Add the tagged value to the data section
-//    size_t value_offset = emitter.addValueTagStruct(v);
-//    symbolTable.addGlobal(to_string(value_offset));
-//
-//    // 4. Allocate a register and move the address (BASE + value_offset) into it
-//    int reg = regAlloc.alloc();
-//    emitter.calc_abs_addr_mov_reg_offset(reg, (int)value_offset); // Assuming 8-byte slots
-//    cout << "====== " << expr->text << endl;
-//    return reg;
-//}
-
 R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
     
     ValueTag v = emitter.addString(expr->text);
@@ -701,30 +681,6 @@ R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
     return reg;
 }
 
-//R ARM64CodeGen::visitNumericLiteral(NumericLiteral* expr) {
-//    int reg = regAlloc.alloc();
-//    // emitter.mov_reg_imm(reg, (toValue(expr->value).numberValue));
-//    emitter.addNumericData((toValue(expr->value).numberValue));
-//    int addrOffset = symbolTable.addGlobal(to_string((toValue(expr->value).numberValue)));
-//    
-//    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
-//
-//    return reg;
-//}
-
-//R ARM64CodeGen::visitStringLiteral(StringLiteral* expr) {
-//    // Place string in data section, emit pointer to reg
-//    int reg = regAlloc.alloc();
-//    emitter.addData(expr->text);
-//    int addrOffset = symbolTable.addGlobal(expr->text);
-//    
-//    emitter.calc_abs_addr_mov_reg_offset(reg, addrOffset);
-//    // reg contains the address to the string global memory region
-//    
-//    return reg;
-//    
-//}
-
 R ARM64CodeGen::visitFalseKeyword(FalseKeyword* expr) {
     int reg = regAlloc.alloc();
     emitter.mov_reg_imm(reg, 0); // set register to 0 (false)
@@ -736,23 +692,6 @@ R ARM64CodeGen::visitTrueKeyword(TrueKeyword* expr) {
     emitter.mov_reg_imm(reg, 1); // set register to 1 (true)
     return reg;
 }
-
-//R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
-//    // Look up address of local/global, load to reg
-//    int reg = regAlloc.alloc();
-//    // emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
-//    // emitter.ldr(reg, FP, offset_of(expr->name));
-//    
-//    if (stackFrame.hasLocal(expr->name)) {
-//        emitter.ldr(reg, FP, stackFrame.getLocal(expr->name));
-//    } else {
-//        // it is in global
-//        int globalAddr = symbolTable.getGlobal(expr->name);
-//        emitter.ldr_global(reg, globalAddr);
-//    }
-//
-//    return reg;
-//}
 
 R ARM64CodeGen::visitIdentifier(IdentifierExpression* expr) {
     int reg = regAlloc.alloc();
