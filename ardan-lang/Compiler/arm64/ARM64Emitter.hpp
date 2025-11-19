@@ -499,6 +499,12 @@ public:
         v.raw = ((uint64_t)i << 3) | TAG_NUMBER;
         return v;
     }
+    
+    ValueTag makeBool(int64_t i) {
+        ValueTag v;
+        v.raw = ((uint64_t)i << 3) | TAG_BOOLEAN;
+        return v;
+    }
 
     const char* getStringPtr(ValueTag v) {
         return (const char*)&dataSection[getPayload(v)];
