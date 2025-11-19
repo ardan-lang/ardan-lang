@@ -18,16 +18,44 @@
 #include <cstdint>
 #include <iostream>
 
+#define BASE 19
+#define BYTE_SIZE 1
+
 using namespace std;
 
-enum ValueTag : uint8_t {
-    TAG_NUMBER    = 0b00,
-    TAG_STRING    = 0b01,
-    TAG_BOOLEAN   = 0b10,
-    TAG_UNDEFINED = 0b11
+enum Tag : uint8_t {
+    TAG_NUMBER        = 0b001,
+    TAG_STRING        = 0b000,
+    TAG_BOOLEAN       = 0b010,
+    TAG_UNDEFINED     = 0b011,
+    TAG_OBJECT        = 0b100,
+    TAG_NULL          = 0b101,
+    TAG_ARRAY         = 0b110,
+    TAG_FUNCTION      = 0b111,
+    TAG_SYMBOL        = 0b1000,
+    TAG_BIGINT        = 0b1001,
+    TAG_DATE          = 0b1010,
+    TAG_REGEXP        = 0b1011,
+    TAG_CLASS         = 0b1100,
+    TAG_ERROR         = 0b1101,
+    TAG_MAP           = 0b1110,
+    TAG_SET           = 0b1111,
+    TAG_PROMISE       = 0b10000,
+    TAG_WEAKMAP       = 0b10001,
+    TAG_WEAKSET       = 0b10010,
+    TAG_TYPEDARRAY    = 0b10011,
+    TAG_BUFFER        = 0b10100,
+    TAG_ITERATOR      = 0b10101,
+    TAG_GENERATOR     = 0b10110,
+    TAG_PROXY         = 0b10111,
+    TAG_ENV           = 0b11000,
 };
 
-#define BASE 0
+struct ValueTag {
+    uint64_t raw;
+};
+
+static_assert(sizeof(ValueTag) == 8);
 
 class ARM64Emitter {
 public:
@@ -115,16 +143,6 @@ public:
         opcode |= (reg1 & 0xF) << 16;              // Rn
         opcode |= (reg2 & 0xF);                     // Operand2 = Rm (no shift)
         emit(opcode);
-    }
-
-    void b_eq(int label) {
-        pendingBranches.push_back({static_cast<int>(code.size()), label, CondEQ});
-        emit(0x54000000); // BEQ placeholder, patched in resolveLabels
-    }
-
-    void b(int label) {
-        pendingBranches.push_back({static_cast<int>(code.size()), label, CondAL});
-        emit(0x14000000); // B placeholder, patched in resolveLabels
     }
     
     // ------------- LDRB basic (no offset) --------------
@@ -258,7 +276,7 @@ public:
 
     void ldr_global(int destReg, int offsetIndex) {
         int scratchReg = 9; // x10 for address computation
-        int offset = offsetIndex * 8; // 8-byte slots
+        int offset = offsetIndex * BYTE_SIZE; // 8-byte slots
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -294,10 +312,11 @@ public:
 
     }
     
+    // for data 8 bytes long.
     void calc_abs_addr_mov_reg_offset(int reg, int offsetIndex) {
         
         int scratchReg = 9; // x21 for address computation
-        int offset = offsetIndex * 8; // 8-byte slots
+        int offset = offsetIndex * BYTE_SIZE; // 8-byte slots
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -322,7 +341,7 @@ public:
 
     void str_global(int srcReg, int offsetIndex) {
         int scratchReg = 9; // x21 for address computation
-        int offset = offsetIndex * 8; // 8-byte slots
+        int offset = offsetIndex * BYTE_SIZE; // 8-byte slots
 
         if (offset > 0xFFF) {
             std::cerr << "Error: offset too large for 12-bit immediate" << std::endl;
@@ -347,13 +366,20 @@ public:
         emit(strInstr);
         std::cout << "str x" << srcReg << ", [x" << scratchReg << "]" << std::endl;
     }
-
-    int genLabel() {
-        return labelCounter++;
-    }
-
-    void setLabel(int label) {
-        labels[label] = static_cast<int>(code.size());
+    
+    void strb(int srcReg, int baseReg, int offset) {
+        // STRB Wt, [Xn, #imm12]
+        // srcReg: value to store (low byte), baseReg: address, offset: byte offset
+        if (offset < 0 || offset > 4095) {
+            std::cerr << "strb: offset out of range (0..4095): " << offset << std::endl;
+            return;
+        }
+        uint32_t instr = 0x39000000
+                       | ((offset & 0xFFF) << 10)
+                       | ((baseReg & 0x1F) << 5)
+                       | (srcReg & 0x1F);
+        emit(instr);
+        std::cout << "strb w" << srcReg << ", [x" << baseReg << ", #" << offset << "]" << std::endl;
     }
 
     void push_fp_lr() {
@@ -418,41 +444,154 @@ public:
 
     }
 
+    inline uint8_t getTag(uint64_t raw) {
+        return raw & 0b111;
+    }
+
+    inline uint64_t getPayload(uint64_t raw) {
+        return raw >> 3;
+    }
+
+    inline uint64_t makeValue(uint64_t payload, uint8_t tag) {
+        return (payload << 3) | (tag & 0b111);
+    }
+
+    uint8_t getTag(ValueTag v) {
+        return v.raw & 0b111;
+    }
+
+    uint64_t getPayload(ValueTag v) {
+        return v.raw >> 3;
+    }
+
+    void alignDataSection() {
+        while (dataSection.size() % 8 != 0)
+            dataSection.push_back(0);
+    }
+
+    size_t addStringData(const std::string& s) {
+        alignDataSection();
+
+        size_t addr = dataSection.size();
+
+        // Write characters
+        dataSection.insert(dataSection.end(), s.begin(), s.end());
+
+        // Null terminator
+        dataSection.push_back('\0');
+
+        return addr;  // this is the string pointer
+    }
+
+    ValueTag makeStringValue(size_t addr) {
+        ValueTag v;
+        v.raw = ((uint64_t)addr << 3) | TAG_STRING;  // pointer tagging
+        return v;
+    }
+    
+    ValueTag addString(const std::string& s) {
+        size_t addr = addStringData(s);
+        return makeStringValue(addr);
+    }
+
+    ValueTag makeIntValue(int64_t i) {
+        ValueTag v;
+        v.raw = ((uint64_t)i << 3) | TAG_NUMBER;
+        return v;
+    }
+
+    const char* getStringPtr(ValueTag v) {
+        return (const char*)&dataSection[getPayload(v)];
+    }
+    
+    size_t allocSpace() {
+        alignDataSection();
+        size_t addr = dataSection.size();
+
+        uint64_t v64 = (uint64_t)0;  // promote int → 8-byte integer
+
+        // Write out all 8 bytes
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v64);
+        dataSection.insert(dataSection.end(), p, p + sizeof(uint64_t));
+
+        return addr;
+    }
+    
+    size_t addValue(const ValueTag& v) {
+        size_t addr = dataSection.size();
+        uint64_t raw = v.raw;
+
+        uint8_t* p = reinterpret_cast<uint8_t*>(&raw);
+        dataSection.insert(dataSection.end(), p, p + sizeof(uint64_t));
+
+        return addr;
+    }
+
     size_t addData(const std::string& value) {
         size_t addr = (uint64_t)(dataSection.size());
         dataSection.insert(dataSection.end(), value.begin(), value.end());
         dataSection.push_back('\0');
         return addr;
     }
-    
+        
     size_t addNumericData(const int value) {
-        dataSection.push_back(value);
-        dataSection.push_back('\0');
-        size_t addr = (uint64_t)(dataSection.size());
+        alignDataSection();
+        size_t addr = dataSection.size();
+
+        uint64_t v64 = (uint64_t)value;  // promote int → 8-byte integer
+
+        // Write out all 8 bytes
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v64);
+        dataSection.insert(dataSection.end(), p, p + sizeof(uint64_t));
 
         return addr;
     }
 
-    int addValue(int dataAddr, ValueTag type) {
-        // Address of the new Value struct in dataSection
-        int valueAddr = static_cast<int>(dataSection.size());
+    void b_eq(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondEQ});
+        emit(0x54000000); // BEQ placeholder, patched in resolveLabels
+    }
 
-        // Emit the type tag (8 bytes, uint64_t)
-        uint64_t tag = static_cast<uint64_t>(type);
-        uint8_t* tagPtr = reinterpret_cast<uint8_t*>(&tag);
-        dataSection.insert(dataSection.end(), tagPtr, tagPtr + 8);
+    void bne(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondNE});
+        emit(0x54000001); // BNE placeholder (BEQ | 1)
+    }
 
-        // Emit the value pointer (8 bytes, uint64_t)
-        uint64_t ptr = static_cast<uint64_t>(dataAddr); // offset of string in dataSection
-        uint8_t* ptrBytes = reinterpret_cast<uint8_t*>(&ptr);
-        dataSection.insert(dataSection.end(), ptrBytes, ptrBytes + 8);
+    void blt(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondLT});
+        emit(0x5400000B); // BLT placeholder (BEQ | 0xB)
+    }
 
-        // Return the offset of the Value struct for later use
-        return valueAddr;
+    void ble(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondLE});
+        emit(0x5400000D); // BLE placeholder (BEQ | 0xD)
+    }
+
+    void bgt(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondGT});
+        emit(0x5400000C); // BGT placeholder (BEQ | 0xC)
+    }
+
+    void bge(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondGE});
+        emit(0x5400000A); // BGE placeholder (BEQ | 0xA)
+    }
+
+    void b(int label) {
+        pendingBranches.push_back({static_cast<int>(code.size()), label, CondAL});
+        emit(0x14000000); // B placeholder, patched in resolveLabels
+    }
+
+    int genLabel() {
+        return labelCounter++;
+    }
+
+    void setLabel(int label) {
+        labels[label] = static_cast<int>(code.size());
     }
 
     // Patch branch offsets after full emission
-    void resolveLabels() {
+    void resolveLabels_() {
         for (const auto& br : pendingBranches) {
             int src = br.pos / 4;
             int dst = labels[br.label];
@@ -468,6 +607,48 @@ public:
         }
     }
 
+    void resolveLabels() {
+        for (const auto& br : pendingBranches) {
+            int src = br.pos / 4;
+            int dst = labels[br.label];
+            int offset = (dst - src);
+            uint32_t* inst = reinterpret_cast<uint32_t*>(&code[br.pos]);
+            switch (br.cond) {
+                case CondAL:
+                    // B (unconditional)
+                    *inst = 0x14000000 | (offset & 0x03FFFFFF);
+                    break;
+                case CondEQ:
+                    // BEQ
+                    *inst = 0x54000000 | ((offset & 0x7FFFF) << 5);
+                    break;
+                case CondNE:
+                    // BNE
+                    *inst = 0x54000001 | ((offset & 0x7FFFF) << 5);
+                    break;
+                case CondLT:
+                    // BLT
+                    *inst = 0x5400000B | ((offset & 0x7FFFF) << 5);
+                    break;
+                case CondLE:
+                    // BLE
+                    *inst = 0x5400000D | ((offset & 0x7FFFF) << 5);
+                    break;
+                case CondGT:
+                    // BGT
+                    *inst = 0x5400000C | ((offset & 0x7FFFF) << 5);
+                    break;
+                case CondGE:
+                    // BGE
+                    *inst = 0x5400000A | ((offset & 0x7FFFF) << 5);
+                    break;
+                default:
+                    // Unknown condition
+                    break;
+            }
+        }
+    }
+    
     void defineLabel(const std::string& name) {
         auto& lbl = _labels[name];
         lbl.name = name;
@@ -524,7 +705,16 @@ private:
         bool isCall;             // true = BL, false = B
     };
 
-    enum Cond { CondAL, CondEQ };
+    enum Cond {
+        CondAL,  // Always (unconditional)
+        CondEQ,  // Equal (Z==1)
+        CondNE,  // Not equal (Z==0)
+        CondLT,  // Less than (N != V)
+        CondLE,  // Less than or equal (Z==1 || N != V)
+        CondGT,  // Greater than (Z==0 && N == V)
+        CondGE,  // Greater than or equal (N == V)
+    };
+    
     struct Branch {
         int pos;
         int label;
