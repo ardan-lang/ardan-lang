@@ -126,6 +126,8 @@ public:
         // SUBS XZR, Xn, #imm12
         if (imm < 0 || imm > 4095) throw std::runtime_error("Immediate too large for CMP");
         emit(0xF100001F | ((imm & 0xFFF) << 10) | ((reg & 0x1F) << 5));
+        cout << "cmp x" << (int)reg << ", #" << (int)imm << '\n';
+
     }
     
     void cmp_reg_reg(int reg1, int reg2) {
@@ -143,6 +145,8 @@ public:
         opcode |= (reg1 & 0xF) << 16;              // Rn
         opcode |= (reg2 & 0xF);                     // Operand2 = Rm (no shift)
         emit(opcode);
+        cout << "cmp x" << (int)reg1 << ", x" << (int)reg2 << '\n';
+
     }
     
     // ------------- LDRB basic (no offset) --------------
@@ -399,6 +403,7 @@ public:
                        | (reg & 0x1F);
         // code.push_back(instr);
         emit(instr);
+        cout << "str x" << (int)reg << ", " << (int)base << ", " << (int)offset << '\n';
     }
 
     // Load Xreg from [Xbase, #offset]
@@ -412,7 +417,9 @@ public:
                        | (((offset / 8) & 0x7FF) << 10)
                        | ((base & 0x1F) << 5)
                        | (reg & 0x1F);
-        // code.push_back(instr);
+
+        cout << "ldr x" << (int)reg << ", x" << (int)base << ", #" << (int)offset << '\n';
+        
         emit(instr);
     }
 
@@ -706,11 +713,13 @@ public:
     void b_eq(int label) {
         pendingBranches.push_back({static_cast<int>(code.size()), label, CondEQ});
         emit(0x54000000); // BEQ placeholder, patched in resolveLabels
+        cout << "beq " << (int)label << '\n';
     }
 
     void bne(int label) {
         pendingBranches.push_back({static_cast<int>(code.size()), label, CondNE});
         emit(0x54000001); // BNE placeholder (BEQ | 1)
+        cout << "bne " << (int)label << '\n';
     }
 
     void blt(int label) {
@@ -736,6 +745,7 @@ public:
     void b(int label) {
         pendingBranches.push_back({static_cast<int>(code.size()), label, CondAL});
         emit(0x14000000); // B placeholder, patched in resolveLabels
+        cout << "b " << (int)label << '\n';
     }
 
     int genLabel() {
@@ -744,6 +754,7 @@ public:
 
     void setLabel(int label) {
         labels[label] = static_cast<int>(code.size());
+        cout << "label: " << (int)label << '\n';
     }
 
     // Patch branch offsets after full emission
@@ -765,7 +776,7 @@ public:
 
     void resolveLabels() {
         for (const auto& br : pendingBranches) {
-            int src = br.pos / 4;
+            int src = br.pos;// / 4;
             int dst = labels[br.label];
             int offset = (dst - src);
             uint32_t* inst = reinterpret_cast<uint32_t*>(&code[br.pos]);
@@ -776,7 +787,8 @@ public:
                     break;
                 case CondEQ:
                     // BEQ
-                    *inst = 0x54000000 | ((offset & 0x7FFFF) << 5);
+                    // *inst = 0x54000000 | ((offset & 0x7FFFF) << 5);
+                    *inst = 0x54000000 | ((offset / 4) << 5);
                     break;
                 case CondNE:
                     // BNE

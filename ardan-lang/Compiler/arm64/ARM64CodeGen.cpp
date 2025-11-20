@@ -323,11 +323,20 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
     int rightTagReg = regAlloc.alloc();
 
     // Load the tag of each operand (byte at [reg, #0])
-    emitter.ldrb_offset(leftTagReg, leftReg, 0);   // leftTag = *(uint8_t*)leftReg
-    emitter.ldrb_offset(rightTagReg, rightReg, 0); // rightTag = *(uint8_t*)rightReg
+    emitter.ldr_global_reg_reg(leftTagReg, leftReg);
+    emitter.ldr_global_reg_reg(rightTagReg, rightReg);
+    
+    emitter.and_reg_reg_imm(leftTagReg, leftTagReg, 7);
+    emitter.lsr_reg_reg_imm(leftTagReg, leftTagReg, 3);
+
+    emitter.and_reg_reg_imm(rightTagReg, rightTagReg, 7);
+    emitter.lsr_reg_reg_imm(rightTagReg, rightTagReg, 3);
+
+    regAlloc.free(leftTagReg);
+    regAlloc.free(rightTagReg);
 
     int result = regAlloc.alloc();
-    
+        
     switch (expr->op.type) {
             
             // --- Arithmetic ---
@@ -599,8 +608,10 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             break;
     }
     
+    regAlloc.free(leftReg);
+    regAlloc.free(rightReg);
     regAlloc.free(result);
-    
+
     return result;
     
 }
