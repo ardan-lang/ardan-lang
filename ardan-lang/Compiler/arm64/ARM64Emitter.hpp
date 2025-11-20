@@ -173,6 +173,7 @@ public:
         opcode |= (baseReg & 0xF) << 16;
         opcode |= (destReg & 0xF) << 12;
         opcode |= offset & 0xFFF; // 12-bit offset
+        cout << "ldrb x" << destReg << ", [x" << baseReg << ", #" << offset << "]" << endl;
         emit(opcode);
     }
 
@@ -242,6 +243,149 @@ public:
         opcode |= (offsetReg & 0xF);     // bits 3–0: Rm
 
         emit(opcode);
+    }
+
+    // LDR Xt, [Xn, #imm]
+    // imm is a 12-bit *scaled* offset (scale = 8 bytes for 64-bit)
+    uint32_t ldr_reg_reg_imm(uint8_t Rt, uint8_t Rn, uint16_t imm12) {
+        // size=11, V=0, opc=01 → LDR 64-bit unsigned immediate
+        uint32_t op = 0;
+        op |= (0b11    << 30);     // size
+        op |= (0        << 29);    // V
+        op |= (0b01     << 27);    // opc
+        op |= (imm12    << 10);    // imm12 (scaled)
+        op |= (Rn       << 5);
+        op |= (Rt       << 0);
+        return op;
+    }
+    
+    // Helper to calculate bit length (similar to Python's int.bit_length())
+    // Returns the number of bits required to represent n.
+    // e.g., 7 (111) -> 3, 255 (11111111) -> 8
+    int get_bit_width(uint64_t n) {
+        if (n == 0) return 0;
+        int bits = 0;
+        while (n > 0) {
+            n >>= 1;
+            bits++;
+        }
+        return bits;
+    }
+
+    /**
+     * Encodes an ARM64 'AND (immediate)' instruction for 64-bit registers (X regs).
+     * * Assembly: AND Xd, Xn, #imm
+     * * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param imm    The integer immediate. MUST be a valid logical bitmask.
+     * (e.g., 0x7, 0xFF).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void and_reg_reg_imm(int rd_idx, int rn_idx, uint64_t imm) {
+        // --- 1. Validation ---
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+
+        if (imm == 0 || imm == UINT64_MAX) { // Check basic bounds/empty
+            throw std::invalid_argument("Immediate must be > 0 and < 2^64 - 1 for this encoder");
+        }
+
+        // Check if immediate is a valid contiguous mask (2^k - 1)
+        // This checks if adding 1 makes it a power of 2
+        if ((imm & (imm + 1)) != 0) {
+            throw std::invalid_argument("Immediate is complex (rotated/repeating). This simple encoder only supports standard contiguous bitmasks.");
+        }
+
+        // --- 2. Calculate Logical Immediate Fields (N, immr, imms) ---
+        // For 64-bit operations:
+        // N = 1
+        // immr = 0 (No rotation needed for standard masks starting at bit 0)
+        // imms = Highest bit set index.
+        
+        uint32_t N = 1;
+        uint32_t immr = 0;
+        
+        // Calculate bit length and subtract 1 to get the highest bit index
+        // Example: imm=7 (binary 111). width=3. imms = 2.
+        uint32_t imms = get_bit_width(imm) - 1;
+
+        // --- 3. Construct the 32-bit Instruction ---
+        // Format for AND (immediate, 64-bit):
+        // | 31 | 30 29 | 28 ... 23 | 22 | 21 ... 16 | 15 ... 10 | 9 ... 5 | 4 ... 0 |
+        // | sf |  opc  |  100100   | N  |   immr    |   imms    |   Rn    |   Rd    |
+        
+        uint32_t sf = 1;
+        uint32_t opc = 0;
+        uint32_t magic = 0b100100; // 36 decimal
+
+        uint32_t instruction = 0;
+        
+        instruction |= (sf << 31);
+        instruction |= (opc << 29);
+        instruction |= (magic << 23);
+        instruction |= (N << 22);
+        instruction |= (immr << 16);
+        instruction |= (imms << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rd_idx) << 0);
+        
+        emit(instruction);
+
+        cout << "and x" << (int)rd_idx << ", x" << (int)rn_idx << ", #" << (int)imm << '\n';
+
+    }
+    
+    /**
+     * Encodes an ARM64 'LSR (immediate)' instruction for 64-bit registers (X regs).
+     * Note: LSR is an alias for UBFM (Unsigned Bitfield Move).
+     * Alias: LSR <Xd>, <Xn>, #<shift>  =>  UBFM <Xd>, <Xn>, #<shift>, #63
+     * * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param shift  The number of bits to shift right (0-63).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void lsr_reg_reg_imm(int rd_idx, int rn_idx, int shift) {
+        // --- 1. Validation ---
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+        
+        if (shift < 0 || shift > 63) {
+            throw std::invalid_argument("Shift amount must be between 0 and 63 for 64-bit registers");
+        }
+
+        // --- 2. Construct Fields ---
+        // Encoding for UBFM (64-bit):
+        // | 31 | 30 29 | 28 ... 23 | 22 | 21 ... 16 | 15 ... 10 | 9 ... 5 | 4 ... 0 |
+        // | sf |  opc  |  100110   | N  |   immr    |   imms    |   Rn    |   Rd    |
+        
+        // Standard mapping for LSR Xd, Xn, #shift:
+        // immr = shift
+        // imms = 63 (This keeps the bottom bits of the rotated result)
+        
+        uint32_t sf = 1;            // 64-bit
+        uint32_t opc = 0b10;        // 2 (UBFM / Bitfield)
+        uint32_t magic = 0b100110;  // 38 decimal (Bitfield)
+        uint32_t N = 1;             // 64-bit
+        uint32_t immr = static_cast<uint32_t>(shift);
+        uint32_t imms = 63;
+
+        uint32_t instruction = 0;
+        
+        instruction |= (sf << 31);
+        instruction |= (opc << 29);
+        instruction |= (magic << 23);
+        instruction |= (N << 22);
+        instruction |= (immr << 16);
+        instruction |= (imms << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rd_idx) << 0);
+
+        cout << "lsr x" << (int)rd_idx << ", x" << (int)rn_idx << ", #" << (int)shift << '\n';
+
+        emit(instruction);
+        
     }
 
     // ARM64 encoding for STR Xn, [Xm, #imm12]
