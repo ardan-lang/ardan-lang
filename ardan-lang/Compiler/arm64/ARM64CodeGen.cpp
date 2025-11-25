@@ -327,10 +327,7 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
     emitter.ldr_global_reg_reg(rightTagReg, rightReg);
     
     emitter.and_reg_reg_imm(leftTagReg, leftTagReg, 7);
-    emitter.lsr_reg_reg_imm(leftTagReg, leftTagReg, 3);
-
     emitter.and_reg_reg_imm(rightTagReg, rightTagReg, 7);
-    emitter.lsr_reg_reg_imm(rightTagReg, rightTagReg, 3);
 
     regAlloc.free(leftTagReg);
     regAlloc.free(rightTagReg);
@@ -366,14 +363,30 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             // Load int values: the 8 bytes at [reg, #8]
             int lval = regAlloc.alloc();
             int rval = regAlloc.alloc();
-            emitter.ldr(lval, leftReg, 8);
-            emitter.ldr(rval, rightReg, 8);
+            
+            // emitter.ldr(lval, leftReg, 8);
+            // emitter.ldr(rval, rightReg, 8);
+            
+            emitter.ldr_global_reg_reg(lval, leftReg);
+            emitter.ldr_global_reg_reg(rval, rightReg);
+
+            emitter.lsr_reg_reg_imm(rval, rval, 3);
+            emitter.lsr_reg_reg_imm(lval, lval, 3);
+
             emitter.add(resultReg, lval, rval);
             
             // Store TAG_NUMBER
             emitter.mov_reg_imm(leftTagReg, TAG_NUMBER); // reuse leftTagReg as tag
-            emitter.strb(leftTagReg, resultReg, 0);
-            emitter.str(resultReg, resultReg, 8); // store value at offset 8
+            emitter.lsl_reg_reg_imm(resultReg, resultReg, 3);
+            emitter.orr_reg_reg_reg(resultReg, resultReg, leftTagReg);
+
+            // emitter.strb(leftTagReg, resultReg, 0);
+            // emitter.str(resultReg, resultReg, 8); // store value at offset 8
+            
+            // push result to stack
+            emitter.str_pre_indexed(resultReg, 31, -16);
+            emitter.mov_reg_reg(resultReg, 31);
+            
             emitter.b(done);
             
             regAlloc.free(lval);
@@ -610,7 +623,6 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
     
     regAlloc.free(leftReg);
     regAlloc.free(rightReg);
-    regAlloc.free(result);
 
     return result;
     

@@ -341,6 +341,148 @@ public:
     }
     
     /**
+     * Encodes an ARM64 'STR Xd, [SP, #imm]!' instruction (Store Register, Pre-Indexed).
+     * Assembly: STR <Xt>, [<Xn|SP>, #<simm9>]!
+     * @param rt_idx Source register index (0-31).
+     * @param rn_idx Base/Writeback register index (SP=31 or X0-30).
+     * @param simm   The signed 9-bit immediate offset (-256 to 255).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void str_pre_indexed(int rt_idx, int rn_idx, int simm) {
+        // --- 1. Validation ---
+        if (rt_idx < 0 || rt_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+        if (simm < -256 || simm > 255) {
+            throw std::invalid_argument("Immediate for pre-indexed addressing must be between -256 and 255");
+        }
+
+        // --- 2. Construct Fields ---
+        // Format: Load/Store Register (Immediate Pre-indexed)
+        // | 31 30 | 29 24 | 23 22 | 21 12 | 11 10 | 9 5 | 4 0 |
+        // | size  | 111110 | opc  | simm9 |  01   | Rn  | Rt  |
+        
+        uint32_t size = 0b11;   // 64-bit (8-byte)
+        uint32_t fixed_24_29 = 0b111110;
+        uint32_t opc = 0b00;    // Store
+        uint32_t op2 = 0b01;    // Pre-indexed addressing mode (Writeback)
+
+        // Convert signed immediate to 9-bit unsigned two's complement value
+        uint32_t simm9 = (simm < 0) ? (0x200 + simm) : simm;
+
+        uint32_t instruction = 0;
+        instruction |= (size << 30);
+        instruction |= (fixed_24_29 << 24);
+        instruction |= (opc << 22);
+        instruction |= (simm9 << 12);
+        instruction |= (op2 << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rt_idx) << 0);
+
+        emit(instruction);
+    }
+
+    /**
+     * Encodes an ARM64 'ORR (immediate)' instruction for 64-bit registers (X regs).
+     * Assembly: ORR Xd, Xn, #imm
+     * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param imm    The integer immediate. MUST be a valid logical bitmask.
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void orr_reg_reg_imm(int rd_idx, int rn_idx, uint64_t imm) {
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+
+        if (imm == 0 || imm == UINT64_MAX) {
+            throw std::invalid_argument("Immediate must be > 0 and < 2^64 - 1 for this encoder");
+        }
+
+        // Check if immediate is a valid contiguous mask (2^k - 1)
+        if ((imm & (imm + 1)) != 0) {
+            throw std::invalid_argument("Immediate is complex. This simple encoder only supports contiguous bitmasks (e.g. 0x7, 0xFF).");
+        }
+
+        uint32_t N = 1;
+        uint32_t immr = 0;
+        uint32_t imms = get_bit_width(imm) - 1;
+
+        uint32_t sf = 1;
+        uint32_t opc = 0b01; // 1 (ORR)
+        uint32_t magic = 0b100100; // 36 decimal (Logical Immediate)
+
+        uint32_t instruction = 0;
+        instruction |= (sf << 31);
+        instruction |= (opc << 29);
+        instruction |= (magic << 23);
+        instruction |= (N << 22);
+        instruction |= (immr << 16);
+        instruction |= (imms << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rd_idx) << 0);
+
+        emit(instruction);
+    }
+
+    /**
+     * Encodes an ARM64 'ORR (Shifted Register)' instruction for 64-bit registers (X regs).
+     * Assembly: ORR Xd, Xn, Xm
+     * This uses the unshifted version of the Data Processing (2 Source) format.
+     * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param rm_idx Second source register index (0-31).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void orr_reg_reg_reg(int rd_idx, int rn_idx, int rm_idx) {
+        // --- 1. Validation ---
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31 || rm_idx < 0 || rm_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+
+        // --- 2. Construct Fields ---
+        // Format: Data Processing (2 Source) - Shifted Register
+        // | 31 | 30 29 | 28 ... 24 | 23 22 | 21 ... 16 | 15 14 | 13 12 | 11 10 | 9 ... 5 | 4 ... 0 |
+        // | sf | 00(opc) | 010100  | 00(op2) |   Rm    | 00(imm) | shift | 00(imm) |   Rn    |   Rd    |
+        
+        uint32_t sf = 1;            // 64-bit
+        uint32_t opc = 0b10;        // 2 (ORR) - Note: ORR opc is 10 for shifted register
+        uint32_t fixed_24_28 = 0b01010; // Data Processing - Shifted Register group
+        uint32_t imm3_fixed = 0b000;
+        uint32_t N = 0;
+        uint32_t fixed_10_15 = 0b000000; // 00(imm) + shift(00) + 00(imm)
+        
+        // Core fields
+        uint32_t fixed_30_29 = 0b01; // This group uses 01
+        uint32_t Rm = static_cast<uint32_t>(rm_idx);
+        uint32_t Rn = static_cast<uint32_t>(rn_idx);
+        uint32_t Rd = static_cast<uint32_t>(rd_idx);
+
+        // Encoding:
+        // Bits 31=sf, 30:29=01, 28:24=10101 (op0=01, opc=0, op2=01)
+        // The ORR encoding is: 0b10010101000...
+        
+        uint32_t magic_top = 0b1010100; // Bits 31:24 = 10010101 (sf:opc:fixed_24_28)
+
+        uint32_t instruction = 0;
+        
+        // ORR is part of the Data Processing (2 Source) group.
+        // Fixed pattern: 1001010100 opc(21:20)=10 shift(15:14)=00 imm6(13:10)=0000
+        // ORR: 0b101010 (Bits 31, 30-24)
+        instruction |= (sf << 31);
+        instruction |= (0b01 << 29); // op0 (top two bits of 30:29-24 block)
+        instruction |= (0b01010 << 24); // op2 + top of fixed field
+        instruction |= (0b10 << 21); // opc for ORR
+        instruction |= (Rm << 16);
+        instruction |= (0b00 << 14); // Shift LSL
+        instruction |= (0b000000 << 10); // imm6 = 0
+        instruction |= (Rn << 5);
+        instruction |= (Rd << 0);
+
+        emit(instruction);
+    }
+
+    /**
      * Encodes an ARM64 'LSR (immediate)' instruction for 64-bit registers (X regs).
      * Note: LSR is an alias for UBFM (Unsigned Bitfield Move).
      * Alias: LSR <Xd>, <Xn>, #<shift>  =>  UBFM <Xd>, <Xn>, #<shift>, #63
@@ -392,6 +534,91 @@ public:
         
     }
 
+    /**
+     * Encodes an ARM64 'LSLV' (Logical Shift Left Variable) instruction.
+     * Assembly: LSL Xd, Xn, Xm
+     * The shift amount is taken from the least significant 6 bits of Xm.
+     * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param rm_idx Register index holding the shift amount (0-31).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void lsl_reg_reg_reg(int rd_idx, int rn_idx, int rm_idx) {
+        // --- 1. Validation ---
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31 || rm_idx < 0 || rm_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+
+        // --- 2. Construct Fields ---
+        // This instruction belongs to the Data Processing (3 Source) group: Shift (variable)
+        // | 31 | 30-29 | 28-24 | 23-21 | 20-16 | 15-10 | 9-5 | 4-0 |
+        // | sf |  11   | 01011 | op2=000 |  Rm   | opcode=000010 |  Rn |  Rd |
+        
+        uint32_t sf = 1;            // 64-bit
+        uint32_t fixed_opc_29_30 = 0b11; // Bits 30 & 29 are 11
+        uint32_t fixed_24_28 = 0b01011;  // Bits 28-24
+        uint32_t op2 = 0b000;         // Bits 23-21
+        uint32_t lslv_opcode = 0b000010; // Bits 15-10 for LSLV
+
+        uint32_t instruction = 0;
+        
+        instruction |= (sf << 31);
+        instruction |= (fixed_opc_29_30 << 29);
+        instruction |= (fixed_24_28 << 24);
+        instruction |= (op2 << 21);
+        instruction |= (static_cast<uint32_t>(rm_idx) << 16);
+        instruction |= (lslv_opcode << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rd_idx) << 0);
+
+        emit(instruction);
+    }
+
+    /**
+     * Encodes an ARM64 'LSL (immediate)' instruction for 64-bit registers (X regs).
+     * Note: LSL is an alias for UBFM (Unsigned Bitfield Move).
+     * Alias: LSL <Xd>, <Xn>, #<shift>  =>  UBFM <Xd>, <Xn>, #(64-shift), #(63-shift)
+     * * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param shift  The number of bits to shift left (0-63).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void lsl_reg_reg_imm(int rd_idx, int rn_idx, int shift) {
+        // --- 1. Validation ---
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+        
+        if (shift < 0 || shift > 63) {
+            throw std::invalid_argument("Shift amount must be between 0 and 63 for 64-bit registers");
+        }
+
+        // --- 2. Construct Fields (UBFM format) ---
+        // The LSL alias requires:
+        // immr = 64 - shift
+        // imms = 63 - shift
+        
+        uint32_t sf = 1;            // 64-bit
+        uint32_t opc = 0b10;        // 2 (UBFM / Bitfield)
+        uint32_t magic = 0b100110;  // 38 decimal (Bitfield)
+        uint32_t N = 1;             // 64-bit
+        uint32_t immr = static_cast<uint32_t>(64 - shift);
+        uint32_t imms = static_cast<uint32_t>(63 - shift);
+
+        uint32_t instruction = 0;
+        
+        instruction |= (sf << 31);
+        instruction |= (opc << 29);
+        instruction |= (magic << 23);
+        instruction |= (N << 22);
+        instruction |= (immr << 16);
+        instruction |= (imms << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rd_idx) << 0);
+
+        emit(instruction);
+    }
+    
     // ARM64 encoding for STR Xn, [Xm, #imm12]
     void str(int reg, int base, int offset) {
         // Only for offset divisible by 8 and in range [0, 32760]
@@ -783,7 +1010,8 @@ public:
             switch (br.cond) {
                 case CondAL:
                     // B (unconditional)
-                    *inst = 0x14000000 | (offset & 0x03FFFFFF);
+                    // *inst = 0x14000000 | (offset & 0x03FFFFFF);
+                    *inst = 0x14000000 | (offset / 4);
                     break;
                 case CondEQ:
                     // BEQ
@@ -792,7 +1020,8 @@ public:
                     break;
                 case CondNE:
                     // BNE
-                    *inst = 0x54000001 | ((offset & 0x7FFFF) << 5);
+                    // *inst = 0x54000001 | ((offset & 0x7FFFF) << 5);
+                    *inst = 0x54000001 | ((offset / 4) << 5);
                     break;
                 case CondLT:
                     // BLT
