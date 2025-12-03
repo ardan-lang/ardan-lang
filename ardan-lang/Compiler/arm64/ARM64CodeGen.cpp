@@ -384,7 +384,10 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             // emitter.str(resultReg, resultReg, 8); // store value at offset 8
             
             // push result to stack
-            emitter.str_pre_indexed(resultReg, 31, -16);
+            // emitter.str_pre_indexed(resultReg, 31, -16);
+            emitter.sub_reg_reg_imm(31, 31, 16);
+            emitter.str_reg_base(resultReg, 31);
+
             emitter.mov_reg_reg(resultReg, 31);
             
             emitter.b(done);

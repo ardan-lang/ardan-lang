@@ -112,6 +112,51 @@ public:
         emit(encodeADD(dst, src1, src2));
     }
 
+    /**
+     * Encodes an ARM64 'SUB (Immediate)' instruction for 64-bit registers (X regs).
+     * Assembly: SUB Xd, Xn, #imm
+     * Only supports unshifted immediate (0 <= imm <= 4095).
+     * @param rd_idx Destination register index (0-31).
+     * @param rn_idx Source register index (0-31).
+     * @param imm    The unsigned 12-bit immediate (0 to 4095).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void sub_reg_reg_imm(int rd_idx, int rn_idx, uint16_t imm) {
+        // --- 1. Validation ---
+        if (rd_idx < 0 || rd_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+        if (imm > 4095) { // Maximum 12-bit unsigned immediate
+            throw std::invalid_argument("Immediate value must be between 0 and 4095 for unshifted ADD/SUB immediate");
+        }
+
+        // --- 2. Construct Fields ---
+        // Format: Add/Subtract (Immediate)
+        // | 31 | 30 | 29 | 28 23 | 22 | 21 10 | 9 5 | 4 0 |
+        // | sf | op | S  | 100010 | sh | imm12 | Rn  | Rd  |
+        
+        uint32_t sf = 1;            // 64-bit
+        uint32_t op = 1;            // Subtract (1 = SUB, 0 = ADD)
+        uint32_t S = 0;             // Non-setting (SUB, not SUBS)
+        uint32_t fixed_23_28 = 0b100010; // Fixed opcode
+        uint32_t sh = 0;            // Shift by 0 (LSL #0)
+        uint32_t imm12 = static_cast<uint32_t>(imm);
+
+        uint32_t instruction = 0;
+        
+        instruction |= (sf << 31);
+        instruction |= (op << 30);
+        instruction |= (S << 29);
+        instruction |= (fixed_23_28 << 23);
+        instruction |= (sh << 22);
+        instruction |= (imm12 << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rd_idx) << 0);
+
+        emit(instruction);
+        
+    }
+
     void sub(uint8_t dst, uint8_t src1, uint8_t src2) {
         emit(encodeSUB(dst, src1, src2));
     }
@@ -379,6 +424,8 @@ public:
         instruction |= (static_cast<uint32_t>(rn_idx) << 5);
         instruction |= (static_cast<uint32_t>(rt_idx) << 0);
 
+        cout << "str x" << (int)rt_idx << ", x" << (int)rn_idx << ", #" << (int)simm << '\n';
+
         emit(instruction);
     }
 
@@ -478,6 +525,8 @@ public:
         instruction |= (0b000000 << 10); // imm6 = 0
         instruction |= (Rn << 5);
         instruction |= (Rd << 0);
+
+        cout << "orr x" << (int)rd_idx << ", x" << (int)rn_idx << ", x" << (int)rm_idx << '\n';
 
         emit(instruction);
     }
@@ -618,6 +667,43 @@ public:
 
         emit(instruction);
     }
+    
+    /**
+     * Encodes an ARM64 'STR Xd, [Xn]' instruction (Store Register, Base Register Only).
+     * Assembly: STR <Xt>, [<Xn|SP>]
+     * This uses the Load/Store Register (Unsigned Immediate Offset) format with imm12=0.
+     * @param rt_idx Source register index (0-31).
+     * @param rn_idx Base register index (SP=31 or X0-30).
+     * @return       The 32-bit machine code (little endian integer).
+     */
+    void str_reg_base(int rt_idx, int rn_idx) {
+        // --- 1. Validation ---
+        if (rt_idx < 0 || rt_idx > 31 || rn_idx < 0 || rn_idx > 31) {
+            throw std::invalid_argument("Registers must be between 0 and 31");
+        }
+
+        // --- 2. Construct Fields ---
+        // Format: Load/Store Register (Unsigned Immediate Offset)
+        // | 31 30 | 29 24 | 23 22 | 21 10 | 9 5 | 4 0 |
+        // | size  | 111000 | opc  | imm12 | Rn  | Rt  |
+        
+        uint32_t size = 0b11;   // 64-bit (8-byte)
+        uint32_t fixed_24_29 = 0b111000; // Fixed opcode for Load/Store Register Unsigned Immediate
+        uint32_t opc = 0b00;    // Store
+        uint32_t imm12 = 0;     // Offset is 0 for [Xn] base addressing
+
+        uint32_t instruction = 0;
+        instruction |= (size << 30);
+        instruction |= (fixed_24_29 << 24);
+        instruction |= (opc << 22);
+        instruction |= (imm12 << 10);
+        instruction |= (static_cast<uint32_t>(rn_idx) << 5);
+        instruction |= (static_cast<uint32_t>(rt_idx) << 0);
+
+        emit(instruction);
+        
+    }
+
     
     // ARM64 encoding for STR Xn, [Xm, #imm12]
     void str(int reg, int base, int offset) {
