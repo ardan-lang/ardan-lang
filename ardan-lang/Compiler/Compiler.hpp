@@ -23,6 +23,9 @@
 #include "Turbo/TurboCodeGenerator.hpp"
 #include "Turbo/TurboModule.hpp"
 
+#include "arm64/ARM64Emitter.hpp"
+#include "arm64/ARM64CodeGen.hpp"
+
 class Chunk;
 
 class Compiler {
@@ -41,7 +44,7 @@ public:
     void runTurbo(shared_ptr<TurboModule> module_);
     void write_ardar_turbo(string outputFilename, shared_ptr<TurboModule> module_, uint32_t entryChunkIndex);
     shared_ptr<TurboModule> read_ardar_turbo(string outputFilename);
-
+    void run_arm(const std::vector<std::unique_ptr<Statement>>& ast);
 };
 
 #endif /* Compiler_hpp */

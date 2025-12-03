@@ -132,3 +132,11 @@ shared_ptr<Module> Compiler::read_ardar(string outputFilename) {
     return _module_;
 
 }
+
+void Compiler::run_arm(const std::vector<std::unique_ptr<Statement>>& ast) {
+    
+    auto arm64CodeGen = make_shared<ARM64CodeGen>();
+    
+    arm64CodeGen->generate(ast);
+    
+}
