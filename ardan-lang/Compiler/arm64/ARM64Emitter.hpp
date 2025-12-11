@@ -111,6 +111,13 @@ public:
     void add(uint8_t dst, uint8_t src1, uint8_t src2) {
         emit(encodeADD(dst, src1, src2));
     }
+    
+    // same as mov_sp_to_reg
+    void mov_sp_to_reg(uint8_t dst) {
+        // ADD Xd, SP, #0
+        emit(0x910003E0 | (dst & 0x1F));
+    }
+
 
     /**
      * Encodes an ARM64 'SUB (Immediate)' instruction for 64-bit registers (X regs).

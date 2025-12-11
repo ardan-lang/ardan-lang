@@ -388,7 +388,9 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             emitter.sub_reg_reg_imm(31, 31, 16);
             emitter.str_reg_base(resultReg, 31);
 
-            emitter.mov_reg_reg(resultReg, 31);
+            // emitter.mov_reg_reg(resultReg, 31);
+            emitter.mov_sp_to_reg(resultReg);
+            emitter.mov_reg_reg(result, resultReg);
             
             emitter.b(done);
             
