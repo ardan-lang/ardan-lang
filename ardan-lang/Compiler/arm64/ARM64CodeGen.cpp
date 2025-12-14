@@ -402,19 +402,31 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             // Load pointers to C strings from [reg, #8]
             int lp = regAlloc.alloc();
             int rp = regAlloc.alloc();
-            emitter.ldr(lp, leftReg, 8);
-            emitter.ldr(rp, rightReg, 8);
+            emitter.ldr_global_reg_reg(lp, leftReg);//, 8);
+            emitter.ldr_global_reg_reg(rp, rightReg);//, 8);
             
+            emitter.lsr_reg_reg_imm(rp, rp, 3);
+            emitter.lsr_reg_reg_imm(lp, lp, 3);
+            
+            int g_data_section_base_reg = regAlloc.alloc();
+
+            emitter.mov_reg_reg((uint8_t)g_data_section_base_reg, 19);
+            emitter.add(rp, rp, g_data_section_base_reg);
+            emitter.add(lp, lp, g_data_section_base_reg);
+
             // Call runtime string_concat_runtime(lp, rp)
+
             emitter.mov_reg_reg(0, lp);
             emitter.mov_reg_reg(1, rp);
             emitter.mov_abs(10, (uint64_t)&string_concat_runtime);
             emitter.blr(10);
-            
+                        
             // Build tagged string value struct in resultReg
-            emitter.mov_reg_imm(leftTagReg, TAG_STRING); // reuse leftTagReg as tag
-            emitter.strb(leftTagReg, resultReg, 0);
-            emitter.str(0, resultReg, 8);   // store pointer result in struct
+            // emitter.mov_reg_imm(leftTagReg, TAG_STRING); // reuse leftTagReg as tag
+            // emitter.strb(leftTagReg, resultReg, 0);
+            // emitter.str(0, resultReg, 8);   // store pointer result in struct
+            
+            
             
             emitter.b(done);
             
