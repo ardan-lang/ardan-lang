@@ -1,6 +1,6 @@
 # Ardan Programming Language
 
-Ardan is a dynamically typed programming language, featuring a hand-written lexer, parser, and interpreter implemented in C++. Ardan supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as `let/const/var`, scoping.
+Ardan is a dynamically typed programming language, featuring a hand-written lexer, parser, and interpreter implemented in C++. Ardan supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as `let/const/var` scoping.
 
 ## Features
 - **Dynamic Typing**: Variable types are determined at runtime.
