@@ -11,22 +11,70 @@
 #include "ARM64CodeGen.hpp"
 
 #define FP 29
+#define TAG_BITS 3
+#define TAG_MASK ((1ULL << TAG_BITS) - 1) // (2^3) - 1 = 7, or 0b111
 
 void* g_data_section_base = nullptr;
+size_t g_data_alloc_offset;
 
-extern "C" const char* string_concat_runtime(const char* a, const char* b) {
-    if (!a) a = "";
-    if (!b) b = "";
-    size_t lenA = strlen(a);
-    size_t lenB = strlen(b);
+// extern "C" const char* string_concat_runtime(const char* a, const char* b) {
+//     if (!a) a = "";
+//     if (!b) b = "";
+//     size_t lenA = strlen(a);
+//     size_t lenB = strlen(b);
+//     // +1 for the null terminator
+//     char* result = (char*)malloc(lenA + lenB + 1);
+//     if (!result) return nullptr; // handle allocation failure
+//     memcpy(result, a, lenA);
+//     memcpy(result + lenA, b, lenB);
+//     result[lenA + lenB] = '\0';
+//     return result;
+// }
 
-    // +1 for the null terminator
-    char* result = (char*)malloc(lenA + lenB + 1);
-    if (!result) return nullptr; // handle allocation failure
+static inline char* get_data_base() {
+    char* base;
+    asm("mov %0, x19" : "=r"(base));
+    return base;
+}
 
-    memcpy(result, a, lenA);
-    memcpy(result + lenA, b, lenB);
-    result[lenA + lenB] = '\0';
+// Simple allocator for the data section. Assumes g_data_section_base is a large enough buffer.
+// Not thread-safe, for demo purposes only.
+size_t alloc_data_section(size_t size) {
+
+    const size_t ALIGN = 8;
+    size = (size + ALIGN - 1) & ~(ALIGN - 1);
+
+    size_t result = g_data_alloc_offset;
+    g_data_alloc_offset += size;
+
+    return result;
+}
+
+extern "C" ValueTag string_concat_runtime(ValueTag v1, ValueTag v2) {
+    // Extract offsets from the tagged values
+    size_t offset1 = v1.raw >> 3;   // assuming TAG_STRING uses lower 3 bits
+    size_t offset2 = v2.raw >> 3;
+
+    // Get pointers to the strings in memory
+    char* str1 = (char*)g_data_section_base + offset1;
+    char* str2 = (char*)g_data_section_base + offset2;
+
+    // Compute lengths
+    size_t len1 = strlen(str1);
+    size_t len2 = strlen(str2);
+
+    // Allocate new space for concatenated string
+    size_t new_offset = alloc_data_section(len1 + len2 + 1);
+    char* dst = (char*)g_data_section_base + new_offset;
+
+    // Copy strings
+    memcpy(dst, str1, len1);
+    memcpy(dst + len1, str2, len2);
+    dst[len1 + len2] = '\0';
+
+    // Return a tagged ValueTag
+    ValueTag result;
+    result.raw = (new_offset << 3) | TAG_STRING;
     return result;
 }
 
@@ -36,13 +84,10 @@ void ARM64CodeGen::dump(int result, int* data) {
      cout << globalBase[0] << endl;
 }
 
-#define TAG_BITS 3
-#define TAG_MASK ((1ULL << TAG_BITS) - 1) // (2^3) - 1 = 7, or 0b111
-
-extern "C" void print_value(ValueTag* v)
+extern "C" void print_value(ValueTag v)
 {
-    uint8_t tag = /*v.raw & (~TAG_MASK);*/ v->raw & 0b111;     // extract tag
-    uint64_t payload = v->raw >> TAG_BITS;   // extract pointer or int
+    uint8_t tag = /*v.raw & (~TAG_MASK);*/ v.raw & 0b111;     // extract tag
+    uint64_t payload = v.raw >> TAG_BITS;   // extract pointer or int
 
     switch (tag)
     {
@@ -80,15 +125,15 @@ extern "C" void print_value(ValueTag* v)
             break;
         }
 
-//        case TAG_FUNC: {
-//            printf("[Function @ 0x%llx]\n",
-//                   (unsigned long long)payload);
-//            break;
-//        }
+        case TAG_FUNCTION: {
+            printf("[Function @ 0x%llx]\n",
+                   (unsigned long long)payload);
+            break;
+        }
 
         default: {
-//            printf("[Unknown tag: %u raw=0x%llx]\n",
-//                   tag, (unsigned long long)v.raw);
+            printf("[Unknown tag: %u raw=0x%llx]\n",
+                   tag, (unsigned long long)v.raw);
         }
     }
 }
@@ -100,10 +145,14 @@ void ARM64CodeGen::run() {
     auto dataSection = emitter.getDataSection();
     auto code = emitter.getCode();
 
+    size_t runtimeExtra = 1024 * 1024; // 1MB runtime heap
+    
     // Allocate and copy data
-    size_t dataSize = ((dataSection.size() + pageSize - 1) / pageSize) * pageSize;
+    // size_t dataSize = ((dataSection.size() + pageSize - 1) / pageSize) * pageSize;
     size_t codeSize = ((code.size() + pageSize - 1) / pageSize) * pageSize;
-
+    size_t dataSize =
+      ((dataSection.size() + runtimeExtra + pageSize - 1) / pageSize) * pageSize;
+    
     void* data = mmap(nullptr, dataSize,
                       PROT_READ | PROT_WRITE,
                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,
@@ -142,6 +191,7 @@ void ARM64CodeGen::run() {
      register void* dataAddr asm("x19") = data;
      asm volatile("" :: "r"(dataAddr));
     g_data_section_base = data;
+    g_data_alloc_offset = dataSection.size();
     
     func();
     
@@ -344,6 +394,7 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             // Dispatch: if tags are number => add, if either is string => concat
             int numberCase = emitter.genLabel();
             int stringCase = emitter.genLabel();
+            int boolCase = emitter.genLabel();
             int done = emitter.genLabel();
             
             // Check if leftTag==TAG_STRING or rightTag==TAG_STRING
@@ -358,6 +409,10 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             emitter.cmp_imm(rightTagReg, TAG_NUMBER);
             emitter.bne(done);
             
+            // Check if both are Boolean
+            emitter.cmp_imm(leftTagReg, TAG_BOOLEAN);
+            emitter.b_eq(boolCase);
+
             // --- Number addition ---
             emitter.setLabel(numberCase);
             // Load int values: the 8 bytes at [reg, #8]
@@ -405,14 +460,14 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             emitter.ldr_global_reg_reg(lp, leftReg);//, 8);
             emitter.ldr_global_reg_reg(rp, rightReg);//, 8);
             
-            emitter.lsr_reg_reg_imm(rp, rp, 3);
-            emitter.lsr_reg_reg_imm(lp, lp, 3);
-            
-            int g_data_section_base_reg = regAlloc.alloc();
-
-            emitter.mov_reg_reg((uint8_t)g_data_section_base_reg, 19);
-            emitter.add(rp, rp, g_data_section_base_reg);
-            emitter.add(lp, lp, g_data_section_base_reg);
+//            emitter.lsr_reg_reg_imm(rp, rp, 3);
+//            emitter.lsr_reg_reg_imm(lp, lp, 3);
+//            
+//            int g_data_section_base_reg = regAlloc.alloc();
+//
+//            emitter.mov_reg_reg((uint8_t)g_data_section_base_reg, 19);
+//            emitter.add(rp, rp, g_data_section_base_reg);
+//            emitter.add(lp, lp, g_data_section_base_reg);
 
             // Call runtime string_concat_runtime(lp, rp)
 
@@ -420,6 +475,8 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             emitter.mov_reg_reg(1, rp);
             emitter.mov_abs(10, (uint64_t)&string_concat_runtime);
             emitter.blr(10);
+            
+            emitter.mov_reg_reg(result, 0);
                         
             // Build tagged string value struct in resultReg
             // emitter.mov_reg_imm(leftTagReg, TAG_STRING); // reuse leftTagReg as tag
@@ -432,6 +489,10 @@ R ARM64CodeGen::visitBinary(BinaryExpression* expr) {
             
             regAlloc.free(lp);
             regAlloc.free(rp);
+            
+            // ----- Boolean addition -----
+            emitter.setLabel(boolCase);
+
             
             // --- Done / fallback ---
             emitter.setLabel(done);
