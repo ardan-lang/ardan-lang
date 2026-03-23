@@ -66,9 +66,6 @@ unique_ptr<Statement> Parser::parseEmptyStatement() {
     return make_unique<EmptyStatement>();
 }
 
-// ---------------------
-// Block Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseBlockStatement(bool standalone) {
     consume(TokenType::LEFT_BRACKET, "Expected '{'");
     vector<unique_ptr<Statement>> body;
@@ -85,9 +82,6 @@ unique_ptr<Statement> Parser::parseExpressionStatement() {
     return make_unique<ExpressionStatement>(std::move(expr));
 }
 
-// ---------------------
-// If Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseIfStatement() {
     consumeKeyword("IF");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'");
@@ -111,9 +105,6 @@ unique_ptr<Statement> Parser::parseIfStatement() {
     );
 }
 
-// ---------------------
-// While Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseWhileStatement() {
     consumeKeyword("WHILE");
     consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'");
@@ -122,10 +113,6 @@ unique_ptr<Statement> Parser::parseWhileStatement() {
     auto body = parseBlockStatement();
     return make_unique<WhileStatement>(std::move(test), std::move(body));
 }
-
-// ---------------------
-// For Statement
-// ---------------------
 
 unique_ptr<Statement> Parser::parseForVariableStatement() {
     Token keyword = advance(); // var | let | const
@@ -234,9 +221,6 @@ unique_ptr<Statement> Parser::parseForOfStatement(unique_ptr<Statement>& init) {
                                        std::move(body));
 }
 
-// ---------------------
-// Variable Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseVariableStatement() {
     Token keyword = advance(); // var | let | const
     vector<VariableDeclarator> declarations;
@@ -254,9 +238,6 @@ unique_ptr<Statement> Parser::parseVariableStatement() {
     return make_unique<VariableStatement>(keyword.lexeme, std::move(declarations));
 }
 
-// ---------------------
-// Function Declaration
-// ---------------------
 unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     consumeKeyword("FUNCTION");
     auto id = consume(TokenType::IDENTIFIER, "Expected function name");
@@ -285,9 +266,6 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     return make_unique<FunctionDeclaration>(id.lexeme, std::move(params), std::move(body));
 }
 
-// ---------------------
-// Class Declaration
-// ---------------------
 unique_ptr<Statement> Parser::parseClassDeclaration() {
     consume(TokenType::CLASS, "Expect 'class'.");
 
@@ -374,22 +352,21 @@ vector<unique_ptr<Expression>> Parser::parseParameterList() {
     return params;
 }
 
-// ---------------------
-// Continue Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseContinueStatement() {
+    
     consumeKeyword("CONTINUE");
+    
     string label = "";
+    
     if (check(TokenType::IDENTIFIER)) {
         label = advance().lexeme;
     }
+    
     consume(TokenType::SEMI_COLON, "Expect ';' after continue.");
+    
     return make_unique<ContinueStatement>(label);
 }
 
-// ---------------------
-// Do-While Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseDoWhileStatement() {
     consumeKeyword("DO");
     auto body = parseBlockStatement();
@@ -401,9 +378,6 @@ unique_ptr<Statement> Parser::parseDoWhileStatement() {
     return make_unique<DoWhileStatement>(std::move(body), std::move(condition));
 }
 
-// ---------------------
-// Switch Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseSwitchStatement() {
     consumeKeyword("SWITCH", "Expect 'switch'.");
     consume(TokenType::LEFT_PARENTHESIS, "Expect '(' after 'switch'.");
@@ -438,9 +412,6 @@ unique_ptr<Statement> Parser::parseSwitchStatement() {
     return make_unique<SwitchStatement>(std::move(discriminant), std::move(cases));
 }
 
-// ---------------------
-// Return Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseReturnStatement() {
     consumeKeyword("RETURN");
     unique_ptr<Expression> value = nullptr;
@@ -451,9 +422,6 @@ unique_ptr<Statement> Parser::parseReturnStatement() {
     return make_unique<ReturnStatement>(std::move(value));
 }
 
-// ---------------------
-// Throw Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseThrowStatement() {
     consumeKeyword("THROW", "Expect 'throw'.");
     auto expr = parseExpression();
@@ -461,9 +429,6 @@ unique_ptr<Statement> Parser::parseThrowStatement() {
     return make_unique<ThrowStatement>(std::move(expr));
 }
 
-// ---------------------
-// Break Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseBreakStatement() {
     consumeKeyword("BREAK");
     string label = "";
@@ -474,9 +439,6 @@ unique_ptr<Statement> Parser::parseBreakStatement() {
     return make_unique<BreakStatement>(label);
 }
 
-// ---------------------
-// Try Statement
-// ---------------------
 unique_ptr<Statement> Parser::parseTryStatement() {
     consumeKeyword("TRY", "Expect 'try'.");
     auto block = parseBlockStatement();
@@ -572,10 +534,8 @@ unique_ptr<Statement> Parser::parseUIViewStatement() {
     
     consume(TokenType::AT, "Expected '@'.");
     
-    // identifier
     Token ident = consume(TokenType::IDENTIFIER, "Expected view name");
 
-    // argument list e.g., Button("Hello")
     std::vector<std::unique_ptr<Expression>> args;
     if (match(TokenType::LEFT_PARENTHESIS)) {
         if (!check(TokenType::RIGHT_PARENTHESIS)) {
@@ -586,7 +546,6 @@ unique_ptr<Statement> Parser::parseUIViewStatement() {
         consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after arguments");
     }
 
-    // children block e.g., Button { ... }
     std::vector<std::unique_ptr<Statement>> children;
     if (match(TokenType::LEFT_BRACKET)) { // '{'
         while (!check(TokenType::RIGHT_BRACKET) && !isAtEnd()) {
@@ -616,16 +575,13 @@ unique_ptr<Statement> Parser::parseUIViewStatement() {
     
 }
 
-// ------------interface--------------
-
 unique_ptr<InterfaceMember> Parser::parseInterfaceMember() {
-    // Handle optional modifiers like "readonly"
+
     bool isReadonly = false;
     if (matchKeyword("READONLY")) {
         isReadonly = true;
     }
 
-    // Check for construct signature: "new (...)"
     if (matchKeyword("NEW")) {
         consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'new'");
         vector<Parameter> params = parseInterfaceParameterList();
@@ -640,9 +596,8 @@ unique_ptr<InterfaceMember> Parser::parseInterfaceMember() {
         return std::make_unique<ConstructSignature>(std::move(params), std::move(returnType));
     }
 
-    // Check for index signature: "[key: string]: Type"
     if (match(TokenType::LEFT_BRACKET)) {
-        // Parse key parameter
+        
         string keyName = consume(TokenType::IDENTIFIER, "Expected parameter name").lexeme;
         consume(TokenType::COLON, "Expected ':' after parameter name");
         auto keyType = parseTypeReference();
@@ -656,10 +611,8 @@ unique_ptr<InterfaceMember> Parser::parseInterfaceMember() {
         );
     }
 
-    // For now, we expect an identifier or callable signature
     Token name = consume(TokenType::IDENTIFIER, "Expected member name or signature");
 
-    // CALL SIGNATURE: "(param...): return"
     if (check(TokenType::LEFT_PARENTHESIS)) {
         consume(TokenType::LEFT_PARENTHESIS,
                 "Expected '(' after callable signature");
@@ -674,11 +627,10 @@ unique_ptr<InterfaceMember> Parser::parseInterfaceMember() {
         return std::make_unique<CallSignature>(std::move(params), std::move(returnType));
     }
 
-    // PROPERTY OR METHOD
     bool optional = match(TokenType::TERNARY);
 
     if (check(TokenType::LEFT_PARENTHESIS)) {
-        // Method signature
+        
         consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after method name");
         vector<Parameter> params = parseInterfaceParameterList();
         consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after parameters");
@@ -696,11 +648,9 @@ unique_ptr<InterfaceMember> Parser::parseInterfaceMember() {
         );
     }
 
-    // PROPERTY SIGNATURE
     consume(TokenType::COLON, "Expected ':' after property name");
     auto typeRef = parseTypeReference();
 
-    // Optional trailing semicolon or comma
     match(TokenType::SEMI_COLON);
     match(TokenType::COMMA);
 
@@ -779,17 +729,14 @@ unique_ptr<Statement> Parser::parseInterfaceStatement() {
 vector<unique_ptr<TypeParameter>> Parser::parseTypeParametersOptional() {
     vector<unique_ptr<TypeParameter>> typeParams;
 
-    // Only proceed if '<' is next
     if (!match(TokenType::LESS_THAN)) {
         return typeParams;
     }
 
     do {
-        // Each type parameter must be an identifier
         Token name = consume(TokenType::IDENTIFIER, "Expected type parameter name");
         unique_ptr<TypeReference> constraint = nullptr;
 
-        // Check if there is a constraint, e.g. "T extends SomeType"
         if (matchKeyword("EXTENDS")) {
             constraint = parseTypeReference();
         }
@@ -815,11 +762,6 @@ vector<unique_ptr<TypeReference>> Parser::parseTypeReferenceList() {
     return types;
 }
 
-// ------------end interface----------
-
-// ───────────── Helpers ─────────────
-
-// Try to match a single token type
 bool Parser::match(TokenType type) {
     if (check(type)) {
         advance();
@@ -828,7 +770,6 @@ bool Parser::match(TokenType type) {
     return false;
 }
 
-// Try to match one of several token types
 bool Parser::match(std::initializer_list<TokenType> types) {
     for (auto t : types) {
         if (check(t)) {
@@ -843,35 +784,29 @@ void Parser::stepBack(int steps) {
     current = current - steps;
 }
 
-// Ensure the next token matches `type` or throw
 Token Parser::consume(TokenType type, const std::string& message) {
     if (check(type)) return advance();
     throw std::runtime_error("Parse error: expected " + message + " " + to_string(peek().line));
 }
 
-// Check if current token is of given type without consuming
 bool Parser::check(TokenType type) {
     if (isAtEnd()) return false;
     return peek().type == type;
 }
 
-// Advance one token and return the previous one
 Token Parser::advance() {
     if (!isAtEnd()) current++;
     return previous();
 }
 
-// Look at current token
 Token Parser::peek() {
     return tokens[current];
 }
 
-// Look at most recently consumed token
 Token Parser::previous() {
     return tokens[current - 1];
 }
 
-// EOF check
 bool Parser::isAtEnd() {
     return peek().type == TokenType::END_OF_FILE;
 }

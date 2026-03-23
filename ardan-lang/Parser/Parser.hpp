@@ -28,7 +28,6 @@ public:
 
 private:
     
-    // Statements declarations
     unique_ptr<Statement> parseStatement();
     unique_ptr<Statement> parseEmptyStatement();
     unique_ptr<Statement> parseBlockStatement(bool standalone = false);
@@ -70,8 +69,6 @@ private:
     unique_ptr<Statement> parseExpressionStatement();
     unique_ptr<Statement> parseAsyncStatement();
     
-    // ───────────── Helpers ─────────────
-
     bool match(TokenType type);
     bool match(initializer_list<TokenType> types);
     Token consume(TokenType type, const string& message);
@@ -92,8 +89,6 @@ private:
         return parseComma();
     }
 
-    // ───────────── Lowest precedence → Highest ─────────────
-    
     unique_ptr<Expression> parseComma() {
         vector<unique_ptr<Expression>> exprs;
         exprs.push_back(parseAssignment());
@@ -349,8 +344,6 @@ private:
         return expr;
     }
 
-    // ───────────── LHS: calls, member access, new, super ─────────────
-
     unique_ptr<Expression> parseLeftHandSide() {
         auto expr = parseNewMember();
 
@@ -404,8 +397,6 @@ private:
         return parsePrimary();
     }
     
-    // ───────────── Primary expressions ─────────────
-
     unique_ptr<Expression> parsePrimary() {
         
         if (matchKeyword("CLASS")) {
