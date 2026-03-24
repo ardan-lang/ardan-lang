@@ -1533,6 +1533,8 @@ R CodeGen::visitProperty(PropertyExpression* expr) {
     return true;
 }
 
+R CodeGen::visitComma(CommaExpression *expr) {}
+
 R CodeGen::visitSequence(SequenceExpression* expr) {
     size_t n = expr->expressions.size();
     for (size_t i = 0; i < n; ++i) {

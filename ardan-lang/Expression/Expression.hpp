@@ -24,14 +24,12 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-// Base Expression
 class Expression {
 public:
     virtual ~Expression() = default;
     virtual R accept(ExpressionVisitor& visitor) = 0;
 };
 
-// Literal
 class LiteralExpression : public Expression {
 public:
     Token token;
@@ -40,7 +38,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitLiteral(this); }
 };
 
-// Identifier
 class IdentifierExpression : public Expression {
 public:
     string name;
@@ -52,7 +49,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitIdentifier(this); }
 };
 
-// Unary: !x, -x, +x, typeof x
 class UnaryExpression : public Expression {
 public:
     Token op;
@@ -64,7 +60,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitUnary(this); }
 };
 
-// Binary: x + y, x * y,
 class BinaryExpression : public Expression {
 public:
     unique_ptr<Expression> left;
@@ -80,7 +75,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitBinary(this); }
 };
 
-// Assignment: x = y, x += y
 class AssignmentExpression : public Expression {
 public:
     unique_ptr<Expression> left;
@@ -93,7 +87,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitAssignment(this); }
 };
 
-// Conditional (ternary): cond ? then : else
 class ConditionalExpression : public Expression {
 public:
     unique_ptr<Expression> test;
@@ -108,7 +101,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitConditional(this); }
 };
 
-// Logical: &&, ||, ??
 class LogicalExpression : public Expression {
 public:
     unique_ptr<Expression> left;
@@ -121,7 +113,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitLogical(this); }
 };
 
-// Call: f(x,y)
 class CallExpression : public Expression {
 public:
     unique_ptr<Expression> callee;
@@ -133,7 +124,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitCall(this); }
 };
 
-// Member: obj.prop or obj["prop"]
 class MemberExpression : public Expression {
 public:
     unique_ptr<Expression> object;
@@ -152,21 +142,20 @@ public:
     
 };
 
-// this
+
 class ThisExpression : public Expression {
 public:
     
     R accept(ExpressionVisitor& visitor) { return visitor.visitThis(this); }
 };
 
-// super
+
 class SuperExpression : public Expression {
 public:
     
     R accept(ExpressionVisitor& visitor) { return visitor.visitSuper(this); }
 };
 
-// new expr()
 class NewExpression : public Expression {
 public:
     Token token;
@@ -179,7 +168,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitNew(this); }
 };
 
-// [a,b,...]
 class ArrayLiteralExpression : public Expression {
 public:
     Token token;
@@ -191,7 +179,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitArray(this); }
 };
 
-// { key: value, ... }
 class ObjectLiteralExpression : public Expression {
 public:
     Token token;
@@ -202,7 +189,6 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitObject(this); }
 };
 
-// key:value inside object
 class PropertyExpression : public Expression {
 public:
     unique_ptr<Expression> key;
@@ -214,7 +200,18 @@ public:
     R accept(ExpressionVisitor& visitor) { return visitor.visitProperty(this); }
 };
 
-// Sequence (comma operator): (a, b, c)
+class CommaExpression : public Expression {
+public:
+    unique_ptr<Expression> left;
+    unique_ptr<Expression> right;
+    
+    explicit CommaExpression(unique_ptr<Expression> left, unique_ptr<Expression> right) : left(std::move(left)), right(std::move(right)) {}
+    
+    R accept(ExpressionVisitor& visitor) { return visitor.visitComma(this); }
+
+
+};
+
 class SequenceExpression : public Expression {
 public:
     vector<unique_ptr<Expression>> expressions;
@@ -227,9 +224,9 @@ public:
 
 class UpdateExpression : public Expression {
 public:
-    Token op;                       // ++ or --
-    unique_ptr<Expression> argument; // the variable/expression being updated
-    bool prefix;                    // true if prefix (++x), false if postfix (x++)
+    Token op;
+    unique_ptr<Expression> argument;
+    bool prefix;
 
     explicit UpdateExpression(Token op, unique_ptr<Expression> argument, bool prefix)
         : op(op), argument(std::move(argument)), prefix(prefix) {}
@@ -272,7 +269,6 @@ public:
         if (text.find('.') != std::string::npos || text.find('e') != std::string::npos || text.find('E') != std::string::npos) {
             long double v = std::stold(text);
             
-            // Try narrowest type
             if (v >= std::numeric_limits<float>::lowest() && v <= std::numeric_limits<float>::max()) {
                 // return static_cast<float>(v);
             }
@@ -282,7 +278,6 @@ public:
             return v; // long double
         }
         
-        // Otherwise parse as integer
         bool isNegative = !text.empty() && text[0] == '-';
         
         if (isNegative) {
@@ -294,7 +289,7 @@ public:
                 return static_cast<int>(v);
             if (v >= std::numeric_limits<long>::min() && v <= std::numeric_limits<long>::max())
                 return static_cast<long>(v);
-            return v; // long long
+            return v;
         } else {
             unsigned long long v = std::stoull(text);
             
@@ -305,10 +300,10 @@ public:
             if (v <= std::numeric_limits<unsigned long>::max())
                 return static_cast<unsigned long>(v);
             if (v <= std::numeric_limits<long>::max())
-                return static_cast<long>(v); // fits signed long
+                return static_cast<long>(v);
             if (v <= std::numeric_limits<long long>::max())
-                return static_cast<long long>(v); // fits signed long long
-            return v; // unsigned long long
+                return static_cast<long long>(v);
+            return v;
         }
     }
     

@@ -283,6 +283,7 @@ public:
     R visitForOf(ForOfStatement* stmt) override;
     R visitYieldExpression(YieldExpression* visitor) override;
     R visitSpreadExpression(SpreadExpression* visitor) override;
+    R visitComma(CommaExpression *expr) override;
 
 };
 

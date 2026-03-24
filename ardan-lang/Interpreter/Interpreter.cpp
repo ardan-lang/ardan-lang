@@ -2190,6 +2190,8 @@ R Interpreter::visitSuper(SuperExpression* expr) {
 
 R Interpreter::visitProperty(PropertyExpression* expr) { return true; }
 
+R Interpreter::visitComma(CommaExpression *expr) { return true; }
+
 R Interpreter::visitSequence(SequenceExpression* expr) {
     
     R last_value;

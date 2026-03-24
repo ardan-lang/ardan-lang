@@ -442,6 +442,8 @@ R AstPrinter::visitProperty(PropertyExpression* expr) {
     
 }
 
+R AstPrinter::visitComma(CommaExpression *expr) { return true; }
+
 R AstPrinter::visitSequence(SequenceExpression* expr) {
     printIndent(); std::cout << "Sequence:\n";
     indent++;

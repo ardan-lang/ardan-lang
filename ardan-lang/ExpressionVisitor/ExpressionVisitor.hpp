@@ -48,8 +48,8 @@ class AwaitExpression;
 class UIViewExpression;
 class YieldExpression;
 class SpreadExpression;
+class CommaExpression;
 
-// Visitor interface
 class ExpressionVisitor {
 public:
     virtual ~ExpressionVisitor() = default;
@@ -90,6 +90,7 @@ public:
     virtual R visitUIExpression(UIViewExpression* visitor) = 0;
     virtual R visitYieldExpression(YieldExpression* visitor) = 0;
     virtual R visitSpreadExpression(SpreadExpression* visitor) = 0;
+    virtual R visitComma(CommaExpression* expr) = 0;
     
 };
 

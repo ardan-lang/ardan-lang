@@ -210,7 +210,6 @@ unique_ptr<Statement> Parser::parseForOfStatement(unique_ptr<Statement>& init) {
 
     consume(TokenType::KEYWORD, "Expect 'of'");
 
-    // right-hand expression (iterable)
     auto iterableExpr = parseExpression();
 
     consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after iterable");
@@ -222,7 +221,7 @@ unique_ptr<Statement> Parser::parseForOfStatement(unique_ptr<Statement>& init) {
 }
 
 unique_ptr<Statement> Parser::parseVariableStatement() {
-    Token keyword = advance(); // var | let | const
+    Token keyword = advance();
     vector<VariableDeclarator> declarations;
 
     do {
@@ -249,13 +248,11 @@ unique_ptr<Statement> Parser::parseFunctionDeclaration() {
     if (!check(TokenType::RIGHT_PARENTHESIS)) {
         do {
             if (match(TokenType::SPREAD)) {
-                // Only allow one rest parameter, and it must be last
                 if (seenRest) error(peek(), "Only one rest parameter allowed");
                 seenRest = true;
                 auto restArg = consume(TokenType::IDENTIFIER, "Expected rest parameter name");
-                // Store as a special "rest" parameter
                 params.push_back(make_unique<RestParameter>(restArg));
-                break; // Rest parameter must be last in the list
+                break; 
             } else {
                 params.push_back(parseAssignment());
             }

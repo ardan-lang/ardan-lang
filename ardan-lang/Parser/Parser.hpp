@@ -98,32 +98,25 @@ private:
         }
 
         if (exprs.size() == 1) {
-            return std::move(exprs[0]); // just a single expression, no need for sequence
+            return std::move(exprs[0]);
         }
 
         return make_unique<SequenceExpression>(std::move(exprs));
     }
-            
-    unique_ptr<Expression> parseArrowFunction(unique_ptr<Expression> param) {
-        
-        unique_ptr<Expression> expr;
-        
-        if (check(TokenType::LEFT_BRACKET)) {
-            auto block = parseBlockStatement();
-            expr = make_unique<ArrowFunction>(std::move(param),
-                                              std::move(block));
-        } else {
-            auto exprBody = parseAssignment();
-            expr = make_unique<ArrowFunction>(std::move(param), std::move(exprBody));
+
+    unique_ptr<Expression> parseCommaV2() {
+      auto expr = parseAssignment();
+
+        while (match(TokenType::COMMA)) {
+            auto right = parseAssignment();
+            expr = make_unique<CommaExpression>(std::move(expr), std::move(right));
         }
-        
-        return expr;
-        
+
+      return expr;
     }
-        
+    
     unique_ptr<Expression> parseAssignment() {
         
-        // Check for 'yield' first, before handling assignment ops
         if (match(TokenType::YIELD)) {
             Token yieldToken = previous();
             bool delegate = false;
@@ -174,6 +167,23 @@ private:
             
         }
         return expr;
+    }
+    
+    unique_ptr<Expression> parseArrowFunction(unique_ptr<Expression> param) {
+        
+        unique_ptr<Expression> expr;
+        
+        if (check(TokenType::LEFT_BRACKET)) {
+            auto block = parseBlockStatement();
+            expr = make_unique<ArrowFunction>(std::move(param),
+                                              std::move(block));
+        } else {
+            auto exprBody = parseAssignment();
+            expr = make_unique<ArrowFunction>(std::move(param), std::move(exprBody));
+        }
+        
+        return expr;
+        
     }
 
     unique_ptr<Expression> parseConditional() {

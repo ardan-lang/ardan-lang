@@ -1661,6 +1661,10 @@ R PeregrineCodeGen::visitProperty(PropertyExpression* expr) {
     return 0;
 }
 
+R PeregrineCodeGen::visitComma(CommaExpression *expr) {
+    return 0;
+}
+
 R PeregrineCodeGen::visitSequence(SequenceExpression* expr) {
     int last_seq_reg = -1;
     for (auto& seq : expr->expressions) {

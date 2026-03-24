@@ -2072,6 +2072,10 @@ R TurboCodeGen::visitProperty(PropertyExpression* expr) {
     return 0;
 }
 
+R TurboCodeGen::visitComma(CommaExpression *expr) {
+    
+}
+
 R TurboCodeGen::visitSequence(SequenceExpression* expr) {
     int last_seq_reg = -1;
     for (auto& seq : expr->expressions) {
