@@ -783,6 +783,7 @@ R ARM64CodeGen::visitLogical(LogicalExpression* expr) { return true; }
 R ARM64CodeGen::visitThis(ThisExpression* expr) { return true; }
 R ARM64CodeGen::visitSuper(SuperExpression* expr) { return true; }
 R ARM64CodeGen::visitProperty(PropertyExpression* expr) { return true; }
+R ARM64CodeGen::visitComma(CommaExpression *expr) { return true; };
 R ARM64CodeGen::visitSequence(SequenceExpression* expr) { return true; }
 R ARM64CodeGen::visitUpdate(UpdateExpression* expr) { return true; }
 R ARM64CodeGen::visitPublicKeyword(PublicKeyword* expr) { return true; }

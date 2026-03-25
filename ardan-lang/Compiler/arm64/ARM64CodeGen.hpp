@@ -243,6 +243,7 @@ public:
     R visitThis(ThisExpression* expr) override;
     R visitSuper(SuperExpression* expr) override;
     R visitProperty(PropertyExpression* expr) override;
+    R visitComma(CommaExpression *expr) override;
     R visitSequence(SequenceExpression* expr) override;
     R visitUpdate(UpdateExpression* expr) override;
     R visitFalseKeyword(FalseKeyword* expr) override;

@@ -2073,7 +2073,7 @@ R TurboCodeGen::visitProperty(PropertyExpression* expr) {
 }
 
 R TurboCodeGen::visitComma(CommaExpression *expr) {
-    
+    return 0;
 }
 
 R TurboCodeGen::visitSequence(SequenceExpression* expr) {
