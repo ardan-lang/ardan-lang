@@ -36,40 +36,49 @@ const char* operators[] = {
     "?", ":", ",", "...", ".", "?.", "[", "]", "(", ")", "{", "}"
 };
 
-std::unordered_map<std::string, std::string> keywords = {
-    
-    // Control flow
-    {"if", "IF"}, {"else", "ELSE"},
-    {"switch", "SWITCH"}, {"case", "CASE"}, {"default", "DEFAULT"},
-    {"for", "FOR"}, {"while", "WHILE"}, {"do", "DO"},
-    {"break", "BREAK"}, {"continue", "CONTINUE"},
-    {"return", "RETURN"}, {"throw", "THROW"},
-    {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"},
+namespace chars {
 
-    // Declarations
-    {"var", "VAR"}, {"let", "LET"}, {"const", "CONST"},
-    {"function", "FUNCTION"}, {"class", "CLASS"}, {"extends", "EXTENDS"},
-    {"import", "IMPORT"}, {"export", "EXPORT"},
+    constexpr char COMMA        = ',';
+    constexpr char COLON        = ':';
+    constexpr char SEMICOLON    = ';';
+    constexpr char DOT          = '.';
 
-    // Operators / expressions
-    {"new", "NEW"}, {"delete", "DELETE"}, {"typeof", "TYPEOF"},
-    {"instanceof", "INSTANCEOF"}, {"in", "IN"}, {"void", "VOID"},
-    {"yield", "YIELD"}, {"await", "AWAIT"}, {"async", "ASYNC"},
-    
-    {"readonly", "READONLY"},
+    constexpr char LPAREN       = '(';
+    constexpr char RPAREN       = ')';
+    constexpr char LBRACE       = '{';
+    constexpr char RBRACE       = '}';
+    constexpr char LBRACKET     = '[';
+    constexpr char RBRACKET     = ']';
 
-    // Literals / special
-    {"true", "TRUE"}, {"false", "FALSE"}, {"null", "NULL"},
-    {"this", "THIS"}, {"super", "SUPER"},
+    constexpr char PLUS         = '+';
+    constexpr char MINUS        = '-';
+    constexpr char STAR         = '*';
+    constexpr char SLASH        = '/';
+    constexpr char PERCENT      = '%';
 
-    // Reserved / future
-    {"enum", "ENUM"}, {"implements", "IMPLEMENTS"}, {"interface", "INTERFACE"},
-    {"package", "PACKAGE"}, {"private", "PRIVATE"}, {"protected", "PROTECTED"},
-    {"public", "PUBLIC"}, {"static", "STATIC"},
+    constexpr char EQUAL        = '=';
+    constexpr char BANG         = '!';
+    constexpr char LT           = '<';
+    constexpr char GT           = '>';
 
-    // Module-specific
-    {"as", "AS"}, {"from", "FROM"}, {"of", "OF"}
-};
+    constexpr char AMP          = '&';
+    constexpr char PIPE         = '|';
+    constexpr char CARET        = '^';
+    constexpr char TILDE        = '~';
+    constexpr char QUESTION     = '?';
+
+    constexpr char SINGLE_QUOTE = '\'';
+    constexpr char DOUBLE_QUOTE = '"';
+    constexpr char BACKTICK     = '`';
+
+    constexpr char SPACE        = ' ';
+    constexpr char TAB          = '\t';
+    constexpr char NEWLINE      = '\n';
+    constexpr char CARRIAGE     = '\r';
+
+    constexpr char UNDERSCORE   = '_';
+    constexpr char DOLLAR       = '$';
+}
 
 vector<Token>& Scanner::getTokens() {
     
@@ -79,11 +88,11 @@ vector<Token>& Scanner::getTokens() {
         
         switch (character) {
 
-            case ',':
+            case chars::COMMA:
                 addToken(TokenType::COMMA, ",");
                 break;
                 
-            case '.':
+            case chars::DOT:
                 
                 if (match('.')) {
                     

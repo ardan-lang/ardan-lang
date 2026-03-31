@@ -313,7 +313,7 @@ void Parser::parseClassMember(
 ) {
     vector<unique_ptr<Expression>> modifiers = parseClassModifiers();
 
-    if (checkKeyword("VAR") || checkKeyword("CONST") || checkKeyword("LET")) {
+    if (checkKeyword(keywords["var"]) || checkKeyword(keywords["const"]) || checkKeyword(keywords["let"])) {
         // Class field
         unique_ptr<Statement> property = parseVariableStatement();
         fields.push_back(make_unique<PropertyDeclaration>(

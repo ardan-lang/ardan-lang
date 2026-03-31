@@ -15,6 +15,7 @@
 #include "../Scanner/Token/TokenType.h"
 #include "../Statements/Statements.hpp"
 #include "../overloads/operators.h"
+#include "../Scanner/keywords/keywords.h"
 
 class Parser {
     vector<Token> tokens;
@@ -123,8 +124,9 @@ private:
             if (match(TokenType::MUL)) { // 'yield*'
                 delegate = true;
             }
-            // yield and yield* can both be followed by assignment expressions (or nothing)
+
             unique_ptr<Expression> expr = nullptr;
+            
             if (!check(TokenType::SEMI_COLON) && !check(TokenType::RIGHT_BRACKET)) {
                 expr = parseAssignment();
             }
