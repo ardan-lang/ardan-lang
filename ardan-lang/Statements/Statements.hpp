@@ -189,7 +189,6 @@ public:
     }
 };
 
-// --- ReturnStatement ---
 class ReturnStatement : public Statement {
 public:
     unique_ptr<Expression> argument;
@@ -202,7 +201,6 @@ public:
     }
 };
 
-// --- BreakStatement ---
 class BreakStatement : public Statement {
 public:
     string label;
@@ -215,7 +213,6 @@ public:
     }
 };
 
-// --- ContinueStatement ---
 class ContinueStatement : public Statement {
 public:
     string label;
@@ -228,7 +225,6 @@ public:
     }
 };
 
-// --- ThrowStatement ---
 class ThrowStatement : public Statement {
 public:
     unique_ptr<Expression> argument;
@@ -499,14 +495,14 @@ public:
 //    MethodSignature,
 //    PropertySignature
 //};
-//
+
 //struct InterfaceMember {
 //    string name;
 //    InterfaceType type;
 //    vector<Expression> modifiers;
 //    vector<Expression> parameters;
 //};
-//
+
 //class InterfaceStatement : public Statement {
 //public:
 //    string name;
@@ -572,8 +568,6 @@ public:
 
 };
 
-// ---------interface----------
-
 struct TypeNode {
     virtual ~TypeNode() = default;
 };
@@ -631,9 +625,6 @@ struct ParenthesizedTypeNode : public TypeNode {
         : inner(std::move(inner)) {}
 };
 
-// -----------------------------
-// TypeReference Node
-// -----------------------------
 struct TypeReference {
     string name;
     vector<unique_ptr<TypeReference>> typeArguments;
@@ -641,9 +632,6 @@ struct TypeReference {
     TypeReference(string name) : name(std::move(name)) {}
 };
 
-// -----------------------------
-// TypeParameter (Generics)
-// -----------------------------
 struct TypeParameter {
     string name;
     unique_ptr<TypeReference> constraint;   // e.g. T extends SomeInterface
@@ -654,9 +642,6 @@ struct TypeParameter {
     }
 };
 
-// -----------------------------
-// Parameter Node
-// -----------------------------
 struct Parameter {
     string name;
     unique_ptr<TypeReference> type;
@@ -666,18 +651,10 @@ struct Parameter {
         : name(std::move(name)), type(std::move(type)), optional(optional) {}
 };
 
-// =======================================================
-// INTERFACE MEMBERS
-// =======================================================
-
-// Base class
 struct InterfaceMember {
     virtual ~InterfaceMember() = default;
 };
 
-// -----------------------------
-// PropertySignature
-// -----------------------------
 struct PropertySignature : InterfaceMember {
     string name;
     unique_ptr<TypeReference> type;
@@ -692,9 +669,6 @@ struct PropertySignature : InterfaceMember {
           readonly(readonly) {}
 };
 
-// -----------------------------
-// MethodSignature
-// -----------------------------
 struct MethodSignature : InterfaceMember {
     string name;
     vector<Parameter> parameters;
@@ -711,9 +685,6 @@ struct MethodSignature : InterfaceMember {
           optional(optional) {}
 };
 
-// -----------------------------
-// CallSignature
-// -----------------------------
 struct CallSignature : InterfaceMember {
     vector<Parameter> parameters;
     unique_ptr<TypeReference> returnType;
@@ -724,9 +695,6 @@ struct CallSignature : InterfaceMember {
           returnType(std::move(returnType)) {}
 };
 
-// -----------------------------
-// ConstructSignature
-// -----------------------------
 struct ConstructSignature : InterfaceMember {
     vector<Parameter> parameters;
     unique_ptr<TypeReference> returnType;
@@ -737,9 +705,6 @@ struct ConstructSignature : InterfaceMember {
           returnType(std::move(returnType)) {}
 };
 
-// -----------------------------
-// IndexSignature
-// -----------------------------
 struct IndexSignature : InterfaceMember {
     Parameter key;
     unique_ptr<TypeReference> valueType;
@@ -748,9 +713,6 @@ struct IndexSignature : InterfaceMember {
         : key(std::move(key)), valueType(std::move(valueType)) {}
 };
 
-// =======================================================
-// INTERFACE DECLARATION
-// =======================================================
 struct InterfaceDeclaration : Statement {
     Token token;
     string name;
@@ -774,7 +736,5 @@ struct InterfaceDeclaration : Statement {
     }
     
 };
-
-// ---------end interface------------
 
 #endif /* Statements_hpp */
