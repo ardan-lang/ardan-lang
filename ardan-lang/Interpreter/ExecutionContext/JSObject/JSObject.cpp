@@ -175,7 +175,6 @@ bool JSObject::has(const std::string& name) const {
         return true;
     }
 
-    // Check in parent scope (if exists)
     if (parent_object) {
         return parent_object->has(name);
     }

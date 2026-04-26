@@ -23,6 +23,7 @@ file(GLOB_RECURSE SRC_FILES
     "ardan-lang/JSON/*.cpp"
     "ardan-lang/EventLoop/*.cpp"
     "ardan-lang/Compiler/*.cpp"
+    "ardan-lang/GUI/*.cpp"
     "ardan-lang/*.cpp"
 )
 

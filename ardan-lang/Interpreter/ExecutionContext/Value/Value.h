@@ -16,16 +16,14 @@
 
 using namespace std;
 
-// forward
 struct Chunk;
 class Env;
 struct Closure;
 class JSObject;
 class ExecutionContext;
 
-// A tiny Function object: holds chunk id/index and arity (and optional name)
 struct FunctionObject {
-    uint32_t chunkIndex;   // index into module/file chunk table
+    uint32_t chunkIndex;
     uint32_t arity;
     string name;
     uint32_t upvalues_size;
@@ -51,7 +49,7 @@ enum class ValueType {
 };
 
 class Value;
-class JSObject; // forward declare
+class JSObject;
 class JSClass;
 class JSArray;
 class Promise;
@@ -74,7 +72,7 @@ public:
     NativeFn nativeFunction;
     function<Value(std::vector<Value>)> functionValue;
     shared_ptr<Promise> promiseValue;
-    std::shared_ptr<FunctionObject> fnRef; // if FUNCTION_REF
+    std::shared_ptr<FunctionObject> fnRef;
     shared_ptr<Closure> closureValue;
     std::any anyValue;
         
@@ -85,7 +83,6 @@ public:
         return v;
     }
     
-    // --- Getters ---
     template<typename T>
     T as() const {
         if (type != ValueType::ANY)
@@ -212,7 +209,6 @@ struct ValueField {
     Value value;
 };
 
-// --- Closure and Upvalue support ---
 struct Upvalue {
     Value* location;   // Points to stack slot or closed value
     Value closed;      // When closed, stores value
