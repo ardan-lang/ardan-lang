@@ -66,8 +66,8 @@ public:
     Value run(shared_ptr<TurboChunk> chunk, const vector<Value>& args = {});
     
     // Globals
-    Env* env;
-    ExecutionContext* executionCtx;
+    // Env* env;
+    // ExecutionContext* executionCtx;
     EventLoop* event_loop;
     
     InterpreterTurboVMV2(shared_ptr<TurboModule> module_ = nullptr);
@@ -91,8 +91,8 @@ private:
     Value callMethod(const Value& callee, const vector<Value>& args, const Value& js_object);
     
     // execute the top-most frame until it returns (OP_RETURN)
-    Value runFrame(CallFrame &current_frame);
-    Value runFrameRunner(CallFrame& frame);
+    Value runFrame(TurboCallFrame* current_frame);
+    Value runFrameRunner(TurboCallFrame* frame);
     void handleRethrow();
     
 //    vector<TryFrame> tryStack;
@@ -102,7 +102,7 @@ private:
 //    CallFrame* frame;
 //    vector<ExecutionContext*> contextStack;
         
-    Instruction readInstruction(CallFrame* frame);
+    Instruction readInstruction(TurboCallFrame* frame);
     void init_builtins();
     //Value getProperty(const Value &objVal, const string &propName);
     

@@ -40,13 +40,21 @@ public:
     virtual ~IVM() = default;
     virtual Value run(shared_ptr<void> chunk, const vector<Value>& args = {}) = 0;
     virtual void init_builtins() = 0;
+    virtual Value callFunction(const Value& callee, const vector<Value>& args) = 0;
 };
 
 template <typename DerivedVM, typename ModuleT, typename ChunkT>
 class BaseVM {
 public:
+//    static inline DerivedVM* vm;
+//    static void setInstance(DerivedVM* current_vm) {
+//        vm = current_vm;
+//    }
+
     void init_builtins();
-    Value getProperty(const Value &objVal, const string &propName);
+    Value callFunction(const Value& callee, const vector<Value>& args);
+
+//    Value getProperty(const Value &objVal, const string &propName);
 
     void setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
         if (objVal.type == ValueType::CLASS) {
@@ -73,8 +81,8 @@ public:
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
     
-    Value CreateInstance(Value klass);
-    void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
+//    Value CreateInstance(Value klass);
+    //void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
     void InvokeConstructor(Value obj_value, vector<Value> args);
     
     const unordered_map<string, Value> enumerateKeys(Value obj) {
@@ -91,8 +99,8 @@ public:
         
     }
 
-    shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
-    void set_js_object_closure(Value objVal);
+//    shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
+//    void set_js_object_closure(Value objVal);
     void makeObjectInstance(Value klass, shared_ptr<JSObject> obj);
     
     Value binaryAdd(const Value &a, const Value &b) {
