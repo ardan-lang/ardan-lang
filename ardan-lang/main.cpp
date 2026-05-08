@@ -1,6 +1,6 @@
 //
 //  main.cpp
-//  tau-programming-lang
+//  ardan-programming-lang
 //
 //  Created by Chidume Nnamdi on 13/08/2025.
 //
@@ -571,15 +571,16 @@ void run_compiler(string& filename, string& source) {
 
 void test() {
     
-    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/compile.ardan";
+    string entryFileName = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/arm64.ardan";
         
     string source = read_file(entryFileName);
     auto ast = get_ast(source, entryFileName);
     
     Compiler compiler;
     
-    compiler.test_turbo_compile(ast);
-    // compiler.test_compile(ast);
+    compiler.run_arm(ast);
+    // compiler.test_turbo_compile(ast);
+    //compiler.test_compile(ast);
 
     // run_interpreter(entryFileName, source);
     // showWindow();
@@ -592,8 +593,8 @@ void test() {
 
 int main(int argc, const char * argv[]) {
     
-//    test();
-//    return 0;
+    test();
+    return 0;
     
     bool interpret = false;
     bool compile = false;
