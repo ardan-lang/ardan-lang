@@ -6,7 +6,7 @@ project(ardan-lang LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Collect all sources (simplify if you prefer explicit lists)
+# All sources
 file(GLOB_RECURSE SRC_FILES
     "ardan-lang/overloads/*.cpp"
     "ardan-lang/Statements/*.cpp"
@@ -23,7 +23,7 @@ file(GLOB_RECURSE SRC_FILES
     "ardan-lang/JSON/*.cpp"
     "ardan-lang/EventLoop/*.cpp"
     "ardan-lang/Compiler/*.cpp"
-    "ardan-lang/GUI/*.cpp"
+    # "ardan-lang/GUI/*.cpp"
     "ardan-lang/*.cpp"
 )
 

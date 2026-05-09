@@ -29,7 +29,6 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
     module_->version = version;
     module_->entryChunkIndex = entryChunkIndex;
 
-    // Chunks
     uint32_t numChunks = readU32();
     for (uint32_t i = 0; i < numChunks; ++i) {
         auto chunk = std::make_unique<Chunk>();
@@ -61,7 +60,6 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
                     break;
                 }
                 default:
-                    // handle others as appropriate
                     break;
             }
             chunk->constants.push_back(v);
@@ -73,7 +71,6 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
         module_->chunks.push_back(std::move(chunk));
     }
 
-    // Constants
     uint32_t numConstants = readU32();
     for (uint32_t i = 0; i < numConstants; ++i) {
         Value v;
@@ -99,7 +96,6 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
                 break;
             }
             default:
-                // handle others as appropriate
                 break;
         }
         module_->constants.push_back(v);
@@ -111,7 +107,6 @@ std::unique_ptr<Module> ArdarFileReader::readModule() {
 
 std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string& filename) {
 
-    // Read and check magic
     char magic[11];
     in.read(magic, 11);
     if (std::string(magic, 11) != "ARDAR-TURBO")
@@ -121,12 +116,10 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
     module_->version = readU32(in);
     module_->entryChunkIndex = readU32(in);
 
-    // Chunks
     uint32_t numChunks = readU32(in);
     for (uint32_t i = 0; i < numChunks; ++i) {
         auto chunk = std::make_shared<TurboChunk>();
 
-        // Code
         uint32_t codeSize = readU32(in);
         chunk->code.reserve(codeSize);
         for (uint32_t j = 0; j < codeSize; ++j) {
@@ -137,7 +130,6 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
             chunk->code.push_back({op, a, b, c});
         }
 
-        // Constants
         uint32_t numConsts = readU32(in);
         for (uint32_t k = 0; k < numConsts; ++k) {
             Value val;
@@ -174,7 +166,6 @@ std::unique_ptr<TurboModule> ArdarFileReader::readTurboModule(const std::string&
         module_->chunks.push_back(chunk);
     }
 
-    // Global constants
     uint32_t numModuleConsts = readU32(in);
     for (uint32_t k = 0; k < numModuleConsts; ++k) {
         Value val;

@@ -66,7 +66,7 @@ using std::string;
 //    }
 //    // More: suspend(), handling of yields, etc.
 //};
-//
+
 //struct Coroutine {
 //    // ...
 //    void resume(Value resumeValue = Value::undefined()) {
@@ -85,7 +85,7 @@ class PeregrineVM : public BaseVM<PeregrineVM, TurboModule, TurboChunk> {
     
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;
-        size_t ip = 0;                    // instruction pointer for this frame
+        size_t ip = 0;                    
         
         vector<Value> args;
         shared_ptr<Closure> closure;
@@ -103,10 +103,8 @@ class PeregrineVM : public BaseVM<PeregrineVM, TurboModule, TurboChunk> {
 public:
     PeregrineVM();
     
-    // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<TurboChunk> chunk, const vector<Value>& args = {});
     
-    // Globals
     Env* env;
     ExecutionContext* executionCtx;
     EventLoop* event_loop;
@@ -116,9 +114,9 @@ public:
     Value callFunction(const Value& callee, const vector<Value>& args);
     
 private:
-    shared_ptr<TurboModule> module_ = nullptr; // set at construction or by caller
+    shared_ptr<TurboModule> module_ = nullptr; 
     
-    vector<CallFrame> callStack; // call frames stack
+    vector<CallFrame> callStack; 
     
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     Value addCtor();
@@ -127,18 +125,17 @@ private:
     void invokeMethod(const Value& obj_value, const string& name, const vector<Value>& args);
     Value callMethod(const Value& callee, const vector<Value>& args, const Value& js_object);
 
-    // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame(CallFrame &current_frame);
     void handleRethrow();
 
     vector<TryFrame> tryStack;
     deque<Value> argStack;
     
-    // execution state for a run
     CallFrame* frame;
     vector<ExecutionContext*> contextStack;
     
     Instruction readInstruction();
+    void init_gui();
     void init_builtins();
     Value getProperty(const Value &objVal, const string &propName);
     

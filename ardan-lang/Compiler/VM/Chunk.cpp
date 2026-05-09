@@ -17,7 +17,6 @@ void Chunk::writeByte(uint8_t b) {
 }
 
 void Chunk::writeUint32(uint32_t v) {
-    // little endian
     code.push_back((v >> 0) & 0xFF);
     code.push_back((v >> 8) & 0xFF);
     code.push_back((v >> 16) & 0xFF);

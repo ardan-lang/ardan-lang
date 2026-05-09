@@ -299,8 +299,8 @@ R TurboCodeGen::visitVariable(VariableStatement* stmt) {
         
         create(decl.id, slot, get_kind(kind));
         freeRegister(slot);
-        // DO NOT freeRegister(slot) here!
-        // It must stay alive until endScope() pops it.
+        // TODO: check if we do not have to freeRegister(slot) here
+        // Check if the slot must stay alive until endScope() pops it
     }
     
     return 0;
@@ -359,7 +359,7 @@ R TurboCodeGen::visitWhile(WhileStatement* stmt) {
         loopStack.back().continues.clear();
     }
 
-    emitLoop(loopStart); // backwards jump
+    emitLoop(loopStart);
     patchJump(exitJump, (int)cur->code.size());
     
     endLoop();
@@ -437,7 +437,7 @@ R TurboCodeGen::visitReturn(ReturnStatement* stmt) {
 TurboOpCode TurboCodeGen::getBinaryOp(const Token& op) {
     
     switch (op.type) {
-            // --- Arithmetic ---
+
         case TokenType::ADD:                 return TurboOpCode::Add;
         case TokenType::MINUS:               return TurboOpCode::Subtract;
         case TokenType::MUL:                 return TurboOpCode::Multiply;
@@ -445,7 +445,6 @@ TurboOpCode TurboCodeGen::getBinaryOp(const Token& op) {
         case TokenType::MODULI:              return TurboOpCode::Modulo;
         case TokenType::POWER:               return TurboOpCode::Power;
             
-            // --- Comparisons ---
         case TokenType::VALUE_EQUAL:         return TurboOpCode::Equal;
         case TokenType::REFERENCE_EQUAL:     return TurboOpCode::StrictEqual;
         case TokenType::INEQUALITY:          return TurboOpCode::NotEqual;
@@ -455,12 +454,10 @@ TurboOpCode TurboCodeGen::getBinaryOp(const Token& op) {
         case TokenType::GREATER_THAN:        return TurboOpCode::GreaterThan;
         case TokenType::GREATER_THAN_EQUAL:  return TurboOpCode::GreaterThanOrEqual;
             
-            // --- Logical ---
         case TokenType::LOGICAL_AND:         return TurboOpCode::LogicalAnd;
         case TokenType::LOGICAL_OR:          return TurboOpCode::LogicalOr;
         case TokenType::NULLISH_COALESCING:  return TurboOpCode::NullishCoalescing;
             
-            // --- Bitwise ---
         case TokenType::BITWISE_AND:         return TurboOpCode::BitAnd;
         case TokenType::BITWISE_OR:          return TurboOpCode::BitOr;
         case TokenType::BITWISE_XOR:         return TurboOpCode::BitXor;
@@ -501,7 +498,6 @@ R TurboCodeGen::visitBinary(BinaryExpression* expr) {
             break;
     }
     
-    // For all other operators, existing logic:
     int left = get<int>(expr->left->accept(*this));
     int right = get<int>(expr->right->accept(*this));
     int result = allocRegister();
@@ -519,17 +515,15 @@ R TurboCodeGen::visitBinary(BinaryExpression* expr) {
 void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
     auto left = expr->left.get();
     
-    // ----------- Plain assignment (=) -----------
     if (expr->op.type == TokenType::ASSIGN) {
-        // Evaluate RHS into a fresh register
+
         // int rhsReg = allocRegister();
         
         if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
-            // Try to infer name from left
             if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
                 classExpr->name = idExpr->name;
             } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
-                classExpr->name = evaluate_property(memberExpr); // e.g. obj.B
+                classExpr->name = evaluate_property(memberExpr);
             }
         } else if (auto functionExpr = dynamic_cast<FunctionExpression*>(expr->right.get())) {
             if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
@@ -548,16 +542,14 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
         
         int resultReg = get<int>(expr->right->accept(*this));
         
-        // Assignment to a variable (identifier)
         if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
             // int destReg = lookupLocalSlot(ident->name);
             // Move/copy result into local/global slot
             // emit(TurboOpCode::Move, destReg, resultReg);
             store(ident->name, resultReg);
         }
-        // Assignment to an object property
         else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
-            // Evaluate object to reg
+
             int objReg = get<int>(member->object->accept(*this));
             
             if (member->computed) {
@@ -588,16 +580,12 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
         return;
     }
     
-    // ----------- Compound assignments (+=, -=, etc.) -----------
-    // Evaluate LHS (load current value)
-
     int lhsReg = allocRegister();
     int objReg = -1;
     int propReg = -1;
     int nameIdx = -1;
     
     if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
-        // Try to infer name from left
         if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
             classExpr->name = idExpr->name;
         } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
@@ -640,11 +628,9 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
         throw std::runtime_error("Unsupported assignment target in CodeGen");
     }
     
-    // Evaluate RHS into a new register
     int rhsReg = get<int>(expr->right->accept(*this));
     
-    // Compute result of compound operation
-    int opResultReg = allocRegister(); // where to store result (reuse for identifiers)
+    int opResultReg = allocRegister(); 
 
     switch (expr->op.type) {
         case TokenType::ASSIGN_ADD: emit(TurboOpCode::Add, opResultReg, lhsReg, rhsReg); break;
@@ -665,7 +651,6 @@ void TurboCodeGen::emitAssignment(BinaryExpression* expr) {
         default: throw std::runtime_error("Unknown compound assignment operator in emitAssignment");
     }
     
-    // Store back to LHS
     if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
         // emit(TurboOpCode::Move, lhsReg, opResultReg);
         store(ident->name, opResultReg);
@@ -712,7 +697,6 @@ R TurboCodeGen::visitIdentifier(IdentifierExpression* expr) {
 R TurboCodeGen::visitCall(CallExpression* expr) {
 
     int funcReg = get<int>(expr->callee->accept(*this));
-    // auto funcGuard = makeRegGuard(funcReg, *this);
 
     vector<int> argRegs;
     argRegs.reserve(expr->arguments.size());
@@ -722,7 +706,6 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
     }
 
     int resultReg = allocRegister();
-    // auto resultGuard = makeRegGuard(resultReg, *this, /*autoFree=*/false);
     int index = 0;
 
     for (int argReg : argRegs) {
@@ -747,7 +730,6 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
         freeRegister(argReg);
     }
 
-    // funcGuard.release();
     return resultReg;
     
 }
@@ -755,18 +737,13 @@ R TurboCodeGen::visitCall(CallExpression* expr) {
 // object.property access
 R TurboCodeGen::visitMember(MemberExpression* expr) {
     
-    // Evaluate the object expression
     int objectReg = get<int>(expr->object->accept(*this));
-    // auto objectGuard = makeRegGuard(objectReg, *this);
 
-    // Allocate target register for result
     int targetReg = allocRegister();
-    // auto targetGuard = makeRegGuard(targetReg, *this, /*autoFree=*/false);
 
     if (expr->computed) {
         // obj[prop]
         int propertyReg = get<int>(expr->property->accept(*this));
-        // auto propertyGuard = makeRegGuard(propertyReg, *this);
 
         emit(TurboOpCode::GetPropertyDynamic, targetReg, objectReg, propertyReg);
         
@@ -778,9 +755,6 @@ R TurboCodeGen::visitMember(MemberExpression* expr) {
         emit(TurboOpCode::GetProperty, targetReg, objectReg, nameConst);
         
     }
-
-    // Free object register after use
-    // objectGuard.release();
     
     return targetReg;
     
@@ -830,18 +804,27 @@ R TurboCodeGen::visitNew(NewExpression* expr) {
 
 R TurboCodeGen::visitArray(ArrayLiteralExpression* expr) {
     int arr = allocRegister();
+
     emit(TurboOpCode::CreateArrayLiteral, arr);
+
     for (auto& el : expr->elements) {
+
         if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(el.get())) {
+
             int val = get<int>(spread->expression->accept(*this));
             emit(TurboOpCode::ArraySpread, arr, val);
+
         } else {
+
             int val = get<int>(el->accept(*this));
             emit(TurboOpCode::ArrayPush, arr, val);
             freeRegister(val);
+
         }
     }
+
     return arr;
+
 }
 
 R TurboCodeGen::visitObject(ObjectLiteralExpression* expr) {
@@ -946,12 +929,11 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
         
     }
     
-    // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
+
         // ++x or --x
         if (auto ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
             
-            // load ident
             int lhsReg = allocRegister();
             load(ident->name, lhsReg);
             
@@ -989,7 +971,6 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
             freeRegister(lhsReg);
             freeRegister(rhsReg);
 
-            // Evaluate object to reg
             int objReg = get<int>(member_expr->object->accept(*this));
 
             if (member_expr->computed) {
@@ -1017,7 +998,6 @@ R TurboCodeGen::visitUnary(UnaryExpression* expr) {
         throw std::runtime_error("Unsupported unary increment/decrement target");
     }
 
-    // non-targeted unary ops (prefix) evaluate their operand first
     int reg = get<int>(expr->right->accept(*this));
     
     switch (expr->op.type) {
@@ -1111,7 +1091,6 @@ R TurboCodeGen::visitUpdate(UpdateExpression* expr) {
 
 R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     
-    // Create a nested CodeGen for the function body
     TurboCodeGen nested(module_);
     nested.cur = make_shared<TurboChunk>();
     nested.enclosing = this;
@@ -1121,7 +1100,6 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     if (expr->parameters) {
         
         collectParameterInfo(expr->parameters.get(), paramNames, parameterInfos);
@@ -1290,14 +1268,11 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
             
             int setLocalJump = nested.emitJump(TurboOpCode::Jump);
             
-            // Use default
             nested.patchJump(useArg);
             
-            // Evaluate default expression (can reference previous params!)
             int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
             nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
             
-            // Set local either way
             nested.patchSingleJump(setLocalJump);
 
             nested.store(info.name, store_reg);
@@ -1309,9 +1284,7 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
             nested.freeRegister(index_reg);
             
         } else {
-            
-            // Direct: assign argument i to local slot
-            
+                        
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
@@ -1323,7 +1296,6 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         }
     }
 
-    // Compile function body
     if (expr->exprBody) {
         expr->exprBody->accept(nested);
         nested.emit(TurboOpCode::Return);
@@ -1351,7 +1323,6 @@ R TurboCodeGen::visitArrowFunction(ArrowFunction* expr) {
         
     }
 
-    // Register chunk & emit as constant
     auto fnChunk = nested.cur;
     fnChunk->arity = (uint32_t)paramNames.size();
 
@@ -1422,7 +1393,6 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //    unique_ptr<Statement> body;
 //    bool is_async;
 
-    // Create a nested CodeGen for the function body
     TurboCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = make_shared<TurboChunk>();
@@ -1432,7 +1402,6 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : expr->params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
@@ -1476,7 +1445,6 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
         
     }
 
-    // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic
@@ -1606,11 +1574,9 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
             // Use default
             nested.patchJump(useArg);
             
-            // Evaluate default expression (can reference previous params!)
             int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
             nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
             
-            // Set local either way
             nested.patchSingleJump(setLocalJump);
 
             nested.store(info.name, store_reg);
@@ -1622,9 +1588,7 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
             nested.freeRegister(index_reg);
             
         } else {
-            
-            // Direct: assign argument i to local slot
-            
+                        
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
@@ -1636,7 +1600,6 @@ R TurboCodeGen::visitFunctionExpression(FunctionExpression* expr) {
         }
     }
 
-    // Compile function body
     if (expr->body) {
         expr->body->accept(nested);
         // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
@@ -1744,7 +1707,6 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : stmt->params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
@@ -1782,10 +1744,8 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
         
     }
 
-    // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
-    // Emit parameter initialization logic
     for (size_t i = 0; i < parameterInfos.size(); ++i) {
         const auto& info = parameterInfos[i];
         // For rest parameter
@@ -1834,11 +1794,9 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
             // Use default
             nested.patchJump(useArg);
             
-            // Evaluate default expression (can reference previous params!)
             int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
             nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
             
-            // Set local either way
             nested.patchSingleJump(setLocalJump);
 
             nested.store(info.name, store_reg);
@@ -1850,9 +1808,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
             nested.freeRegister(index_reg);
             
         } else {
-            
-            // Direct: assign argument i to local slot
-            
+                        
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
@@ -1864,7 +1820,6 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
         }
     }
 
-    // Compile function body
     if (stmt->body) {
         stmt->body->accept(nested);
         // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
@@ -1893,7 +1848,6 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
 
     }
 
-    // Register chunk & emit as constant
     auto fnChunk = nested.cur;
     fnChunk->arity = (uint32_t)paramNames.size();
 
@@ -1970,7 +1924,7 @@ R TurboCodeGen::visitFunction(FunctionDeclaration* stmt) {
 }
 
 R TurboCodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
-    // Concatenate all pieces
+
     int reg = allocRegister();
     
     emit(TurboOpCode::LoadConst, reg, emitConstant(Value::str("")));
@@ -1996,7 +1950,6 @@ string TurboCodeGen::resolveImportPath(ImportDeclaration* stmt) {
     
     namespace fs = std::filesystem;
     
-    // dir of the file that contained the import
     fs::path baseDir = fs::path(stmt->sourceFile).parent_path();
     
     string raw = stmt->path.lexeme;
@@ -2012,27 +1965,21 @@ string TurboCodeGen::resolveImportPath(ImportDeclaration* stmt) {
 
 R TurboCodeGen::visitImportDeclaration(ImportDeclaration* stmt) {
     
-    // Resolve the path (relative or absolute)
     std::string importPath = resolveImportPath(stmt);
 
-    // Check if module is already loaded (avoid cycles/duplication)
     if (isModuleLoaded(importPath)) {
-        // Already loaded, nothing to do (or optionally, re-bind exported symbols)
         return true;
     }
 
     std::string source = read_file(importPath);
 
-    // Parse the imported source to AST
     Scanner scanner(source);
     auto tokens = scanner.getTokens();
     
-    // pass the resolved file path into the parser
     Parser parser(tokens);
     parser.sourceFile = importPath;
     auto ast = parser.parse();
 
-    // Register the imported module BEFORE compiling to handle cycles
     registerModule(importPath);
 
     for (const auto &s : ast) {
@@ -2117,12 +2064,12 @@ R TurboCodeGen::visitUndefinedKeyword(UndefinedKeyword*) {
 R TurboCodeGen::visitAwaitExpression(AwaitExpression*) { return 0; }
 
 R TurboCodeGen::visitBreak(BreakStatement*) {
-    // Usually: emit a jump to end of current loop
+
     if (loopStack.empty()) {
         throw ("Break outside loop");
         return false;
     }
-    // Emit jump with unknown target
+
     int jumpAddr = emitJump(TurboOpCode::Jump);
     loopStack.back().breaks.push_back(jumpAddr);
     return true;
@@ -2165,7 +2112,7 @@ TurboCodeGen::PropertyLookup TurboCodeGen::lookupClassProperty(string prop_name)
 }
 
 int TurboCodeGen::compileMethod(MethodDefinition& method) {
-    // Create a nested CodeGen for the method body (closure)
+
     TurboCodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<TurboChunk>();
@@ -2176,7 +2123,6 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (from method.params)
     for (auto& param : method.params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
@@ -2211,7 +2157,6 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
         
     }
 
-    // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
     // Emit parameter initialization logic (rest/default)
@@ -2339,14 +2284,11 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
             
             int setLocalJump = nested.emitJump(TurboOpCode::Jump);
             
-            // Use default
             nested.patchJump(useArg);
             
-            // Evaluate default expression (can reference previous params!)
             int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
             nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
             
-            // Set local either way
             nested.patchSingleJump(setLocalJump);
 
             nested.store(info.name, store_reg);
@@ -2358,9 +2300,7 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
             nested.freeRegister(index_reg);
             
         } else {
-            
-            // Direct: assign argument i to local slot
-            
+                        
             int reg = nested.allocRegister();
             nested.emit(TurboOpCode::LoadConst, reg, nested.emitConstant(Value::number(i)));
 
@@ -2372,7 +2312,6 @@ int TurboCodeGen::compileMethod(MethodDefinition& method) {
         }
     }
 
-    // Compile the method body
     if (method.methodBody) {
         method.methodBody->accept(nested);
         // Ensure OP_RETURN is emitted
@@ -2462,7 +2401,6 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
         
     classInfo.name = stmt->id;
 
-    // Evaluate superclass (if any)
     int super_class_reg = allocRegister();
     if (stmt->superClass) {
         
@@ -2478,7 +2416,6 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
         emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
     }
 
-    // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
 
     BindingKind classBinding = scopeDepth == 0 ? BindingKind::Var : BindingKind::Let;
@@ -2487,7 +2424,6 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
     declareGlobal(stmt->id, classBinding);
     create(stmt->id, super_class_reg, classBinding);
 
-    // Define fields
     // A field can be var, let, const. private, public, protected
     for (auto& field : stmt->fields) {
         bool isStatic = false;
@@ -2642,7 +2578,7 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
             }
         }
 
-        // ************* Collecting properrty meta ***************
+        // ************* Collecting property meta ***************
         auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
         
         PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
@@ -2652,7 +2588,6 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
 
     }
 
-    // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
         
         bool isStatic = false;
@@ -2675,12 +2610,11 @@ R TurboCodeGen::visitClass(ClassDeclaration* stmt) {
             }
         }
 
-        // Compile the method as a function object
-        int method_reg = compileMethod(*method); // leaves function object on reg
+        int method_reg = compileMethod(*method); 
 
-        // Get name of method
         int nameIdx = emitConstant(Value::str(method->name));
         int methodNameReg = allocRegister();
+
         emit(TurboOpCode::LoadConst, methodNameReg, nameIdx);
         TurboOpCode op;
 
@@ -2742,7 +2676,6 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
     
     classInfo.name = stmt->name;
     
-    // Evaluate superclass (if any)
     int super_class_reg = allocRegister();
     if (stmt->superClass) {
         
@@ -2758,14 +2691,12 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
         emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
     }
     
-    // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->name)));
     
     // declareLocal(stmt->id);
     // declareGlobal(stmt->id, BindingKind::Var);
     // create(stmt->id, super_class_reg, BindingKind::Var);
     
-    // Define fields
     // A field can be var, let, const. private, public, protected
     for (auto& field : stmt->fields) {
         bool isStatic = false;
@@ -2920,7 +2851,7 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
             }
         }
         
-        // ************* Collecting properrty meta ***************
+        // ************* Collecting property meta ***************
         auto visibility = isProtected ? Visibility::Protected : isPrivate ? Visibility::Private : Visibility::Public;
         
         PropertyMeta prop_meta = { visibility, BindingKind::Var, isStatic };
@@ -2930,7 +2861,6 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
         
     }
     
-    // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
         
         bool isStatic = false;
@@ -2953,8 +2883,7 @@ R TurboCodeGen::visitClassExpression(ClassExpression* stmt) {
             }
         }
         
-        // Compile the method as a function object
-        int method_reg = compileMethod(*method); // leaves function object on reg
+        int method_reg = compileMethod(*method); 
         
         // Get name of method
         int nameIdx = emitConstant(Value::str(method->name));
@@ -3021,16 +2950,12 @@ R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
     beginScope();
     loopStack.back().loopStart = (int)cur->size();
     
-    // Mark loop start
     size_t loopStart = cur->code.size();
     
-    // Compile loop body
     stmt->body->accept(*this);
 
-    // Compile the condition
     int cond_reg = get<int>(stmt->condition->accept(*this));
 
-    // Jump back to loop start if condition is true
     int condJump = emitJump(TurboOpCode::JumpIfFalse, cond_reg);
     
     if (loopStack.back().continues.size() > 0) {
@@ -3041,10 +2966,8 @@ R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
         loopStack.back().continues.clear();
     }
 
-    // Emit loop back
     emitLoop((int)loopStart);
 
-    // Patch the jump to after the loop if condition is false
     patchJump(condJump);
     
     endScope();
@@ -3055,12 +2978,13 @@ R TurboCodeGen::visitDoWhile(DoWhileStatement* stmt) {
 }
 
 R TurboCodeGen::visitSwitchCase(SwitchCase* stmt) {
-    // Each case's test should have already been checked in visitSwitch
-    // Emit the body of this case
+
     for (auto& s : stmt->consequent) {
         s->accept(*this);
     }
+
     return true;
+
 }
 
 R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
@@ -3071,35 +2995,30 @@ R TurboCodeGen::visitSwitch(SwitchStatement* stmt) {
     vector<int> caseJumps;
     int defaultJump = -1;
 
-    // Evaluate the discriminant and leave on register
     int discriminant_reg = get<int>(stmt->discriminant->accept(*this));
 
-    // Emit checks for each case
     for (size_t i = 0; i < stmt->cases.size(); ++i) {
         SwitchCase* scase = stmt->cases[i].get();
         if (scase->test) {
-            // Duplicate discriminant for comparison
+
             int test_reg = get<int>(scase->test->accept(*this));
             emit(TurboOpCode::Equal, test_reg, test_reg, discriminant_reg);
 
-            // If not equal, jump to next
             int jump = emitJump(TurboOpCode::JumpIfFalse, test_reg);
 
-            // If equal, emit case body, and jump to end
             scase->accept(*this);
             caseJumps.push_back(emitJump(TurboOpCode::Jump));
             
             patchJump(jump);
             
         } else {
-            // Default case: remember its position
+
             defaultJump = (int)cur->size();
             scase->accept(*this);
-            // No jump needed after default
+
         }
     }
 
-    // Patch all jumps to here (after switch body)
     for (int jmp : caseJumps) {
         patchSingleJump(jmp);
     }
@@ -3124,28 +3043,23 @@ R TurboCodeGen::visitCatch(CatchClause* stmt) {
 
 R TurboCodeGen::visitTry(TryStatement* stmt) {
     
-    // Mark start of try
     int ex_val_reg = allocRegister();
     int tryPos = emitTryPlaceholder();
     patchTry(tryPos, ex_val_reg);
     
-    // Compile try block
     stmt->block->accept(*this);
 
-    // End of try
     emit(TurboOpCode::EndTry);
 
     int endJump = -1;
 
-    // If there's a catch, emit jump over it for normal completion
     if (stmt->handler) {
         endJump = emitJump(TurboOpCode::Jump);
-        // Patch catch offset
+
         patchTryCatch(tryPos, (int)cur->code.size() - 1);
 
         beginScope();
         
-        // Bind catch parameter
         declareLocal(stmt->handler->param, BindingKind::Let);
         uint32_t idx = getLocal(stmt->handler->param);
         emit(TurboOpCode::LoadExceptionValue, ex_val_reg, idx);
@@ -3156,12 +3070,10 @@ R TurboCodeGen::visitTry(TryStatement* stmt) {
 
     }
 
-    // Jump over finally if we had a catch
     if (endJump != -1) {
         patchSingleJump(endJump);
     }
 
-    // If there's a finally, patch and emit it
     if (stmt->finalizer) {
         patchTryFinally(tryPos, (int)cur->code.size() - 1);
 
@@ -3180,14 +3092,11 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
 
     stmt->init->accept(*this);
     
-    // Evaluate the object to iterate
     int objReg = get<int>(stmt->object->accept(*this));
     int keysReg = allocRegister();
 
-    // Get keys array (assumes builtin/function to get keys)
     emit(TurboOpCode::EnumKeys, keysReg, objReg);
 
-    // Prepare index and length
     int idxReg = allocRegister();
     emit(TurboOpCode::LoadConst, idxReg, emitConstant(Value(0)));
 
@@ -3221,7 +3130,6 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
         throw std::runtime_error("for-in only supports identifier/variable statement loop variables in codegen");
     }
     
-    // Loop body
     stmt->body->accept(*this);
 
     freeRegister(keyReg);
@@ -3239,10 +3147,8 @@ R TurboCodeGen::visitForIn(ForInStatement* stmt) {
     emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
     emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
 
-    // Jump to loop start
     emitLoop(loopStart);
 
-    // Patch break
     patchJump(breakJump, (int)cur->code.size());
 
     // Free registers
@@ -3267,18 +3173,14 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     // let k
     stmt->left->accept(*this);
     
-    // Evaluate the iterable
     int arrReg = get<int>(stmt->right->accept(*this));
 
-    // Get length
     int lenReg = allocRegister();
     emit(TurboOpCode::GetObjectLength, lenReg, arrReg);
 
-    // Index register
     int idxReg = allocRegister();
     emit(TurboOpCode::LoadConst, idxReg, emitConstant(Value(0)));
 
-    // Loop start
     int loopStart = (int)cur->code.size();
 
     // if (idx >= len) break;
@@ -3305,7 +3207,6 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
         throw std::runtime_error("For...of only supports identifier/variable statement loop variables in codegen.");
     }
     
-    // Loop body
     stmt->body->accept(*this);
 
     if (loopStack.back().continues.size() > 0) {
@@ -3325,10 +3226,8 @@ R TurboCodeGen::visitForOf(ForOfStatement* stmt) {
     emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
     emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
 
-    // Jump back
     emitLoop(loopStart);
 
-    // Patch break
     patchJump(breakJump, (int)cur->code.size());
 
     // Free registers
@@ -3419,7 +3318,6 @@ R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {
     int uiViewReg = allocRegister();
     emit(TurboOpCode::CreateUIView, uiViewReg, emitConstant(Value::str(expr->name)));
 
-    // Recursively initialize and render all children
     for (auto& child : expr->children) {
         int childUIViewReg = get<int>(child->accept(*this));
         emit(TurboOpCode::AddChildSubView, childUIViewReg, uiViewReg);
@@ -3452,8 +3350,6 @@ R TurboCodeGen::visitUIExpression(UIViewExpression* expr) {
     return uiViewReg;
     
 }
-
-// Utils
 
 void TurboCodeGen::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
                           vector<ParameterInfo>& parameterInfos
@@ -3564,14 +3460,12 @@ string TurboCodeGen::evaluate_property(Expression* expr) {
     throw std::runtime_error("Unsupported expression type in evaluate_property");
 }
 
-// Try: catchOffset, finallyOffset, exception register
 int TurboCodeGen::emitTryPlaceholder() {
     emit(TurboOpCode::Try);
 
     int pos = (int)cur->size() - 1;
 
-    return pos; // return position where we wrote the offsets
-    
+    return pos; 
 }
 
 void TurboCodeGen::patchTryCatch(int tryPos, int target) {
@@ -3615,25 +3509,22 @@ void TurboCodeGen::freeRegister(uint32_t slot) {
     registerAllocator->free(slot);
 }
 
-// Jump helpers
 void TurboCodeGen::emitLoop(uint32_t loopStart) {
     emit(TurboOpCode::Loop, ((int)cur->code.size() - (int)loopStart) + 1, 0, 0);
 }
 
 int TurboCodeGen::emitJump(TurboOpCode op, int cond_reg = 0) {
-    // Reserve space, return jump location to patch
-    // Implementation depends on code buffer layout
-    // Emit the jump instruction with placeholder offset
-    // We'll patch .b later to hold the actual jump offset
     Instruction instr(op, (uint8_t)cond_reg, 0, 0); // b is offset placeholder
+    // b will be patched later to hold the actual jump offset
     cur->code.push_back(instr);
-    return (int)cur->code.size() - 1; // Return index of this jump instruction
+    return (int)cur->code.size() - 1;
 }
 
 int TurboCodeGen::emitJump(TurboOpCode op) {
     Instruction instr(op, 0, 0, 0); // a is offset placeholder
+    // a will be patched later.
     cur->code.push_back(instr);
-    return (int)cur->code.size() - 1; // Return index of this jump instruction
+    return (int)cur->code.size() - 1;
 }
 
 // for TurboCode::JumpIfFalse
@@ -3655,7 +3546,6 @@ void TurboCodeGen::patchSingleJump(int jumpPos) {
     cur->code[jumpPos].a = (uint8_t)offset;
 }
 
-// Lookup helpers
 int TurboCodeGen::lookupLocalSlot(const std::string& name) {
     return paramSlot(name);
 }
@@ -3766,9 +3656,8 @@ void TurboCodeGen::resetLocalsForFunction(uint32_t paramCount, const vector<stri
 }
 
 void TurboCodeGen::declareLocal(const string& name, BindingKind kind) {
-    if (scopeDepth == 0) return; // globals aren’t locals
+    if (scopeDepth == 0) return;
 
-    // prevent shadowing in same scope
     for (int i = (int)locals.size() - 1; i >= 0; i--) {
         if (locals[i].depth != -1 && locals[i].depth < scopeDepth) break;
         if (locals[i].name == name) {
@@ -3787,7 +3676,7 @@ void TurboCodeGen::declareLocal(const string& name, BindingKind kind) {
 
 void TurboCodeGen::declareGlobal(const string& name, BindingKind kind) {
     
-    if (scopeDepth > 0) return; // locals aren’t globals
+    if (scopeDepth > 0) return;
 
     for (int i = (int)globals.size() - 1; i >= 0; i--) {
         if (globals[i].name == name) {
@@ -3805,7 +3694,6 @@ void TurboCodeGen::declareVariableScoping(const string& name, BindingKind kind) 
     // do not declare as local if Var and its not inside a function body
     // do not declare as local if its var and the scopedepth is > 0
 
-    // --------- let scoping check-----------
     bool IsVar = (kind == BindingKind::Var) ? true : false;
     
     if (IsVar && scopeDepth > 0 && enclosing == nullptr) {
@@ -3826,7 +3714,6 @@ void TurboCodeGen::declareVariableScoping(const string& name, BindingKind kind) 
             return;
         }
     }
-    // --------- end of let scoping check-----------
     
     declareLocal(name, (kind));
     declareGlobal(name, (kind));
@@ -3848,7 +3735,6 @@ void TurboCodeGen::endLoop() {
     LoopContext ctx = loopStack.back();
     loopStack.pop_back();
 
-    // Patch all breaks to jump here
     // int end = (int)cur->code.size() - 1;
     for (int breakAddr : ctx.breaks) {
         //patchJump(breakAddr, end);
@@ -3896,7 +3782,6 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
     const Instruction& instr = chunk->code[offset];
     std::cout << std::setw(4) << offset << " ";
 
-    // Print opcode name
     std::string opName;
     switch (instr.op) {
         case TurboOpCode::Nop: opName = "Nop"; break;
@@ -4005,18 +3890,15 @@ size_t TurboCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t offs
         case TurboOpCode::CallUIViewModifier: opName = "CallUIViewModifier"; break;
 
 
-        // Add more opcodes as needed
         default: opName = "Unknown"; break;
     }
 
     std::cout << std::left << std::setw(20) << opName;
 
-    // Print operands
     std::cout << " a: " << (int)instr.a
               << " b: " << (int)instr.b
               << " c: " << (int)instr.c;
 
-    // For LoadConst, print constant value
     if ((instr.op == TurboOpCode::LoadConst || instr.op == TurboOpCode::LoadGlobalVar || instr.op == TurboOpCode::LoadLocalVar) && instr.b < chunk->constants.size()) {
         std::cout << " [const: " << chunk->constants[instr.b].toString() << "]";
     }

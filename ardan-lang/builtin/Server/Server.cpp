@@ -46,7 +46,6 @@ std::shared_ptr<JSObject> Server::construct() {
         int flags = fcntl(server_fd, F_GETFL, 0);
         fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
 
-        // Call the "listening started" callback (on interpreter thread)
         // httpServer.listen(4201, () => print(`Listening on port ${port}`));
         if (listenCallback.type == ValueType::FUNCTION) {
             listenCallback.functionValue({});

@@ -31,7 +31,6 @@ const char* operators[] = {
     // Bitwise
     "&", "|", "^", "~", "<<", ">>", ">>>",
 
-    // Other / Misc
     "typeof", "instanceof", "in", "void", "delete",
     "?", ":", ",", "...", ".", "?.", "[", "]", "(", ")", "{", "}"
 };
@@ -540,70 +539,6 @@ void Scanner::collectString() {
 
 }
 
-//void Scanner::collectLiteralString() {
-//    
-//    advance();
-//    
-//    string concat = "";
-//    
-//    bool isInterpolstioin = false;
-//    string inerpolationString;
-//    
-//    addToken(TokenType::TEMPLATE_START);
-//    
-//    while (currentCharacter() != '`' && !eof()) {
-//        char cc = currentCharacter();
-//        
-//        // check if cc is $
-//        if (cc == '$' && isInterpolstioin == false) {
-//            isInterpolstioin = true;
-//            advance();
-//            addToken(TokenType::TEMPLATE_CHUNK, concat);
-//            addToken(TokenType::INTERPOLATION_START);
-//            concat = "";
-//            continue;
-//        }
-//        
-//        if (cc == '{' && isInterpolstioin == true) {
-//            advance();
-//            continue;
-//        }
-//        
-//        if (cc == '}' && isInterpolstioin == true) {
-//            isInterpolstioin = false;
-//            
-//            Scanner scanner(inerpolationString);
-//            vector<Token> local_tokens = scanner.getTokens();
-//            
-//            for(Token local_token : local_tokens) {
-//                if (local_token.type == TokenType::END_OF_FILE) {
-//                    continue;
-//                }
-//                tokens.push_back(local_token);
-//            }
-//            
-//            addToken(TokenType::INTERPOLATION_END);
-//            advance();
-//            
-//            inerpolationString = "";
-//            continue;
-//        }
-//                
-//        if (isInterpolstioin) {
-//            inerpolationString += cc;
-//        } else {
-//            concat += cc;
-//        }
-//        
-//        advance();
-//    }
-//    
-//    addToken(TokenType::TEMPLATE_END);
-//    
-//    concat = "";
-//
-//}
-
 void Scanner::collectLiteralString() {
     advance(); // Skip the opening `
     std::string chunk = "";
@@ -613,13 +548,13 @@ void Scanner::collectLiteralString() {
         char c = currentCharacter();
         
         if (c == '\\') {
-            advance(); // consume '\'
+            advance();
             if (eof()) break;
 
             char esc = currentCharacter();
 
             switch (esc) {
-                // ----- Single-character escapes -----
+
                 case 'b': chunk += '\b'; advance(); break;
                 case 'f': chunk += '\f'; advance(); break;
                 case 'n': chunk += '\n'; advance(); break;
@@ -627,9 +562,8 @@ void Scanner::collectLiteralString() {
                 case 't': chunk += '\t'; advance(); break;
                 case 'v': chunk += '\v'; advance(); break;
                 case '0':
-                    // Only \0 if not followed by digit
+
                     if (isdigit(peek())) {
-                        // Invalid escape in template → preserve literally
                         chunk += "\\0";
                         advance();
                     } else {
@@ -642,7 +576,6 @@ void Scanner::collectLiteralString() {
                 case '\"': chunk += '\"'; advance(); break;
                 case '`':  chunk += '`';  advance(); break;
 
-                // ----- Hexadecimal escape -----
                 case 'x': {
                     advance();
                     if (isHexDigit(currentCharacter()) && isHexDigit(peek())) {
@@ -651,17 +584,15 @@ void Scanner::collectLiteralString() {
                         int value = hexToInt(h1) * 16 + hexToInt(h2);
                         chunk += static_cast<char>(value);
                     } else {
-                        // Invalid → preserve literally
                         chunk += "\\x";
                     }
                     break;
                 }
 
-                // ----- Unicode escape -----
                 case 'u': {
                     advance();
                     if (currentCharacter() == '{') {
-                        // \u{X...X}
+
                         advance();
                         std::string hexDigits = "";
                         while (!eof() && currentCharacter() != '}') {
@@ -669,17 +600,16 @@ void Scanner::collectLiteralString() {
                             hexDigits += currentCharacter();
                             advance();
                         }
-                        if (currentCharacter() == '}') advance(); // consume '}'
+                        if (currentCharacter() == '}') advance();
 
                         if (!hexDigits.empty()) {
                             int codepoint = std::stoi(hexDigits, nullptr, 16);
-                            // Encode to UTF-8
                             chunk += encodeUTF8(codepoint);
                         } else {
-                            chunk += "\\u{}"; // invalid
+                            chunk += "\\u{}";
                         }
                     } else {
-                        // \uXXXX form
+
                         std::string hexDigits = "";
                         for (int i = 0; i < 4 && isHexDigit(currentCharacter()); i++) {
                             hexDigits += currentCharacter();
@@ -689,23 +619,19 @@ void Scanner::collectLiteralString() {
                             int codepoint = std::stoi(hexDigits, nullptr, 16);
                             chunk += encodeUTF8(codepoint);
                         } else {
-                            chunk += "\\u" + hexDigits; // invalid
+                            chunk += "\\u" + hexDigits;
                         }
                     }
                     break;
                 }
 
-                // ----- Line continuation -----
                 case '\n': case '\r': {
-                    // Skip both backslash and line terminator → no char added
-                    if (esc == '\r' && peek() == '\n') advance(); // CRLF
+                    if (esc == '\r' && peek() == '\n') advance();
                     advance();
                     break;
                 }
 
-                // ----- Invalid escapes -----
                 default:
-                    // In template literals, invalid escapes must be preserved
                     chunk += '\\';
                     chunk += esc;
                     advance();
@@ -720,7 +646,6 @@ void Scanner::collectLiteralString() {
                 chunk = "";
             }
             addToken(TokenType::TEMPLATE_END);
-            // we are at the end of the template literal.
             //if (peek() != ';') {
                 advance(); // Skip closing `
             //}
@@ -754,14 +679,13 @@ void Scanner::collectLiteralString() {
                         advance();
                     }
                 } else if (cc == '`') {
-                    // Nested template literal! Recursively scan
                     collectLiteralString();
                 } else {
                     expr += cc;
                     advance();
                 }
             }
-            // Scan the interpolation contents as its own token stream
+
             if (!expr.empty()) {
                 Scanner interpScanner(expr);
                 std::vector<Token> interpTokens = interpScanner.getTokens();
@@ -778,7 +702,7 @@ void Scanner::collectLiteralString() {
         chunk += c;
         advance();
     }
-    // Unterminated template literal: emit what we have
+
     if (!chunk.empty()) {
         addToken(TokenType::TEMPLATE_CHUNK, chunk);
     }
@@ -789,7 +713,7 @@ void Scanner::collectNumber() {
     string num;
     char c = currentCharacter();
 
-    // --- Hexadecimal ---
+    // Hexadecimal
     if (c == '0' && (peek() == 'x' || peek() == 'X')) {
         /*num += c;*/ advance();
         /*num += currentCharacter();*/ advance();
@@ -802,7 +726,7 @@ void Scanner::collectNumber() {
         return;
     }
 
-    // --- Binary ---
+    // Binary
     if (c == '0' && (peek() == 'b' || peek() == 'B')) {
         /* num += c;*/ advance();
         /* num += currentCharacter(); */ advance();
@@ -815,7 +739,7 @@ void Scanner::collectNumber() {
         return;
     }
 
-    // --- Octal ---
+    // Octal
     if (c == '0' && (peek() == 'o' || peek() == 'O')) {
         /*num += c;*/ advance();
         /*num += currentCharacter();*/ advance();
@@ -828,18 +752,18 @@ void Scanner::collectNumber() {
         return;
     }
 
-    // --- Decimal or Float ---
+    // Decimal/Float
     bool hasDot = false;
     while ((isDigit() || currentCharacter() == '.')  && !eof()) {
         if (currentCharacter() == '.') {
-            if (hasDot) break; // second dot → stop
+            if (hasDot) break;
             hasDot = true;
         }
         num += currentCharacter();
         advance();
     }
 
-    // --- Scientific notation ---
+    // Scientific notation
     if (currentCharacter() == 'e' || currentCharacter() == 'E') {
         num += currentCharacter();
         advance();

@@ -48,9 +48,9 @@ class TurboVM : public BaseVM<TurboVM, TurboModule, TurboChunk> {
     
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;
-        size_t ip = 0;                    // instruction pointer for this frame
-        deque<Value> locals;        // local slots for this frame
-        size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
+        size_t ip = 0;                    
+        deque<Value> locals;        
+        size_t slotsStart = 0;            
         
         vector<Value> args;
         shared_ptr<Closure> closure;
@@ -68,10 +68,8 @@ class TurboVM : public BaseVM<TurboVM, TurboModule, TurboChunk> {
 public:
     TurboVM();
     
-    // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<TurboChunk> chunk, const vector<Value>& args = {});
     
-    // Globals
     Env* env;
     EventLoop* event_loop;
 
@@ -80,11 +78,10 @@ public:
     Value callFunction(Value callee, const vector<Value>& args);
     
 private:
-    shared_ptr<TurboModule> module_ = nullptr; // set at construction or by caller
+    shared_ptr<TurboModule> module_ = nullptr; 
     
-    vector<CallFrame> callStack; // call frames stack
+    vector<CallFrame> callStack; 
     
-    // helper to pop N args into a vector (left-to-right order)
     vector<Value> popArgs(size_t count);
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     Value addCtor();
@@ -96,14 +93,12 @@ private:
 
     Upvalue* openUpvalues = nullptr;
 
-    // execute the top-most frame until it returns (OP_RETURN)
     Value runFrame(CallFrame &current_frame);
     void handleRethrow();
     bool running = true;
     vector<TryFrame> tryStack;
     deque<Value> argStack;
     
-    // execution state for a run
     CallFrame* frame;
     
     Instruction readInstruction();

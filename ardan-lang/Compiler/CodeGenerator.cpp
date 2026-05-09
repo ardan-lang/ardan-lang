@@ -365,8 +365,8 @@ R CodeGen::visitFor(ForStatement* stmt) {
     loopStack.back().loopStart = (int)cur->size();
     beginScope();
     
-    // For simplicity, translate to while:
     if (stmt->init) stmt->init->accept(*this);
+
     size_t loopStart = cur->size();
     if (stmt->test) {
         stmt->test->accept(*this);
@@ -377,12 +377,12 @@ R CodeGen::visitFor(ForStatement* stmt) {
         patchContinueStatement();
 
         if (stmt->update) stmt->update->accept(*this);
-        // loop back
+
         emitLoop((uint32_t)(cur->size() - loopStart ) + 4 + 1);
         patchJump(exitJump);
         emit(OpCode::Pop);
     } else {
-        // infinite loop
+
         stmt->body->accept(*this);
         if (stmt->update) stmt->update->accept(*this);
         emitLoop((uint32_t)(cur->size() - loopStart ) + 4 + 1);
@@ -404,8 +404,6 @@ R CodeGen::visitReturn(ReturnStatement* stmt) {
     emit(OpCode::Return);
     return true;
 }
-
-// ------------------- Expressions --------------------
 
 R CodeGen::visitBinary(BinaryExpression* expr) {
     switch (expr->op.type) {
@@ -431,13 +429,11 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
             break;
     }
 
-    // For all other operators, existing logic:
     expr->left->accept(*this);
     expr->right->accept(*this);
 
-    // Emit the appropriate operation instruction
     switch (expr->op.type) {
-        // --- Arithmetic ---
+
         case TokenType::ADD:
             emit(OpCode::Add); // stack: left, right -> left+right
             break;
@@ -457,7 +453,6 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
             emit(OpCode::Power);
             break;
 
-        // --- Comparisons ---
         case TokenType::VALUE_EQUAL:
             emit(OpCode::Equal);
             break;
@@ -483,7 +478,6 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
             emit(OpCode::GreaterThanOrEqual);
             break;
 
-        // --- Logical ---
         case TokenType::LOGICAL_AND:
             emit(OpCode::LogicalAnd);
             break;
@@ -494,7 +488,6 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
             emit(OpCode::NullishCoalescing);
             break;
 
-        // --- Bitwise ---
         case TokenType::BITWISE_AND:
             emit(OpCode::BitAnd);
             break;
@@ -533,11 +526,9 @@ R CodeGen::visitBinary(BinaryExpression* expr) {
 void CodeGen::emitAssignment(BinaryExpression* expr) {
     auto left = expr->left.get();
 
-    // Plain assignment (=)
     if (expr->op.type == TokenType::ASSIGN) {
         
         if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
-            // Try to infer name from left
             if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
                 classExpr->name = idExpr->name;
             } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
@@ -558,7 +549,7 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
         }
         
         if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
-            // Evaluate RHS first
+
             expr->right->accept(*this);
 
             // Assign to variable (local/global/class field/upvalue)
@@ -567,25 +558,20 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
             
         }
         else if (auto* member = dynamic_cast<MemberExpression*>(left)) {
-            // Assignment to property (obj.prop = ...)
 
-            // Push object first
             member->object->accept(*this);
 
             if (member->computed) {
-                // Computed property: obj[expr] = rhs
+
                 member->property->accept(*this); // push property key
 
-                // Evaluate RHS
                 expr->right->accept(*this);
 
                 emit(OpCode::SetPropertyDynamic);
             } else {
 
-                // Evaluate RHS
                 expr->right->accept(*this);
 
-                // Static property name (e.g. obj.x = rhs)
                 int nameIdx = emitConstant(Value::str(member->name.lexeme));
                 emit(OpCode::SetProperty);
                 emitUint32(nameIdx);
@@ -595,15 +581,12 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
             throw std::runtime_error("Unsupported assignment target in CodeGen");
         }
 
-        // Assignments as statements typically discard result
-
         return;
     }
 
-    // Compound assignment (+=, -=, etc.)
-    
+    // Here, we will evaluate compound assignments
+
     if (auto classExpr = dynamic_cast<ClassExpression*>(expr->right.get())) {
-        // Try to infer name from left
         if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr->left.get())) {
             classExpr->name = idExpr->name;
         } else if (auto memberExpr = dynamic_cast<MemberExpression*>(expr->left.get())) {
@@ -646,10 +629,8 @@ void CodeGen::emitAssignment(BinaryExpression* expr) {
         throw std::runtime_error("Unsupported assignment target in CodeGen");
     }
 
-    // Evaluate RHS
     expr->right->accept(*this);
 
-    // Apply compound operation
     switch (expr->op.type) {
         case TokenType::ASSIGN_ADD: emit(OpCode::Add); break;
         case TokenType::ASSIGN_MINUS: emit(OpCode::Subtract); break;
@@ -721,7 +702,6 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         
     }
     
-    // For prefix unary ops that target identifiers or members, we need special handling.
     if (expr->op.type == TokenType::INCREMENT || expr->op.type == TokenType::DECREMENT) {
         // ++x or --x
         if (auto ident = dynamic_cast<IdentifierExpression*>(expr->right.get())) {
@@ -748,6 +728,7 @@ R CodeGen::visitUnary(UnaryExpression* expr) {
         if (auto member_expr = dynamic_cast<MemberExpression*>(expr->right.get())) {
             
             if (member_expr->computed) {
+
                 // Computed: arr[i]++ or obj[prop]++
                 member_expr->object->accept(*this);     // [obj]
                 member_expr->property->accept(*this);   // [obj, key]
@@ -821,9 +802,9 @@ R CodeGen::visitNumericLiteral(NumericLiteral* expr) {
 }
 
 R CodeGen::visitStringLiteral(StringLiteral* expr) {
-    int idx = emitConstant(Value::str(expr->text)); // sets the text to the constant array
-    emit(OpCode::LoadConstant); // bytecode that indicates push constant to the stack.
-    emitUint32(idx); // the index of the constant in the constants array to push to the stack
+    int idx = emitConstant(Value::str(expr->text)); 
+    emit(OpCode::LoadConstant); 
+    emitUint32(idx); 
     return true;
 }
 
@@ -837,62 +818,9 @@ R CodeGen::visitIdentifier(IdentifierExpression* expr) {
     
 }
 
-//for (auto& arg : expr->arguments) {
-//    if (SpreadExpression* spread = dynamic_cast<SpreadExpression*>(arg.get())) {
-//        spread->expression->accept(*this); // pushes array to stack
-//        emit(OpCode::MarkSpreadArg);       // (or record in an auxiliary bitmap)
-//    } else {
-//        arg->accept(*this);                // pushes value to stack
-//        emit(OpCode::MarkNormalArg);       // (or record in bitmap as non-spread)
-//    }
-//}
-//emit(OpCode::CallWithSpread);
-//emitUint8(expr->arguments.size()); // total elements pushed (spread and non-spread)
-//emitSpreadBitmap(spread_flags);    // e.g. 0b0101 if arg2 and arg4 are spread
-
-// For CallWithSpread:
-//int argc = ...;             // number of pushed args (including spread exprs)
-//uint32_t spread_bitmap = ...; // e.g. 0b0101
-//vector<Value> final_args;
-//
-//for (int i = 0; i < argc; ++i) {
-//    Value arg = pop();
-//    bool is_spread = (spread_bitmap & (1 << (argc - 1 - i))) != 0;
-//    if (is_spread) {
-//        for (Value v : arg.asArray()) {
-//            final_args.push_back(v);
-//        }
-//    } else {
-//        final_args.push_back(arg);
-//    }
-//}
-//
-//// Reverse final_args if needed (depending on stack direction)
-//std::reverse(final_args.begin(), final_args.end());
-
-// Now, call the function with final_args...
-
-// callee | arg1 | ...a | arg2 | ...b | argc | [spread flags]
 R CodeGen::visitCall(CallExpression* expr) {
     // emit callee, then args left-to-right, then OP_CALL argc
-    
-//    if (classInfo.fields.size() > 0 && classInfo.fields.count("constructor")) {
-//        // check if this is a super() call.
-//        if (auto ident = dynamic_cast<SuperExpression*>(expr->callee.get())) {
-//            
-//            for (auto &arg : expr->arguments) {
-//                arg->accept(*this);
-//            }
-//            uint8_t argc = (uint8_t)expr->arguments.size();
-//            
-//            emit(OpCode::SuperCall);
-//            emitUint8(argc);
-//            
-//            return true;
-//            
-//        }
-//    }
-    
+        
     bool isSuperCall = false;
     if (auto ident = dynamic_cast<SuperExpression*>(expr->callee.get())) {
         isSuperCall = true;
@@ -917,29 +845,6 @@ R CodeGen::visitCall(CallExpression* expr) {
     
     compileArgument(expr->arguments, argc);
     
-//    uint32_t byte = 0;
-//    int bitIndex = 0;
-//    
-//    for (auto &arg : expr->arguments) {
-//        
-//        if (auto spreadExpr = dynamic_cast<SpreadExpression*>(arg.get())) {
-//            byte |= (1 << bitIndex);
-//        }
-//        
-//        bitIndex++;
-//        
-//        if (bitIndex == 32) {
-//            emitUint32(byte);
-//            byte = 0;
-//            bitIndex = 0;
-//        }
-//        
-//    }
-//    
-//    if (bitIndex > 0) {
-//        emitUint32(byte);
-//    }
-
     return true;
 }
 
@@ -1053,7 +958,6 @@ R CodeGen::visitConditional(ConditionalExpression* expr) {
 
 R CodeGen::visitArrowFunction(ArrowFunction* expr) {
     
-    // Create a nested CodeGen for the function body
     CodeGen nested(module_);
     nested.cur = make_shared<Chunk>();
     nested.enclosing = this;
@@ -1062,8 +966,6 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
-
-    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
 
     collectParameterInfo(expr->parameters.get(), paramNames, parameterInfos);
     
@@ -1106,13 +1008,10 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
 //
 //    }
 
-    // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
-    // Emit parameter initialization logic
     emitParameterInitializationLogic(nested, paramNames, parameterInfos);
     
-    // Compile function body
     if (expr->exprBody) {
         expr->exprBody->accept(nested);
         nested.emit(OpCode::Return);
@@ -1139,7 +1038,6 @@ R CodeGen::visitArrowFunction(ArrowFunction* expr) {
         
     }
 
-    // Register chunk & emit as constant
     auto fnChunk = nested.cur;
     fnChunk->arity = (uint32_t)paramNames.size();
 
@@ -1193,7 +1091,6 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
     vector<string> paramNames;
     vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : expr->params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
@@ -1237,13 +1134,10 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
         
     }
 
-    // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
-    // Emit parameter initialization logic
     emitParameterInitializationLogic(nested, paramNames, parameterInfos);
 
-    // Compile function body
     if (expr->body) {
         expr->body->accept(nested);
         // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
@@ -1266,7 +1160,6 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
     }
 
-    // Register chunk & emit as constant
     auto fnChunk = nested.cur;
     fnChunk->arity = (uint32_t)paramNames.size();
 
@@ -1287,7 +1180,6 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 
     ClosureInfo closure_info = { (uint8_t)ci, nested.upvalues };
 
-    // Emit upvalue descriptors
     for (auto& uv : nested.upvalues) {
         emitUint8(uv.isLocal ? 1 : 0);
         emitUint8(uv.index);
@@ -1303,7 +1195,7 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 }
 
 R CodeGen::visitFunction(FunctionDeclaration* stmt) {
-    // Create a nested code generator for the function body
+
     CodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
@@ -1313,7 +1205,6 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (name, hasDefault, defaultExpr, isRest)
     for (auto& param : stmt->params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
@@ -1351,13 +1242,10 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
         
     }
 
-    // Allocate local slots for parameters
     nested.resetLocalsForFunction((uint32_t)paramNames.size(), paramNames);
 
-    // Emit parameter initialization logic
     emitParameterInitializationLogic(nested, paramNames, parameterInfos);
 
-    // Compile function body
     if (stmt->body) {
         stmt->body->accept(nested);
         // TODO: walk the body ast to ensure OP_RETURN is emitted at the end if not emitted
@@ -1415,17 +1303,15 @@ R CodeGen::visitFunction(FunctionDeclaration* stmt) {
 
     closure_infos[to_string(ci)] = closure_info;
     
-    // disassemble the chunk for debugging
     disassembleChunk(nested.cur.get(), stmt->id/*nested.cur->name*/);
 
     return true;
 }
 
 R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
-    // produce string by concatenating quasis and evaluated expressions.
-    // Simple approach: compute at runtime building string.
-    // push empty string
+
     int emptyIdx = emitConstant(Value::str(""));
+
     emit(OpCode::LoadConstant);
     emitUint32(emptyIdx);
 
@@ -1433,12 +1319,12 @@ R CodeGen::visitTemplateLiteral(TemplateLiteral* expr) {
     size_t esize = expr->expressions.size();
 
     for (size_t i = 0; i < qsize; ++i) {
-        // push quasi
+
         int qi = emitConstant(Value::str(expr->quasis[i]->text));
         emit(OpCode::LoadConstant);
         emitUint32(qi);
         emit(OpCode::Add);
-        // if expression exists
+
         if (i < esize) {
             expr->expressions[i]->accept(*this);
             emit(OpCode::Add);
@@ -1463,7 +1349,6 @@ string CodeGen::resolveImportPath(ImportDeclaration* stmt) {
     
     namespace fs = std::filesystem;
     
-    // dir of the file that contained the import
     fs::path baseDir = fs::path(stmt->sourceFile).parent_path();
     
     string raw = stmt->path.lexeme;
@@ -1637,7 +1522,6 @@ R CodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
 R CodeGen::visitAwaitExpression(AwaitExpression* expr) {
     // Evaluate argument
     //expr->argument->accept(*this);
-    // Call a built-in 'await' handler or emit await-specific opcode, e.g.:
     //emit(OpCode::OP_AWAIT);
     return true;
 }
@@ -1710,7 +1594,6 @@ R CodeGen::visitNew(NewExpression* expr) {
 
 void CodeGen::compileMethod(MethodDefinition& method) {
     
-    // Create a nested CodeGen for the method body (closure)
     CodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = std::make_shared<Chunk>();
@@ -1721,7 +1604,6 @@ void CodeGen::compileMethod(MethodDefinition& method) {
     std::vector<std::string> paramNames;
     std::vector<ParameterInfo> parameterInfos;
 
-    // Collect parameter info (from method.params)
     for (auto& param : method.params) {
         
         collectParameterInfo(param.get(), paramNames, parameterInfos);
@@ -1783,7 +1665,6 @@ void CodeGen::compileMethod(MethodDefinition& method) {
         }
     }
 
-    // Register the method function as a constant for this module
     auto fnChunk = nested.cur;
     fnChunk->arity = (uint32_t)paramNames.size();
     uint32_t chunkIndex = module_->addChunk(fnChunk);
@@ -1814,7 +1695,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         
     classInfo.name = stmt->id;
 
-    // Evaluate superclass (if any)
     if (stmt->superClass) {
         stmt->superClass->accept(*this); // [superclass]
         
@@ -1829,7 +1709,6 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
         emitUint32(emitConstant(Value::nullVal())); // or Value::undefined()
     }
 
-    // Create the class object (with superclass on stack)
     emit(OpCode::NewClass); // pops superclass, pushes new class object
 
     // Define fields
@@ -1995,9 +1874,8 @@ R CodeGen::visitClass(ClassDeclaration* stmt) {
 
     }
 
-    // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
-        // Compile the method as a function object
+
         compileMethod(*method); // leaves function object on stack
 
         // Get name of method
@@ -2112,12 +1990,12 @@ R CodeGen::visitDoWhile(DoWhileStatement* stmt) {
 }
 
 R CodeGen::visitSwitchCase(SwitchCase* stmt) {
-    // Each case's test should have already been checked in visitSwitch
-    // Emit the body of this case
+
     for (auto& s : stmt->consequent) {
         s->accept(*this);
         
     }
+
     return true;
 }
 
@@ -2129,19 +2007,16 @@ R CodeGen::visitSwitch(SwitchStatement* stmt) {
     std::vector<int> caseJumps;
     int defaultJump = -1;
 
-    // Evaluate the discriminant and leave on stack
     stmt->discriminant->accept(*this);
 
-    // Emit checks for each case
     for (size_t i = 0; i < stmt->cases.size(); ++i) {
         SwitchCase* scase = stmt->cases[i].get();
         if (scase->test) {
-            // Duplicate discriminant for comparison
+
             emit(OpCode::Dup);
             scase->test->accept(*this);
             emit(OpCode::Equal);
 
-            // If not equal, jump to next
             int jump = emitJump(OpCode::JumpIfFalse);
             emit(OpCode::Pop); // pop comparison result
 
@@ -2151,16 +2026,15 @@ R CodeGen::visitSwitch(SwitchStatement* stmt) {
             caseJumps.push_back(emitJump(OpCode::Jump));
             patchJump(jump);
         } else {
-            // Default case: remember its position
+
             defaultJump = (int)cur->size();
-            // pop discriminant for default
+
             emit(OpCode::Pop);
             scase->accept(*this);
-            // No jump needed after default
+
         }
     }
 
-    // Patch all jumps to here (after switch body)
     for (int jmp : caseJumps) {
         patchJump(jmp);
     }
@@ -2189,16 +2063,13 @@ R CodeGen::visitTry(TryStatement* stmt) {
 
     int endJump = -1;
 
-    // If there's a catch, emit jump over it for normal completion
     if (stmt->handler) {
         endJump = emitJump(OpCode::Jump);
 
-        // Patch catch offset
         patchTryCatch(tryPos, (int)cur->size());
 
         beginScope();
         
-        // Bind catch parameter (VM leaves exception value on stack)
         declareLocal(stmt->handler->param, BindingKind::Var);
         emitSetLocal(paramSlot(stmt->handler->param));
 
@@ -2208,12 +2079,10 @@ R CodeGen::visitTry(TryStatement* stmt) {
         
     }
 
-    // Jump over finally if we had a catch
     if (endJump != -1) {
         patchJump(endJump);
     }
 
-    // If there's a finally, patch and emit it
     if (stmt->finalizer) {
         patchTryFinally(tryPos, (int)cur->size());
 
@@ -2232,11 +2101,11 @@ R CodeGen::visitForIn(ForInStatement* stmt) {
     // loop through the keys of the object
     beginScope();
     stmt->init->accept(*this);
-    // load object to stack
+
     stmt->object->accept(*this);
     
     emit(OpCode::Dup);
-    // get keys of object
+
     emit(OpCode::EnumKeys);
     uint32_t keys_slot = makeLocal("__for_in_keys", BindingKind::Let);
     emit(OpCode::StoreLocalLet);

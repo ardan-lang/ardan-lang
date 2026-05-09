@@ -15,12 +15,10 @@
 enum class OpCode : uint8_t {
     Nop = 0,
 
-    // Constants & stack
     LoadConstant,        // u32 constant index -> push constant
     Pop,                 // pop top of stack
     Dup,                 // duplicate top of stack
 
-    // Locals / Globals
     LoadLocal,           // push locals[index]
     StoreLocal,          // pop -> locals[index] (push value back)
     LoadGlobal,          // push globals[name]
@@ -60,7 +58,6 @@ enum class OpCode : uint8_t {
     CreateEnum,
     SetEnumProperty,
 
-    // Object / Array
     NewObject,           // push new empty object
     SetProperty,         // u32 constname -> pop value, obj; set obj[name] = value
     GetProperty,         // u32 constname -> pop obj; push obj[name]
@@ -68,7 +65,6 @@ enum class OpCode : uint8_t {
     NewArray,            // push new empty array
     ArrayPush,           // pop value, arr; arr.push(value); push arr
 
-    // Arithmetic / Unary
     Add,
     Subtract,
     Multiply,
@@ -79,7 +75,6 @@ enum class OpCode : uint8_t {
     Negate,
     LogicalNot,
 
-    // Comparisons
     Equal,
     NotEqual,
     LessThan,
@@ -96,7 +91,6 @@ enum class OpCode : uint8_t {
     Increment,
     Decrement,
 
-    // Bitwise
     BitAnd,
     BitOr,
     BitXor,
@@ -106,12 +100,10 @@ enum class OpCode : uint8_t {
     
     Positive,
 
-    // Jumps
     Jump,                // u32 offset (forward)
     JumpIfFalse,         // u32 offset (forward)
     Loop,                // u32 offset (backward)
 
-    // Calls & returns
     Call,                // u8 arg_count
     Return,              // pop & return top of stack
 
@@ -120,35 +112,29 @@ enum class OpCode : uint8_t {
     Dup2,                // duplicate top 2 values
     SetPropertyDynamic,  // pop value, key, obj; set obj[key] = value
 
-    // Classes
     NewClass,
 
-    // Exception handling
     Try,
     EndTry,
     EndFinally,
     Throw,
 
-    // Object utilities
     EnumKeys,
     GetObjectLength,
     GetIndexPropertyDynamic,
     Debug,
 
-    // Chunk / arguments
     LoadChunkIndex,
     LoadArgument,
     LoadArguments,
     Slice,
     LoadArgumentsLength,
 
-    // Closures
     CreateClosure,
     GetUpvalue,
     SetUpvalue,
     CloseUpvalue,
 
-    // Misc
     ClearStack,
     ClearLocals,
 
@@ -188,7 +174,6 @@ enum class OpCode : uint8_t {
     ArraySpread,
     ObjectSpread,
 
-    // Debug / Sentinel
     Halt
 };
 

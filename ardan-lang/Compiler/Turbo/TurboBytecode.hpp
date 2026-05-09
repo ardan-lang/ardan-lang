@@ -63,7 +63,6 @@ enum class TurboOpCode : uint8_t {
     Increment,
     Decrement,
 
-    // Bitwise
     BitAnd,
     BitOr,
     BitXor,
@@ -119,27 +118,23 @@ enum class TurboOpCode : uint8_t {
     CreateClassPrivateMethod,
     CreateClassPublicMethod,
 
-    // Exception handling
     Try,
     EndTry,
     EndFinally,
     Throw,
     LoadExceptionValue,
 
-    // Object utilities
     EnumKeys,
     GetObjectLength,
     GetIndexPropertyDynamic,
     Debug,
 
-    // Chunk / arguments
     LoadChunkIndex,
     LoadArgument,
     LoadArguments,
     Slice,
     LoadArgumentsLength,
 
-    // Closures
     CreateClosure,
     SetClosureIsLocal,
     SetClosureIndex,
@@ -152,7 +147,6 @@ enum class TurboOpCode : uint8_t {
     StoreUpvalueLet,
     StoreUpvalueConst,
 
-    // Misc
     ClearStack,
     ClearLocals,
 

@@ -191,8 +191,8 @@ public:
     R visitComma(CommaExpression *expr) override;
 
 private:
-    shared_ptr<Chunk> cur; // current chunk being emitted
-    // locals map for current function: name -> slot index
+    shared_ptr<Chunk> cur; 
+
     vector<Local> locals;
     vector<Global> globals;
     uint32_t nextLocalSlot = 0;
@@ -210,7 +210,6 @@ private:
     
     int resolveLocal(const std::string& name);
     
-    // helpers
     void emit(OpCode op);
     void emitUint32(uint32_t v);
     void emitUint8(uint8_t v);
@@ -229,7 +228,6 @@ private:
     void emitSetLocal(int slot);
     int paramSlot(const string& name);
     
-    // jump helpers
     int emitJump(OpCode op);
     void patchJump(int jumpPos);
     void patchJump(int jumpPos, int target);

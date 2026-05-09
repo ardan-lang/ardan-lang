@@ -39,7 +39,6 @@ void WriteArdarFile::writing() {
     
     writeU32(entryChunkIndex);
 
-    // Write chunks
     writeU32(static_cast<uint32_t>(module_->chunks.size()));
     for (const auto& chunkPtr : module_->chunks) {
         const auto& chunk = *chunkPtr;
@@ -78,7 +77,6 @@ void WriteArdarFile::writing() {
         writeU32(static_cast<uint32_t>(chunk.maxLocals));
     }
 
-    // Write constants
     writeU32(static_cast<uint32_t>(module_->constants.size()));
     for (const auto& v : module_->constants) {
         writeU8(static_cast<uint8_t>(v.type));
@@ -108,20 +106,17 @@ void WriteArdarFile::writing() {
 }
 
 void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
-    writeMagic("ARDAR-TURBO"); // 11 bytes, or adjust to fit your needs (and change writeMagic if needed)
+    writeMagic("ARDAR-TURBO");
     
     writeU32(turboModule->version);
     writeU32(turboModule->entryChunkIndex);
     
-    // Write chunks
     writeU32(static_cast<uint32_t>(turboModule->chunks.size()));
     for (const auto& chunkPtr : turboModule->chunks) {
         const auto& chunk = *chunkPtr;
         
-        // Write code size (number of instructions)
         writeU32(static_cast<uint32_t>(chunk.code.size()));
         
-        // Write each instruction as 4 bytes
         for (const auto& instr : chunk.code) {
             writeU8(static_cast<uint8_t>(instr.op));
             writeU8(instr.a);
@@ -129,7 +124,6 @@ void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
             writeU8(instr.c);
         }
         
-        // Write constants
         writeU32(static_cast<uint32_t>(chunk.constants.size()));
         for (const auto& v : chunk.constants) {
             writeU8(static_cast<uint8_t>(v.type));
@@ -155,13 +149,11 @@ void WriteArdarFile::writingTurbo(const TurboModule* turboModule) {
             }
         }
         
-        // Metadata for function/script
         writeU32(chunk.arity);
         writeString(chunk.name);
         writeU32(chunk.maxLocals);
     }
     
-    // Write global constants pool
     writeU32(static_cast<uint32_t>(turboModule->constants.size()));
     for (const auto& v : turboModule->constants) {
         writeU8(static_cast<uint8_t>(v.type));

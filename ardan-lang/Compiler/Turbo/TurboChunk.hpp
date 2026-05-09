@@ -36,10 +36,9 @@ struct TurboChunk {
     vector<Instruction> code;
     vector<Value> constants;
     
-    // metadata for functions
-    uint32_t maxLocals = 0;   // number of local slots required
-    uint32_t arity = 0;       // parameter count (for functions)
-    string name;              // optional: function/script name
+    uint32_t maxLocals = 0;   
+    uint32_t arity = 0;       
+    string name;              
     
     int addConstant(const Value &v);
     

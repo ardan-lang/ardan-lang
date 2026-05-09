@@ -12,8 +12,8 @@
 #include "TurboChunk.hpp"
 
 struct TurboModule {
-    vector<shared_ptr<TurboChunk>> chunks;      // all compiled function chunks
-    vector<Value> constants;               // constant pool
+    vector<shared_ptr<TurboChunk>> chunks;     
+    vector<Value> constants;               
     uint32_t entryChunkIndex;
     uint32_t version;
     

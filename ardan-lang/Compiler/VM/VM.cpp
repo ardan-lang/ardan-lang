@@ -520,7 +520,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                     frame->locals.resize(idx + 1, Value::undefined());
                 }
                 frame->locals[idx] = val;
-                //push(val);
                 break;
             }
 
@@ -1979,11 +1978,11 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
 
         shared_ptr<Chunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
         
-        // Build new frame
+        // new frame
         CallFrame new_frame;
         new_frame.chunk = calleeChunk;
         new_frame.ip = 0;
-        // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
+
         new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
         new_frame.args = args;
         new_frame.closure = callee.closureValue;
@@ -2031,7 +2030,6 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
     CallFrame new_frame;
     new_frame.chunk = calleeChunk;
     new_frame.ip = 0;
-    // allocate locals sized to the chunk's max locals (some chunks use maxLocals)
     new_frame.locals.resize(calleeChunk->maxLocals, Value::undefined());
     new_frame.args = args;
     
@@ -2044,7 +2042,6 @@ Value VM::callFunction(Value callee, const vector<Value>& args) {
     uint32_t ncopy = std::min<uint32_t>((uint32_t)args.size(), calleeChunk->maxLocals);
     for (uint32_t i = 0; i < ncopy; ++i) new_frame.locals[i] = args[i];
 
-    // push frame and execute it
     callStack.push_back(std::move(new_frame));
 
     Value result = runFrame(callStack.back());
@@ -2065,7 +2062,6 @@ vector<Value> VM::popArgs(size_t count) {
         spreadMasks[i] = readUint32();
     }
 
-    // Pop raw args (top of stack = last arg)
     vector<Value> rawArgs;
     rawArgs.reserve(count);
     for (size_t i = 0; i < count; ++i) {
@@ -2074,10 +2070,8 @@ vector<Value> VM::popArgs(size_t count) {
         stack.pop_back();
     }
 
-    // Reverse to get left-to-right order
     std::reverse(rawArgs.begin(), rawArgs.end());
 
-    // Expand spreads
     vector<Value> finalArgs;
     finalArgs.reserve(count * 2);
     for (size_t i = 0; i < count; ++i) {

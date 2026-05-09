@@ -12,7 +12,7 @@
 #include "Chunk.hpp"
 
 struct Module {
-    vector<shared_ptr<Chunk>> chunks;      // all compiled function chunks
+    vector<shared_ptr<Chunk>> chunks;      
     vector<Value> constants;               // constant pool
     uint32_t entryChunkIndex;
     uint32_t version;

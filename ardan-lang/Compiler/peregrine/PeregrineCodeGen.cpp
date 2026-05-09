@@ -1827,14 +1827,11 @@ int PeregrineCodeGen::compileMethod(MethodDefinition& method) {
             
             int setLocalJump = nested.emitJump(TurboOpCode::Jump);
             
-            // Use default
             nested.patchJump(useArg);
             
-            // Evaluate default expression (can reference previous params!)
             int default_expr_reg = get<int>(info.defaultExpr->accept(nested));
             nested.emit(TurboOpCode::Move, store_reg, default_expr_reg);
             
-            // Set local either way
             nested.patchSingleJump(setLocalJump);
 
             nested.store(info.name, store_reg);
@@ -1847,7 +1844,6 @@ int PeregrineCodeGen::compileMethod(MethodDefinition& method) {
             
         } else {
             
-            // Direct: assign argument i to local slot
             
             int reg = nested.allocRegister();
             nested.declareVariableScoping(info.name, BindingKind::Let);
@@ -1862,7 +1858,6 @@ int PeregrineCodeGen::compileMethod(MethodDefinition& method) {
         }
     }
 
-    // Compile the method body
     if (method.methodBody) {
         method.methodBody->accept(nested);
         // Ensure OP_RETURN is emitted
@@ -1931,7 +1926,6 @@ R PeregrineCodeGen::visitClass(ClassDeclaration* stmt) {
         
     classInfo.name = stmt->id;
 
-    // Evaluate superclass (if any)
     int super_class_reg = allocRegister();
     if (stmt->superClass) {
         
@@ -1947,7 +1941,6 @@ R PeregrineCodeGen::visitClass(ClassDeclaration* stmt) {
         emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
     }
 
-    // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->id)));
 
     BindingKind classBinding = BindingKind::Let;
@@ -1956,7 +1949,6 @@ R PeregrineCodeGen::visitClass(ClassDeclaration* stmt) {
     declareGlobal(stmt->id, classBinding);
     create(stmt->id, super_class_reg, classBinding);
 
-    // Define fields
     // A field can be var, let, const. private, public, protected
     for (auto& field : stmt->fields) {
         bool isStatic = false;
@@ -2121,7 +2113,6 @@ R PeregrineCodeGen::visitClass(ClassDeclaration* stmt) {
 
     }
 
-    // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
         
         bool isStatic = false;
@@ -2211,7 +2202,6 @@ R PeregrineCodeGen::visitClassExpression(ClassExpression* stmt) {
     
     classInfo.name = stmt->name;
     
-    // Evaluate superclass (if any)
     int super_class_reg = allocRegister();
     if (stmt->superClass) {
         
@@ -2227,14 +2217,12 @@ R PeregrineCodeGen::visitClassExpression(ClassExpression* stmt) {
         emit(TurboOpCode::LoadConst, super_class_reg, emitConstant(Value::nullVal()));
     }
     
-    // Create the class object (with superclass on stack)
     emit(TurboOpCode::NewClass, super_class_reg, emitConstant(Value::str(stmt->name)));
     
     // declareLocal(stmt->id);
     // declareGlobal(stmt->id, BindingKind::Var);
     // create(stmt->id, super_class_reg, BindingKind::Var);
     
-    // Define fields
     // A field can be var, let, const. private, public, protected
     for (auto& field : stmt->fields) {
         bool isStatic = false;
@@ -2399,7 +2387,6 @@ R PeregrineCodeGen::visitClassExpression(ClassExpression* stmt) {
         
     }
     
-    // Define methods (attach to class or prototype as appropriate)
     for (auto& method : stmt->body) {
         
         bool isStatic = false;
@@ -2422,8 +2409,7 @@ R PeregrineCodeGen::visitClassExpression(ClassExpression* stmt) {
             }
         }
         
-        // Compile the method as a function object
-        int method_reg = compileMethod(*method); // leaves function object on reg
+        int method_reg = compileMethod(*method);
         
         // Get name of method
         int nameIdx = emitConstant(Value::str(method->name));
@@ -2490,16 +2476,12 @@ R PeregrineCodeGen::visitDoWhile(DoWhileStatement* stmt) {
     beginScope();
     loopStack.back().loopStart = (int)cur->size();
     
-    // Mark loop start
     size_t loopStart = cur->code.size();
     
-    // Compile loop body
     stmt->body->accept(*this);
 
-    // Compile the condition
     int cond_reg = get<int>(stmt->condition->accept(*this));
 
-    // Jump back to loop start if condition is true
     int condJump = emitJump(TurboOpCode::JumpIfFalse, cond_reg);
     
     if (loopStack.back().continues.size() > 0) {
@@ -2510,10 +2492,8 @@ R PeregrineCodeGen::visitDoWhile(DoWhileStatement* stmt) {
         loopStack.back().continues.clear();
     }
 
-    // Emit loop back
     emitLoop((int)loopStart);
 
-    // Patch the jump to after the loop if condition is false
     patchJump(condJump);
     
     endScope();
@@ -2540,35 +2520,30 @@ R PeregrineCodeGen::visitSwitch(SwitchStatement* stmt) {
     vector<int> caseJumps;
     int defaultJump = -1;
 
-    // Evaluate the discriminant and leave on register
     int discriminant_reg = get<int>(stmt->discriminant->accept(*this));
 
-    // Emit checks for each case
     for (size_t i = 0; i < stmt->cases.size(); ++i) {
         SwitchCase* scase = stmt->cases[i].get();
         if (scase->test) {
-            // Duplicate discriminant for comparison
+
             int test_reg = get<int>(scase->test->accept(*this));
             emit(TurboOpCode::Equal, test_reg, test_reg, discriminant_reg);
 
-            // If not equal, jump to next
             int jump = emitJump(TurboOpCode::JumpIfFalse, test_reg);
 
-            // If equal, emit case body, and jump to end
             scase->accept(*this);
             caseJumps.push_back(emitJump(TurboOpCode::Jump));
             
             patchJump(jump);
             
         } else {
-            // Default case: remember its position
+
             defaultJump = (int)cur->size();
             scase->accept(*this);
-            // No jump needed after default
+
         }
     }
 
-    // Patch all jumps to here (after switch body)
     for (int jmp : caseJumps) {
         patchSingleJump(jmp);
     }
@@ -2595,30 +2570,25 @@ R PeregrineCodeGen::visitTry(TryStatement* stmt) {
     
     beginScope();
     
-    // Mark start of try
     int ex_val_reg = allocRegister();
     int tryPos = emitTryPlaceholder();
     patchTry(tryPos, ex_val_reg);
     
-    // Compile try block
     stmt->block->accept(*this);
 
-    // End of try
     emit(TurboOpCode::EndTry);
 
     endScope();
     
     int endJump = -1;
 
-    // If there's a catch, emit jump over it for normal completion
     if (stmt->handler) {
         endJump = emitJump(TurboOpCode::Jump);
-        // Patch catch offset
+
         patchTryCatch(tryPos, (int)cur->code.size() - 1);
 
         beginScope();
         
-        // Bind catch parameter
         declareVariableScoping(stmt->handler->param, BindingKind::Let);
         create(stmt->handler->param, ex_val_reg, BindingKind::Let);
         int idx = emitConstant(Value::str(stmt->handler->param));
@@ -2630,12 +2600,10 @@ R PeregrineCodeGen::visitTry(TryStatement* stmt) {
 
     }
 
-    // Jump over finally if we had a catch
     if (endJump != -1) {
         patchSingleJump(endJump);
     }
 
-    // If there's a finally, patch and emit it
     if (stmt->finalizer) {
         patchTryFinally(tryPos, (int)cur->code.size() - 1);
         beginScope();
@@ -2656,14 +2624,11 @@ R PeregrineCodeGen::visitForIn(ForInStatement* stmt) {
 
     stmt->init->accept(*this);
     
-    // Evaluate the object to iterate
     int objReg = get<int>(stmt->object->accept(*this));
     int keysReg = allocRegister();
 
-    // Get keys array (assumes builtin/function to get keys)
     emit(TurboOpCode::EnumKeys, keysReg, objReg);
 
-    // Prepare index and length
     int idxReg = allocRegister();
     emit(TurboOpCode::LoadConst, idxReg, emitConstant(Value(0)));
 
@@ -2677,7 +2642,6 @@ R PeregrineCodeGen::visitForIn(ForInStatement* stmt) {
     emit(TurboOpCode::LessThan, condReg, idxReg, lenReg);
     int breakJump = emitJump(TurboOpCode::JumpIfFalse, condReg);
 
-    // Get current key: key = keys[idx]
     int keyReg = allocRegister();
     emit(TurboOpCode::GetPropertyDynamic, keyReg, keysReg, idxReg);
 
@@ -2706,13 +2670,12 @@ R PeregrineCodeGen::visitForIn(ForInStatement* stmt) {
     
     if (isLexical) {
         emit(TurboOpCode::PushLexicalEnv);
-        // copy iteration binding
+
         int idx = emitConstant(Value::str(name));
         emit(TurboOpCode::CopyIterationBinding, idx);
         
     }
 
-    // Loop body
     stmt->body->accept(*this);
     
     if (isLexical) {
@@ -2734,10 +2697,8 @@ R PeregrineCodeGen::visitForIn(ForInStatement* stmt) {
     emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
     emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
 
-    // Jump to loop start
     emitLoop(loopStart);
 
-    // Patch break
     patchJump(breakJump, (int)cur->code.size());
 
     // Free registers
@@ -2762,18 +2723,14 @@ R PeregrineCodeGen::visitForOf(ForOfStatement* stmt) {
     // let k
     stmt->left->accept(*this);
     
-    // Evaluate the iterable
     int arrReg = get<int>(stmt->right->accept(*this));
 
-    // Get length
     int lenReg = allocRegister();
     emit(TurboOpCode::GetObjectLength, lenReg, arrReg);
 
-    // Index register
     int idxReg = allocRegister();
     emit(TurboOpCode::LoadConst, idxReg, emitConstant(Value(0)));
 
-    // Loop start
     int loopStart = (int)cur->code.size();
 
     // if (idx >= len) break;
@@ -2788,7 +2745,6 @@ R PeregrineCodeGen::visitForOf(ForOfStatement* stmt) {
     bool isLexical = false;
     string name;
     
-    // Assign element to loop variable
     if (auto* ident = dynamic_cast<IdentifierExpression*>(stmt->left.get())) {
         store(ident->name, elemReg);
     } else if (auto* var_stmt = dynamic_cast<VariableStatement*>(stmt->left.get())) {
@@ -2809,13 +2765,12 @@ R PeregrineCodeGen::visitForOf(ForOfStatement* stmt) {
     
     if (isLexical) {
         emit(TurboOpCode::PushLexicalEnv);
-        // copy iteration binding
+
         int idx = emitConstant(Value::str(name));
         emit(TurboOpCode::CopyIterationBinding, idx);
         
     }
 
-    // Loop body
     stmt->body->accept(*this);
     
     if (isLexical) {
@@ -2839,10 +2794,8 @@ R PeregrineCodeGen::visitForOf(ForOfStatement* stmt) {
     emit(TurboOpCode::LoadConst, incr_const_reg, emitConstant(Value(1)));
     emit(TurboOpCode::Add, idxReg, idxReg, incr_const_reg);
 
-    // Jump back
     emitLoop(loopStart);
 
-    // Patch break
     patchJump(breakJump, (int)cur->code.size());
 
     // Free registers
@@ -2966,8 +2919,6 @@ R PeregrineCodeGen::visitUIExpression(UIViewExpression* expr) {
     
 }
 
-// Utils
-
 void PeregrineCodeGen::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
                           vector<ParameterInfo>& parameterInfos
 ) {
@@ -3077,13 +3028,12 @@ string PeregrineCodeGen::evaluate_property(Expression* expr) {
     throw std::runtime_error("Unsupported expression type in evaluate_property");
 }
 
-// Try: catchOffset, finallyOffset, exception register
 int PeregrineCodeGen::emitTryPlaceholder() {
     emit(TurboOpCode::Try);
 
     int pos = (int)cur->size() - 1;
 
-    return pos; // return position where we wrote the offsets
+    return pos; 
     
 }
 
@@ -3134,19 +3084,17 @@ void PeregrineCodeGen::emitLoop(uint32_t loopStart) {
 }
 
 int PeregrineCodeGen::emitJump(TurboOpCode op, int cond_reg = 0) {
-    // Reserve space, return jump location to patch
-    // Implementation depends on code buffer layout
-    // Emit the jump instruction with placeholder offset
-    // We'll patch .b later to hold the actual jump offset
-    Instruction instr(op, (uint8_t)cond_reg, 0, 0); // b is offset placeholder
+    Instruction instr(op, (uint8_t)cond_reg, 0, 0);
+    // b is the offset and will be patched later
     cur->code.push_back(instr);
-    return (int)cur->code.size() - 1; // Return index of this jump instruction
+    return (int)cur->code.size() - 1;
 }
 
 int PeregrineCodeGen::emitJump(TurboOpCode op) {
     Instruction instr(op, 0, 0, 0); // a is offset placeholder
+    // a will be patched later
     cur->code.push_back(instr);
-    return (int)cur->code.size() - 1; // Return index of this jump instruction
+    return (int)cur->code.size() - 1;
 }
 
 // for TurboCode::JumpIfFalse
@@ -3167,8 +3115,6 @@ void PeregrineCodeGen::patchSingleJump(int jumpPos) {
     int offset = ((int)cur->code.size() - 1 ) - (jumpPos);
     cur->code[jumpPos].a = (uint8_t)offset;
 }
-
-// Lookup helpers
 
 void PeregrineCodeGen::beginScope() {
     emit(TurboOpCode::PushLexicalEnv);
@@ -3294,7 +3240,6 @@ size_t PeregrineCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t 
     const Instruction& instr = chunk->code[offset];
     std::cout << std::setw(4) << offset << " ";
 
-    // Print opcode name
     std::string opName;
     switch (instr.op) {
         case TurboOpCode::Nop: opName = "Nop"; break;
@@ -3409,18 +3354,15 @@ size_t PeregrineCodeGen::disassembleInstruction(const TurboChunk* chunk, size_t 
         case TurboOpCode::Await: opName = "Await"; break;
 
 
-        // Add more opcodes as needed
         default: opName = "Unknown"; break;
     }
 
     std::cout << std::left << std::setw(20) << opName;
 
-    // Print operands
     std::cout << " a: " << (int)instr.a
               << " b: " << (int)instr.b
               << " c: " << (int)instr.c;
 
-    // For LoadConst, print constant value
     if ((instr.op == TurboOpCode::LoadConst || instr.op == TurboOpCode::LoadGlobalVar || instr.op == TurboOpCode::LoadLocalVar) && instr.b < chunk->constants.size()) {
         std::cout << " [const: " << chunk->constants[instr.b].toString() << "]";
     }

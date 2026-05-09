@@ -14,7 +14,6 @@
 #include <stdexcept>
 #include <iostream>
 
-
 #include "../../ExpressionVisitor/ExpressionVisitor.hpp"
 #include "../../Statements/StatementVisitor.hpp"
 #include "../../Statements/Statements.hpp"
@@ -130,7 +129,7 @@ class PeregrineCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
 private:
-    shared_ptr<TurboChunk> cur; // current chunk being emitted
+    shared_ptr<TurboChunk> cur; 
     PeregrineCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
     R store(string decl, uint32_t reg_slot);
@@ -140,7 +139,6 @@ private:
     TurboOpCode getBinaryOp(const Token& op);
     RegisterAllocator* registerAllocator = new RegisterAllocator();
     
-    // helpers
     TurboOpCode getUnaryOp(const Token& op);
     string resolveImportPath(ImportDeclaration* stmt);
     bool isModuleLoaded(string importPath);

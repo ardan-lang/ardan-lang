@@ -44,6 +44,15 @@ PeregrineVM::~PeregrineVM() {
     
 }
 
+void PeregrineVM::init_gui() {
+    env->set_var("Window", make_shared<Window>());
+    env->set_var("Button", make_shared<Button>());
+    env->set_var("View", make_shared<View>());
+    env->set_var("Text", make_shared<Text>());
+    env->set_var("VStack", make_shared<VStack>());
+    env->set_var("HStack", make_shared<HStack>());
+}
+
 void PeregrineVM::init_builtins() {
 
     env = new Env();
@@ -66,12 +75,7 @@ void PeregrineVM::init_builtins() {
         return Value::nullVal();
     }));
     
-    env->set_var("Window", make_shared<Window>());
-    env->set_var("Button", make_shared<Button>());
-    env->set_var("View", make_shared<View>());
-    env->set_var("Text", make_shared<Text>());
-    env->set_var("VStack", make_shared<VStack>());
-    env->set_var("HStack", make_shared<HStack>());
+    // initialize GUI here
     
     ExecutionContext* ctx = new ExecutionContext();
     ctx->lexicalEnv = make_shared<Env>(env);
