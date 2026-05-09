@@ -4,6 +4,7 @@
 //
 //  Created by Chidume Nnamdi on 19/09/2025.
 //
+// StackClosureVM: Stack-based + Upvalues
 
 #include "CodeGenerator.hpp"
 
@@ -37,8 +38,6 @@ size_t CodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     
     return idx;
 }
-
-// ------------------- Statements --------------------
 
 R CodeGen::visitExpression(ExpressionStatement* stmt) {
     stmt->expression->accept(*this);
@@ -3304,7 +3303,6 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1;
         }
             
-            // jumps
         case OpCode::Jump:
         case OpCode::JumpIfFalse:
         case OpCode::Loop: {
@@ -3314,7 +3312,6 @@ size_t CodeGen::disassembleInstruction(const Chunk* chunk, size_t offset) {
             return offset + 1 + 4;
         }
             
-//            // calls
 //        case OpCode::InvokeConstructor:
 //        case OpCode::SuperCall:
 //        case OpCode::Call: {

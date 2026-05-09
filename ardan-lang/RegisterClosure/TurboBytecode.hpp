@@ -46,7 +46,6 @@ enum class TurboOpCode : uint8_t {
     Negate,
     LogicalNot,
 
-    // Comparisons
     Equal,
     NotEqual,
     LessThan,

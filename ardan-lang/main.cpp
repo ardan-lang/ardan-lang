@@ -593,8 +593,8 @@ void test() {
 
 int main(int argc, const char * argv[]) {
     
-    test();
-    return 0;
+    // test();
+    // return 0;
     
     bool interpret = false;
     bool compile = false;

@@ -4,6 +4,7 @@
 //
 //  Created by Chidume Nnamdi on 01/11/2025.
 //
+// I think it was meant to be Register, Context
 
 #include "PeregrineCodeGen.hpp"
 #include <memory>
@@ -403,7 +404,7 @@ R PeregrineCodeGen::visitReturn(ReturnStatement* stmt) {
 TurboOpCode PeregrineCodeGen::getBinaryOp(const Token& op) {
     
     switch (op.type) {
-            // --- Arithmetic ---
+
         case TokenType::ADD:                 return TurboOpCode::Add;
         case TokenType::MINUS:               return TurboOpCode::Subtract;
         case TokenType::MUL:                 return TurboOpCode::Multiply;
@@ -411,7 +412,6 @@ TurboOpCode PeregrineCodeGen::getBinaryOp(const Token& op) {
         case TokenType::MODULI:              return TurboOpCode::Modulo;
         case TokenType::POWER:               return TurboOpCode::Power;
             
-            // --- Comparisons ---
         case TokenType::VALUE_EQUAL:         return TurboOpCode::Equal;
         case TokenType::REFERENCE_EQUAL:     return TurboOpCode::StrictEqual;
         case TokenType::INEQUALITY:          return TurboOpCode::NotEqual;
@@ -421,12 +421,10 @@ TurboOpCode PeregrineCodeGen::getBinaryOp(const Token& op) {
         case TokenType::GREATER_THAN:        return TurboOpCode::GreaterThan;
         case TokenType::GREATER_THAN_EQUAL:  return TurboOpCode::GreaterThanOrEqual;
             
-            // --- Logical ---
         case TokenType::LOGICAL_AND:         return TurboOpCode::LogicalAnd;
         case TokenType::LOGICAL_OR:          return TurboOpCode::LogicalOr;
         case TokenType::NULLISH_COALESCING:  return TurboOpCode::NullishCoalescing;
             
-            // --- Bitwise ---
         case TokenType::BITWISE_AND:         return TurboOpCode::BitAnd;
         case TokenType::BITWISE_OR:          return TurboOpCode::BitOr;
         case TokenType::BITWISE_XOR:         return TurboOpCode::BitXor;
@@ -467,7 +465,6 @@ R PeregrineCodeGen::visitBinary(BinaryExpression* expr) {
             break;
     }
     
-    // For all other operators, existing logic:
     int left = get<int>(expr->left->accept(*this));
     int right = get<int>(expr->right->accept(*this));
     int result = allocRegister();
@@ -485,7 +482,6 @@ R PeregrineCodeGen::visitBinary(BinaryExpression* expr) {
 void PeregrineCodeGen::emitAssignment(BinaryExpression* expr) {
     auto left = expr->left.get();
     
-    // ----------- Plain assignment (=) -----------
     if (expr->op.type == TokenType::ASSIGN) {
         // Evaluate RHS into a fresh register
         // int rhsReg = allocRegister();
@@ -3023,7 +3019,7 @@ string PeregrineCodeGen::evaluate_property(Expression* expr) {
         return ident->name;
     }
     if (auto literal = dynamic_cast<LiteralExpression*>(expr)) {
-        return literal->token.lexeme; // Or whatever holds the property key
+        return literal->token.lexeme; 
     }
     throw std::runtime_error("Unsupported expression type in evaluate_property");
 }

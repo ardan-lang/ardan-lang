@@ -4,6 +4,7 @@
 //
 //  Created by Chidume Nnamdi on 19/09/2025.
 //
+// RegisterClosure: Register-based + Upvalues
 
 #include "TurboCodeGenerator.hpp"
 
@@ -3455,7 +3456,7 @@ string TurboCodeGen::evaluate_property(Expression* expr) {
         return ident->name;
     }
     if (auto literal = dynamic_cast<LiteralExpression*>(expr)) {
-        return literal->token.lexeme; // Or whatever holds the property key
+        return literal->token.lexeme;
     }
     throw std::runtime_error("Unsupported expression type in evaluate_property");
 }
