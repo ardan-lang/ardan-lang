@@ -46,11 +46,11 @@ using std::string;
 
 struct CallFrame {
     shared_ptr<Chunk> chunk;
-    size_t ip = 0;                    // instruction pointer for this frame
-    deque<Value> locals;        // local slots for this frame
-    size_t slotsStart = 0;            // if you want stack-based locals later (not used here)
+    size_t ip = 0;                    
+    deque<Value> locals;        
+    size_t slotsStart = 0;            
     
-    vector<Value> args;  // call arguments are stored here
+    vector<Value> args;  
     shared_ptr<Closure> closure;
 };
 
@@ -69,32 +69,28 @@ public:
     VM(shared_ptr<Module> module_ = nullptr);
     ~VM();
 
-    // Run a chunk as script or function. 'args' are used to populate parameter slots.
     Value run(shared_ptr<Chunk> chunk, const vector<Value>& args = {});
     
-    // Globals
     Env* env;
     EventLoop* event_loop;
 
     Value callFunction(Value callee, const vector<Value>& args);
 
 private:
-    shared_ptr<Module> module_ = nullptr;               // set at construction or by caller
+    shared_ptr<Module> module_ = nullptr;               
     
-    vector<CallFrame> callStack;        // call frames stack
+    vector<CallFrame> callStack;        
     Upvalue* openUpvalues = nullptr;
-    // helper to pop N args into a vector (left-to-right order)
+
     std::vector<Value> popArgs(size_t count);
     shared_ptr<JSObject> createJSObject(shared_ptr<JSClass> klass);
     Value addCtor();
     void set_js_object_closure(Value objVal);
     
-    // execute the top-most frame until it returns (Return)
     Value runFrame(CallFrame &frame);
     void handleRethrow();
     vector<TryFrame> tryStack;
     
-    // execution state for a run
     deque<Value> stack;
     CallFrame* frame;
     
