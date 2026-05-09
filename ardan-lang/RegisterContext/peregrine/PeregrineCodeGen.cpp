@@ -4,7 +4,6 @@
 //
 //  Created by Chidume Nnamdi on 01/11/2025.
 //
-// I think it was meant to be Register, Context
 
 #include "PeregrineCodeGen.hpp"
 #include <memory>

@@ -1926,7 +1926,6 @@ Value VM::runFrame(CallFrame &current_frame) {
                 break;
             }
 
-            // --- Upvalue access ---
             case OpCode::GetUpvalue: {
                 uint32_t idx = readUint32();
                 push(*frame->closure->upvalues[idx]->location);
