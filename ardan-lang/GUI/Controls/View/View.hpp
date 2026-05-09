@@ -41,6 +41,7 @@ public:
     shared_ptr<JSObject> construct() override;
     void addComponent(Value object, shared_ptr<JSObject> this_object);
     
+    virtual ~View() = default;
 };
 
 #endif /* View_hpp */

@@ -35,6 +35,8 @@ public:
     shared_ptr<JSObject> construct() override;
     void addComponent(Value component, shared_ptr<JSObject> this_object);
     
+    ~HStack() override = default;
+
 };
 
 #endif /* HStack_hpp */
