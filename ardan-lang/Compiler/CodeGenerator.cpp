@@ -1081,7 +1081,6 @@ R CodeGen::visitFunctionExpression(FunctionExpression* expr) {
 //    unique_ptr<Statement> body;
 //    bool is_async;
 
-    // Create a nested CodeGen for the function body
     CodeGen nested(module_);
     nested.enclosing = this;
     nested.cur = make_shared<Chunk>();
@@ -1520,7 +1519,6 @@ R CodeGen::visitUndefinedKeyword(UndefinedKeyword* expr) {
 }
 
 R CodeGen::visitAwaitExpression(AwaitExpression* expr) {
-    // Evaluate argument
     //expr->argument->accept(*this);
     //emit(OpCode::OP_AWAIT);
     return true;
