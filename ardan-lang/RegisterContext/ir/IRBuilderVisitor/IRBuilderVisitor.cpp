@@ -23,7 +23,11 @@ R IRBuilderVisitor::visitExpression(ExpressionStatement* stmt) {
 }
 
 R IRBuilderVisitor::visitBlock(BlockStatement* stmt) { return true; }
-R IRBuilderVisitor::visitVariable(VariableStatement* stmt) { return true; }
+
+R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
+    return true;
+}
+
 R IRBuilderVisitor::visitIf(IfStatement* stmt) { return true; }
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) { return true; }
 R IRBuilderVisitor::visitFor(ForStatement* stmt) { return true; }

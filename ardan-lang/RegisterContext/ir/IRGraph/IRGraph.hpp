@@ -9,6 +9,7 @@
 #define IRGraph_hpp
 
 #include <stdio.h>
+#include "RegisterContext/ir/IRNode/IRNode.hpp"
 
 class IRGraph {
 public:

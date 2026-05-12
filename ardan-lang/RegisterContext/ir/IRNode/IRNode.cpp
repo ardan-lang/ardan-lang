@@ -6,11 +6,10 @@
 //
 
 #include "IRNode.hpp"
-#include <sstream>
 
 void IRNode::addInput(IRNodePtr input, int index) {
     if (index == -1) {
-        index = inputs.size();
+        index = (int)inputs.size();
     }
     auto edge = std::make_shared<IREdge>(input, shared_from_this(), index);
     inputs.push_back(edge);
