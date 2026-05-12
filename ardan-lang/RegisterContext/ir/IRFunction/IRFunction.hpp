@@ -10,4 +10,8 @@
 
 #include <stdio.h>
 
+class IRFunction {
+    
+};
+
 #endif /* IRFunction_hpp */
