@@ -16,7 +16,10 @@ TurboVM::TurboVM() {
 TurboVM::TurboVM(shared_ptr<TurboModule> module_) : module_(module_) {
 
     env = new Env();
+
     init_builtins();
+    init_host_builtins();
+    init_language_builtins();
     
 }
 
@@ -30,21 +33,29 @@ void TurboVM::init_builtins() {
     
     event_loop = new EventLoop();
     
-    env->set_var("Math", make_shared<Math>());
-    env->set_var("console", make_shared<Print>());
-    env->set_var("fs", make_shared<File>());
-    env->set_var("Server", make_shared<Server>(event_loop));
-    
+}
+
+void TurboVM::init_language_builtins() {
+
     env->set_var("String", make_shared<JSString>());
     env->set_var("Number", make_shared<JSNumber>());
     env->set_var("Boolean", make_shared<JSBoolean>());
     env->set_var("Array", make_shared<Array>());
 
+}
+
+void TurboVM::init_host_builtins() {
+
+    env->set_var("Math", make_shared<Math>());
+    env->set_var("console", make_shared<Print>());
+    env->set_var("fs", make_shared<File>());
+    env->set_var("Server", make_shared<Server>(event_loop));
+    
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
         return Value::nullVal();
     }));
-    
+
 }
 
 shared_ptr<Upvalue> TurboVM::captureUpvalue(Value* local) {

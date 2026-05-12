@@ -101,7 +101,11 @@ private:
     CallFrame* frame;
     
     Instruction readInstruction();
+    
     void init_builtins();
+    void init_host_builtins();
+    void init_language_builtins();
+
     Value getProperty(const Value &objVal, const string &propName);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
