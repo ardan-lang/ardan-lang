@@ -9,6 +9,13 @@
 #define IRGenerator_hpp
 
 #include <stdio.h>
+#include <memory>
+#include <vector>
+#include <unordered_map>
+
+#include "RegisterContext/ir/IRNode/IRNode.hpp"
+#include "RegisterContext/ir/IRGraph/IRGraph.hpp"
+#include "RegisterClosure/TurboChunk.hpp"
 
 //class IRGenerator {
 //public:
@@ -27,12 +34,6 @@
 //    }
 //};
 //
-
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include "IRNode.hpp"
-#include "../TurboChunk.hpp"
 
 class IRCodeGenerator {
 public:
@@ -57,3 +58,5 @@ private:
     
     TurboOpCode nodeTypeToOpcode(IRNodeType type);
 };
+
+#endif /* IRGenerator_hpp */
