@@ -20,6 +20,36 @@ public:
     
 private:
     
+    class RegisterAllocator {
+        uint32_t nextReg = 0; // reserve 0 for special uses if needed
+        vector<uint32_t> freeRegs;
+    public:
+        uint32_t alloc() {
+            if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
+            return nextReg++;
+        }
+        void free(uint32_t r) {
+            if (r==0) return; // don't free 0
+            freeRegs.push_back(r);
+        }
+        void reset() { nextReg = 1; freeRegs.clear(); }
+        int getNextReg() { return nextReg; }
+    };
+
+    enum class BindingKind {
+        Var,
+        Let,
+        Const,
+    };
+
+    struct Variable {
+        string name;
+        BindingKind kind;
+    };
+
+    vector<Variable> variables;
+    RegisterAllocator allocator;
+
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
     R visitVariable(VariableStatement* stmt) override;

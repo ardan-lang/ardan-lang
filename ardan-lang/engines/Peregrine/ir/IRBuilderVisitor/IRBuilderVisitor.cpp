@@ -25,6 +25,17 @@ R IRBuilderVisitor::visitExpression(ExpressionStatement* stmt) {
 R IRBuilderVisitor::visitBlock(BlockStatement* stmt) { return true; }
 
 R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
+    
+    // var a = ...
+    // let b = ...
+    // const c = ...
+    const string kind = stmt->kind;
+    
+    for (auto& decl : stmt->declarations) {
+        const string id = decl.id;
+        
+    }
+    
     return true;
 }
 
