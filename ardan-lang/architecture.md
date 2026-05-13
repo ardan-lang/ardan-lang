@@ -20,7 +20,7 @@
 | ------------------ | ----------------- |
 | Stack + Upvalue    | CascadeVM       |
 | Register + Upvalue | NovaVM          |
-| Register + Context | AtlasVM         |
+| Register + Context | AtlasVM  (Peregrine)       |
 | Stack + Context    | TitanVM         |
 
 
