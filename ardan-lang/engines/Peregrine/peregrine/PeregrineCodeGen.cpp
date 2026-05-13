@@ -245,9 +245,10 @@ R PeregrineCodeGen::visitVariable(VariableStatement* stmt) {
         declareVariableScoping(decl.id, bindingKind);
         
         create(decl.id, slot, get_kind(kind));
-        freeRegister(slot);
-        // DO NOT freeRegister(slot) here!
-        // It must stay alive until endScope() pops it.
+        freeRegister(slot); // 🆓
+        
+        // TODO: Check if we do need to freeRegister(slot) here
+        // TODO: Must it stay alive until endScope() pops it? 🤔
     }
     
     return 0;
@@ -2916,44 +2917,43 @@ R PeregrineCodeGen::visitUIExpression(UIViewExpression* expr) {
 
 void PeregrineCodeGen::collectParameterInfo(Expression* parameters, vector<string>& paramNames,
                           vector<ParameterInfo>& parameterInfos
-) {
+                                            ) {
     if (parameters) {
-
-                if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(parameters)) {
-                    for (auto& p : seq->expressions) {
-                        if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
-                            paramNames.push_back(rest->token.lexeme);
-                            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-                        } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
-                            if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
-                                paramNames.push_back(ident->name);
-                                parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
-                            }
-                        } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
-                            paramNames.push_back(ident->name);
-                            parameterInfos.emplace_back(ident->name, false, nullptr, false);
-                        }
-                    }
-                }
-                else if (auto* rest = dynamic_cast<RestParameter*>(parameters)) {
+        
+        if (SequenceExpression* seq = dynamic_cast<SequenceExpression*>(parameters)) {
+            for (auto& p : seq->expressions) {
+                if (auto* rest = dynamic_cast<RestParameter*>(p.get())) {
                     paramNames.push_back(rest->token.lexeme);
                     parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
-                }
-                else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(parameters)) {
-                    if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                } else if (auto* assign = dynamic_cast<BinaryExpression*>(p.get())) {
+                    if (auto* ident = dynamic_cast<IdentifierExpression*>(assign->left.get())) {
                         paramNames.push_back(ident->name);
-                        parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+                        parameterInfos.emplace_back(ident->name, true, assign->right.get(), false);
                     }
-                }
-                else if (auto* ident = dynamic_cast<IdentifierExpression*>(parameters)) {
+                } else if (auto* ident = dynamic_cast<IdentifierExpression*>(p.get())) {
                     paramNames.push_back(ident->name);
                     parameterInfos.emplace_back(ident->name, false, nullptr, false);
                 }
-
+            }
+        }
+        else if (auto* rest = dynamic_cast<RestParameter*>(parameters)) {
+            paramNames.push_back(rest->token.lexeme);
+            parameterInfos.emplace_back(rest->token.lexeme, false, nullptr, true);
+        }
+        else if (auto* binary_expr = dynamic_cast<BinaryExpression*>(parameters)) {
+            if (auto* ident = dynamic_cast<IdentifierExpression*>(binary_expr->left.get())) {
+                paramNames.push_back(ident->name);
+                parameterInfos.emplace_back(ident->name, true, binary_expr->right.get(), false);
+            }
+        }
+        else if (auto* ident = dynamic_cast<IdentifierExpression*>(parameters)) {
+            paramNames.push_back(ident->name);
+            parameterInfos.emplace_back(ident->name, false, nullptr, false);
+        }
+        
     }
-
+    
 }
-
 
 void PeregrineCodeGen::patchContinueStatement() {
     
@@ -3157,22 +3157,20 @@ int PeregrineCodeGen::resolveUpvalue(const string& name) {
 
 void PeregrineCodeGen::declareGlobal(const string& name, BindingKind kind) {
     
-    // if (scopeDepth > 0) return; // locals aren’t globals
-
     for (int i = (int)variables.size() - 1; i >= 0; i--) {
         if (variables[i].name == name) {
             throw runtime_error("Variable " + name +" already declared in this scope");
         }
     }
 
-    Variable global { name, kind };
-    variables.push_back(global);
+    Variable variable { name, kind };
+    variables.push_back(variable);
     
 }
 
 void PeregrineCodeGen::declareVariableScoping(const string& name, BindingKind kind) {
     
-    declareGlobal(name, (kind));
+    declareGlobal(name, kind);
     
 }
 
@@ -3189,7 +3187,6 @@ void PeregrineCodeGen::endLoop() {
     LoopContext ctx = loopStack.back();
     loopStack.pop_back();
 
-    // Patch all breaks to jump here
     for (int breakAddr : ctx.breaks) {
         patchSingleJump(breakAddr);
     }

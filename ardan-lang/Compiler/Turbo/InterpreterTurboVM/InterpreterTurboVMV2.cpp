@@ -93,7 +93,7 @@ void InterpreterTurboVMV2::init_builtins() {
 //    return toValue(value);
 //    
 //}
-//
+
 //void InterpreterTurboVMV2::putVariable(const string& key, const Value& v) const {
 //    
 //    Env* target = executionCtx->lexicalEnv->resolveBinding(key, executionCtx->lexicalEnv.get());
@@ -470,7 +470,6 @@ Value InterpreterTurboVMV2::run(shared_ptr<TurboChunk> chunk_, const vector<Valu
     
     auto closure = make_shared<Closure>();
 
-    // prepare a top-level frame that will be executed by runFrame()
     TurboCallFrame new_frame;
     new_frame.chunk = chunk_;
     new_frame.ip = 0;

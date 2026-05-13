@@ -158,18 +158,17 @@ Value JSClass::get_proto_vm(const string& key) {
     auto var_proto_props_value = var_proto_props.find(key);
     if (var_proto_props_value != var_proto_props.end()) {
         
-        // when found, check if it
+        // when found, return it
         return var_proto_props_value->second.value;
     }
 
     auto const_proto_props_value = const_proto_props.find(key);
     if (const_proto_props_value != const_proto_props.end()) {
         
-        // when found, check if it
+        // when found, return it
         return const_proto_props_value->second.value;
     }
 
-    // Walk superclass chain
     if (superClass) {
         return superClass->get_proto_vm(key);
     }
@@ -226,14 +225,13 @@ bool JSClass::is_constructor_available() {
 }
 
 bool JSClass::has_static(const std::string& name) const {
-    // Check own static fields first
+    
     if (var_static_fields.contains(name) ||
         let_static_fields.contains(name) ||
         const_static_fields.contains(name)) {
         return true;
     }
 
-    // Walk up the superclass chain
     if (superClass) {
         return superClass->has_static(name);
     }

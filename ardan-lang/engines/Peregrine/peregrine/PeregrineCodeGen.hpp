@@ -14,19 +14,19 @@
 #include <stdexcept>
 #include <iostream>
 
-#include "../../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../../Statements/StatementVisitor.hpp"
-#include "../../Statements/Statements.hpp"
-#include "../../Expression/Expression.hpp"
-#include "../../Interpreter/Utils/Utils.h"
+#include "ExpressionVisitor/ExpressionVisitor.hpp"
+#include "Statements/StatementVisitor.hpp"
+#include "Statements/Statements.hpp"
+#include "Expression/Expression.hpp"
+#include "Interpreter/Utils/Utils.h"
 
-#include "../../Scanner/Scanner.hpp"
-#include "../../Parser/Parser.hpp"
+#include "Scanner/Scanner.hpp"
+#include "Parser/Parser.hpp"
 
-#include "../Turbo/TurboBytecode.hpp"
-#include "../Turbo/TurboChunk.hpp"
-#include "../Turbo/TurboVM.hpp"
-#include "../Turbo/TurboModule.hpp"
+#include "engines/Nova/TurboBytecode.hpp"
+#include "engines/Nova/TurboChunk.hpp"
+#include "engines/Nova/TurboVM.hpp"
+#include "engines/Nova/TurboModule.hpp"
 // #include "../Turbo/PeregrineVM.hpp"
 
 using namespace std;

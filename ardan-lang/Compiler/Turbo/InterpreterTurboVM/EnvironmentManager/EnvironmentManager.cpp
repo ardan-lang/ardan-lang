@@ -48,39 +48,51 @@ void EnvironmentManager::popLexicalEnv() {
 }
 
 void EnvironmentManager::initRoot(std::shared_ptr<Env> rootEnv) {
+    
     contextStack.clear();
+    
     auto ctx = std::make_unique<ExecutionContext>();
-    // root lexical and variable envs both point to the same top-level Env wrapper
-    ctx->lexicalEnv = std::make_shared<Env>(rootEnv.get()); // If Env has copy ctor or constructor from pointer
+    
+    ctx->lexicalEnv = std::make_shared<Env>(rootEnv.get());
     ctx->variableEnv = std::make_shared<Env>(rootEnv.get());
-    // NOTE: In your original code you passed raw Env*; adapt as needed to your Env constructors.
+    
     contextStack.push_back(std::move(ctx));
 }
 
 Value EnvironmentManager::getVariable(const std::string& key) const {
+
     auto ctx = current();
+
     if (!ctx) throw std::runtime_error("No current execution context");
+
     R value = ctx->lexicalEnv->getValueWithoutThrow(key);
+    
     if (std::holds_alternative<std::nullptr_t>(value)) {
         value = ctx->variableEnv->getValueWithoutThrow(key);
         if (std::holds_alternative<std::nullptr_t>(value))
             throw std::runtime_error("Undefined variable: " + key);
     }
+    
     return toValue(value);
 }
 
 void EnvironmentManager::putVariable(const std::string& key, const Value& v) const {
+    
     auto ctx = current();
+    
     if (!ctx) throw std::runtime_error("No current execution context");
+    
     Env* target = ctx->lexicalEnv->resolveBinding(key, ctx->lexicalEnv.get());
+    
     if (target) {
         target->set_let(key, v);
         return;
     }
+    
     target = ctx->variableEnv->resolveBinding(key, ctx->variableEnv.get());
+    
     if (target) {
         target->set_var(key, v);
         return;
     }
-    // if not found, you may consider creating in variableEnv (behavior depends on language semantics)
 }

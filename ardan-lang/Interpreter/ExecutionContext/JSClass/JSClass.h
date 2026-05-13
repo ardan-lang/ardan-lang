@@ -66,7 +66,7 @@ public:
         return nullptr;
     }
     
-    virtual ~JSClass(); // declared only
+    virtual ~JSClass(); 
     
 };
 

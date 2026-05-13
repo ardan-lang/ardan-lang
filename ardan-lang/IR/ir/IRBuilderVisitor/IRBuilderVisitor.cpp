@@ -34,6 +34,16 @@ R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
     for (auto& decl : stmt->declarations) {
         const string id = decl.id;
         
+        IRValue value;
+        
+        if (decl.init) {
+            value = decl.init->accept(*this);
+        }
+        
+        symTable[id] = value;
+        auto inst = IRInstruction(IROp::Store, <#int r#>, <#int ops#>)
+        emit();
+        
     }
     
     return true;
@@ -99,3 +109,7 @@ R IRBuilderVisitor::visitForOf(ForOfStatement* stmt) { return true; }
 R IRBuilderVisitor::visitYieldExpression(YieldExpression* visitor) { return true; }
 R IRBuilderVisitor::visitSpreadExpression(SpreadExpression* visitor) { return true; }
 R IRBuilderVisitor::visitComma(CommaExpression *expr) { return true; }
+
+void IRBuilderVisitor::emit(const IRInstruction inst) {
+    currentBlock->instructions->push_back(inst);
+}

@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include "RegisterContext/ir/IRValue/IRValue.hpp"
+#include "IR/ir/IRValue/IRValue.hpp"
 
 enum class IROp {
 
@@ -106,6 +106,7 @@ struct IRInstruction {
 };
 
 class BasicBlock {
+public:
     std::string name;
     std::vector<IRInstruction> instructions;
     

@@ -12,35 +12,39 @@
 #include "ExpressionVisitor/ExpressionVisitor.hpp"
 #include "Statements/StatementVisitor.hpp"
 #include "Statements/Statements.hpp"
-#include "engines/"
+#include "IR/ir/IRFunction/IRFunction.hpp"
+#include "IR/ir/IRModule/IRModule.hpp"
+#include "IR/ir/IRValue/IRValue.hpp"
 
 class IRBuilderVisitor : public ExpressionVisitor, public StatementVisitor {
-
+    
 public:
     void build(const vector<unique_ptr<Statement>> &program);
-    IRModule module;
-
-        IRFunction* currentFunction = nullptr;
-        BasicBlock* currentBlock = nullptr;
-
-        int temp = 0;
-        int blockId = 0;
-
-        std::unordered_map<std::string, IRValue> symTable;
-
-        IRValue createTemp(std::string type = "i32") {
-            return IRValue("%t" + std::to_string(temp++), type);
-        }
-
-        BasicBlock* createBlock(const std::string& prefix) {
-            auto bb = std::make_unique<BasicBlock>(
-                prefix + std::to_string(blockId++)
-            );
-
-            BasicBlock* ptr = bb.get();
-            currentFunction->blocks.push_back(std::move(bb));
-            return ptr;
-        }
+    IRModule _module;
+    
+    IRFunction* currentFunction = nullptr;
+    BasicBlock* currentBlock = nullptr;
+    
+    int temp = 0;
+    int blockId = 0;
+    
+    std::unordered_map<std::string, IRValue> symTable;
+    
+    IRValue createTemp(std::string type = "i32") {
+        return IRValue("%t" + std::to_string(temp++), type);
+    }
+    
+    BasicBlock* createBlock(const std::string& prefix) {
+        auto bb = std::make_unique<BasicBlock>(
+                                               prefix + std::to_string(blockId++)
+                                               );
+        
+        BasicBlock* ptr = bb.get();
+        currentFunction->blocks.push_back(std::move(bb));
+        return ptr;
+    }
+    
+    void emit(const IRInstruction inst);
     
 private:
     
@@ -59,21 +63,21 @@ private:
         void reset() { nextReg = 1; freeRegs.clear(); }
         int getNextReg() { return nextReg; }
     };
-
+    
     enum class BindingKind {
         Var,
         Let,
         Const,
     };
-
+    
     struct Variable {
         string name;
         BindingKind kind;
     };
-
+    
     vector<Variable> variables;
     RegisterAllocator allocator;
-
+    
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
     R visitVariable(VariableStatement* stmt) override;
@@ -137,7 +141,7 @@ private:
     R visitYieldExpression(YieldExpression* visitor) override;
     R visitSpreadExpression(SpreadExpression* visitor) override;
     R visitComma(CommaExpression *expr) override;
-
+    
 };
 
 #endif /* IRBuilderVisitor_hpp */
