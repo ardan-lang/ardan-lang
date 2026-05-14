@@ -37,13 +37,13 @@ R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
     for (auto& decl : stmt->declarations) {
         const string id = decl.id;
         
-        IRValue value;
+        shared_ptr<IRValue> value;
         
         if (decl.init) {
-            value = get<IRValue>(decl.init->accept(*this));
+            value = get<shared_ptr<IRValue>>(decl.init->accept(*this));
         }
         
-        symTable[id] = value;
+        symTable[id] = std::move(value);
         
     }
     

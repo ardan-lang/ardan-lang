@@ -31,7 +31,7 @@ public:
     int temp = 0;
     int blockId = 0;
     
-    std::unordered_map<std::string, shared_ptr<IRValue>> symTable;
+    std::unordered_map<std::string, std::shared_ptr<IRValue>> symTable;
     
     //    IRValue createTemp(std::string type = "i32") {
     //        return IRValue("%t" + std::to_string(temp++), type);
