@@ -15,7 +15,7 @@ Ardan is a dynamically typed programming language, featuring a hand-written lexe
 
 **Ardan Programming Language**
 
-Ardan is a modern programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
+[Ardan](!https://ardan-lang.github.io/ardan-lang/) is a modern programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
 
 ⸻
 
