@@ -419,25 +419,52 @@
 
 // print(delete obj.a);
 // print(obj.a);
-// for (let key in obj) {
-//     print(key, obj[key]);
+
+// for (var key in obj) {
+//     if (key == "b") {
+//         continue;
+//     }
+//      print(key, obj[key]);
 // }
 
+// print(key);
+
 // const myArray = [1, 2, 3, 4];
+
+// for (let el of myArray) {
+//     if (el == 2) {
+//         break;
+//     }
+//     print(el);
+// }
+
 // delete myArray[1]; // Deletes the element at index 1 (value 2)
 
 // console.log(myArray); // Output: [1, <empty>, 3, 4]
 // console.log(myArray.length); // Output: 4 (The length of the array remains the same)
 
+// {
 // enum Direction {
 //     Up = 1,
 //     Down,
-//     // Left,
-//     // Right,
+//     Left,
+//     Right,
 // }
+// // }
 
 // let playerDirection/*: Direction*/ = Direction.Up;
 // console.log(playerDirection); // Output: 1
+
+// {
+
+//     let test = "Hello, World!";
+// print(test);
+// }
+
+// {
+//     let test = 9000;
+//     print(test);
+// }
 
 // interface User {
 //   name: string;
@@ -451,40 +478,40 @@
 // greet({ name: "Nnamdi", age: 30 }); // ✅ OK
 // greet({ name: "Anon" });             // ❌ Error (missing `age`)
 
-class ContentView extends View {
+// class ContentView extends View {
 
-body()  {
-    @HStack {
-    @Button("Tap me")
-    @Button("Display")
-    @Text("Hello")
-     /*{ 
-        // Action or children
-        print("Button tapped!");
-    }.font(90);*/
-}
+// body()  {
+//     @HStack {
+//     @Button("Tap me")
+//     @Button("Display")
+//     @Text("Hello")
+//      /*{ 
+//         // Action or children
+//         print("Button tapped!");
+//     }.font(90);*/
+// }
 
-}
+// }
 
-}
+// }
 
-class MainView {
-    start() {
-        @Window("Main View", 500, 500) {
-            @ContentView()
-            // @Button("Tap me from Main View")
-        }.run();
-    }
-}
+// class MainView {
+//     start() {
+//         @Window("Main View", 500, 500) {
+//             @ContentView()
+//             // @Button("Tap me from Main View")
+//         }.run();
+//     }
+// }
 
-(new MainView()).start();
+// (new MainView()).start();
 
 // let globallet = "glo";
 // {
 // const user="user";
 // // user=88;
 // print(user);
-// var t = 90;
+// let t = 90;
 // print(t);
 // }
 
@@ -523,4 +550,322 @@ class MainView {
 //     }
 // }
 
-// (new Test()).body();
+// print((new Test()).body());
+
+// function makeClosures() {
+//     var funcs = [];
+//     for (let i = 0; i < 5; i++) {
+//         funcs.push(function() {
+//             return i;
+//         });
+//     }
+//     return funcs;
+// }
+
+// var arr = makeClosures();
+// console.log(arr[0]()); // Expected: 0 (if closure works), but will print 5 if closure fails
+// console.log(arr[1]()); // Expected: 1, but will print 5 if closure fails
+
+// let i = null;
+// print(i);
+//print(false && true);
+
+// do {
+//     if(i == 2) {
+//         i++;
+//         continue;
+//     }
+//     print(i);
+//     i++;
+// } while(i < 5);
+
+// function test(u) {
+//     print(u); 
+//     {
+//         print(u);
+//     }
+// }
+
+// test(9);
+
+// print(i["a"]++);
+// print(i.a);
+
+
+
+
+
+
+
+
+// let i = 2;
+
+// switch(i) {
+//     case 0:
+//         print("zero");
+//         break;
+//     case 1:
+//         print("one");
+//         break;
+//     default:
+//         print("other");
+// }
+
+// class Animal {
+//     var name;
+//     constructor(name) {
+//         this.name = name;
+//     }
+//     speak() {
+//         print(this.name + " makes a noise.");
+//     }
+// }
+
+// class Dog extends Animal {
+//     speak() {
+//         print(this.name + " barks.");
+//     }
+// }
+
+// let d = new Dog("Rex");
+// d.speak(); // Rex barks.
+
+// class Point {
+//     var x, y;
+//     constructor(x, y) {
+//         this.x = x;
+//         this.y = y;
+//     }
+//     move(dx, dy) {
+//         this.x += dx;
+//         this.y += dy;
+//     }
+// }
+
+// let pt = new Point(0, 0);
+// pt.move(3, 4);
+// print(pt.x, pt.y); // 3, 4
+
+// class Counter {
+//     public var value = 0;
+//     private var secret = 42;
+
+//     increment() {
+//         this.value++;
+//     }
+// }
+// let counter = new Counter();
+// counter.increment();
+// print(counter.value); // 1
+
+
+// // Factorial Example
+// function factorial(n) {
+//     if (n <= 1) return 1;
+//     return n * factorial(n - 1);
+// }
+
+// print("5! =", factorial(5)); // 5! = 120
+
+// // Array iteration
+// let nums = [1, 2, 3, 4, 5];
+// let sum = 0;
+// for (let num of nums) {
+//     sum += num;
+// }
+// print("Sum:", sum); // 15
+
+// // Object usage
+// let dog = { name: "Max", age: 4 };
+// for (let key in dog) {
+//     print(key, dog[key]);
+// }
+
+// Class usage
+// class Greeter {
+//     constructor(name) {
+//         this.name = name;
+//     }
+//     greet() {
+//         print("Hello, " + this.name + "!");
+//     }
+// }
+// let g = new Greeter("Ardan");
+// g.greet(); // Hello, Ardan!
+
+// function f(a = 1, b = a + 2) {
+// console.log(a, b);
+// }
+// f();    // 1 3
+// f(5);   // 5 7
+
+// print("name" in dog); // true
+// print("color" in dog); // false
+
+// print(void 0); // undefined
+// print(void(5 + 3)); // undefined
+// print(typeof dog); // object
+
+// const output = void 1;
+// console.log(output);
+// // Expected output: undefined
+
+// void console.log("expression evaluated");
+// // Expected output: "expression evaluated"
+
+// void (function iife() {
+//   console.log("iife is executed");
+// })();
+
+// let r = class { run (argu = nums[0] + 1, argy) { console.log("arrow function executed", argu, argy); } };
+// (new r()).run();
+
+// let spr = [3,...[90, 78], 88];
+
+// print(spr); // [3,90]
+
+// print({...{a:1, b:2}, c:3}); // {a:1, b:2, c:3}
+
+// function myFunction(a, x, ...rest) {
+//     print(a, x, rest);
+// }
+// const args = [0, 1, 2];
+// myFunction(100, 22, ...args);
+
+// var a = 90;
+// let b = 88;
+
+// {
+//     var t = 66;
+//     let v = 345;
+//     print(v);
+// print(t);
+// print(a);
+// print(b);
+
+//  }
+
+// print(b);
+// print(t);
+
+// function test() {
+//     var aa = 900;
+//     // let bb = 800;
+//     // print("test: ", aa, bb);
+//     // print("test: ");
+//     return () => {
+//         aa = "ch";
+//         print("inner func:", aa);
+//     };
+// }
+
+// var t1 = test();
+// var t2 = test();
+
+// t1();
+// t2();
+
+// print(aa);
+
+// var a = 10;
+// {
+//     let b = 20;
+//     {
+//         let c = 30;
+//         console.log(a, b, c);
+//     }
+// }
+
+// function outer(x, d = 90, ...rest) {
+//     let v = x * 2;
+//     print(d, rest);
+//     function inner(y) {
+//         v = v + 1;
+//         {
+//             var z = 9;
+//         }
+//         return v + y + z;
+//     }
+//     return inner;
+// }
+// let f = outer(5, 9000, 7, 8, 9);
+// let ff = outer(1);
+
+// print("closure=", f(6));
+// print("closure=", f(60));
+// print("closure=", ff(6)); 
+
+// function makeClosures() {
+//     var funcs = [];
+//     for (let i = 0; i < 5; i++) {
+//         funcs.push(function() {
+//             return i;
+//         });
+//     }
+//     return funcs;
+// }
+
+// var arr = makeClosures();
+// console.log(arr[0]()); // Expected: 0 (if closure works), but will print 5 if closure fails
+// console.log(arr[1]()); // Expected: 1, but will print 5 if closure fails
+// console.log(arr[2]()); // Expected: 2, but will print 5 if closure fails
+// console.log(arr[3]()); // Expected: 3, but will print 5 if closure fails
+// console.log(arr[4]()); // Expected: 4, but will print
+
+// async function asyncouter(a) {
+//   print("Before await", a);
+// }
+
+// print(asyncouter(800));
+
+
+async function outer(x) {
+  print("Before await", x);
+  return 7;
+}
+
+async function testAsync() {
+  print("Inside inner");
+  let v = await outer(10);
+  print("After await: ",v);
+
+  let x = await (100);
+  print("After await2: ",x);
+
+  print("After await in inner");
+}
+
+testAsync();
+print("After calling testAsync");
+
+//   function delay() {
+//   return new Promise(resolve => {
+//     print("Inside delay (promise executor runs immediately)");
+//     resolve();
+//   });
+// }
+
+// delay();
+
+// let promise = Promise.resolve(89);
+
+// promise.then(value => { 
+// console.log(value); 
+// });
+// print("after promise");
+
+// let f;
+
+// {
+//   let x = 90;
+//   f = () => x;
+// }
+
+// print(f());
+
+// let p = new Promise((resolve, reject) => {
+//   resolve(42);
+// });
+// p.then(value => {
+//   console.log("Promise resolved with value:", value);
+// });

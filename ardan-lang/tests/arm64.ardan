@@ -1,0 +1,9 @@
+// var name = 90;
+// var age = "NNA";
+
+// print(name);
+// print(age);
+
+let one = "1";
+let two = "2";
+print(one + two);
