@@ -5,22 +5,7 @@
 //  Created by Chidume Nnamdi on 24/08/2025.
 //
 
-#include <memory>
-
 #include "Interpreter.h"
-#include "../Statements/Statements.hpp"
-#include "../Expression/Expression.hpp"
-#include "../Visitor/AstPrinter/AstPrinter.h"
-#include "Utils/Utils.h"
-#include "ExecutionContext/JSArray/JSArray.h"
-#include "ExecutionContext/Value/Value.h"
-#include "../builtin/Print/Print.hpp"
-#include "../builtin/builtin-includes.h"
-#include "../Scanner/Scanner.hpp"
-#include "../Parser/Parser.hpp"
-// #include "../GUI/gui.h"
-#include "Promise/Promise.hpp"
-#include "../builtin/Server/Server.hpp"
 
 Interpreter::Interpreter() {
     env = new Env();
@@ -65,31 +50,7 @@ void Interpreter::init_builtins() {
         Print::print(args);
         return Value::nullVal();
     }));
-    
-//    env->set_var("window", Value::function([this](vector<Value> args) mutable -> Value {
-//        
-//        gui_init();
-//        
-//        std::string titleStr = args[0].toString();
-//        const char* title = titleStr.c_str();
-//        gui_create_window(title,
-//                          200,
-//                          200,
-//                          args[1].numberValue,
-//                          args[2].numberValue);
-//        
-//        return Value::nullVal();
-//        
-//    }));
-//    
-//    env->set_var("run", Value::function([this](vector<Value> args) mutable -> Value {
-//        
-//        gui_run();
-//        
-//        return Value::nullVal();
-//        
-//    }));
-    
+        
 }
 
 void Interpreter::execute(vector<unique_ptr<Statement>> ast) {

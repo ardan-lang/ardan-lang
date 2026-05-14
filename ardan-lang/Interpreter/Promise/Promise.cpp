@@ -6,10 +6,10 @@
 //
 
 #include "Promise.hpp"
-#include "../../Compiler/Turbo/PeregrineVM.hpp"
-#include "../ExecutionContext/JSObject/JSObject.h"
+#include "engines/BaseVM/BaseVM.hpp"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
 
-Promise::Promise(PeregrineVM* vm) : vm(vm) {
+Promise::Promise(BaseVM* vm) : vm(vm) {
     loop = &EventLoop::getInstance();
 
     set_builtin_value("then", Value::native([this](vector<Value> args) -> Value {

@@ -6,8 +6,8 @@
 //
 
 #include "JSArray.h"
-#include "../../../Compiler/VM/VM.hpp"
-#include "../../../Compiler/Turbo/TurboVM.hpp"
+#include "engines/Cascade/VM/VM.hpp"
+#include "engines/Nova/TurboVM.hpp"
 
 void JSArray::set(const string& key, const Value& val) {
     if (isNumeric(key)) {

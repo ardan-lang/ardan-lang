@@ -6,8 +6,6 @@
 //
 
 #include "Env.h"
-#include <sstream>
-#include <typeinfo>
 
 Env::Env(Env* parent) : parent(parent) {}
 

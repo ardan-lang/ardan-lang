@@ -11,11 +11,26 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-#include "../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../Statements/StatementVisitor.hpp"
+#include <memory>
+
+#include "ExpressionVisitor/ExpressionVisitor.hpp"
+#include "Statements/StatementVisitor.hpp"
 #include "R.hpp"
 #include "Env.h"
-#include "../EventLoop/EventLoop.hpp"
+#include "EventLoop/EventLoop.hpp"
+
+#include "Statements/Statements.hpp"
+#include "Expression/Expression.hpp"
+#include "Visitor/AstPrinter/AstPrinter.h"
+#include "Utils/Utils.h"
+#include "ExecutionContext/JSArray/JSArray.h"
+#include "ExecutionContext/Value/Value.h"
+#include "builtin/platform/Print/Print.hpp"
+#include "builtin/builtin-includes.h"
+#include "Scanner/Scanner.hpp"
+#include "Parser/Parser.hpp"
+#include "Promise/Promise.hpp"
+#include "builtin/platform/Server/Server.hpp"
 
 using namespace std;
 

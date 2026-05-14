@@ -13,9 +13,9 @@
 #include <vector>
 #include <unordered_map>
 
-#include "RegisterContext/ir/IRNode/IRNode.hpp"
-#include "RegisterContext/ir/IRGraph/IRGraph.hpp"
-#include "RegisterClosure/TurboChunk.hpp"
+#include "IR/ir/IRNode/IRNode.hpp"
+#include "IR/ir/IRGraph/IRGraph.hpp"
+#include "engines//TurboChunk.hpp"
 
 //class IRGenerator {
 //public:

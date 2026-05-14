@@ -9,12 +9,14 @@
 #define IRBuilderVisitor_hpp
 
 #include <stdio.h>
+#include <variant>
 #include "ExpressionVisitor/ExpressionVisitor.hpp"
 #include "Statements/StatementVisitor.hpp"
 #include "Statements/Statements.hpp"
 #include "IR/ir/IRFunction/IRFunction.hpp"
 #include "IR/ir/IRModule/IRModule.hpp"
 #include "IR/ir/IRValue/IRValue.hpp"
+#include "Compiler/RegisterAllocator/RegisterAllocator.hpp"
 
 class IRBuilderVisitor : public ExpressionVisitor, public StatementVisitor {
     
@@ -30,14 +32,16 @@ public:
     
     std::unordered_map<std::string, IRValue> symTable;
     
-    IRValue createTemp(std::string type = "i32") {
-        return IRValue("%t" + std::to_string(temp++), type);
+//    IRValue createTemp(std::string type = "i32") {
+//        return IRValue("%t" + std::to_string(temp++), type);
+//    }
+    
+    IRValue createTemp(IRType type) {
+        return IRValue("%" + std::to_string(temp++), type);
     }
     
     BasicBlock* createBlock(const std::string& prefix) {
-        auto bb = std::make_unique<BasicBlock>(
-                                               prefix + std::to_string(blockId++)
-                                               );
+        auto bb = std::make_unique<BasicBlock>(prefix + std::to_string(blockId++));
         
         BasicBlock* ptr = bb.get();
         currentFunction->blocks.push_back(std::move(bb));
@@ -47,29 +51,7 @@ public:
     void emit(const IRInstruction inst);
     
 private:
-    
-    class RegisterAllocator {
-        uint32_t nextReg = 0; // reserve 0 for special uses if needed
-        vector<uint32_t> freeRegs;
-    public:
-        uint32_t alloc() {
-            if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
-            return nextReg++;
-        }
-        void free(uint32_t r) {
-            if (r==0) return; // don't free 0
-            freeRegs.push_back(r);
-        }
-        void reset() { nextReg = 1; freeRegs.clear(); }
-        int getNextReg() { return nextReg; }
-    };
-    
-    enum class BindingKind {
-        Var,
-        Let,
-        Const,
-    };
-    
+        
     struct Variable {
         string name;
         BindingKind kind;

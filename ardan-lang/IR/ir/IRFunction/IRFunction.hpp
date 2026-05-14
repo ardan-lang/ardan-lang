@@ -13,6 +13,14 @@
 #include <vector>
 #include "IR/ir/IRValue/IRValue.hpp"
 
+//| Opcode | Meaning       |
+//| ------ | ------------- |
+//| Const  | constant      |
+//| Add    | arithmetic    |
+//| Load   | memory read   |
+//| Store  | memory write  |
+//| Call   | function call |
+
 enum class IROp {
 
     // Control
@@ -97,9 +105,15 @@ enum class IROp {
 
 struct IRInstruction {
     IROp op;
-    std::vector<IRValue> operands;
+    std::vector<IRValue> operands; // inputs
     std::string label;
-    IRValue result;
+    IRValue result; // output
+    std::variant<
+            std::monostate,
+            double,
+            std::string,
+            bool
+        > immediate;
     
     IRInstruction(IROp o, IRValue r, std::vector<IRValue> ops)
             : op(o), result(std::move(r)), operands(std::move(ops)) {}
@@ -119,7 +133,7 @@ public:
 };
 
 class IRFunction {
-    
+public:
     std::string name;
     std::vector<std::unique_ptr<BasicBlock>> blocks;
     

@@ -10,7 +10,7 @@
 
 #include <stdio.h>
 #include <vector>
-#include "<#header#>"
+#include "IR/ir/IRFunction/IRFunction.hpp"
 
 class IRModule {
     std::vector<std::unique_ptr<IRFunction>> functions;

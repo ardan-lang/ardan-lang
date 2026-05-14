@@ -11,15 +11,14 @@
 #include <stdio.h>
 
 #include "../View/View.hpp"
-#include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
 
 using namespace std;
 
 class VM;
 class TurboVM;
 
-// Forward declare ObjC classes as opaque types to avoid importing Cocoa
 #ifdef __OBJC__
 @class NSTextField;
 #else

@@ -37,28 +37,56 @@ R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
         IRValue value;
         
         if (decl.init) {
-            value = decl.init->accept(*this);
+            value = get<IRValue>(decl.init->accept(*this));
         }
         
         symTable[id] = value;
-        auto inst = IRInstruction(IROp::Store, <#int r#>, <#int ops#>)
-        emit();
         
     }
     
     return true;
 }
 
+R IRBuilderVisitor::visitLiteral(LiteralExpression* expr) {
+    return true;
+}
+
+R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) {
+    
+    auto ir = createTemp(IRType::Number);
+    
+    auto inst = IRInstruction(IROp::Constant, ir, {});
+    inst.immediate = get<double>(expr->value);
+        
+    currentBlock->instructions.push_back(inst);
+    
+    return ir;
+}
+
+R IRBuilderVisitor::visitStringLiteral(StringLiteral* expr) {
+    
+    auto ir = createTemp(IRType::String);
+    
+    auto inst = IRInstruction(IROp::Constant, ir, {});
+    inst.immediate = expr->text;
+        
+    currentBlock->instructions.push_back(inst);
+    
+    return ir;
+
+}
+
+R IRBuilderVisitor::visitIdentifier(IdentifierExpression* expr) {
+    return symTable[expr->token.lexeme];
+}
+
+R IRBuilderVisitor::visitBinary(BinaryExpression* expr) { return true; }
+
 R IRBuilderVisitor::visitIf(IfStatement* stmt) { return true; }
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) { return true; }
 R IRBuilderVisitor::visitFor(ForStatement* stmt) { return true; }
 R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) { return true; }
 R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) { return true; }
-R IRBuilderVisitor::visitBinary(BinaryExpression* expr) { return true; }
-R IRBuilderVisitor::visitLiteral(LiteralExpression* expr) { return true; }
-R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) { return true; }
-R IRBuilderVisitor::visitStringLiteral(StringLiteral* expr) { return true; }
-R IRBuilderVisitor::visitIdentifier(IdentifierExpression* expr) { return true; }
 R IRBuilderVisitor::visitCall(CallExpression* expr) { return true; }
 R IRBuilderVisitor::visitMember(MemberExpression* expr) { return true; }
 R IRBuilderVisitor::visitNew(NewExpression* expr) { return true; }
@@ -111,5 +139,5 @@ R IRBuilderVisitor::visitSpreadExpression(SpreadExpression* visitor) { return tr
 R IRBuilderVisitor::visitComma(CommaExpression *expr) { return true; }
 
 void IRBuilderVisitor::emit(const IRInstruction inst) {
-    currentBlock->instructions->push_back(inst);
+    currentBlock->instructions.push_back(inst);
 }

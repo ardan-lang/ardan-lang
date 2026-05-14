@@ -10,12 +10,11 @@
 
 #include <stdio.h>
 #include <vector>
-#include "../ExecutionContext/Value/Value.h"
-#include "../ExecutionContext/JSObject/JSObject.h"
-#include "../../EventLoop/EventLoop.hpp"
+#include "Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "EventLoop/EventLoop.hpp"
 
-class PeregrineVM;
-
+class BaseVM;
 using namespace std;
 
 class Promise : public JSObject {
@@ -24,8 +23,8 @@ public:
     using Errback  = std::function<Value(vector<Value>)>;
     
     EventLoop* loop;
-    PeregrineVM* vm;
-    explicit Promise(PeregrineVM* vm);
+    BaseVM* vm;
+    explicit Promise(BaseVM* vm);
 
     shared_ptr<Promise> then(Value cb);
     shared_ptr<Promise> then(Callback cb);

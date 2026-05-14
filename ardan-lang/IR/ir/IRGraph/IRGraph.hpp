@@ -9,7 +9,7 @@
 #define IRGraph_hpp
 
 #include <stdio.h>
-#include "RegisterContext/ir/IRNode/IRNode.hpp"
+#include "IR/ir/IRNode/IRNode.hpp"
 #include "Interpreter/ExecutionContext/Value/Value.h"
 
 class IRGraph {

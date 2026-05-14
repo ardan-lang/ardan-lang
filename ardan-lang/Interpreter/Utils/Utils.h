@@ -19,8 +19,8 @@
 #include <fstream>
 #include <sstream>
 
-#include "../R.hpp"
-#include "../ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/R.hpp"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
 
 using namespace std;
 

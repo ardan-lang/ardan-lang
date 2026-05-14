@@ -12,8 +12,6 @@
 #include "../../../Statements/Statements.hpp"
 #include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../../Compiler/VM/VM.hpp"
-#include "../../../Compiler/Turbo/TurboVM.hpp"
 
 shared_ptr<JSObject> VStack::construct() {
     

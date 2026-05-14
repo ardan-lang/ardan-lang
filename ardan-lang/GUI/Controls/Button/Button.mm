@@ -9,11 +9,11 @@
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 
-#include "../../../Statements/Statements.hpp"
-#include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../../Compiler/VM/VM.hpp"
-#include "../../../Compiler/Turbo/TurboVM.hpp"
+#include "Statements/Statements.hpp"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+//#include "Compiler/VM/VM.hpp"
+//#include "Compiler/Turbo/TurboVM.hpp"
 
 @interface ButtonTarget : NSObject
 @property (nonatomic, copy) void (^callback)(void);
@@ -52,7 +52,8 @@ shared_ptr<JSObject> Button::construct() {
         setTitle(name, obj);
         
         clickHandler = [this, args, obj] {
-            obj->turboVM->callFunction(args[1], {});
+            // TODO: find a better way to hook into VM
+            // obj->turboVM->callFunction(args[1], {});
         };
         
         onClick(clickHandler, obj);
@@ -74,7 +75,8 @@ shared_ptr<JSObject> Button::construct() {
     obj->set_builtin_value("onClick", Value::native([this, obj](const std::vector<Value>& args) -> Value {
         
         clickHandler = [args, this, obj] {
-            obj->turboVM->callFunction(args[1], {});
+            // TODO: find a better way to hook into VM
+            // obj->turboVM->callFunction(args[1], {});
         };
         
         onClick(clickHandler, obj);
