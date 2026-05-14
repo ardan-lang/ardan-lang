@@ -48,7 +48,7 @@
 #include <condition_variable>
 #include <sys/types.h>
 
-#include "../Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/Value/Value.h"
 
 struct Task {
     std::string id;

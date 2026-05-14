@@ -9,9 +9,8 @@
 #define ExpressionVisitor_hpp
 
 #include <stdio.h>
-#include "../Interpreter/R.hpp"
+#include "Interpreter/R.hpp"
 
-// Forward declare all expression classes
 class LiteralExpression;
 class IdentifierExpression;
 class UnaryExpression;

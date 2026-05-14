@@ -14,13 +14,13 @@
 #include <vector>
 #include <memory>
 
-#include "../VM/VM.hpp"
-#include "../CodeGenerator.hpp"
-#include "../VM/Module.hpp"
+#include "engines/Cascade/VM/VM.hpp"
+#include "engines/Cascade/CodeGenerator.hpp"
+#include "engines/Cascade/VM/Module.hpp"
 
-#include "../Turbo/TurboVM.hpp"
-#include "../Turbo/TurboCodeGenerator.hpp"
-#include "../Turbo/TurboModule.hpp"
+#include "engines/Nova/TurboVM.hpp"
+#include "engines/Nova/TurboCodeGenerator.hpp"
+#include "engines/Nova/TurboModule.hpp"
 
 class WriteArdarFile {
 public:

@@ -6,7 +6,7 @@
 //
 
 #include "JSNumber.hpp"
-#include "../../Statements/Statements.hpp"
+#include "Statements/Statements.hpp"
 
 shared_ptr<JSObject> JSNumber::construct() {
     

@@ -16,12 +16,12 @@
 #include <string>
 #include <vector>
 
-#include "../../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../../../Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/ExecutionContext/Value/Value.h"
 #include "../CallStackManager/CallStackManager.hpp"
 #include "../FunctionInvoker/FunctionInvoker.hpp"
-#include "../../TurboModule.hpp"
+#include "engines/Nova/TurboModule.hpp"
 
 /*
  ObjectModel (aka ClassManager)

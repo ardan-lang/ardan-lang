@@ -20,9 +20,10 @@
 | ------------------ | ----------------- |
 | Stack + Upvalue    | CascadeVM       |
 | Register + Upvalue | NovaVM          |
-| Register + Context | AtlasVM  (Peregrine)       |
+| Register + Context | PeregrineVM       |
 | Stack + Context    | TitanVM         |
 
+AtlasVM
 
 class VM {};
 class StackVM : public VM {};
@@ -439,3 +440,9 @@ This allows optimizations like:
 while still preserving correctness.
 
 This is why modern optimizing compilers use these graph structures.
+
+| Type       | Storage             |
+| ---------- | ------------------- |
+| local vars | registers           |
+| closures   | context objects     |
+| globals    | global object slots |

@@ -17,15 +17,13 @@
 #include <stdexcept>
 #include <cstring>
 
-#include "../VM/Module.hpp"
-#include "../VM/Chunk.hpp"
-#include "../VM/VM.hpp"
-#include "../CodeGenerator.hpp"
+#include "engines/Cascade/VM/VM.hpp"
+#include "engines/Cascade/CodeGenerator.hpp"
+#include "engines/Cascade/VM/Module.hpp"
 
-#include "../Turbo/TurboModule.hpp"
-#include "../Turbo/TurboChunk.hpp"
-#include "../Turbo/TurboVM.hpp"
-#include "../Turbo/TurboCodeGenerator.hpp"
+#include "engines/Nova/TurboVM.hpp"
+#include "engines/Nova/TurboCodeGenerator.hpp"
+#include "engines/Nova/TurboModule.hpp"
 
 class ArdarFileReader {
 public:

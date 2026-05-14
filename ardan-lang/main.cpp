@@ -22,7 +22,7 @@
 #include "REPL/REPL.hpp"
 #include "JSON/JSON.hpp"
 
-#include "Compiler/CodeGenerator.hpp"
+#include "engines/Cascade/CodeGenerator.hpp"
 #include "Compiler/Compiler.hpp"
 
 string read_file(const string& filename);

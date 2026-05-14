@@ -57,26 +57,19 @@ void InterpreterTurboVMV2::init_builtins() {
     env->set_var("Number", make_shared<JSNumber>());
     env->set_var("Boolean", make_shared<JSBoolean>());
     env->set_var("Array", make_shared<Array>());
-
+    
     env->set_var("print", Value::function([this](vector<Value> args) mutable -> Value {
         Print::print(args);
         return Value::nullVal();
     }));
     
-    // env->set_var("Window", make_shared<Window>());
-    // env->set_var("Button", make_shared<Button>());
-    // env->set_var("View", make_shared<View>());
-    // env->set_var("Text", make_shared<Text>());
-    // env->set_var("VStack", make_shared<VStack>());
-    // env->set_var("HStack", make_shared<HStack>());
+    //    ExecutionContext* ctx = new ExecutionContext();
+    //    ctx->lexicalEnv = make_shared<Env>(env);
+    //    ctx->variableEnv = make_shared<Env>(env);
+    //    contextStack.push_back(ctx);
+    //
+    //    executionCtx = contextStack.back();
     
-//    ExecutionContext* ctx = new ExecutionContext();
-//    ctx->lexicalEnv = make_shared<Env>(env);
-//    ctx->variableEnv = make_shared<Env>(env);
-//    contextStack.push_back(ctx);
-//
-//    executionCtx = contextStack.back();
-
 }
 
 //Value InterpreterTurboVMV2::getVariable(const string& key) const {

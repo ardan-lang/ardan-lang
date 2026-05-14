@@ -12,7 +12,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "../../Interpreter/R.hpp"
+#include "Interpreter/R.hpp"
 
 class File : public JSObject {
 //    const fs = require('fs');

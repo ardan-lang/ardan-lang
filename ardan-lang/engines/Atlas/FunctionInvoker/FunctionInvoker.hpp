@@ -12,10 +12,11 @@
 #include <stdio.h>
 #include <vector>
 #include <memory>
-#include "../../../../Interpreter/ExecutionContext/Value/Value.h"
+
+#include "Interpreter/ExecutionContext/Value/Value.h"
 #include "../CallStackManager/CallStackManager.hpp"
 #include "../EnvironmentManager/EnvironmentManager.hpp"
-#include "../../TurboModule.hpp"
+#include "engines/Nova/TurboModule.hpp"
 
 using namespace std;
 

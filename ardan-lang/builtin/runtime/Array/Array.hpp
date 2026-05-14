@@ -9,9 +9,9 @@
 #define Array_hpp
 
 #include <stdio.h>
-#include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../Interpreter/ExecutionContext/JSArray/JSArray.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/ExecutionContext/JSArray/JSArray.h"
 
 class Array : public JSClass {
     

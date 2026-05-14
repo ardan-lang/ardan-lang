@@ -3749,7 +3749,7 @@ void TurboCodeGen::beginLoop() {
     loopStack.push_back(ctx);
 }
 
-TurboCodeGen::BindingKind TurboCodeGen::get_kind(string kind) {
+BindingKind TurboCodeGen::get_kind(string kind) {
     if (kind == "CONST") {
         return BindingKind::Const;
     }

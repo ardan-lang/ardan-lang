@@ -6,7 +6,7 @@
 //
 
 #include "JSPromise.hpp"
-#include "../../Compiler/Turbo/PeregrineVM.hpp"
+#include "engines/Peregrine/PeregrineVM.hpp"
 
 shared_ptr<JSObject> JSPromise::construct() {
     
@@ -24,7 +24,9 @@ shared_ptr<JSObject> JSPromise::construct() {
             return Value();
         });
 
-        return vm->callFunction(args[0], { resolve, reject });
+        return Value();
+        // TODO: find a better way to hook into VM
+        // return vm->callFunction(args[0], { resolve, reject });
 
     }));
 

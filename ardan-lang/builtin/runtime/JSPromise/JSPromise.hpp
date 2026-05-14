@@ -9,16 +9,17 @@
 #define JSPromise_hpp
 
 #include <stdio.h>
-#include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../Interpreter/Promise/Promise.hpp"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/Promise/Promise.hpp"
+#include "engines/BaseVM/BaseVM.hpp"
 
-class PeregrineVM;
+class BaseVM;
 
 class JSPromise : public JSClass {
     
 public:
-    JSPromise(PeregrineVM* vm) : vm(vm) {
+    JSPromise(BaseVM* vm) : vm(vm) {
         is_native = true;
         
         set_var("resolve", Value::native([this, vm](const std::vector<Value>& args) -> Value {
@@ -33,7 +34,7 @@ public:
         
     }
     
-    PeregrineVM* vm;
+    BaseVM* vm;
     
     shared_ptr<JSObject> construct() override;
 

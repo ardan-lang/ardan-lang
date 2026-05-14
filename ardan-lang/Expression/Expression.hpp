@@ -15,10 +15,10 @@
 #include <limits>
 #include <typeinfo>
 
-#include "../Scanner/Token/Token.hpp"
-#include "../Scanner/Token/TokenType.h"
-#include "../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../Interpreter/R.hpp"
+#include "Scanner/Token/Token.hpp"
+#include "Scanner/Token/TokenType.h"
+#include "ExpressionVisitor/ExpressionVisitor.hpp"
+#include "Interpreter/R.hpp"
 
 using std::string;
 using std::unique_ptr;

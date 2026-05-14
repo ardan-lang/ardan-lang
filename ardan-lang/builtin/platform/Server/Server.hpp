@@ -18,12 +18,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "../../Interpreter/ExecutionContext/Value/Value.h"
-#include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../Statements/Statements.hpp"
+#include "Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Statements/Statements.hpp"
 
-#include "../../EventLoop/EventLoop.hpp"
+#include "EventLoop/EventLoop.hpp"
 
 class Server : public JSClass {
 public:

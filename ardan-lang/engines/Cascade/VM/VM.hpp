@@ -20,22 +20,20 @@
 
 #include "Bytecode.hpp"
 #include "Chunk.hpp"
-#include "../../Interpreter/ExecutionContext/Value/Value.h"
-#include "../../Interpreter/ExecutionContext/JSArray/JSArray.h"
-#include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../Interpreter/Utils/Utils.h"
-#include "../../builtin/Print/Print.hpp"
+#include "Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/JSArray/JSArray.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/Utils/Utils.h"
+#include "builtin/platform/Print/Print.hpp"
 #include "Module.hpp"
 
-#include "../../builtin/Print/Print.hpp"
-#include "../../builtin/builtin-includes.h"
-#include "../../GUI/gui.h"
-#include "../../Interpreter/Promise/Promise.hpp"
-#include "../../builtin/Server/Server.hpp"
-#include "../../Interpreter/Env.h"
+#include "builtin/builtin-includes.h"
+#include "Interpreter/Promise/Promise.hpp"
+#include "builtin/platform/Server/Server.hpp"
+#include "Interpreter/Env.h"
 
-#include "../BaseVM.hpp"
+#include "engines/BaseVM/BaseVM.hpp"
 
 using namespace std;
 
@@ -61,7 +59,7 @@ struct TryFrame {
     int ipAfterTry;   // where the linear try block ends (for normal flow)
 };
 
-class VM : public BaseVM<VM, Module, Chunk> {
+class VM : public BaseVM/*<VM, Module, Chunk>*/ {
 
 public:
     

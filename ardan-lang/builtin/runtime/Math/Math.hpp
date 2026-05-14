@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "../../Interpreter/R.hpp"
+#include "Interpreter/R.hpp"
 
 using namespace std;
 

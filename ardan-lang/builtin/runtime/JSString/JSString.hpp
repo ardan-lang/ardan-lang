@@ -12,8 +12,8 @@
 #include <string>
 #include <algorithm>
 
-#include "../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
 
 class JSString : public JSClass {
     

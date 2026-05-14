@@ -9,22 +9,21 @@
 #ifndef Compiler_hpp
 #define Compiler_hpp
 
-#include "Turbo/PeregrineVM.hpp"
-// #include "Turbo/InterpreterTurboVM/InterpreterTurboVMV2.hpp"
-#include "peregrine/PeregrineCodeGen.hpp"
+#include "engines/Peregrine/peregrine/PeregrineCodeGen.hpp"
+#include "engines/Peregrine/PeregrineVM.hpp"
 
-#include "VM/VM.hpp"
-#include "CodeGenerator.hpp"
-#include "VM/Module.hpp"
-#include "WriteArdarFile/WriteArdarFile.hpp"
-#include "ArdarFileReader/ArdarFileReader.hpp"
+#include "engines/Cascade/VM/VM.hpp"
+#include "engines/Cascade/CodeGenerator.hpp"
+#include "engines/Cascade/VM/Module.hpp"
+#include "ArdarFileManager/WriteArdarFile/WriteArdarFile.hpp"
+#include "ArdarFileManager/ArdarFileReader/ArdarFileReader.hpp"
 
-#include "Turbo/TurboVM.hpp"
-#include "Turbo/TurboCodeGenerator.hpp"
-#include "Turbo/TurboModule.hpp"
+#include "engines/Nova/TurboVM.hpp"
+#include "engines/Nova/TurboCodeGenerator.hpp"
+#include "engines/Nova/TurboModule.hpp"
 
-#include "arm64/ARM64Emitter.hpp"
-#include "arm64/ARM64CodeGen.hpp"
+#include "Compiler/arm64/ARM64Emitter.hpp"
+#include "Compiler/arm64/ARM64CodeGen.hpp"
 
 class Chunk;
 

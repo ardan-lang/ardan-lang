@@ -9,12 +9,13 @@
 #define builtin_includes_h
 
 #include "runtime/Math/Math.hpp"
-#include "platform/File/File.hpp"
-#include "platform/Print/Print.hpp"
 #include "runtime/JSString/JSString.hpp"
 #include "runtime/JSNumber/JSNumber.hpp"
 #include "runtime/JSBoolean/JSBoolean.hpp"
 #include "runtime/Array/Array.hpp"
 #include "runtime/JSPromise/JSPromise.hpp"
+
+#include "platform/File/File.hpp"
+#include "platform/Print/Print.hpp"
 
 #endif /* builtin_includes_h */

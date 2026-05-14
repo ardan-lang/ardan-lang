@@ -18,23 +18,22 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "../TurboBytecode.hpp"
-#include "../TurboChunk.hpp"
-#include "../../../Interpreter/ExecutionContext/Value/Value.h"
-#include "../../../Interpreter/ExecutionContext/JSArray/JSArray.h"
-#include "../../../Interpreter/ExecutionContext/JSObject/JSObject.h"
-#include "../../../Interpreter/ExecutionContext/JSClass/JSClass.h"
-#include "../../../Interpreter/Utils/Utils.h"
-#include "../../../builtin/Print/Print.hpp"
-#include "../TurboModule.hpp"
+#include "engines/Nova/TurboBytecode.hpp"
+#include "engines/Nova/TurboChunk.hpp"
+#include "Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/JSArray/JSArray.h"
+#include "Interpreter/ExecutionContext/JSObject/JSObject.h"
+#include "Interpreter/ExecutionContext/JSClass/JSClass.h"
+#include "Interpreter/Utils/Utils.h"
+#include "builtin/platform/Print/Print.hpp"
+#include "engines/Nova/TurboModule.hpp"
 
 #include "builtin/builtin-includes.h"
-// #include "../../../GUI/gui.h"
-#include "../../../Interpreter/Promise/Promise.hpp"
-#include "../../../builtin/Server/Server.hpp"
-#include "../../../Interpreter/Env.h"
+#include "Interpreter/Promise/Promise.hpp"
+#include "builtin/platform/Server/Server.hpp"
+#include "Interpreter/Env.h"
 
-#include "../../BaseVM.hpp"
+#include "engines/BaseVM/BaseVM.hpp"
 
 #include "FunctionInvoker/FunctionInvoker.hpp"
 #include "ExecutionContext/ExecutionContext.hpp"
@@ -49,7 +48,7 @@ using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
-class InterpreterTurboVMV2 : public BaseVM<InterpreterTurboVMV2, TurboModule, TurboChunk> {
+class InterpreterTurboVMV2 : public BaseVM/*<InterpreterTurboVMV2, TurboModule, TurboChunk>*/ {
     
     //    struct TryFrame {
     //        int catchIP;      // -1 if none

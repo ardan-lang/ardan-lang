@@ -33,7 +33,7 @@
 #include "builtin/platform/Server/Server.hpp"
 #include "Interpreter/Env.h"
 
-#include "../BaseVM.hpp"
+#include "engines/BaseVM/BaseVM.hpp"
 
 using namespace std;
 
@@ -79,7 +79,7 @@ struct ExecutionContext {
     shared_ptr<Env> variableEnv;
 };
 
-class PeregrineVM : public BaseVM<PeregrineVM, TurboModule, TurboChunk> {
+class PeregrineVM : public BaseVM/* <PeregrineVM, TurboModule, TurboChunk> */ {
     
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;

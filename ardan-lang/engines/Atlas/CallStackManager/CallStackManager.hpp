@@ -13,8 +13,8 @@
 #include <vector>
 #include <deque>
 #include <memory>
-#include "../../TurboChunk.hpp"
-#include "../../../../Interpreter/ExecutionContext/Value/Value.h"
+#include "engines/Nova/TurboChunk.hpp"
+#include "Interpreter/ExecutionContext/Value/Value.h"
 
 using namespace std;
 

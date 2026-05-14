@@ -6,7 +6,7 @@
 //
 
 #include "JSBoolean.hpp"
-#include "../../Statements/Statements.hpp"
+#include "Statements/Statements.hpp"
 
 shared_ptr<JSObject> JSBoolean::construct() {
     

@@ -14,18 +14,18 @@
 #include <vector>
 #include <memory>
 
-#include "../../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../../Statements/StatementVisitor.hpp"
-#include "../../Statements/Statements.hpp"
-#include "../../Expression/Expression.hpp"
-#include "../../Interpreter/Utils/Utils.h"
-#include "../../Scanner/Scanner.hpp"
-#include "../../Parser/Parser.hpp"
+#include "ExpressionVisitor/ExpressionVisitor.hpp"
+#include "Statements/StatementVisitor.hpp"
+#include "Statements/Statements.hpp"
+#include "Expression/Expression.hpp"
+#include "Interpreter/Utils/Utils.h"
+#include "Scanner/Scanner.hpp"
+#include "Parser/Parser.hpp"
 
-#include "../VM/Bytecode.hpp"
-#include "../VM/Chunk.hpp"
-#include "../VM/VM.hpp"
-#include "../VM/Module.hpp"
+#include "engines/Cascade/VM/Bytecode.hpp"
+#include "engines/Cascade/VM/Chunk.hpp"
+#include "engines/Cascade/VM/VM.hpp"
+#include "engines/Cascade/VM/Module.hpp"
 
 #include "ARM64Emitter.hpp"
 

@@ -8,17 +8,17 @@
 #include "PeregrineCodeGen.hpp"
 #include <memory>
 
-#include "../../Statements/Statements.hpp"
-#include "../../Expression/Expression.hpp"
-#include "../../Interpreter/Utils/Utils.h"
-#include "../../Interpreter/ExecutionContext/JSArray/JSArray.h"
-#include "../../Interpreter/ExecutionContext/Value/Value.h"
-#include "../../builtin/Print/Print.hpp"
-#include "../../builtin/builtin-includes.h"
-#include "../../Scanner/Scanner.hpp"
-#include "../../Parser/Parser.hpp"
-#include "../../Interpreter/Promise/Promise.hpp"
-#include "../../builtin/Server/Server.hpp"
+#include "Statements/Statements.hpp"
+#include "Expression/Expression.hpp"
+#include "Interpreter/Utils/Utils.h"
+#include "Interpreter/ExecutionContext/JSArray/JSArray.h"
+#include "Interpreter/ExecutionContext/Value/Value.h"
+#include "builtin/platform/Print/Print.hpp"
+#include "builtin/builtin-includes.h"
+#include "Scanner/Scanner.hpp"
+#include "Parser/Parser.hpp"
+#include "Interpreter/Promise/Promise.hpp"
+#include "builtin/platform/Server/Server.hpp"
 
 size_t PeregrineCodeGen::generate(const vector<unique_ptr<Statement>> &program) {
     cur = make_shared<TurboChunk>();
@@ -3198,7 +3198,7 @@ void PeregrineCodeGen::beginLoop() {
     loopStack.push_back(ctx);
 }
 
-PeregrineCodeGen::BindingKind PeregrineCodeGen::get_kind(string kind) {
+BindingKind PeregrineCodeGen::get_kind(string kind) {
     if (kind == CONST) {
         return BindingKind::Const;
     }

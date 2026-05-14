@@ -14,19 +14,20 @@
 #include <iostream>
 
 
-#include "../../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../../Statements/StatementVisitor.hpp"
-#include "../../Statements/Statements.hpp"
-#include "../../Expression/Expression.hpp"
-#include "../../Interpreter/Utils/Utils.h"
+#include "ExpressionVisitor/ExpressionVisitor.hpp"
+#include "Statements/StatementVisitor.hpp"
+#include "Statements/Statements.hpp"
+#include "Expression/Expression.hpp"
+#include "Interpreter/Utils/Utils.h"
 
-#include "../../Scanner/Scanner.hpp"
-#include "../../Parser/Parser.hpp"
+#include "Scanner/Scanner.hpp"
+#include "Parser/Parser.hpp"
 
 #include "./TurboBytecode.hpp"
 #include "./TurboChunk.hpp"
 #include "./TurboVM.hpp"
 #include "./TurboModule.hpp"
+#include "Compiler/RegisterAllocator/RegisterAllocator.hpp"
 
 using namespace std;
 
@@ -35,30 +36,8 @@ using std::unordered_map;
 using std::string;
 using std::vector;
 
-class RegisterAllocator {
-    uint32_t nextReg = 0; // reserve 0 for special uses if needed
-    vector<uint32_t> freeRegs;
-public:
-    uint32_t alloc() {
-        if (!freeRegs.empty()) { uint32_t r = freeRegs.back(); freeRegs.pop_back(); return r; }
-        return nextReg++;
-    }
-    void free(uint32_t r) {
-        if (r==0) return; // don't free 0
-        freeRegs.push_back(r);
-    }
-    void reset() { nextReg = 1; freeRegs.clear(); }
-    int getNextReg() { return nextReg; }
-};
-
 class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
     
-    enum class BindingKind {
-        Var,
-        Let,
-        Const,
-    };
-
     enum class Visibility { Public, Protected, Private };
     
     struct PropertyMeta {

@@ -25,16 +25,15 @@
 #include "Interpreter/ExecutionContext/JSObject/JSObject.h"
 #include "Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "Interpreter/Utils/Utils.h"
-#include "builtin/Print/Print.hpp"
+#include "builtin/platform/Print/Print.hpp"
 #include "TurboModule.hpp"
 
-#include "builtin/Print/Print.hpp"
 #include "builtin/builtin-includes.h"
 #include "Interpreter/Promise/Promise.hpp"
-#include "builtin/Server/Server.hpp"
+#include "builtin/platform/Server/Server.hpp"
 #include "Interpreter/Env.h"
 
-#include "../BaseVM.hpp"
+#include "engines/BaseVM/BaseVM.hpp"
 
 using namespace std;
 
@@ -43,7 +42,7 @@ using std::unordered_map;
 using std::shared_ptr;
 using std::string;
 
-class TurboVM : public BaseVM<TurboVM, TurboModule, TurboChunk> {
+class TurboVM : public BaseVM /* <TurboVM, TurboModule, TurboChunk> */ {
     
     struct CallFrame {
         shared_ptr<TurboChunk> chunk;

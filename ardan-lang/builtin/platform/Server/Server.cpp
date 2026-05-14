@@ -6,7 +6,6 @@
 //
 
 #include "Server.hpp"
-#include "../../Compiler/VM/VM.hpp"
 
 std::shared_ptr<JSObject> Server::construct() {
     
@@ -50,7 +49,8 @@ std::shared_ptr<JSObject> Server::construct() {
         if (listenCallback.type == ValueType::FUNCTION) {
             listenCallback.functionValue({});
         } else if (listenCallback.type == ValueType::CLOSURE) {
-            obj->vm->callFunction(listenCallback, {});
+            // TODO: find better way to hook into vm
+            // obj->vm->callFunction(listenCallback, {});
         }
 
         // Register server_fd with event loop (onReadable will accept connections)

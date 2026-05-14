@@ -13,8 +13,9 @@
 #pragma once
 #include <memory>
 #include <vector>
-#include "../../../../Interpreter/Env.h"
-#include "../../../../Interpreter/Utils/Utils.h"
+
+#include "Interpreter/Env.h"
+#include "Interpreter/Utils/Utils.h"
 #include "../ExecutionContext/ExecutionContext.hpp"
 
 class EnvironmentManager {
