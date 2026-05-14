@@ -44,7 +44,8 @@ using R = std::variant<
     shared_ptr<JSClass>,
     shared_ptr<JSArray>,
     Value,
-IRValue
+    IRValue,
+    shared_ptr<IRValue>
 >;
 
 #endif /* R_hpp */

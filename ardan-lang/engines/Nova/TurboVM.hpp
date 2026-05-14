@@ -54,7 +54,7 @@ class TurboVM : public BaseVM /* <TurboVM, TurboModule, TurboChunk> */ {
         shared_ptr<Closure> closure;
         Value registers[256];
     };
-
+    
     struct TryFrame {
         int catchIP;      // -1 if none
         int finallyIP;    // -1 if none
@@ -62,7 +62,7 @@ class TurboVM : public BaseVM /* <TurboVM, TurboModule, TurboChunk> */ {
         int ipAfterTry;   // where the linear try block ends (for normal flow)
         uint8_t regCatch;   // register index to store the thrown value
     };
-
+    
 public:
     TurboVM();
     
@@ -70,7 +70,7 @@ public:
     
     Env* env;
     EventLoop* event_loop;
-
+    
     TurboVM(shared_ptr<TurboModule> module_ = nullptr);
     ~TurboVM();
     Value callFunction(Value callee, const vector<Value>& args);
@@ -88,9 +88,9 @@ private:
     void invokeConstructor(Value obj_value, vector<Value> args);
     void invokeMethod(Value obj_value, string name, vector<Value> args);
     Value callMethod(Value callee, vector<Value>& args, Value js_object);
-
+    
     Upvalue* openUpvalues = nullptr;
-
+    
     Value runFrame(CallFrame &current_frame);
     void handleRethrow();
     bool running = true;
@@ -104,7 +104,7 @@ private:
     void init_builtins();
     void init_host_builtins();
     void init_language_builtins();
-
+    
     Value getProperty(const Value &objVal, const string &propName);
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
@@ -114,11 +114,11 @@ private:
     void InvokeConstructor(Value obj_value, vector<Value> args);
     
     // UI
-    void runCreateUIView(Instruction i);
-    void runAddChildSubView(Instruction i);
-    void runSetUIViewArgument(Instruction i);
-    void runCallUIViewModifier(Instruction i);
-
+    // void runCreateUIView(Instruction i);
+    // void runAddChildSubView(Instruction i);
+    // void runSetUIViewArgument(Instruction i);
+    // void runCallUIViewModifier(Instruction i);
+    
 };
 
 #endif /* TurboVM_hpp */

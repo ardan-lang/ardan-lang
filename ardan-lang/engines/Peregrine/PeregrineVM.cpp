@@ -8,9 +8,9 @@
 #include <thread>
 #include "PeregrineVM.hpp"
 
-PeregrineVM::PeregrineVM() {
-    init_builtins();
-}
+//PeregrineVM::PeregrineVM() {
+//    init_builtins();
+//}
 
 PeregrineVM::PeregrineVM(shared_ptr<TurboModule> module_) : module_(module_) {
 
@@ -22,7 +22,6 @@ PeregrineVM::~PeregrineVM() {
     
     thread stopper([this]() {
         sleep(0);
-        cout << "[Event Loop]..." << endl;
         event_loop->stop();
     });
     
@@ -1742,7 +1741,6 @@ Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) 
 
         shared_ptr<TurboChunk> calleeChunk = module_->chunks[callee.closureValue->fn->chunkIndex];
         
-        // Build new frame
         CallFrame new_frame;
         new_frame.chunk = calleeChunk;
         new_frame.ip = 0;
@@ -1807,13 +1805,12 @@ Value PeregrineVM::callFunction(const Value& callee, const vector<Value>& args) 
     
     shared_ptr<TurboChunk> calleeChunk = module_->chunks[fn->chunkIndex];
 
-    // Build new frame
     CallFrame new_frame;
     new_frame.chunk = calleeChunk;
     new_frame.ip = 0;
     new_frame.args = args;
     
-    new_frame.closure = callee.closureValue; // may be nullptr if callee is plain functionRef
+    new_frame.closure = callee.closureValue;
 
     // save current frame
     CallFrame prev_frame = callStack.back();

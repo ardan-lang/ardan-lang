@@ -1723,12 +1723,12 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
                 
                 // UI
             case TurboOpCode::CreateUIView: {
-                runCreateUIView(instruction);
+                // runCreateUIView(instruction);
                 break;
             }
                 
             case TurboOpCode::AddChildSubView: {
-                runAddChildSubView(instruction);
+                // runAddChildSubView(instruction);
                 break;
             }
                 
@@ -1737,7 +1737,7 @@ Value TurboVM::runFrame(CallFrame &current_frame) {
             }
                 
             case TurboOpCode::CallUIViewModifier: {
-                runCallUIViewModifier(instruction);
+                // runCallUIViewModifier(instruction);
                 break;
             }
 

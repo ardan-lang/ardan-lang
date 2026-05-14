@@ -18,20 +18,22 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "TurboBytecode.hpp"
-#include "TurboChunk.hpp"
+#include "engines/Nova/TurboBytecode.hpp"
+#include "engines/Nova/TurboChunk.hpp"
+#include "engines/Nova/TurboModule.hpp"
+
 #include "Interpreter/ExecutionContext/Value/Value.h"
 #include "Interpreter/ExecutionContext/JSArray/JSArray.h"
 #include "Interpreter/ExecutionContext/JSObject/JSObject.h"
 #include "Interpreter/ExecutionContext/JSClass/JSClass.h"
 #include "Interpreter/Utils/Utils.h"
+#include "Interpreter/Env.h"
+#include "Interpreter/Promise/Promise.hpp"
+
 #include "builtin/platform/Print/Print.hpp"
-#include "TurboModule.hpp"
 
 #include "builtin/builtin-includes.h"
-#include "Interpreter/Promise/Promise.hpp"
 #include "builtin/platform/Server/Server.hpp"
-#include "Interpreter/Env.h"
 
 #include "engines/BaseVM/BaseVM.hpp"
 
@@ -99,7 +101,7 @@ class PeregrineVM : public BaseVM/* <PeregrineVM, TurboModule, TurboChunk> */ {
     };
 
 public:
-    PeregrineVM();
+    // PeregrineVM();
     
     Value run(shared_ptr<TurboChunk> chunk, const vector<Value>& args = {});
     

@@ -9,6 +9,9 @@
 
 void IRBuilderVisitor::build(const vector<unique_ptr<Statement>> &program) {
     
+    currentBlock = new BasicBlock("entry");
+    currentFunction = new IRFunction();
+    
     for (const auto &s : program) {
         s->accept(*this);
     }

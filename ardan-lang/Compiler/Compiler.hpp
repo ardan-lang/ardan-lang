@@ -9,12 +9,10 @@
 #ifndef Compiler_hpp
 #define Compiler_hpp
 
-#include "engines/Peregrine/peregrine/PeregrineCodeGen.hpp"
-#include "engines/Peregrine/PeregrineVM.hpp"
-
 #include "engines/Cascade/VM/VM.hpp"
 #include "engines/Cascade/CodeGenerator.hpp"
 #include "engines/Cascade/VM/Module.hpp"
+
 #include "ArdarFileManager/WriteArdarFile/WriteArdarFile.hpp"
 #include "ArdarFileManager/ArdarFileReader/ArdarFileReader.hpp"
 
@@ -24,6 +22,9 @@
 
 #include "Compiler/arm64/ARM64Emitter.hpp"
 #include "Compiler/arm64/ARM64CodeGen.hpp"
+
+#include "engines/Peregrine/peregrine/PeregrineCodeGen.hpp"
+#include "engines/Peregrine/PeregrineVM.hpp"
 
 class Chunk;
 

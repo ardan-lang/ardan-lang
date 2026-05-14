@@ -47,7 +47,7 @@ public:
     //    }
     
     void init_builtins();
-    Value callFunction(const Value& callee, const vector<Value>& args);
+    Value callFunction(const Value& callee, const vector<Value>& args) { return Value(); };
     
     // Value getProperty(const Value &objVal, const string &propName);
     

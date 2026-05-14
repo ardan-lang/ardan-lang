@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <variant>
+
 #include "ExpressionVisitor/ExpressionVisitor.hpp"
 #include "Statements/StatementVisitor.hpp"
 #include "Statements/Statements.hpp"
@@ -30,11 +31,11 @@ public:
     int temp = 0;
     int blockId = 0;
     
-    std::unordered_map<std::string, IRValue> symTable;
+    std::unordered_map<std::string, shared_ptr<IRValue>> symTable;
     
-//    IRValue createTemp(std::string type = "i32") {
-//        return IRValue("%t" + std::to_string(temp++), type);
-//    }
+    //    IRValue createTemp(std::string type = "i32") {
+    //        return IRValue("%t" + std::to_string(temp++), type);
+    //    }
     
     IRValue createTemp(IRType type) {
         return IRValue("%" + std::to_string(temp++), type);
@@ -51,7 +52,7 @@ public:
     void emit(const IRInstruction inst);
     
 private:
-        
+    
     struct Variable {
         string name;
         BindingKind kind;

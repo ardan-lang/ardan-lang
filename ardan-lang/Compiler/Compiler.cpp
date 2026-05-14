@@ -60,7 +60,7 @@ void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>&
     auto entryChunkIndex = codegen->generate(ast);
 
     std::string outputFilename = "/Users/chidumennamdi/Documents/MacBookPro2020/developerse/xcode-prjs/ardan-lang/ardan-lang/tests/myprogram.adar";
-    uint32_t version = 2;
+    // uint32_t version = 2;
 
     write_ardar_turbo(outputFilename, module_, (uint32_t)entryChunkIndex);
         
@@ -72,8 +72,8 @@ void Compiler::test_turbo_compile(const std::vector<std::unique_ptr<Statement>>&
 
 void Compiler::runTurbo(shared_ptr<TurboModule> module_) {
     
-    PeregrineVM vm(module_);
-    // TurboVM vm(module_);
+    // PeregrineVM _vm(module_);
+    TurboVM vm(module_);
 
     Value ret = vm.run(module_->chunks[module_->entryChunkIndex], {});
 
@@ -81,14 +81,9 @@ void Compiler::runTurbo(shared_ptr<TurboModule> module_) {
 
 void Compiler::write_ardar_turbo(string outputFilename, shared_ptr<TurboModule> module_, uint32_t entryChunkIndex) {
     
-    WriteArdarFile writer(outputFilename,
-                          module_.get(),
-                          (uint32_t)entryChunkIndex,
-                          2);
+    WriteArdarFile writer(outputFilename, module_.get(), (uint32_t)entryChunkIndex, 2);
 
     writer.writingTurbo(module_.get());
-
-    cout << "File written successfully!" << endl;
 
 }
 
@@ -115,8 +110,6 @@ void Compiler::write_ardar(string outputFilename,
     WriteArdarFile writer(outputFilename, module_.get(), (uint32_t)entryChunkIndex, version);
 
     writer.writing();
-
-    cout << "File written successfully!" << endl;
 
 }
 
