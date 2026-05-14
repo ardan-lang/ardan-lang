@@ -11,7 +11,9 @@
 #include <memory>
 #include <vector>
 #include <stack>
-#include "../TurboChunk.hpp"
+
+#include "engines/Nova/TurboChunk.hpp"
+#include "IR/ir/IRGraph/IRGraph.hpp"
 #include "IRNode.hpp"
 
 class IRBuilder {

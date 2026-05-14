@@ -18,6 +18,7 @@
 #include <memory>
 #include "ExecutionContext/JSArray/JSArray.h"
 #include "ExecutionContext/JSClass/JSClass.h"
+#include "IR/ir/IRValue/IRValue.hpp"
 
 using namespace std;
 
@@ -42,7 +43,8 @@ using R = std::variant<
     shared_ptr<Value>,
     shared_ptr<JSClass>,
     shared_ptr<JSArray>,
-    Value
+    Value,
+IRValue
 >;
 
 #endif /* R_hpp */

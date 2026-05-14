@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Docs - ArdanLang</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<header>
+  <h1>ArdanLang Docs</h1>
+
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="docs.html">Docs</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="card">
+    <h2>Compiler Pipeline</h2>
+    <ol>
+      <li>Lexing</li>
+      <li>Parsing → AST</li>
+      <li>IR Building (SSA form)</li>
+      <li>Optimization Passes</li>
+      <li>Bytecode Generation</li>
+      <li>VM Execution</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>IR Design</h2>
+    <p>
+      IR nodes represent operations in SSA form. Each value is assigned once
+      and used multiple times.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Optimization Passes</h2>
+    <ul>
+      <li>Dead Code Elimination (DCE)</li>
+      <li>Constant Folding</li>
+      <li>Common Subexpression Elimination (CSE)</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>VM Model</h2>
+    <p>
+      Stack-based execution with function frames and scoped environments.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <p>Docs evolve as ArdanLang evolves.</p>
+</footer>
+
+</body>
+</html>

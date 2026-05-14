@@ -49,7 +49,7 @@ public:
     void init_builtins();
     Value callFunction(const Value& callee, const vector<Value>& args);
     
-    //    Value getProperty(const Value &objVal, const string &propName);
+    // Value getProperty(const Value &objVal, const string &propName);
     
     void setStaticProperty(const Value &objVal, const string &propName, const Value &val) {
         if (objVal.type == ValueType::CLASS) {
@@ -76,8 +76,9 @@ public:
     void closeUpvalues(Value* last);
     shared_ptr<Upvalue> captureUpvalue(Value* local);
     
-    //    Value CreateInstance(Value klass);
-    //void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
+    // Value CreateInstance(Value klass);
+    // void CreateObjectLiteralProperty(Value obj_val, string prop_name, Value object);
+    
     void InvokeConstructor(Value obj_value, vector<Value> args);
     
     const unordered_map<string, Value> enumerateKeys(Value obj) {
@@ -111,14 +112,12 @@ public:
         if (v.type == ValueType::BOOLEAN) return v.boolValue;
         if (v.type == ValueType::NUMBER) return v.numberValue != 0;
         if (v.type == ValueType::STRING) return !v.stringValue.empty();
-        // objects/arrays considered truthy
         return true;
     }
     
     bool equals(const Value &a, const Value &b) {
-        // shallow equality similar to interpreter
+        
         if (a.type != b.type) {
-            // try numeric-string comparisons etc is omitted for brevity
             return a.toString() == b.toString();
         }
         switch (a.type) {
@@ -129,7 +128,6 @@ public:
             case ValueType::UNDEFINED:
                 return true;
             default:
-                // object identity
                 if (a.type == ValueType::OBJECT && b.type == ValueType::OBJECT)
                     return a.objectValue == b.objectValue;
                 if (a.type == ValueType::ARRAY && b.type == ValueType::ARRAY)
@@ -142,7 +140,6 @@ public:
     bool in(Value objVal, Value b) {
         std::string propName = b.toString();
         
-        // Standard object
         if (objVal.type == ValueType::OBJECT) {
             auto object = objVal.objectValue;
             while (object) {
@@ -154,7 +151,6 @@ public:
             return false;
         }
         
-        // Array
         if (objVal.type == ValueType::ARRAY) {
             if (objVal.arrayValue->has(propName)) {
                 return true;
@@ -162,7 +158,6 @@ public:
             return false;
         }
         
-        // Class (static fields)
         if (objVal.type == ValueType::CLASS) {
             auto cls = objVal.classValue;
             while (cls) {
