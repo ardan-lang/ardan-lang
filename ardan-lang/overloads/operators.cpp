@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-#include "../Scanner/Token/TokenType.h"
+#include "Scanner/Token/TokenType.h"
 
 using namespace std;
 

@@ -12,12 +12,12 @@
 #include <iostream>
 #include <string>
 
-#include "../Scanner/Scanner.hpp"
-#include "../overloads/operators.h"
-#include "../Parser/Parser.hpp"
-#include "../Interpreter/Env.h"
+#include "Scanner/Scanner.hpp"
+#include "overloads/operators.h"
+#include "Parser/Parser.hpp"
+#include "Interpreter/Env.h"
 
-#include "../Interpreter/Interpreter.h"
+#include "Interpreter/Interpreter.h"
 
 using namespace std;
 

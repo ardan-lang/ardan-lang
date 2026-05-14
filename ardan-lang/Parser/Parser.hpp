@@ -11,11 +11,11 @@
 #include <stdio.h>
 #include <iostream>
 #include <cctype>
-#include "../Scanner/Token/Token.hpp"
-#include "../Scanner/Token/TokenType.h"
-#include "../Statements/Statements.hpp"
-#include "../overloads/operators.h"
-#include "../Scanner/keywords/keywords.h"
+#include "Scanner/Token/Token.hpp"
+#include "Scanner/Token/TokenType.h"
+#include "Statements/Statements.hpp"
+#include "overloads/operators.h"
+#include "Scanner/keywords/keywords.h"
 
 class Parser {
     vector<Token> tokens;

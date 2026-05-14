@@ -10,9 +10,9 @@
 
 #include <iostream>
 #include <string>
-#include "../../ExpressionVisitor/ExpressionVisitor.hpp"
-#include "../../Expression/Expression.hpp"
-#include "../../Statements/Statements.hpp"
+#include "ExpressionVisitor/ExpressionVisitor.hpp"
+#include "Expression/Expression.hpp"
+#include "Statements/Statements.hpp"
 
 using namespace std;
 

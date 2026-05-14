@@ -9,7 +9,7 @@
 #define StatementVisitor_hpp
 
 #include <stdio.h>
-#include "../Interpreter/R.hpp"
+#include "Interpreter/R.hpp"
 
 class EmptyStatement;
 class BlockStatement;

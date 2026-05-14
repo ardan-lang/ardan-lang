@@ -6,9 +6,9 @@
 //
 
 #include "Parser.hpp"
-#include "../overloads/operators.h"
-#include "../Statements/Statements.hpp"
-#include "../Visitor/AstPrinter/AstPrinter.h"
+#include "overloads/operators.h"
+#include "Statements/Statements.hpp"
+#include "Visitor/AstPrinter/AstPrinter.h"
 #include <stdexcept>
 
 using namespace std;

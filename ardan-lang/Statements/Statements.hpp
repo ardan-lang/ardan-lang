@@ -13,9 +13,9 @@
 #include <vector>
 #include <cstring>
 #include <map>
-#include "../Expression/Expression.hpp"
-#include "StatementVisitor.hpp"
-#include "../Interpreter/R.hpp"
+#include "Expression/Expression.hpp"
+#include "Statements/StatementVisitor.hpp"
+#include "Interpreter/R.hpp"
 
 using namespace std;
 
