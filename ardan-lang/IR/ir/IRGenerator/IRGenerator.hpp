@@ -15,7 +15,7 @@
 
 #include "IR/ir/IRNode/IRNode.hpp"
 #include "IR/ir/IRGraph/IRGraph.hpp"
-#include "engines//TurboChunk.hpp"
+#include "engines/Nova/TurboChunk.hpp"
 
 //class IRGenerator {
 //public:
