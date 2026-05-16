@@ -27,6 +27,10 @@ R IRBuilderVisitor::visitExpression(ExpressionStatement* stmt) {
 
 R IRBuilderVisitor::visitBlock(BlockStatement* stmt) { return true; }
 
+void IRBuilderVisitor::create() {}
+void IRBuilderVisitor::store() {}
+void IRBuilderVisitor::load() {}
+
 R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
     
     // var a = ...
@@ -41,9 +45,11 @@ R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
         
         if (decl.init) {
             value = get<shared_ptr<IRValue>>(decl.init->accept(*this));
-        }
+        } else value = make_shared<IRValue>();
         
-        symTable[id] = std::move(value);
+        // symTable[id] = std::move(value);
+        bind(id, *(value));
+        emit(IRInstruction(IROp::Store, createTemp(IRType::Any), { *value }));
         
     }
     
@@ -80,10 +86,89 @@ R IRBuilderVisitor::visitStringLiteral(StringLiteral* expr) {
 }
 
 R IRBuilderVisitor::visitIdentifier(IdentifierExpression* expr) {
-    return symTable[expr->token.lexeme];
+    return lookup(expr->token.lexeme);
 }
 
-R IRBuilderVisitor::visitBinary(BinaryExpression* expr) { return true; }
+IROp IRBuilderVisitor::getBinaryOp(const Token& op) {
+    
+    switch (op.type) {
+
+        case TokenType::ADD:                 return IROp::Add;
+        case TokenType::MINUS:               return IROp::Subtract;
+        case TokenType::MUL:                 return IROp::Multiply;
+        case TokenType::DIV:                 return IROp::Divide;
+        case TokenType::MODULI:              return IROp::Modulo;
+        case TokenType::POWER:               return IROp::Power;
+            
+        case TokenType::VALUE_EQUAL:         return IROp::Equal;
+        case TokenType::REFERENCE_EQUAL:     return IROp::StrictEqual;
+        case TokenType::INEQUALITY:          return IROp::NotEqual;
+        case TokenType::STRICT_INEQUALITY:   return IROp::StrictNotEqual;
+        case TokenType::LESS_THAN:           return IROp::LessThan;
+        case TokenType::LESS_THAN_EQUAL:     return IROp::LessThanOrEqual;
+        case TokenType::GREATER_THAN:        return IROp::GreaterThan;
+        case TokenType::GREATER_THAN_EQUAL:  return IROp::GreaterThanOrEqual;
+            
+        case TokenType::LOGICAL_AND:         return IROp::LogicalAnd;
+        case TokenType::LOGICAL_OR:          return IROp::LogicalOr;
+        case TokenType::NULLISH_COALESCING:  return IROp::NullishCoalescing;
+            
+        case TokenType::BITWISE_AND:         return IROp::BitAnd;
+        case TokenType::BITWISE_OR:          return IROp::BitOr;
+        case TokenType::BITWISE_XOR:         return IROp::BitXor;
+        case TokenType::BITWISE_LEFT_SHIFT:  return IROp::ShiftLeft;
+        case TokenType::BITWISE_RIGHT_SHIFT: return IROp::ShiftRight;
+        case TokenType::UNSIGNED_RIGHT_SHIFT:return IROp::UnsignedShiftRight;
+            
+        // case TokenType::INSTANCEOF: return IROp::InstanceOf;
+        // case TokenType::IN: return IROp::In;
+            
+        default:
+            throw std::runtime_error("Unknown binary operator in compiler: " + op.lexeme);
+    }
+    
+}
+
+R IRBuilderVisitor::visitBinary(BinaryExpression* expr) {
+
+    switch (expr->op.type) {
+        case TokenType::ASSIGN:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_MINUS:
+        case TokenType::ASSIGN_MUL:
+        case TokenType::ASSIGN_DIV:
+        case TokenType::MODULI_ASSIGN:
+        case TokenType::POWER_ASSIGN:
+        case TokenType::BITWISE_LEFT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_RIGHT_SHIFT_ASSIGN:
+        case TokenType::UNSIGNED_RIGHT_SHIFT_ASSIGN:
+        case TokenType::BITWISE_AND_ASSIGN:
+        case TokenType::BITWISE_OR_ASSIGN:
+        case TokenType::BITWISE_XOR_ASSIGN:
+        case TokenType::LOGICAL_AND_ASSIGN:
+        case TokenType::LOGICAL_OR_ASSIGN:
+        case TokenType::NULLISH_COALESCING_ASSIGN:
+            // emitAssignment(expr);
+            return true;
+        default:
+            break;
+    }
+
+    auto result = createTemp(IRType::Any);
+    IROp op = getBinaryOp(expr->op);
+
+    
+    shared_ptr<IRValue> lhs = get<shared_ptr<IRValue>>(expr->left->accept(*this));
+    shared_ptr<IRValue> rhs = get<shared_ptr<IRValue>>(expr->right->accept(*this));
+
+    std::vector<IRValue> inputs = {*lhs, *rhs};
+    
+    auto inst = IRInstruction(op, result, inputs);
+    
+    emit(inst);
+
+    return true;
+}
 
 R IRBuilderVisitor::visitIf(IfStatement* stmt) { return true; }
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) { return true; }
@@ -143,4 +228,21 @@ R IRBuilderVisitor::visitComma(CommaExpression *expr) { return true; }
 
 void IRBuilderVisitor::emit(const IRInstruction inst) {
     currentBlock->instructions.push_back(inst);
+}
+
+IRValue IRBuilderVisitor::lookup(string name) {
+
+    for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+
+        auto found = it->symbols.find(name);
+
+        if (found != it->symbols.end())
+            return found->second;
+    }
+
+    throw runtime_error("Undefined variable");
+}
+
+void IRBuilderVisitor::bind(string name, IRValue value) {
+    scopes.back().symbols[name] = value;
 }

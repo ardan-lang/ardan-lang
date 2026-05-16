@@ -19,6 +19,15 @@
 #include "IR/ir/IRValue/IRValue.hpp"
 #include "Compiler/RegisterAllocator/RegisterAllocator.hpp"
 
+struct Scope {
+    enum class Type { Global, Function, Block };
+    Type type;
+    Scope* parent;
+    // std::unordered_map<std::string, int> locals; // name -> slot
+    // ... upvalues, etc.
+    unordered_map<string, IRValue> symbols;
+};
+
 class IRBuilderVisitor : public ExpressionVisitor, public StatementVisitor {
     
 public:
@@ -31,9 +40,10 @@ public:
     int temp = 0;
     int blockId = 0;
     
-    std::unordered_map<std::string, std::shared_ptr<IRValue>> symTable;
+    // std::unordered_map<std::string, std::shared_ptr<IRValue>> symTable;
+    vector<Scope> scopes;
     
-    //    IRValue createTemp(std::string type = "i32") {
+    // IRValue createTemp(std::string type = "i32") {
     //        return IRValue("%t" + std::to_string(temp++), type);
     //    }
     
@@ -50,6 +60,7 @@ public:
     }
     
     void emit(const IRInstruction inst);
+    IROp getBinaryOp(const Token& op);
     
 private:
     
@@ -60,6 +71,12 @@ private:
     
     vector<Variable> variables;
     RegisterAllocator allocator;
+    IRValue lookup(std::string name);
+    void bind(string name, IRValue value);
+    
+    void create();
+    void store();
+    void load();
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
