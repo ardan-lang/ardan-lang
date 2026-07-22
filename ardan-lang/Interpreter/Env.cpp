@@ -106,17 +106,14 @@ R Env::get(const string& key) {
 }
 
 void Env::set_var(const string& key, R value) {
-    // variables[key] = std::move(value);
     variables[key] = std::forward<R>(value);
 }
 
 void Env::set_let(const string& key, R value) {
      let_variables[key] = std::forward<R>(value);
-    // let_variables[key] = std::move(value);
 }
 
 void Env::set_const(const string& key, R value) {
-    // const_variables[key] = std::move(value);
     const_variables[key] = std::forward<R>(value);
 }
 
@@ -166,33 +163,29 @@ bool Env::is_let_key_set(const string& key) {
 }
 
 void Env::assign(const string& key, R value) {
-    // 1. Look in this scope's var
+    
     auto it_var = variables.find(key);
     if (it_var != variables.end()) {
         variables[key] = std::move(value);
         return;
     }
 
-    // 2. Look in this scope's let
     auto it_let = let_variables.find(key);
     if (it_let != let_variables.end()) {
         let_variables[key] = std::move(value);
         return;
     }
 
-    // 3. Look in this scope's const
     auto it_const = const_variables.find(key);
     if (it_const != const_variables.end()) {
         throw runtime_error("Cannot reassign to const variable: " + key);
     }
 
-    // 4. If not found in current scope, walk up the parent chain
     if (parent) {
         parent->assign(key, std::move(value));
         return;
     }
 
-    // 5. Not found anywhere → define as var in current scope (default behavior)
     variables[key] = std::move(value);
 }
 
@@ -221,37 +214,21 @@ Statement* Env::getFunctionBody(const string& name) {
     return nullptr;
 }
 
-//vector<Expression*> Env::getFunctionParams(const string& name) {
-//    vector<Expression*> result;
-//    auto it = params.find(name);
-//    if (it != params.end()) {
-//        for (auto& expr : it->second) {
-//            result.push_back(expr.get());
-//        }
-//    }
-//    
-//    if (parent) return parent->getFunctionParams(name);
-//
-//    return result;
-//}
-
 vector<Expression*> Env::getFunctionParams(const string& name) {
-    // Look in current env first
+    
     auto it = params.find(name);
     if (it != params.end()) {
         vector<Expression*> result;
         for (auto& expr : it->second) {
             result.push_back(expr.get());
         }
-        return result; // <-- stop here if found
+        return result;
     }
 
-    // Otherwise, check parent
     if (parent) {
         return parent->getFunctionParams(name);
     }
 
-    // Not found at all
     return {};
 }
 
@@ -301,7 +278,7 @@ void Env::debugPrint() const {
         cout << "  " << name << "(";
         for (size_t i = 0; i < paramList.size(); i++) {
             Expression* expr = paramList[i].get();
-            // if expr is IdentifierExpression, print its name; otherwise print "param"
+            
             if (auto idExpr = dynamic_cast<IdentifierExpression*>(expr)) {
                 cout << idExpr->name;
             } else {

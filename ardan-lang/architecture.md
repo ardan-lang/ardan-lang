@@ -20,7 +20,7 @@
 | ------------------ | ----------------- |
 | Stack + Upvalue    | CascadeVM       |
 | Register + Upvalue | NovaVM          |
-| Register + Context | PeregrineVM       |
+| Register + Context | PeregrineVM     |
 | Stack + Context    | TitanVM         |
 
 AtlasVM
@@ -64,6 +64,9 @@ VM
 %3 = mul %1, %2
 %4 = load a
 %5 = add %4, %3
+
+let x = b * c
+let y = a + x
 
 Important insight (this is where many compilers go wrong)
 
@@ -446,3 +449,11 @@ This is why modern optimizing compilers use these graph structures.
 | local vars | registers           |
 | closures   | context objects     |
 | globals    | global object slots |
+
+
+| Your system | LLVM equivalent            |
+| ----------- | -------------------------- |
+| symTable    | Value naming in IRBuilder  |
+| IRValue     | SSA virtual register       |
+| regMap      | Machine register allocator |
+| VM regs     | CPU registers              |

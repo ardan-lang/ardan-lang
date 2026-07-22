@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include "IR/ir/IRValue/IRValue.hpp"
+#include "Interpreter/R.hpp"
 
 //| Opcode | Meaning       |
 //| ------ | ------------- |
@@ -23,7 +24,6 @@
 
 enum class IROp {
 
-    // Control
     Start,
     End,
     Region,
@@ -33,41 +33,43 @@ enum class IROp {
     Return,
     Throw,
 
-    // SSA
     Phi,
     EffectPhi,
 
-    // Constants
     Constant,
     Undefined,
     Null,
     Parameter,
 
-    // Arithmetic
     Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
     Neg,
+    Power,
 
-    // Bitwise
     BitAnd,
     BitOr,
     BitXor,
     ShiftLeft,
     ShiftRight,
+    UnsignedShiftRight,
 
-    // Compare
     Equal,
     NotEqual,
     LessThan,
     GreaterThan,
+    StrictEqual,
+    StrictNotEqual,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
 
-    // Logical
     Not,
+    LogicalAnd,
+    LogicalOr,
+    NullishCoalescing,
 
-    // Memory
     Load,
     Store,
     LoadProperty,
@@ -75,48 +77,39 @@ enum class IROp {
     LoadElement,
     StoreElement,
 
-    // Calls
     Call,
     CallBuiltin,
 
-    // Allocation
     NewObject,
     NewArray,
     Closure,
 
-    // Conversion
     ToBoolean,
     ToNumber,
     ToString,
 
-    // Runtime
     CheckType,
     CheckBounds,
     Guard,
 
-    // Deopt
     FrameState,
     StateValues,
     Checkpoint,
 
-    // Misc
     Projection
 };
 
 struct IRInstruction {
     IROp op;
-    std::vector<IRValue> operands; // inputs
+    std::vector<shared_ptr<IRValue>> operands; // inputs
     std::string label;
-    IRValue result; // output
-    std::variant<
-            std::monostate,
-            double,
-            std::string,
-            bool
-        > immediate;
+    shared_ptr<IRValue> result; // output
+    R immediate;
     
-    IRInstruction(IROp o, IRValue r, std::vector<IRValue> ops)
-            : op(o), result(std::move(r)), operands(std::move(ops)) {}
+    IRInstruction(IROp o,
+                  shared_ptr<IRValue> result,
+                  std::vector<shared_ptr<IRValue>> inputs)
+            : op(o), result(std::move(result)), operands(std::move(inputs)) {}
 };
 
 class BasicBlock {

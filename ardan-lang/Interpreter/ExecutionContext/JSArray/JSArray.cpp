@@ -167,7 +167,7 @@ void JSArray::init_builtins() {
         }
         
         for (size_t i = start; i < len; i++) {
-            //vector<Value> cbArgs = { acc, getIndex(i), Value((double)i), this };
+            
             std::vector<Value> cbArgs = {
                 acc,
                 getIndex(i),

@@ -43,14 +43,16 @@ shared_ptr<Promise> Promise::then(Value cb) {
 shared_ptr<Promise> Promise::then(Callback cb) {
     auto next = std::make_shared<Promise>(vm);
     auto wrapper = [cb, next, this](vector<Value> v) -> Value {
+        
         try {
             Value result = cb(v);
             next->resolve(result);
         } catch (...) {
             next->reject(Value::str("Error in then callback"));
         }
+        
         return Value::nullVal();
-        //return Value::promise(shared_ptr<Promise>(then(cb)));
+        
     };
 
     if (resolved) loop->post(wrapper, {value});

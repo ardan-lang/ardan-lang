@@ -75,7 +75,7 @@ public:
     std::shared_ptr<FunctionObject> fnRef;
     shared_ptr<Closure> closureValue;
     std::any anyValue;
-        
+    
     static Value any(std::any any) {
         Value v;
         v.type = ValueType::ANY;
@@ -142,7 +142,7 @@ public:
         v.promiseValue = promise_value;
         return v;
     }
-
+    
     static Value functionRef(std::shared_ptr<FunctionObject> f) {
         Value v; v.type = ValueType::FUNCTION_REF; v.fnRef = f; return v;
     }
@@ -210,9 +210,9 @@ struct ValueField {
 };
 
 struct Upvalue {
-    Value* location;   // Points to stack slot or closed value
-    Value closed;      // When closed, stores value
-    Upvalue* next = nullptr; // For linked-list of open upvalues (optional)
+    Value* location;
+    Value closed;
+    Upvalue* next = nullptr;
     bool isClosed() const { return location == &closed; }
 };
 

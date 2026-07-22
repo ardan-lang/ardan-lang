@@ -8,49 +8,112 @@
 #include "IRBuilderVisitor.hpp"
 
 void IRBuilderVisitor::build(const vector<unique_ptr<Statement>> &program) {
-    
-    currentBlock = new BasicBlock("entry");
-    currentFunction = new IRFunction();
-    
+
+    unique_ptr<IRFunction> uniqueCurrentFunction = make_unique<IRFunction>();
+    currentFunction = uniqueCurrentFunction.get();
+
+    currentBlock = createBlock("entry");
+
+    scopes.push_back({ Scope::Type::Global, nullptr, {} });
     for (const auto &s : program) {
         s->accept(*this);
     }
-
+    scopes.pop_back();
+    
+    irModule.functions.emplace_back(std::move(uniqueCurrentFunction));
 }
 
 R IRBuilderVisitor::visitExpression(ExpressionStatement* stmt) {
     
-    stmt->accept(*this);
+    return stmt->expression->accept(*this);
+    
+}
+
+
+/**
+ * This looks up a variable name and returns the register it is stored in.
+ */
+IRValue IRBuilderVisitor::lookup(string name) {
+
+    for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+
+        auto found = it->symbols.find(name);
+
+        if (found != it->symbols.end())
+            return found->second;
+    }
+
+    throw runtime_error("Undefined variable");
+}
+
+/**
+ * This maps variable names to their registers
+ *  variable | register
+ *  -------------
+ *    age | %0
+ *    name | %1
+ */
+void IRBuilderVisitor::bind(string name, IRValue value, BindingKind kind) {
+    
+    if (kind == BindingKind::Let) {
+        
+        scopes.back().symbols[name] = value;
+        
+    } else if (kind == BindingKind::Var) {
+        
+        for (int i = 0; i < scopes.size(); i++) {
+            if (scopes[i].type != Scope::Type::Block) {
+                scopes[i].symbols[name] = value;
+            }
+        }
+        
+    }
+    
+    if (kind == BindingKind::Const) {
+        
+        scopes.back().symbols[name] = value;
+        
+    }
+}
+
+R IRBuilderVisitor::visitBlock(BlockStatement* stmt) {
+    
+    scopes.push_back({ Scope::Type::Block, nullptr, {} });
+    
+    for (auto& s : stmt->body) {
+        s->accept(*this);
+    }
+
+    scopes.pop_back();
     
     return true;
 }
 
-R IRBuilderVisitor::visitBlock(BlockStatement* stmt) { return true; }
-
-void IRBuilderVisitor::create() {}
-void IRBuilderVisitor::store() {}
-void IRBuilderVisitor::load() {}
+BindingKind IRBuilderVisitor::getBindingKind(string kind) {
+    if (kind == "var") {
+        return BindingKind::Var;
+    } else if (kind == "let")
+        return BindingKind::Let;
+    
+    return BindingKind::Const;
+}
 
 R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
     
-    // var a = ...
-    // let b = ...
-    // const c = ...
     const string kind = stmt->kind;
+    const BindingKind bindingKind = getBindingKind(kind);
     
     for (auto& decl : stmt->declarations) {
         const string id = decl.id;
         
-        shared_ptr<IRValue> value;
+        shared_ptr<IRValue> reg;
         
         if (decl.init) {
-            value = get<shared_ptr<IRValue>>(decl.init->accept(*this));
-        } else value = make_shared<IRValue>();
+            reg = get<shared_ptr<IRValue>>(decl.init->accept(*this));
+        } else reg = make_shared<IRValue>();
         
-        // symTable[id] = std::move(value);
-        bind(id, *(value));
-        emit(IRInstruction(IROp::Store, createTemp(IRType::Any), { *value }));
-        
+        bind(id, *reg, bindingKind);
+
     }
     
     return true;
@@ -60,28 +123,42 @@ R IRBuilderVisitor::visitLiteral(LiteralExpression* expr) {
     return true;
 }
 
+/**
+ * the number is stored on a register
+ * the register is returned
+ */
 R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) {
     
-    auto ir = createTemp(IRType::Number);
+    auto dst = createTemp(IRType::Number);
+
+    // auto value = make_shared<IRValue>(std::to_string(expr->value), IRType::Number);
+
+    auto inst = IRInstruction(IROp::Constant, dst, {  });
+    inst.immediate = expr->value;
     
-    auto inst = IRInstruction(IROp::Constant, ir, {});
-    inst.immediate = get<double>(expr->value);
+    // destination register = expr->value
         
     currentBlock->instructions.push_back(inst);
     
-    return ir;
+    return dst;
 }
 
+/**
+ * the string is stored on a register
+ * the register is returned
+ */
 R IRBuilderVisitor::visitStringLiteral(StringLiteral* expr) {
     
-    auto ir = createTemp(IRType::String);
+    auto dst = createTemp(IRType::String);
     
-    auto inst = IRInstruction(IROp::Constant, ir, {});
+    auto value = make_shared<IRValue>(expr->text, IRType::String);
+
+    auto inst = IRInstruction(IROp::Constant, dst, { value });
     inst.immediate = expr->text;
         
     currentBlock->instructions.push_back(inst);
     
-    return ir;
+    return dst;
 
 }
 
@@ -154,20 +231,19 @@ R IRBuilderVisitor::visitBinary(BinaryExpression* expr) {
             break;
     }
 
-    auto result = createTemp(IRType::Any);
+    shared_ptr<IRValue> result = createTemp(IRType::Any);
     IROp op = getBinaryOp(expr->op);
-
     
     shared_ptr<IRValue> lhs = get<shared_ptr<IRValue>>(expr->left->accept(*this));
     shared_ptr<IRValue> rhs = get<shared_ptr<IRValue>>(expr->right->accept(*this));
 
-    std::vector<IRValue> inputs = {*lhs, *rhs};
+    std::vector<shared_ptr<IRValue>> inputs = {lhs, rhs};
     
     auto inst = IRInstruction(op, result, inputs);
     
     emit(inst);
 
-    return true;
+    return result;
 }
 
 R IRBuilderVisitor::visitIf(IfStatement* stmt) { return true; }
@@ -228,21 +304,4 @@ R IRBuilderVisitor::visitComma(CommaExpression *expr) { return true; }
 
 void IRBuilderVisitor::emit(const IRInstruction inst) {
     currentBlock->instructions.push_back(inst);
-}
-
-IRValue IRBuilderVisitor::lookup(string name) {
-
-    for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
-
-        auto found = it->symbols.find(name);
-
-        if (found != it->symbols.end())
-            return found->second;
-    }
-
-    throw runtime_error("Undefined variable");
-}
-
-void IRBuilderVisitor::bind(string name, IRValue value) {
-    scopes.back().symbols[name] = value;
 }

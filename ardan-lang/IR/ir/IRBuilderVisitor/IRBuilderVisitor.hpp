@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <variant>
+#include <string>
 
 #include "ExpressionVisitor/ExpressionVisitor.hpp"
 #include "Statements/StatementVisitor.hpp"
@@ -23,8 +24,10 @@ struct Scope {
     enum class Type { Global, Function, Block };
     Type type;
     Scope* parent;
-    // std::unordered_map<std::string, int> locals; // name -> slot
-    // ... upvalues, etc.
+    std::unordered_map<std::string, int> locals;
+    
+    // @TODO: check if we should add upvalues.
+    
     unordered_map<string, IRValue> symbols;
 };
 
@@ -32,7 +35,7 @@ class IRBuilderVisitor : public ExpressionVisitor, public StatementVisitor {
     
 public:
     void build(const vector<unique_ptr<Statement>> &program);
-    IRModule _module;
+    IRModule irModule;
     
     IRFunction* currentFunction = nullptr;
     BasicBlock* currentBlock = nullptr;
@@ -40,23 +43,19 @@ public:
     int temp = 0;
     int blockId = 0;
     
-    // std::unordered_map<std::string, std::shared_ptr<IRValue>> symTable;
     vector<Scope> scopes;
-    
-    // IRValue createTemp(std::string type = "i32") {
-    //        return IRValue("%t" + std::to_string(temp++), type);
-    //    }
-    
-    IRValue createTemp(IRType type) {
-        return IRValue("%" + std::to_string(temp++), type);
+        
+    shared_ptr<IRValue> createTemp(IRType type) {
+        auto tempIRValue = make_shared<IRValue>("%" + std::to_string(temp++), type);
+        return tempIRValue;
     }
     
     BasicBlock* createBlock(const std::string& prefix) {
-        auto bb = std::make_unique<BasicBlock>(prefix + std::to_string(blockId++));
+        unique_ptr<BasicBlock> basicBlock = std::make_unique<BasicBlock>(prefix + std::to_string(blockId++));
         
-        BasicBlock* ptr = bb.get();
-        currentFunction->blocks.push_back(std::move(bb));
-        return ptr;
+        BasicBlock* basicBlockPtr = basicBlock.get();
+        currentFunction->blocks.push_back(std::move(basicBlock));
+        return basicBlockPtr;
     }
     
     void emit(const IRInstruction inst);
@@ -71,12 +70,15 @@ private:
     
     vector<Variable> variables;
     RegisterAllocator allocator;
+    
     IRValue lookup(std::string name);
-    void bind(string name, IRValue value);
+    void bind(string name, IRValue value, BindingKind kind);
     
     void create();
-    void store();
+    void store(string id, shared_ptr<IRValue> reg);
     void load();
+    
+    BindingKind getBindingKind(string kind);
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;

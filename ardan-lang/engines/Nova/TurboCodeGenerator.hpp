@@ -120,7 +120,7 @@ class TurboCodeGen : public ExpressionVisitor, public StatementVisitor {
     };
 
 private:
-    shared_ptr<TurboChunk> cur; // current chunk being emitted
+    shared_ptr<TurboChunk> cur;
     int scopeDepth = 0;
     TurboCodeGen* enclosing;
     R create(string decl, uint32_t reg_slot, BindingKind kind);
@@ -131,7 +131,6 @@ private:
     TurboOpCode getBinaryOp(const Token& op);
     RegisterAllocator* registerAllocator = new RegisterAllocator();
     
-    // helpers
     TurboOpCode getUnaryOp(const Token& op);
     string resolveImportPath(ImportDeclaration* stmt);
     bool isModuleLoaded(string importPath);
@@ -170,7 +169,6 @@ private:
     void declareGlobal(const string& name, BindingKind kind);
     int lookupGlobal(const string& name);
     
-    // jump helpers
     int emitJump(TurboOpCode op, int cond_reg);
     int emitJump(TurboOpCode op);
     void patchSingleJump(int jumpPos);

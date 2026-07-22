@@ -28,7 +28,6 @@ protected:
     unordered_map<string, ValueField> let_properties;
     unordered_map<string, ValueField> const_properties;
 
-    // class of this object
     shared_ptr<JSClass> js_class;
 
 public:
