@@ -11,13 +11,9 @@ Ardan is a dynamically typed programming language, featuring a hand-written lexe
 - **Comprehensive Operator Support**: Arithmetic, logical, bitwise, assignment, comparison, and more.
 - **Exception Handling**: `Try/catch/finally` for robust error handling.
 
-⸻
-
 **Ardan Programming Language**
 
 [Ardan](!https://ardan-lang.github.io/ardan-lang/) is a modern programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
-
-⸻
 
 ## Table of Contents
 
