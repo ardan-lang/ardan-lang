@@ -37,8 +37,6 @@ Ardan is a dynamically typed programming language, featuring a hand-written lexe
 5. [Extending Ardan](#extending-ardan)
 6. [Frequently Asked Questions](#frequently-asked-questions)
 
-⸻
-
 ## Getting Started
 
 ### Installation
@@ -74,7 +72,6 @@ Or start a REPL (not yet available):
 ./ardan
 ```
 
-⸻
 
 ## Language Overview
 
@@ -105,7 +102,6 @@ print(x); // 1
 const fail; // Error: Missing initializer in const declaration
 ```
 
-⸻
 
 ## Data Types & Literals
 
@@ -146,7 +142,6 @@ let user = { name: "Alice", age: 30 };
 print(user.name); // "Alice"
 ```
 
-⸻
 
 ### Expressions and Operators
 
@@ -202,7 +197,6 @@ i++;
 i--;
 ```
 
-⸻
 ### typeof
 
 ```
