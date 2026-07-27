@@ -13,6 +13,7 @@
 
 #include "ir/IRFunction/IRFunction.hpp"
 #include "ir/IRModule/IRModule.hpp"
+#include "Interpreter/Utils/Utils.h"
 
 using namespace std;
 
@@ -25,13 +26,18 @@ class ConstantFold : public OptimizationPass {
     void run(std::vector<IRInstruction>& instructions) override;
 };
 
+class DeadCode : public OptimizationPass {
+    void run(std::vector<IRInstruction>& instructions) override;
+};
+
 /**
- *
+ * Pharoah is the optmizer for Ardan
  */
 class Pharoah {
     
     vector<OptimizationPass*> passes = {
-        new ConstantFold()
+        // new ConstantFold(),
+        new DeadCode(),
     };
     
 public:
