@@ -11,13 +11,9 @@ Ardan is a dynamically typed programming language, featuring a hand-written lexe
 - **Comprehensive Operator Support**: Arithmetic, logical, bitwise, assignment, comparison, and more.
 - **Exception Handling**: `Try/catch/finally` for robust error handling.
 
-⸻
-
-**Ardan Programming Language**
+## Ardan Programming Language
 
 [Ardan](!https://ardan-lang.github.io/ardan-lang/) is a modern programming language, implemented in C++. It features block scoping, classes and inheritance, closures, rich expressions, built-in error handling, customizable standard library, and a flexible interpreter architecture. This documentation provides a comprehensive guide for Ardan, including language syntax, semantics, and usage, with detailed examples for every concept.
-
-⸻
 
 ## Table of Contents
 
@@ -40,8 +36,6 @@ Ardan is a dynamically typed programming language, featuring a hand-written lexe
 4. [Complete Example](#complete-example)
 5. [Extending Ardan](#extending-ardan)
 6. [Frequently Asked Questions](#frequently-asked-questions)
-
-⸻
 
 ## Getting Started
 
@@ -78,7 +72,6 @@ Or start a REPL (not yet available):
 ./ardan
 ```
 
-⸻
 
 ## Language Overview
 
@@ -109,7 +102,6 @@ print(x); // 1
 const fail; // Error: Missing initializer in const declaration
 ```
 
-⸻
 
 ## Data Types & Literals
 
@@ -150,7 +142,6 @@ let user = { name: "Alice", age: 30 };
 print(user.name); // "Alice"
 ```
 
-⸻
 
 ### Expressions and Operators
 
@@ -206,7 +197,6 @@ i++;
 i--;
 ```
 
-⸻
 ### typeof
 
 ```
