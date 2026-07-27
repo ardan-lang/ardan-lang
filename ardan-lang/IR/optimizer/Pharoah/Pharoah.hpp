@@ -15,6 +15,17 @@
 #include "ir/IRModule/IRModule.hpp"
 #include "Interpreter/Utils/Utils.h"
 
+//Constant Folding
+//Constant Propagation
+//Copy Propagation
+//Dead Code Elimination
+//Common Subexpression Elimination (or Global Value Numbering)
+//Type Propagation
+//Loop Optimizations (LICM, strength reduction, induction variables)
+//Function Inlining
+//Peephole Optimization
+//Register Allocation
+
 using namespace std;
 
 class OptimizationPass {

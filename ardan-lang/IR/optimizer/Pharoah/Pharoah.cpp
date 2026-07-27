@@ -30,7 +30,6 @@ void DeadCode::run(std::vector<IRInstruction> &instructions) {
         }
                 
     }
-
     
     // remove un-used code
     for (int i = 0; i < instructions.size(); i++) {
