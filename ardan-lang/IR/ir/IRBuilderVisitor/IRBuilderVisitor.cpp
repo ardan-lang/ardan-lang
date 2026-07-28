@@ -262,17 +262,28 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
     BasicBlock* entryBlock = currentBlock;
     
     BasicBlock* thenBlock = createBlock("if.then");
-    BasicBlock* elseBlock = createBlock("if.else");
+    BasicBlock* elseBlock = stmt->alternate ? createBlock("if.else") : nullptr;
     BasicBlock* mergeBlock = createBlock("merge.block");
     
     // create "if" op
-    auto ifInstruction = IRInstruction(IROp::If, nullptr, {});
+    auto ifInstruction = IRInstruction(IROp::If, nullptr, { cond });
+    ifInstruction.targets = {};
+    
+    entryBlock->instructions.push_back(ifInstruction);
+    entryBlock->terminator = &entryBlock->instructions.back();
     
     currentBlock = thenBlock;
     stmt->consequent->accept(*this);
+    
+    if (stmt->alternate) {
+        currentBlock = elseBlock;
+        stmt->alternate->accept(*this);
+    }
 
-
+    currentBlock = mergeBlock;
+    
     return true;
+    
 }
 
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) { return true; }
