@@ -12,7 +12,8 @@
 #include <vector>
 #include "IR/ir/IRFunction/IRFunction.hpp"
 
-class IRModule {
+struct IRModule {
+public:
     std::vector<std::unique_ptr<IRFunction>> functions;
 };
 

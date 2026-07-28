@@ -28,7 +28,7 @@ struct Scope {
     
     // @TODO: check if we should add upvalues.
     
-    unordered_map<string, IRValue> symbols;
+    unordered_map<string, shared_ptr<IRValue>> symbols;
 };
 
 class IRBuilderVisitor : public ExpressionVisitor, public StatementVisitor {
@@ -58,6 +58,10 @@ public:
         return basicBlockPtr;
     }
     
+//    IRInstruction createInstruction(IROp op, ) {
+//        
+//    }
+    
     void emit(const IRInstruction inst);
     IROp getBinaryOp(const Token& op);
     
@@ -71,8 +75,8 @@ private:
     vector<Variable> variables;
     RegisterAllocator allocator;
     
-    IRValue lookup(std::string name);
-    void bind(string name, IRValue value, BindingKind kind);
+    shared_ptr<IRValue> lookup(std::string name);
+    void bind(string name, shared_ptr<IRValue> value, BindingKind kind);
     
     void create();
     void store(string id, shared_ptr<IRValue> reg);

@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <string>
 
+#include "Compiler/RegisterAllocator/RegisterAllocator.hpp"
+
 enum class IRValueType {
     NUMBER,
     STRING,

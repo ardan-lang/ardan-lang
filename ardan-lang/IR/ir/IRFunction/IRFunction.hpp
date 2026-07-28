@@ -23,7 +23,7 @@
 //| Call   | function call |
 
 enum class IROp {
-
+    
     Start,
     End,
     Region,
@@ -32,15 +32,15 @@ enum class IROp {
     Merge,
     Return,
     Throw,
-
+    
     Phi,
     EffectPhi,
-
+    
     Constant,
     Undefined,
     Null,
     Parameter,
-
+    
     Add,
     Subtract,
     Multiply,
@@ -48,14 +48,14 @@ enum class IROp {
     Modulo,
     Neg,
     Power,
-
+    
     BitAnd,
     BitOr,
     BitXor,
     ShiftLeft,
     ShiftRight,
     UnsignedShiftRight,
-
+    
     Equal,
     NotEqual,
     LessThan,
@@ -64,40 +64,46 @@ enum class IROp {
     StrictNotEqual,
     LessThanOrEqual,
     GreaterThanOrEqual,
-
+    
     Not,
     LogicalAnd,
     LogicalOr,
     NullishCoalescing,
-
+    
     Load,
     Store,
     LoadProperty,
     StoreProperty,
     LoadElement,
     StoreElement,
-
+    
     Call,
     CallBuiltin,
-
+    
     NewObject,
     NewArray,
     Closure,
-
+    CreateContext,
+    LoadContextSlot,
+    StoreContextSlot,
+    
     ToBoolean,
     ToNumber,
     ToString,
-
+    
     CheckType,
     CheckBounds,
     Guard,
-
+    
     FrameState,
     StateValues,
     Checkpoint,
-
+    
     Projection
 };
+
+class BasicBlock;
+class IRFunction;
 
 struct IRInstruction {
     IROp op;
@@ -106,10 +112,15 @@ struct IRInstruction {
     shared_ptr<IRValue> result; // output
     R immediate;
     
+    std::vector<BasicBlock*> targets;
+    IRFunction* childFunction = nullptr;
+    int contextSlot = -1;
+    int contextDepth = 0;
+    
     IRInstruction(IROp o,
                   shared_ptr<IRValue> result,
                   std::vector<shared_ptr<IRValue>> inputs)
-            : op(o), result(std::move(result)), operands(std::move(inputs)) {}
+    : op(o), result(std::move(result)), operands(std::move(inputs)) {}
 };
 
 class BasicBlock {

@@ -33,7 +33,7 @@ R IRBuilderVisitor::visitExpression(ExpressionStatement* stmt) {
 /**
  * This looks up a variable name and returns the register it is stored in.
  */
-IRValue IRBuilderVisitor::lookup(string name) {
+shared_ptr<IRValue> IRBuilderVisitor::lookup(string name) {
 
     for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
 
@@ -53,7 +53,9 @@ IRValue IRBuilderVisitor::lookup(string name) {
  *    age | %0
  *    name | %1
  */
-void IRBuilderVisitor::bind(string name, IRValue value, BindingKind kind) {
+void IRBuilderVisitor::bind(string name,
+                            shared_ptr<IRValue> value,
+                            BindingKind kind) {
     
     if (kind == BindingKind::Let) {
         
@@ -112,7 +114,7 @@ R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
             reg = get<shared_ptr<IRValue>>(decl.init->accept(*this));
         } else reg = make_shared<IRValue>();
         
-        bind(id, *reg, bindingKind);
+        bind(id, reg, bindingKind);
 
     }
     
@@ -129,14 +131,14 @@ R IRBuilderVisitor::visitLiteral(LiteralExpression* expr) {
  */
 R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) {
     
-    auto dst = createTemp(IRType::Number);
+    shared_ptr<IRValue> dst = createTemp(IRType::Number);
 
     // auto value = make_shared<IRValue>(std::to_string(expr->value), IRType::Number);
 
-    auto inst = IRInstruction(IROp::Constant, dst, {  });
+    IRInstruction inst = IRInstruction(IROp::Constant, dst, {  });
     inst.immediate = expr->value;
     
-    // destination register = expr->value
+    // destination register holds expr->value
         
     currentBlock->instructions.push_back(inst);
     
@@ -246,7 +248,33 @@ R IRBuilderVisitor::visitBinary(BinaryExpression* expr) {
     return result;
 }
 
-R IRBuilderVisitor::visitIf(IfStatement* stmt) { return true; }
+R IRBuilderVisitor::visitIf(IfStatement* stmt) {
+    
+    shared_ptr<IRValue> cond = get<shared_ptr<IRValue>>(stmt->test->accept(*this));
+
+    // if has 'else' and 'then' blocks
+    // create 'then' block
+    // create 'else' block
+    
+    // compile into then block
+    // compile into else block
+    
+    BasicBlock* entryBlock = currentBlock;
+    
+    BasicBlock* thenBlock = createBlock("if.then");
+    BasicBlock* elseBlock = createBlock("if.else");
+    BasicBlock* mergeBlock = createBlock("merge.block");
+    
+    // create "if" op
+    auto ifInstruction = IRInstruction(IROp::If, nullptr, {});
+    
+    currentBlock = thenBlock;
+    stmt->consequent->accept(*this);
+
+
+    return true;
+}
+
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) { return true; }
 R IRBuilderVisitor::visitFor(ForStatement* stmt) { return true; }
 R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) { return true; }
@@ -270,8 +298,35 @@ R IRBuilderVisitor::visitSuper(SuperExpression* expr) { return true; }
 R IRBuilderVisitor::visitProperty(PropertyExpression* expr) { return true; }
 R IRBuilderVisitor::visitSequence(SequenceExpression* expr) { return true; }
 R IRBuilderVisitor::visitUpdate(UpdateExpression* expr) { return true; }
-R IRBuilderVisitor::visitFalseKeyword(FalseKeyword* expr) { return true; }
-R IRBuilderVisitor::visitTrueKeyword(TrueKeyword* expr) { return true; }
+
+R IRBuilderVisitor::visitFalseKeyword(FalseKeyword* expr) {
+    
+    auto destination = createTemp(IRType::Bool);
+    
+    auto value = make_shared<IRValue>("0", IRType::Number);
+
+    auto instruction = IRInstruction(IROp::Constant, destination, { value });
+    
+    emit(instruction);
+    
+    return destination;
+    
+}
+
+R IRBuilderVisitor::visitTrueKeyword(TrueKeyword* expr) {
+    
+    auto destination = createTemp(IRType::Bool);
+    
+    auto value = make_shared<IRValue>("1", IRType::Number);
+    
+    auto instruction = IRInstruction(IROp::Constant, destination, { value });
+    
+    emit(instruction);
+    
+    return destination;
+    
+}
+
 R IRBuilderVisitor::visitPublicKeyword(PublicKeyword* expr) { return true; }
 R IRBuilderVisitor::visitPrivateKeyword(PrivateKeyword* expr) { return true; }
 R IRBuilderVisitor::visitProtectedKeyword(ProtectedKeyword* expr) { return true; }
