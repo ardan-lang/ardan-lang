@@ -267,20 +267,67 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
     
     // create "if" op
     auto ifInstruction = IRInstruction(IROp::If, nullptr, { cond });
-    ifInstruction.targets = {};
+    ifInstruction.targets = { thenBlock, elseBlock ? elseBlock : mergeBlock };
     
     entryBlock->instructions.push_back(ifInstruction);
     entryBlock->terminator = &entryBlock->instructions.back();
+    // set the successors: blocks that will succeed the entry block
+    entryBlock->successors = { thenBlock, elseBlock ? elseBlock : mergeBlock };
+    
+    vector<Scope> before = scopes;
     
     currentBlock = thenBlock;
+    scopes = before;
     stmt->consequent->accept(*this);
-    
+
+    vector<Scope> afterThen = scopes;
+
+    vector<Scope> afterElse;
+
     if (stmt->alternate) {
+        
+        scopes = before;
         currentBlock = elseBlock;
         stmt->alternate->accept(*this);
+        afterElse = scopes;
+        
     }
 
+    scopes = before;
     currentBlock = mergeBlock;
+    
+    // we need to check to see if 'then' and 'else' blocks
+    // refernces any vars in scopes in their scopes.
+    // If any, we construct a Phi op.
+    for (int i = 0; i < before.size(); i++) {
+        
+        for (auto symbol : before[i].symbols) {
+            
+            string name = symbol.first;
+            auto value = symbol.second;
+            
+            // get val name for both then and else
+            // *Val is the register number
+            // if the register value changes for then and else
+            // create phi
+            auto thenVal = afterThen[i].symbols[name];
+            auto afterVal = afterElse[i].symbols[name];
+            
+            if (value != thenVal || value != afterVal) {
+                
+                auto dst = createTemp(value->type);
+                auto operands = { thenVal, afterVal };
+                auto instruction = IRInstruction(IROp::Phi, dst, operands);
+                
+                mergeBlock->instructions.push_back(instruction);
+                
+                scopes[i].symbols[name] = dst;
+                
+            }
+
+        }
+        
+    }
     
     return true;
     
