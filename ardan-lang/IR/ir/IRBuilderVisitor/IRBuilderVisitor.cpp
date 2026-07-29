@@ -280,9 +280,11 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
     scopes = before;
     stmt->consequent->accept(*this);
 
+    BasicBlock* thenExit = currentBlock;
     vector<Scope> afterThen = scopes;
 
-    vector<Scope> afterElse;
+    vector<Scope> afterElse = before;
+    BasicBlock* elseExit = nullptr;
 
     if (stmt->alternate) {
         
@@ -290,10 +292,14 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
         currentBlock = elseBlock;
         stmt->alternate->accept(*this);
         afterElse = scopes;
-        
+        elseExit = currentBlock;
     }
 
+    thenExit->successors.push_back(mergeBlock);
+    if (stmt->alternate) elseExit->successors.push_back(mergeBlock);
+    
     scopes = before;
+    mergeBlock->predecessors = { thenExit, elseExit ? elseExit : entryBlock };
     currentBlock = mergeBlock;
     
     // we need to check to see if 'then' and 'else' blocks
@@ -333,7 +339,13 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
     
 }
 
-R IRBuilderVisitor::visitWhile(WhileStatement* stmt) { return true; }
+R IRBuilderVisitor::visitWhile(WhileStatement* stmt) {
+
+    
+    return true;
+    
+}
+
 R IRBuilderVisitor::visitFor(ForStatement* stmt) { return true; }
 R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) { return true; }
 R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) { return true; }
