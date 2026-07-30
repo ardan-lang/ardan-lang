@@ -403,8 +403,36 @@ R IRBuilderVisitor::visitWhile(WhileStatement* stmt) {
 }
 
 R IRBuilderVisitor::visitFor(ForStatement* stmt) { return true; }
+
 R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) { return true; }
-R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) { return true; }
+
+R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
+    
+    unique_ptr<IRFunction> function = make_unique<IRFunction>();
+    function->name = stmt->id;
+    
+    BasicBlock* entryBlock = currentBlock;
+    
+    BasicBlock* functionBlock = createBlock(stmt->id);
+    function->blocks.emplace_back(functionBlock);
+    
+    currentBlock = functionBlock;
+    scopes.push_back({ Scope::Type::Function, nullptr, {} });
+
+    stmt->body->accept(*this);
+    
+    scopes.pop_back();
+    irModule.functions.emplace_back(std::move(function));
+
+    currentBlock = entryBlock;
+    
+    IRInstruction ir (IROp::Closure, nullptr, {});
+    
+    emit(ir);
+    
+    return true;
+}
+
 R IRBuilderVisitor::visitCall(CallExpression* expr) { return true; }
 R IRBuilderVisitor::visitMember(MemberExpression* expr) { return true; }
 R IRBuilderVisitor::visitNew(NewExpression* expr) { return true; }
@@ -459,8 +487,32 @@ R IRBuilderVisitor::visitProtectedKeyword(ProtectedKeyword* expr) { return true;
 R IRBuilderVisitor::visitStaticKeyword(StaticKeyword* expr) { return true; }
 R IRBuilderVisitor::visitRestParameter(RestParameter* expr) { return true; }
 R IRBuilderVisitor::visitClassExpression(ClassExpression* expr) { return true; }
-R IRBuilderVisitor::visitNullKeyword(NullKeyword* expr) { return true; }
-R IRBuilderVisitor::visitUndefinedKeyword(UndefinedKeyword* expr) { return true; }
+
+R IRBuilderVisitor::visitNullKeyword(NullKeyword* expr) {
+    // dest reg = null
+    auto dst = createTemp(IRType::Null);
+    
+    IRInstruction ir(IROp::Null, dst, {});
+    
+    emit(ir);
+    
+    return dst;
+    
+}
+
+R IRBuilderVisitor::visitUndefinedKeyword(UndefinedKeyword* expr) {
+    
+    // dest reg = undefined
+    auto dst = createTemp(IRType::Undefined);
+
+    IRInstruction ir(IROp::Undefined, dst, {});
+    
+    emit(ir);
+
+    return dst;
+    
+}
+
 R IRBuilderVisitor::visitAwaitExpression(AwaitExpression* expr) { return true; }
 R IRBuilderVisitor::visitUIExpression(UIViewExpression* visitor) { return true; }
 R IRBuilderVisitor::visitEnumDeclaration(EnumDeclaration* stmt) { return true; }
