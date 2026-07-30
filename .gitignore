@@ -6,9 +6,11 @@ ardan-lang/IR/optimizer/Optimizer/Optimizer.hpp
 ardan-lang/IR/optimizer/Optimizer/Optimizer.cpp
 ardan-lang/IR/ir/IRBuilderVisitor_1.cpp
 ardan-lang/IR/ir/IRBuilderVisitor.cpp
-ardan-lang/IR/BytecodeEmitter (1).hpp
-ardan-lang/IR/IRBuilderVisitor (1).cpp
+ardan-lang/IR/BytecodeEmitter_1.hpp
+ardan-lang/IR/IRBuilderVisitor_1.cpp
 ardan-lang/IR/optimizer/TurbofanOptimizer
 
 ardan-lang/IR/ir/IRBuilder/IRBuilder.cpp
 ardan-lang/IR/ir/IRBuilder/IRBuilder.hpp
+ardan-lang/IR/ardan-lang
+ardan-lang/IR/IRBuilderVisitor-2.cpp

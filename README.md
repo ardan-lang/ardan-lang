@@ -3,6 +3,7 @@
 Ardan is a dynamically typed programming language, featuring a hand-written lexer, parser, and interpreter implemented in C++. Ardan supports variables, functions, classes, inheritance, arrays, objects, control flow, and modern syntax features such as `let/const/var` scoping.
 
 ## Features
+
 - **Dynamic Typing**: Variable types are determined at runtime.
 - **Lexical Scope**: Supports block, function, and global scoping with `var`, `let`, `const`.
 - **First-Class Functions**: Functions can be assigned to variables, passed as arguments, and returned.
@@ -19,20 +20,20 @@ Ardan is a dynamically typed programming language, featuring a hand-written lexe
 
 1. [Getting Started](#getting-started)
 2. [Language Overview](#language-overview)
-    - [Variables](#variables)
-    - [Data Types & Literals](#data-types--literals)
-    - [Expressions and Operators](#expressions-and-operators)
-    - [Functions](#functions)
-    - [Control Flow](#control-flow)
-    - [Classes & Inheritance](#classes--inheritance)
-    - [Error Handling](#error-handling)
-    - [Modules & Standard Library](#modules--standard-library)
-    - [Arrays & Objects](#arrays--objects)
+   - [Variables](#variables)
+   - [Data Types & Literals](#data-types--literals)
+   - [Expressions and Operators](#expressions-and-operators)
+   - [Functions](#functions)
+   - [Control Flow](#control-flow)
+   - [Classes & Inheritance](#classes--inheritance)
+   - [Error Handling](#error-handling)
+   - [Modules & Standard Library](#modules--standard-library)
+   - [Arrays & Objects](#arrays--objects)
 3. [Reference](#reference)
-    - [Keywords](#keywords)
-    - [Operators](#operators)
-    - [Statements](#statements)
-    - [Special Values](#special-values)
+   - [Keywords](#keywords)
+   - [Operators](#operators)
+   - [Statements](#statements)
+   - [Special Values](#special-values)
 4. [Complete Example](#complete-example)
 5. [Extending Ardan](#extending-ardan)
 6. [Frequently Asked Questions](#frequently-asked-questions)
@@ -72,7 +73,6 @@ Or start a REPL (not yet available):
 ./ardan
 ```
 
-
 ## Language Overview
 
 ### Variables
@@ -101,7 +101,6 @@ print(x); // 1
 ```
 const fail; // Error: Missing initializer in const declaration
 ```
-
 
 ## Data Types & Literals
 
@@ -141,7 +140,6 @@ print(arr[1]); // 2
 let user = { name: "Alice", age: 30 };
 print(user.name); // "Alice"
 ```
-
 
 ### Expressions and Operators
 
@@ -294,9 +292,9 @@ greet(null);     // Hello, null (default does NOT apply)
 
 **Semantics:**
 
-* Default value expressions are evaluated **at call time**, not at function definition.
-* Defaults are only used when the argument is `missing` or explicitly `undefined`.
-* Defaults can reference earlier parameters:
+- Default value expressions are evaluated **at call time**, not at function definition.
+- Defaults are only used when the argument is `missing` or explicitly `undefined`.
+- Defaults can reference earlier parameters:
 
   ```
   function f(a = 1, b = a + 2) {
@@ -324,10 +322,10 @@ console.log(sum(1, 2, 3, 4)); // 10
 
 **Semantics:**
 
-* Rest parameters must be the **last parameter** in the list.
-* They collect all extra arguments into a proper array.
-* If no extra arguments are supplied, the rest parameter is an empty array.
-* Rest parameters **cannot** have defaults, and there can only be **one**.
+- Rest parameters must be the **last parameter** in the list.
+- They collect all extra arguments into a proper array.
+- If no extra arguments are supplied, the rest parameter is an empty array.
+- Rest parameters **cannot** have defaults, and there can only be **one**.
 
 ---
 
@@ -340,13 +338,11 @@ function demo(a, b = 2, ...rest) {
   console.log("rest:", rest);
 }
 
-demo(1);           // a:1, b:2, rest:[]
-demo(1, 10, 20);   // a:1, b:10, rest:[20]
+demo(1); // a:1, b:2, rest:[]
+demo(1, 10, 20); // a:1, b:10, rest:[20]
 demo(1, undefined, 3, 4, 5);
 // a:1, b:2 (default used), rest:[3,4,5]
 ```
-
-⸻
 
 ### Control Flow
 
@@ -435,8 +431,6 @@ do {
 } while (x < 3);
 ```
 
-⸻
-
 ### Classes & Inheritance
 
 Ardan enables object-oriented programming with ES6-like classes.
@@ -502,8 +496,6 @@ counter.increment();
 print(counter.value); // 1
 ```
 
-⸻
-
 ### Error Handling
 
 Ardan supports robust error handling.
@@ -526,8 +518,6 @@ if (somethingWrong) {
 }
 ```
 
-⸻
-
 ### Modules & Standard Library
 
 ### Print
@@ -544,8 +534,6 @@ Ardan can be extended with modules like Math and File (see C++ source).
 let pi = Math.PI;
 let result = Math.pow(2, 8); // 256
 ```
-
-⸻
 
 ### Arrays & Objects
 
@@ -566,8 +554,6 @@ print(user.name); // Bob
 user.email = "bob@example.com";
 ```
 
-⸻
-
 ### Reference
 
 ### Keywords
@@ -576,10 +562,10 @@ let, const, var, function, class, extends, constructor, if, else, while, for, in
 
 ### Operators
 
-- `Arithmetic`: +, -, *, /, %, **, ++, --
+- `Arithmetic`: +, -, \*, /, %, \*\*, ++, --
 - `Comparison`: ==, !=, ===, !==, <, <=, >, >=
 - `Logical`: &&, ||, !, ??
-- `Assignment`: =, +=, -=, *=, /=, %= etc.
+- `Assignment`: =, +=, -=, \*=, /=, %= etc.
 - `Bitwise`: &, |, ^, ~, <<, >>, >>>
 - `Member access`: ., []
 
@@ -601,8 +587,6 @@ let, const, var, function, class, extends, constructor, if, else, while, for, in
 - true, false
 - null (reserved)
 - undefined (reserved)
-
-⸻
 
 ### Complete Example
 
@@ -642,15 +626,11 @@ let g = new Greeter("Ardan");
 g.greet(); // Hello, Ardan!
 ```
 
-⸻
-
 ### Extending Ardan
 
 - **New built-ins**: Implement in C++ in Interpreter/ or builtin/.
 - **Language features**: Add to Parser.hpp and Statements/, Expression/.
 - **Standard library**: Add modules in C++, expose via Env or as Ardan objects.
-
-⸻
 
 ### Frequently Asked Questions
 
@@ -665,9 +645,6 @@ g.greet(); // Hello, Ardan!
 
 - Q: How do I add my own functions to the interpreter?
 - A: Extend the interpreter in C++ and register new functions in Env.
-
-⸻
-
 
 - Developer: Chidume Nnamdi
 - Email: [kurtwanger40@gmail.com](mailto:kurtwanger40@gmail.com)
