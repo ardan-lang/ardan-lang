@@ -5,8 +5,8 @@
 //  Created by Chidume Nnamdi on 21/07/2026.
 //
 
-#ifndef BytecodeLowering_hpp
-#define BytecodeLowering_hpp
+#ifndef Turbine_hpp
+#define Turbine_hpp
 
 #include <stdio.h>
 #include <cstdint>
@@ -210,7 +210,7 @@ class BytecodeModule {
     vector<Instruction> insructions;
 };
 
-class BytecodeLowering {
+class Turbine {
 public:
     void start(IRModule& irModule);
     
@@ -221,4 +221,4 @@ private:
     void lowerInstruction(IRInstruction& instruction);
 };
 
-#endif /* BytecodeLowering_hpp */
+#endif /* Turbine_hpp */

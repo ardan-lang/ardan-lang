@@ -5,23 +5,25 @@
 //  Created by Chidume Nnamdi on 21/07/2026.
 //
 
-#include "BytecodeLowering.hpp"
+#include "Turbine.hpp"
 
-void BytecodeLowering::start(IRModule& irModule) {
+void Turbine::start(IRModule& irModule) {
     
     for (int i = 0; i < irModule.functions.size(); i++) {
         
         IRFunction* currentFunction = irModule.functions[i].get();
         
         for (int j = 0; j < currentFunction->blocks.size(); j++) {
+            
             lowerBlock(*currentFunction->blocks[j].get());
+            
         }
 
     }
 
 }
 
-void BytecodeLowering::lowerBlock(BasicBlock& block) {
+void Turbine::lowerBlock(BasicBlock& block) {
 
     for (int j = 0; j < block.instructions.size(); j++) {
         
@@ -33,8 +35,7 @@ void BytecodeLowering::lowerBlock(BasicBlock& block) {
     
 }
 
-
-void BytecodeLowering::lowerInstruction(IRInstruction& instruction) {
+void Turbine::lowerInstruction(IRInstruction& instruction) {
     
     switch (instruction.op) {
             

@@ -341,7 +341,63 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
 
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) {
 
+    shared_ptr<IRValue> cond = get<shared_ptr<IRValue>>(stmt->test->accept(*this));
     
+    BasicBlock* entryBlock = currentBlock;
+    auto headerBlock = createBlock("while.header");
+    auto bodyBlock = createBlock("while.body");
+    auto mergeBlock = createBlock("merge.block");
+    
+    entryBlock->successors.push_back(headerBlock);
+    
+    auto instruction = IRInstruction(IROp::If, nullptr, { cond });
+    instruction.targets = { bodyBlock, mergeBlock };
+    
+    // compile while body
+    vector<Scope> before = scopes;
+    
+    headerBlock->successors = { bodyBlock, mergeBlock };
+    headerBlock->instructions.push_back(instruction);
+    bodyBlock->predecessors.push_back(headerBlock);
+    mergeBlock->predecessors.push_back(headerBlock);
+
+    currentBlock = headerBlock;
+    
+    unordered_map<string, size_t> phiIndexForName;
+
+    for (size_t i = 0; i < scopes.size(); i++) {
+        for (auto& [name, val] : scopes[i].symbols) {
+            auto phiDst = createTemp(val->type);
+            IRInstruction phi(IROp::Phi, phiDst, { val });
+            phi.label = name;
+            headerBlock->instructions.push_back(phi);
+            phiIndexForName[name] = headerBlock->instructions.size() - 1;
+            scopes[i].symbols[name] = phiDst;
+        }
+    }
+
+    currentBlock = bodyBlock;
+    if (stmt->body) stmt->body->accept(*this);
+    // add jump inst in body to jmp to header
+    
+    auto instructionBody = IRInstruction(IROp::If, nullptr, { cond });
+    instructionBody.targets = { mergeBlock, bodyBlock };
+    
+    bodyBlock->instructions.push_back(instructionBody);
+    bodyBlock->terminator = &bodyBlock->instructions.back();
+    
+    mergeBlock->predecessors = { headerBlock };
+    
+    for (size_t i = 0; i < scopes.size(); i++) {
+        for (auto& [name, val] : scopes[i].symbols) {
+            auto it = phiIndexForName.find(name);
+            if (it != phiIndexForName.end())
+                headerBlock->instructions[it->second].operands.push_back(val);
+        }
+    }
+
+    currentBlock = mergeBlock;
+
     return true;
     
 }

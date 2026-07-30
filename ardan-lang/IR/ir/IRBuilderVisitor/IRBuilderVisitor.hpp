@@ -58,9 +58,15 @@ public:
         return basicBlockPtr;
     }
     
-//    IRInstruction createInstruction(IROp op, ) {
-//        
-//    }
+    IRInstruction createInstruction(IROp op, IRType type, std::vector<shared_ptr<IRValue>> inputs) {
+
+        auto dst = createTemp(type);
+        
+        auto ins = IRInstruction(op, dst, inputs);
+        
+        return ins;
+        
+    }
     
     void emit(const IRInstruction inst);
     IROp getBinaryOp(const Token& op);
