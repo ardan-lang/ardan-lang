@@ -71,7 +71,9 @@ enum class IRType {
     Ptr,
     Number,
     Array,
-    Any
+    Any,
+    Null,
+    Undefined,
 };
 
 struct IRValue {
