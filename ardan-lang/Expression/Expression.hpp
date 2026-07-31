@@ -15,6 +15,11 @@
 #include <limits>
 #include <typeinfo>
 
+#include <stdexcept>
+#include <algorithm>
+#include <cctype>
+#include <cerrno>
+
 #include "Scanner/Token/Token.hpp"
 #include "Scanner/Token/TokenType.h"
 #include "ExpressionVisitor/ExpressionVisitor.hpp"
@@ -257,60 +262,241 @@ public:
 
 };
 
+//enum NumberType {
+//    NONE,
+//    INT,
+//    DOUBLE,
+//    FLOAT,
+//    SHORT,
+//    LONG,
+//    
+//};
+//
+//class NumericLiteral : public Expression {
+//public:
+//    const R value;
+//    const NumberType type = NumberType::NONE;
+//
+//        NumericLiteral(const std::string& text)
+//            : value((parseNumber(text))) {}
+//
+//    static R parseNumber(const std::string& text) {
+//
+//        if (text.find('.') != std::string::npos || text.find('e') != std::string::npos || text.find('E') != std::string::npos) {
+//            long double v = std::stold(text);
+//            
+//            if (v >= std::numeric_limits<float>::lowest() && v <= std::numeric_limits<float>::max()) {
+//                return static_cast<float>(v);
+//            }
+//            if (v >= std::numeric_limits<double>::lowest() && v <= std::numeric_limits<double>::max()) {
+//                return static_cast<double>(v);
+//            }
+//            return v; // long double
+//        }
+//        
+//        bool isNegative = !text.empty() && text[0] == '-';
+//        
+//        if (isNegative) {
+//            long long v = std::stoll(text);
+//            
+//            if (v >= std::numeric_limits<short>::min() && v <= std::numeric_limits<short>::max())
+//                return static_cast<short>(v);
+//            if (v >= std::numeric_limits<int>::min() && v <= std::numeric_limits<int>::max())
+//                return static_cast<int>(v);
+//            if (v >= std::numeric_limits<long>::min() && v <= std::numeric_limits<long>::max())
+//                return static_cast<long>(v);
+//            return v;
+//        } else {
+//            unsigned long long v = std::stoull(text);
+//            
+//            if (v <= std::numeric_limits<unsigned short>::max())
+//                return static_cast<unsigned short>(v);
+//            if (v <= std::numeric_limits<unsigned int>::max())
+//                return static_cast<unsigned int>(v);
+//            if (v <= std::numeric_limits<unsigned long>::max())
+//                return static_cast<unsigned long>(v);
+//            if (v <= std::numeric_limits<long>::max())
+//                return static_cast<long>(v);
+//            if (v <= std::numeric_limits<long long>::max())
+//                return static_cast<long long>(v);
+//            return v;
+//        }
+//    }
+//    
+//    R accept(ExpressionVisitor& visitor) {
+//        return visitor.visitNumericLiteral(this);
+//    }
+//
+//};
+
+enum class NumberType {
+    NONE,
+    SHORT, USHORT,
+    INT, UINT,
+    LONG, ULONG,
+    LONG_LONG, ULONG_LONG,
+    FLOAT, DOUBLE, LONG_DOUBLE
+};
+
+struct LiteralParseError : std::runtime_error {
+    explicit LiteralParseError(const std::string& msg) : std::runtime_error(msg) {}
+};
+
 class NumericLiteral : public Expression {
 public:
     const R value;
+    const NumberType type;
 
-        NumericLiteral(const std::string& text)
-            : value((parseNumber(text))) {}
+    explicit NumericLiteral(const std::string& text)
+        : NumericLiteral(parse(text)) {}
 
-    static R parseNumber(const std::string& text) {
-        // Check for floating-point
-        if (text.find('.') != std::string::npos || text.find('e') != std::string::npos || text.find('E') != std::string::npos) {
-            long double v = std::stold(text);
-            
-            if (v >= std::numeric_limits<float>::lowest() && v <= std::numeric_limits<float>::max()) {
-                // return static_cast<float>(v);
-            }
-            if (v >= std::numeric_limits<double>::lowest() && v <= std::numeric_limits<double>::max()) {
-                // return static_cast<double>(v);
-            }
-            return v; // long double
-        }
-        
-        bool isNegative = !text.empty() && text[0] == '-';
-        
-        if (isNegative) {
-            long long v = std::stoll(text);
-            
-            if (v >= std::numeric_limits<short>::min() && v <= std::numeric_limits<short>::max())
-                return static_cast<short>(v);
-            if (v >= std::numeric_limits<int>::min() && v <= std::numeric_limits<int>::max())
-                return static_cast<int>(v);
-            if (v >= std::numeric_limits<long>::min() && v <= std::numeric_limits<long>::max())
-                return static_cast<long>(v);
-            return v;
-        } else {
-            unsigned long long v = std::stoull(text);
-            
-            if (v <= std::numeric_limits<unsigned short>::max())
-                return static_cast<unsigned short>(v);
-            if (v <= std::numeric_limits<unsigned int>::max())
-                return static_cast<unsigned int>(v);
-            if (v <= std::numeric_limits<unsigned long>::max())
-                return static_cast<unsigned long>(v);
-            if (v <= std::numeric_limits<long>::max())
-                return static_cast<long>(v);
-            if (v <= std::numeric_limits<long long>::max())
-                return static_cast<long long>(v);
-            return v;
-        }
-    }
-    
     R accept(ExpressionVisitor& visitor) {
         return visitor.visitNumericLiteral(this);
     }
 
+private:
+    struct Parsed {
+        R value;
+        NumberType type;
+    };
+
+    explicit NumericLiteral(Parsed p) : value(std::move(p.value)), type(p.type) {}
+
+    static std::string stripSeparators(const std::string& text) {
+        std::string out;
+        out.reserve(text.size());
+        for (char c : text) if (c != '\'') out.push_back(c);
+        return out;
+    }
+
+    static void splitSuffix(const std::string& text, std::string& digits, std::string& suffix) {
+        size_t end = text.size();
+        while (end > 0 && std::isalpha(static_cast<unsigned char>(text[end - 1])))
+            --end;
+        digits = text.substr(0, end);
+        suffix = text.substr(end);
+        for (char& c : suffix) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+
+    static bool isFloatingLiteral(const std::string& digits, const std::string& suffix) {
+        if ((suffix == "f" || suffix == "l") && digits.find('.') != std::string::npos) return true;
+        if (digits.find('.') != std::string::npos) return true;
+        
+        bool isHex = digits.size() > 1 && digits[0] == '0' && (digits[1] == 'x' || digits[1] == 'X');
+        if (!isHex && (digits.find('e') != std::string::npos || digits.find('E') != std::string::npos))
+            return true;
+        return suffix == "f";
+    }
+
+    static int detectBase(const std::string& digits) {
+        if (digits.size() > 1 && digits[0] == '0') {
+            char c = digits[1];
+            if (c == 'x' || c == 'X') return 16;
+            if (c == 'b' || c == 'B') return 2;
+            return 8;
+        }
+        return 10;
+    }
+
+    static Parsed parseFloating(const std::string& digits, const std::string& suffix) {
+        errno = 0;
+        char* endp = nullptr;
+        long double v = std::strtold(digits.c_str(), &endp);
+        if (endp == digits.c_str() || errno == ERANGE)
+            throw LiteralParseError("invalid or out-of-range float literal: " + digits);
+
+        if (suffix == "f")
+            return { static_cast<float>(v), NumberType::FLOAT };
+        if (suffix == "l")
+            return { v, NumberType::LONG_DOUBLE };
+
+        if (v >= std::numeric_limits<float>::lowest() && v <= std::numeric_limits<float>::max())
+            return { static_cast<float>(v), NumberType::FLOAT };
+        if (v >= std::numeric_limits<double>::lowest() && v <= std::numeric_limits<double>::max())
+            return { static_cast<double>(v), NumberType::DOUBLE };
+        return { v, NumberType::LONG_DOUBLE };
+    }
+
+    static Parsed parseSigned(const std::string& digits, const std::string& suffix, int base) {
+        errno = 0;
+        char* endp = nullptr;
+        long long v = std::strtoll(digits.c_str(), &endp, base);
+        if (endp == digits.c_str() || errno == ERANGE)
+            throw LiteralParseError("invalid or out-of-range integer literal: " + digits);
+
+        if (suffix == "ll") return { v, NumberType::LONG_LONG };
+        if (suffix == "l")  return { static_cast<long>(v), NumberType::LONG };
+
+        if (v >= std::numeric_limits<short>::min() && v <= std::numeric_limits<short>::max())
+            return { static_cast<short>(v), NumberType::SHORT };
+        if (v >= std::numeric_limits<int>::min() && v <= std::numeric_limits<int>::max())
+            return { static_cast<int>(v), NumberType::INT };
+        if (v >= std::numeric_limits<long>::min() && v <= std::numeric_limits<long>::max())
+            return { static_cast<long>(v), NumberType::LONG };
+        return { v, NumberType::LONG_LONG };
+    }
+
+    static Parsed parseUnsigned(const std::string& digits, const std::string& suffix, int base) {
+        errno = 0;
+        char* endp = nullptr;
+        unsigned long long v = std::strtoull(digits.c_str(), &endp, base);
+        if (endp == digits.c_str() || errno == ERANGE)
+            throw LiteralParseError("invalid or out-of-range integer literal: " + digits);
+
+        bool forceUnsigned = suffix.find('u') != std::string::npos;
+        bool forceLL = suffix.find("ll") != std::string::npos;
+        bool forceL  = !forceLL && suffix.find('l') != std::string::npos;
+
+        if (forceLL) return forceUnsigned
+            ? Parsed{ v, NumberType::ULONG_LONG }
+            : Parsed{ static_cast<long long>(v), NumberType::LONG_LONG };
+        if (forceL) return forceUnsigned
+            ? Parsed{ static_cast<unsigned long>(v), NumberType::ULONG }
+            : Parsed{ static_cast<long>(v), NumberType::LONG };
+
+        if (forceUnsigned) {
+            if (v <= std::numeric_limits<unsigned short>::max())
+                return { static_cast<unsigned short>(v), NumberType::USHORT };
+            if (v <= std::numeric_limits<unsigned int>::max())
+                return { static_cast<unsigned int>(v), NumberType::UINT };
+            if (v <= std::numeric_limits<unsigned long>::max())
+                return { static_cast<unsigned long>(v), NumberType::ULONG };
+            return { v, NumberType::ULONG_LONG };
+        }
+
+        if (v <= static_cast<unsigned long long>(std::numeric_limits<short>::max()))
+            return { static_cast<short>(v), NumberType::SHORT };
+        if (v <= static_cast<unsigned long long>(std::numeric_limits<int>::max()))
+            return { static_cast<int>(v), NumberType::INT };
+        if (v <= static_cast<unsigned long long>(std::numeric_limits<long>::max()))
+            return { static_cast<long>(v), NumberType::LONG };
+        if (v <= static_cast<unsigned long long>(std::numeric_limits<long long>::max()))
+            return { static_cast<long long>(v), NumberType::LONG_LONG };
+        return { v, NumberType::ULONG_LONG };
+    }
+
+    static Parsed parse(const std::string& rawText) {
+        if (rawText.empty())
+            throw LiteralParseError("empty numeric literal");
+
+        std::string text = stripSeparators(rawText);
+
+        std::string digits, suffix;
+        splitSuffix(text, digits, suffix);
+
+        if (digits.empty())
+            throw LiteralParseError("numeric literal has no digits: " + rawText);
+
+        if (isFloatingLiteral(digits, suffix))
+            return parseFloating(digits, suffix);
+
+        bool isNegative = digits[0] == '-';
+        int base = detectBase(isNegative ? digits.substr(1) : digits);
+
+        return isNegative
+            ? parseSigned(digits, suffix, base)
+            : parseUnsigned(digits, suffix, base);
+    }
 };
 
 class StringLiteral : public Expression {

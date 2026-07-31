@@ -37,6 +37,9 @@ enum class IROp {
     EffectPhi,
     
     Constant,
+    StringConstant,
+    Zero,
+    HeapNumber,
     Undefined,
     Null,
     Parameter,

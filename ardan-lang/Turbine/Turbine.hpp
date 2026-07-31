@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <cstdint>
+#include <vector>
 #include "ir/IRModule/IRModule.hpp"
 
 namespace ardan {
@@ -196,13 +197,16 @@ enum class Bytecode : uint8_t {
 }
 }
 
+using namespace ardan::internal::interpreter;
+using namespace std;
+
 struct ConstantPool {
     vector<Value> constants;
 };
 
 // accumulator + register vm
 struct Instruction {
-    ardan::internal::interpreter::Bytecode op;
+    Bytecode op;
 };
 
 class BytecodeModule {
@@ -211,14 +215,28 @@ class BytecodeModule {
 };
 
 class Turbine {
+
 public:
     void start(IRModule& irModule);
     
 private:
+    
+    vector<uint8_t> code;
+    unordered_map<IRValue*, int> registerOf;
+    
+    void emitByte(uint8_t b) { code.push_back(b); }
+    void emitByte(Bytecode b) { code.push_back(static_cast<uint8_t>(b)); }
+    void emitU32(uint32_t v) { for (int i = 0; i < 4; i++) code.push_back((v >> (8 * i)) & 0xFF); }
+    
+    void loadIntoAccumulator(const std::shared_ptr<IRValue>& v);
+    void storeFromAccumulator(const std::shared_ptr<IRValue>& v);
+    int regFor(const std::shared_ptr<IRValue>& v);
+    
     BytecodeModule bytecodeModule;
     ConstantPool constantPool;
     void lowerBlock(BasicBlock& block);
     void lowerInstruction(IRInstruction& instruction);
+    
 };
 
 #endif /* Turbine_hpp */

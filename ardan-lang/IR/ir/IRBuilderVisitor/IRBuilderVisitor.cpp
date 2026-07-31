@@ -7,6 +7,15 @@
 
 #include "IRBuilderVisitor.hpp"
 
+#include <cstdint>
+
+constexpr int32_t kSmiMin = -(1 << 30);
+constexpr int32_t kSmiMax =  (1 << 30) - 1;
+
+bool IsSmi(int64_t value) {
+    return value >= kSmiMin && value <= kSmiMax;
+}
+
 void IRBuilderVisitor::build(const vector<unique_ptr<Statement>> &program) {
 
     unique_ptr<IRFunction> uniqueCurrentFunction = make_unique<IRFunction>();
@@ -134,8 +143,41 @@ R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) {
     shared_ptr<IRValue> dst = createTemp(IRType::Number);
 
     // auto value = make_shared<IRValue>(std::to_string(expr->value), IRType::Number);
-
-    IRInstruction inst = IRInstruction(IROp::Constant, dst, {  });
+    
+    // need to emit Zero if the value is zero
+    Value val = toValue(expr->value);
+    IROp op;
+    
+    switch (expr->type) {
+        case NumberType::NONE:
+        case NumberType::USHORT:
+        case NumberType::UINT:
+        case NumberType::ULONG:
+        case NumberType::LONG_LONG:
+        case NumberType::ULONG_LONG:
+        case NumberType::INT:
+        case NumberType::SHORT:
+        case NumberType::LONG:
+        {
+            auto value = std::get<int64_t>(expr->value);
+            
+            if (value == 0)
+                op = IROp::Zero;
+            else if (IsSmi(value))
+                op = IROp::Constant;
+            else
+                op = IROp::HeapNumber;
+            break;
+        }
+            
+        case NumberType::LONG_DOUBLE:
+        case NumberType::FLOAT:
+        case NumberType::DOUBLE:
+            op = IROp::HeapNumber;
+            break;
+    }
+    
+    IRInstruction inst = IRInstruction( op, dst, {  });
     inst.immediate = expr->value;
     
     // destination register holds expr->value
@@ -155,7 +197,7 @@ R IRBuilderVisitor::visitStringLiteral(StringLiteral* expr) {
     
     auto value = make_shared<IRValue>(expr->text, IRType::String);
 
-    auto inst = IRInstruction(IROp::Constant, dst, { value });
+    auto inst = IRInstruction(IROp::StringConstant, dst, { value });
     inst.immediate = expr->text;
         
     currentBlock->instructions.push_back(inst);
@@ -340,12 +382,84 @@ R IRBuilderVisitor::visitIf(IfStatement* stmt) {
 }
 
 R IRBuilderVisitor::visitWhile(WhileStatement* stmt) {
-
-    shared_ptr<IRValue> cond = get<shared_ptr<IRValue>>(stmt->test->accept(*this));
-    
+        
     BasicBlock* entryBlock = currentBlock;
     auto headerBlock = createBlock("while.header");
     auto bodyBlock = createBlock("while.body");
+    auto mergeBlock = createBlock("merge.block");
+    
+    entryBlock->successors.push_back(headerBlock);
+        
+    // compile while body
+    vector<Scope> before = scopes;
+        
+    currentBlock = headerBlock;
+    
+    unordered_map<string, size_t> phiIndexForName;
+    
+    for (size_t i = 0; i < scopes.size(); i++) {
+        for (auto& [name, val] : scopes[i].symbols) {
+            auto phiDst = createTemp(val->type);
+            IRInstruction phi(IROp::Phi, phiDst, { val });
+            phi.label = name;
+            headerBlock->instructions.push_back(phi);
+            phiIndexForName[name] = headerBlock->instructions.size() - 1;
+            scopes[i].symbols[name] = phiDst;
+        }
+    }
+    
+    shared_ptr<IRValue> cond = get<shared_ptr<IRValue>>(stmt->test->accept(*this));
+
+    auto instruction = IRInstruction(IROp::If, nullptr, { cond });
+    instruction.targets = { bodyBlock, mergeBlock };
+    
+    headerBlock->successors = { bodyBlock, mergeBlock };
+    headerBlock->instructions.push_back(instruction);
+    bodyBlock->predecessors.push_back(headerBlock);
+    mergeBlock->predecessors.push_back(headerBlock);
+
+    currentBlock = bodyBlock;
+    if (stmt->body) stmt->body->accept(*this);
+    // add jump inst in body to jmp to header
+    
+    auto instructionBody = IRInstruction(IROp::If, nullptr, { cond });
+    instructionBody.targets = { mergeBlock, bodyBlock };
+    
+    bodyBlock->instructions.push_back(instructionBody);
+    bodyBlock->terminator = &bodyBlock->instructions.back();
+    
+    mergeBlock->predecessors = { headerBlock };
+    
+    for (size_t i = 0; i < scopes.size(); i++) {
+        for (auto& [name, val] : scopes[i].symbols) {
+            auto it = phiIndexForName.find(name);
+            if (it != phiIndexForName.end())
+                headerBlock->instructions[it->second].operands.push_back(val);
+        }
+    }
+    
+    currentBlock = mergeBlock;
+    
+    return true;
+    
+}
+
+R IRBuilderVisitor::visitFor(ForStatement* stmt) {
+    
+    //    for (int i = 0; )
+    //    unique_ptr<Statement> init;       // may be null
+    //    unique_ptr<Expression> test;      // may be null
+    //    unique_ptr<Expression> update;    // may be null
+    //    unique_ptr<Statement> body;
+
+    scopes.push_back({ Scope::Type::Block, nullptr, {} });
+    if (stmt->init) stmt->init->accept(*this);
+    
+    shared_ptr<IRValue> cond = get<shared_ptr<IRValue>>(stmt->test->accept(*this));
+    
+    BasicBlock* entryBlock = currentBlock;
+    auto headerBlock = createBlock("for.header");
+    auto bodyBlock = createBlock("for.body");
     auto mergeBlock = createBlock("merge.block");
     
     entryBlock->successors.push_back(headerBlock);
@@ -378,6 +492,8 @@ R IRBuilderVisitor::visitWhile(WhileStatement* stmt) {
 
     currentBlock = bodyBlock;
     if (stmt->body) stmt->body->accept(*this);
+    if (stmt->update) stmt->update->accept(*this);
+    
     // add jump inst in body to jmp to header
     
     auto instructionBody = IRInstruction(IROp::If, nullptr, { cond });
@@ -397,12 +513,11 @@ R IRBuilderVisitor::visitWhile(WhileStatement* stmt) {
     }
 
     currentBlock = mergeBlock;
+    scopes.pop_back();
 
     return true;
     
 }
-
-R IRBuilderVisitor::visitFor(ForStatement* stmt) { return true; }
 
 R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) { return true; }
 
@@ -426,14 +541,36 @@ R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
 
     currentBlock = entryBlock;
     
-    IRInstruction ir (IROp::Closure, nullptr, {});
+    auto fnValue = createTemp(IRType::Function);
+    IRInstruction closureIr (IROp::Closure, fnValue, {});
+    closureIr.childFunction = function.get();
+    emit(closureIr);
     
-    emit(ir);
+    bind(stmt->id, fnValue, BindingKind::Var);
     
     return true;
 }
 
-R IRBuilderVisitor::visitCall(CallExpression* expr) { return true; }
+R IRBuilderVisitor::visitCall(CallExpression* expr) {
+    
+    shared_ptr<IRValue> callee = get<shared_ptr<IRValue>>(expr->callee->accept(*this));
+
+    auto result = createTemp(IRType::Any);
+
+    vector<shared_ptr<IRValue>> operands;
+    operands.push_back(callee);
+    for (auto& arg : expr->arguments) {
+        operands.push_back(get<shared_ptr<IRValue>>(arg->accept(*this)));
+    }
+
+    IRInstruction call(IROp::Call, result, operands);
+    
+    emit(call);
+    
+    return true;
+    
+}
+
 R IRBuilderVisitor::visitMember(MemberExpression* expr) { return true; }
 R IRBuilderVisitor::visitNew(NewExpression* expr) { return true; }
 R IRBuilderVisitor::visitArray(ArrayLiteralExpression* expr) { return true; }

@@ -32,8 +32,10 @@ using R = std::variant<
     long,
     long long,
     short,
-    unsigned int, unsigned long long,
-    float, long double,
+    unsigned int,
+    unsigned long long,
+    float,
+    long double,
 
     int,
     char,

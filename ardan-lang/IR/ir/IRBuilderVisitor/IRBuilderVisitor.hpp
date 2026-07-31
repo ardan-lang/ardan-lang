@@ -19,6 +19,7 @@
 #include "IR/ir/IRModule/IRModule.hpp"
 #include "IR/ir/IRValue/IRValue.hpp"
 #include "Compiler/RegisterAllocator/RegisterAllocator.hpp"
+#include "Interpreter/Utils/Utils.h"
 
 struct Scope {
     enum class Type { Global, Function, Block };
