@@ -61,19 +61,24 @@ void Turbine::lowerFunction(IRFunction* function) {
 
 void Turbine::lowerBlock(BasicBlock* block) {
 
-    for (int j = 0; j < block->instructions.size(); j++) {
+    auto instructions = block->instructions;
+    
+    for (int j = 0; j < instructions.size() - 1; j++) {
         
         auto instruction = block->instructions[j];
         
-        lowerInstruction(instruction);
+        lowerInstruction(instruction, block, j);
         
     }
     
     flushPendingPhis(block);
-    
+
+    // we also have: "jump", or "if" at the end of a block
+    lowerInstruction(instructions.back(), block, instructions.size() - 1);
+
 }
 
-void Turbine::lowerInstruction(IRInstruction& instruction) {
+void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, size_t instIndex) {
     
     switch (instruction.op) {
             

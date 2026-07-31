@@ -245,7 +245,7 @@ private:
     
     void lowerFunction(IRFunction* function);
     void lowerBlock(BasicBlock* block);
-    void lowerInstruction(IRInstruction& instruction);
+    void lowerInstruction(IRInstruction& instruction, BasicBlock* block, size_t instIndex);
     
     void resolvePhis(vector<unique_ptr<BasicBlock>> blocks);
     void flushPendingPhis(BasicBlock* block);
