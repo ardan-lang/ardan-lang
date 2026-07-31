@@ -150,6 +150,8 @@ R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) {
     
     switch (expr->type) {
         case NumberType::NONE:
+            op = IROp::Zero;
+            break;
         case NumberType::USHORT:
         case NumberType::UINT:
         case NumberType::ULONG:

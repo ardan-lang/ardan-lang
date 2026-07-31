@@ -11,7 +11,9 @@
 #include <stdio.h>
 #include <cstdint>
 #include <vector>
+
 #include "ir/IRModule/IRModule.hpp"
+#include "Interpreter/Utils/Utils.h"
 
 namespace ardan {
 namespace internal {
@@ -214,6 +216,11 @@ class BytecodeModule {
     vector<Instruction> insructions;
 };
 
+struct PendingPhi {
+    shared_ptr<IRValue> from;
+    shared_ptr<IRValue> to;
+};
+
 class Turbine {
 
 public:
@@ -223,7 +230,8 @@ private:
     
     vector<uint8_t> code;
     unordered_map<IRValue*, int> registerOf;
-    
+    unordered_map<BasicBlock*, vector<PendingPhi>> pendingPhis;
+
     void emitByte(uint8_t b) { code.push_back(b); }
     void emitByte(Bytecode b) { code.push_back(static_cast<uint8_t>(b)); }
     void emitU32(uint32_t v) { for (int i = 0; i < 4; i++) code.push_back((v >> (8 * i)) & 0xFF); }
@@ -234,9 +242,13 @@ private:
     
     BytecodeModule bytecodeModule;
     ConstantPool constantPool;
-    void lowerBlock(BasicBlock& block);
+    
+    void lowerFunction(IRFunction* function);
+    void lowerBlock(BasicBlock* block);
     void lowerInstruction(IRInstruction& instruction);
     
+    void resolvePhis(vector<unique_ptr<BasicBlock>> blocks);
+    void flushPendingPhis(BasicBlock* block);
 };
 
 #endif /* Turbine_hpp */
