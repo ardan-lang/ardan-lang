@@ -7,26 +7,29 @@
 
 #include "DeathStar.hpp"
 
-void DeathStar::next() {
-    return 
+uint8_t DeathStar::next(vector<uint8_t>& code) {
+    return code[frame.ip++];
 }
 
 void DeathStar::run() {
     
     vector<BytecodeModule> modules_ = compiled.modules;
     BytecodeModule module_ = modules_[0];
-    
-    while (true) {
+    vector<uint8_t> code = module_.code;
         
-        switch (<#expression#>) {
-            case <#constant#>:
-                <#statements#>
+    while (true) {
+
+        Bytecode op = static_cast<Bytecode>(next(code));
+
+        switch (op) {
+            case Bytecode::kAdd:
+                
                 break;
                 
             default:
                 break;
         }
-        
+                
     }
     
 }

@@ -19,7 +19,7 @@
 using namespace std;
 
 struct Context {
-    
+    Context* parent;
 };
 
 /**
@@ -37,6 +37,10 @@ class DeathStar {
 private:
     Compiled& compiled;
     Value accumulator;
+    CallFrame frame;
+    Context ctx;
+    
+    uint8_t next(vector<uint8_t>& code);
 
 public:
     DeathStar(Compiled& compiled) : compiled(compiled) {}
