@@ -7,11 +7,19 @@
 
 #include "Turbine.hpp"
 
+/**
+ * Load value from register into the accumulator
+ * acc = register value
+ */
 void Turbine::loadIntoAccumulator(const std::shared_ptr<IRValue>& v) {
     emitByte(Bytecode::kLdar);
     emitU32(regFor(v));
 }
 
+/**
+ * Load value from the accumulator to the register
+ * register = accumulator
+ */
 void Turbine::storeFromAccumulator(const std::shared_ptr<IRValue>& v) {
     emitByte(Bytecode::kStar);
     emitU32(regFor(v));
@@ -29,21 +37,50 @@ int Turbine::regFor(const std::shared_ptr<IRValue>& v) {
     
 }
 
-void Turbine::start(IRModule& irModule) {
+Compiled AssemblyLine::start(IRModule &irModule) {
+
+    Compiled compiled;
     
+    for (int i = 0; i < irModule.functions.size(); i++) {
+
+        Turbine turbine;
+
+        IRFunction* currentFunction = irModule.functions[i].get();
+        
+        BytecodeModule _module = turbine.start(currentFunction);
+        _module.constantPool = turbine.constantPool;
+        
+        modules.push_back(_module);
+        
+    }
+    
+    compiled.modules = modules;
+    
+    return compiled;
+    
+}
+
+void Turbine::start(IRModule& irModule) {
+        
     for (int i = 0; i < irModule.functions.size(); i++) {
         
         IRFunction* currentFunction = irModule.functions[i].get();
         
         lowerFunction(currentFunction);
         
-//        for (int j = 0; j < currentFunction->blocks.size(); j++) {
-//            
-//            lowerBlock(*currentFunction->blocks[j].get());
-//            
-//        }
-
     }
+    
+}
+
+BytecodeModule Turbine::start(IRFunction* function) {
+    
+    bytecodeModule.id = function->name;
+    
+    this->lowerFunction(function);
+    
+    bytecodeModule.code = code;
+    
+    return bytecodeModule;
 
 }
 
@@ -82,14 +119,29 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
     
     switch (instruction.op) {
             
+        case IROp::Subtract: {
+            emitByte(Bytecode::kSub);
+            for (int i = 0; i < instruction.operands.size(); i++) {
+                emitByte(regFor(instruction.operands[i]));
+            }
+            storeFromAccumulator(instruction.result);
+            break;
+        }
+
         case IROp::Add: {
-            
+            emitByte(Bytecode::kAdd);
+            for (int i = 0; i < instruction.operands.size(); i++) {
+                emitByte(regFor(instruction.operands[i]));
+            }
+            storeFromAccumulator(instruction.result);
             break;
         }
             
         case IROp::Zero: {
             emitByte(Bytecode::kLdaZero);
             emitU32(0);
+            
+            storeFromAccumulator(instruction.result);
             break;
         }
             
@@ -98,6 +150,8 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
             // load the constant to accumulator
             emitByte(Bytecode::kLdaSmi);
             emitU32(get<int>(instruction.immediate));
+            
+            storeFromAccumulator(instruction.result);
             break;
         }
             
@@ -112,6 +166,7 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
             emitByte(Bytecode::kLdaConstant);
             emitU32(const_index);
             
+            storeFromAccumulator(instruction.result);
             break;
         }
             
@@ -125,12 +180,63 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
             
             emitByte(Bytecode::kLdaConstant);
             emitU32(const_index);
+            
+            storeFromAccumulator(instruction.result);
+            break;
+        }
+            
+        case IROp::Undefined: {
+            emitByte(Bytecode::kLdaUndefined);
+            storeFromAccumulator(instruction.result);
+            break;
+        }
+            
+        case IROp::Null: {
+            emitByte(Bytecode::kLdaNull);
+            storeFromAccumulator(instruction.result);
 
             break;
         }
             
-        case IROp::Call: {
+        case IROp::True: {
+            emitByte(Bytecode::kLdaTrue);
+            storeFromAccumulator(instruction.result);
+            break;
+        }
             
+        case IROp::False: {
+            emitByte(Bytecode::kLdaFalse);
+            storeFromAccumulator(instruction.result);
+            break;
+        }
+
+        case IROp::Call: {
+            emitByte(Bytecode::kCallUndefinedReceiver);
+            
+            emitU32(regFor(instruction.operands[0])); // function name
+            
+            emitU32(regFor(instruction.operands[1]));
+            
+            emitU32((int)instruction.operands.size());
+            
+            storeFromAccumulator(instruction.result);
+            
+            break;
+        }
+            
+        case IROp::If: {
+            
+            // condition
+            
+            break;
+        }
+        
+        case IROp::Closure: {
+            break;
+        }
+            
+        case IROp::Return: {
+            emitByte(Bytecode::kReturn);
             break;
         }
             

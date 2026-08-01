@@ -202,6 +202,15 @@ enum class Bytecode : uint8_t {
 using namespace ardan::internal::interpreter;
 using namespace std;
 
+
+struct CompiledFunction {
+    
+};
+
+struct CompiledModule {
+    
+};
+
 struct ConstantPool {
     vector<Value> constants;
 };
@@ -211,9 +220,15 @@ struct Instruction {
     Bytecode op;
 };
 
-class BytecodeModule {
-    int id;
+struct BytecodeModule {
+    string id;
     vector<Instruction> insructions;
+    vector<uint8_t> code;
+    ConstantPool constantPool;
+};
+
+struct Compiled {
+    vector<BytecodeModule> modules;
 };
 
 struct PendingPhi {
@@ -221,13 +236,22 @@ struct PendingPhi {
     shared_ptr<IRValue> to;
 };
 
+class AssemblyLine {
+private:
+    vector<BytecodeModule> modules;
+
+public:
+    Compiled start(IRModule& irModule);
+};
+
 class Turbine {
 
 public:
+    ConstantPool constantPool;
     void start(IRModule& irModule);
+    BytecodeModule start(IRFunction* function);
     
 private:
-    
     vector<uint8_t> code;
     unordered_map<IRValue*, int> registerOf;
     unordered_map<BasicBlock*, vector<PendingPhi>> pendingPhis;
@@ -241,7 +265,6 @@ private:
     int regFor(const std::shared_ptr<IRValue>& v);
     
     BytecodeModule bytecodeModule;
-    ConstantPool constantPool;
     
     void lowerFunction(IRFunction* function);
     void lowerBlock(BasicBlock* block);
