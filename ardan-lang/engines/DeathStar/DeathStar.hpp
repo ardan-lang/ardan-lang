@@ -9,5 +9,39 @@
 #define DeathStar_hpp
 
 #include <stdio.h>
+#include <vector>
+#include <stdio.h>
+#include <cstdint>
+
+#include "Interpreter/Utils/Utils.h"
+#include "Turbine/Turbine.hpp"
+
+using namespace std;
+
+struct Context {
+    
+};
+
+/**
+ * 🌑
+ */
+class DeathStar {
+    
+    struct CallFrame {
+        size_t ip = 0;
+        
+        unordered_map<int, Value> registers;
+        unordered_map<int, Value> arguments;
+    };
+
+private:
+    Compiled& compiled;
+    Value accumulator;
+
+public:
+    DeathStar(Compiled& compiled) : compiled(compiled) {}
+    void run();
+    
+};
 
 #endif /* DeathStar_hpp */

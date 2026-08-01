@@ -6,3 +6,27 @@
 //
 
 #include "DeathStar.hpp"
+
+void DeathStar::next() {
+    return 
+}
+
+void DeathStar::run() {
+    
+    vector<BytecodeModule> modules_ = compiled.modules;
+    BytecodeModule module_ = modules_[0];
+    
+    while (true) {
+        
+        switch (<#expression#>) {
+            case <#constant#>:
+                <#statements#>
+                break;
+                
+            default:
+                break;
+        }
+        
+    }
+    
+}
