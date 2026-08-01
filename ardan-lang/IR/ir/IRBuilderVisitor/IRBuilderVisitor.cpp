@@ -521,7 +521,11 @@ R IRBuilderVisitor::visitFor(ForStatement* stmt) {
     
 }
 
-R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) { return true; }
+R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) {
+    IRInstruction returnInstruction(IROp::Return, nullptr, {});
+    emit(returnInstruction);
+    return true;
+}
 
 R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
     
@@ -598,7 +602,7 @@ R IRBuilderVisitor::visitFalseKeyword(FalseKeyword* expr) {
     
     auto value = make_shared<IRValue>("0", IRType::Number);
 
-    auto instruction = IRInstruction(IROp::Constant, destination, { value });
+    auto instruction = IRInstruction(IROp::False, destination, { value });
     
     emit(instruction);
     
@@ -608,11 +612,13 @@ R IRBuilderVisitor::visitFalseKeyword(FalseKeyword* expr) {
 
 R IRBuilderVisitor::visitTrueKeyword(TrueKeyword* expr) {
     
+    // dest register = true;
+    
     auto destination = createTemp(IRType::Bool);
     
     auto value = make_shared<IRValue>("1", IRType::Number);
     
-    auto instruction = IRInstruction(IROp::Constant, destination, { value });
+    auto instruction = IRInstruction(IROp::True, destination, { value });
     
     emit(instruction);
     
@@ -663,13 +669,22 @@ R IRBuilderVisitor::visitThrow(ThrowStatement* stmt) { return true; }
 R IRBuilderVisitor::visitEmpty(EmptyStatement* stmt) { return true; }
 R IRBuilderVisitor::visitClass(ClassDeclaration* stmt) { return true; }
 R IRBuilderVisitor::visitMethodDefinition(MethodDefinition* stmt) { return true; }
+
 R IRBuilderVisitor::visitDoWhile(DoWhileStatement* stmt) { return true; }
+
 R IRBuilderVisitor::visitSwitchCase(SwitchCase* stmt) { return true; }
 R IRBuilderVisitor::visitSwitch(SwitchStatement* stmt) { return true; }
 R IRBuilderVisitor::visitCatch(CatchClause* stmt) { return true; }
 R IRBuilderVisitor::visitTry(TryStatement* stmt) { return true; }
-R IRBuilderVisitor::visitForIn(ForInStatement* stmt) { return true; }
-R IRBuilderVisitor::visitForOf(ForOfStatement* stmt) { return true; }
+
+R IRBuilderVisitor::visitForIn(ForInStatement* stmt) {
+    return true;
+}
+
+R IRBuilderVisitor::visitForOf(ForOfStatement* stmt) {
+    return true;
+}
+
 R IRBuilderVisitor::visitYieldExpression(YieldExpression* visitor) { return true; }
 R IRBuilderVisitor::visitSpreadExpression(SpreadExpression* visitor) { return true; }
 R IRBuilderVisitor::visitComma(CommaExpression *expr) { return true; }

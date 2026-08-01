@@ -42,6 +42,8 @@ enum class IROp {
     HeapNumber,
     Undefined,
     Null,
+    True,
+    False,
     Parameter,
     
     Add,
