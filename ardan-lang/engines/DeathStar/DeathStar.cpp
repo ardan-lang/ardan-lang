@@ -22,10 +22,47 @@ void DeathStar::run() {
         Bytecode op = static_cast<Bytecode>(next(code));
 
         switch (op) {
+                
             case Bytecode::kAdd:
                 
                 break;
                 
+            case Bytecode::kCreateClosure: {
+                
+                break;
+            }
+
+            case Bytecode::kCreateFunctionContext: {
+                
+                break;
+            }
+                
+            case Bytecode::kLdaCurrentContextSlot: {
+                
+                break;
+            }
+
+            case Bytecode::kLdaContextSlot: {
+                
+                break;
+            }
+
+            case Bytecode::kStaCurrentContextSlot: {
+                
+                break;
+            }
+                
+            case Bytecode::kStaContextSlot: {
+                
+                break;
+            }
+                
+            case Bytecode::kCallUndefinedReceiver: {
+                
+                break;
+            }
+
+
             default:
                 break;
         }

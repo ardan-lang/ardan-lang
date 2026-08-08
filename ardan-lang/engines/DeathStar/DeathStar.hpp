@@ -18,8 +18,9 @@
 
 using namespace std;
 
-struct Context {
-    Context* parent;
+struct FrameContext {
+    FrameContext* parent;
+    std::vector<Value> slots;
 };
 
 /**
@@ -38,7 +39,7 @@ private:
     Compiled& compiled;
     Value accumulator;
     CallFrame frame;
-    Context ctx;
+    FrameContext ctx;
     
     uint8_t next(vector<uint8_t>& code);
 

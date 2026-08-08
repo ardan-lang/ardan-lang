@@ -216,13 +216,13 @@ struct ConstantPool {
 };
 
 // accumulator + register vm
-struct Instruction {
-    Bytecode op;
-};
+//struct Instruction {
+//    Bytecode op;
+//};
 
 struct BytecodeModule {
     string id;
-    vector<Instruction> insructions;
+//    vector<Instruction> insructions;
     vector<uint8_t> code;
     ConstantPool constantPool;
 };
@@ -270,7 +270,7 @@ private:
     void lowerBlock(BasicBlock* block);
     void lowerInstruction(IRInstruction& instruction, BasicBlock* block, size_t instIndex);
     
-    void resolvePhis(vector<unique_ptr<BasicBlock>> blocks);
+    void resolvePhis(vector<unique_ptr<BasicBlock>>& blocks);
     void flushPendingPhis(BasicBlock* block);
 };
 

@@ -41,6 +41,15 @@ class DeadCode : public OptimizationPass {
     void run(std::vector<IRInstruction>& instructions) override;
 };
 
+// Aggressive Dead Code Elimination (ADCE)
+class ADCE {};
+
+// Dead Argument Elimination
+// Dead Function Elimination
+// Unreachable Code Elimination
+// Sparse Conditional Constant Propagation (SCCP)
+// Copy Propagation
+
 /**
  * Pharoah is the optmizer for Ardan
  */

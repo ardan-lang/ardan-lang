@@ -149,7 +149,7 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
             
             // load the constant to accumulator
             emitByte(Bytecode::kLdaSmi);
-            emitU32(get<int>(instruction.immediate));
+            emitU32(get<short>(instruction.immediate));
             
             storeFromAccumulator(instruction.result);
             break;
@@ -232,10 +232,59 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         }
         
         case IROp::Closure: {
+            
+            emitByte(Bytecode::kCreateClosure);
+            emitU32(regFor(instruction.result));
+            
+            if (instruction.operands.size()) {
+                emitU32(regFor(instruction.operands[0]));
+            }
+            
+            storeFromAccumulator(instruction.result);
+            
+            break;
+        }
+            
+        case IROp::CreateContext: {
+            //
+            emitByte(Bytecode::kCreateFunctionContext);
+            emitU32(instruction.contextSlot);
+            
+            storeFromAccumulator(instruction.result);
+            
+            break;
+        }
+            
+        case IROp::LoadContextSlot: {
+            
+            // LdaContextSlot [slot], depth
+            // reaches for the context depth in the context chain
+            // from the context, go to index slot, get the value there
+            // push the value to the dst reg
+            
+            emitByte(Bytecode::kLdaContextSlot);
+            emitU32(instruction.contextDepth);
+            emitU32(instruction.contextSlot);
+            
+            // load the value in the dst reg to the acc
+            storeFromAccumulator(instruction.result);
+
+            break;
+        }
+            
+        case IROp::StoreContextSlot: {
+            
+            loadIntoAccumulator(instruction.operands[0]);
+            
+            emitByte(Bytecode::kStaContextSlot);
+            emitU32(instruction.contextDepth);
+            emitU32(instruction.contextSlot);
+            
             break;
         }
             
         case IROp::Return: {
+            // loadIntoAccumulator(instruction.operands[0]);
             emitByte(Bytecode::kReturn);
             break;
         }
@@ -246,7 +295,7 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
     
 }
 
-void Turbine::resolvePhis(vector<unique_ptr<BasicBlock>> blocks) {
+void Turbine::resolvePhis(vector<unique_ptr<BasicBlock>>& blocks) {
     
     // unordered_map<BasicBlock*, vector<pair<shared_ptr<IRValue>, shared_ptr<IRValue>>>> pendingCopies;
 
