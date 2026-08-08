@@ -743,12 +743,6 @@ unordered_set<string> IRBuilderVisitor::freeVariablesOf(const vector<unique_ptr<
 
 void IRBuilderVisitor::collectFreeVars(Statement* stmt, unordered_set<string>& result) {
     
-//    if (IdentifierExpression* var = dynamic_cast<IdentifierExpression*>(stmt)) {
-//        
-//        result.insert(var->name);
-//        
-//    }
-
     if (FunctionDeclaration* fnStmt = dynamic_cast<FunctionDeclaration*>(stmt)) {
         
         if (BlockStatement* block = dynamic_cast<BlockStatement*>(fnStmt->body.get())) {
@@ -760,19 +754,9 @@ void IRBuilderVisitor::collectFreeVars(Statement* stmt, unordered_set<string>& r
             }
             
         }
-        
-//        if (ReturnStatement* block = dynamic_cast<ReturnStatement*>(fnStmt->body.get())) {
-//            collectFreeVars(block->argument.get(), result);
-//            return;
-//        }
-        
+                
         return;
     }
-
-//    if (ReturnStatement* block = dynamic_cast<ReturnStatement*>(stmt)) {
-//        collectFreeVars(block->argument.get(), result);
-//        return;
-//    }
     
 }
 
