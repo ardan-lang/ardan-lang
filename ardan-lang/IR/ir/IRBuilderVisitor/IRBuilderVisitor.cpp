@@ -43,7 +43,7 @@ R IRBuilderVisitor::visitExpression(ExpressionStatement* stmt) {
  * This looks up a variable name and returns the register it is stored in.
  */
 shared_ptr<IRValue> IRBuilderVisitor::lookup(string name) {
-
+    
     for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
 
         auto found = it->symbols.find(name);
@@ -51,8 +51,69 @@ shared_ptr<IRValue> IRBuilderVisitor::lookup(string name) {
         if (found != it->symbols.end())
             return found->second;
     }
+    
+    // look at the contexts next
+    for (int i = 0; i < contexts.size(); i++) {
+        
+        int depth = i;
+        
+        auto context = contexts[i];
+        auto slot = context.slots.find(name);
+        
+        if (slot != context.slots.end()) {
+            
+            // emit LdaContextSlot
+            // this loads value from a give slot from the context into acc
+            // the context to retrieve from is specified in the depth
+            // LdaContextSlot [slot], depth
+            // reaches for the context depth in the context chain
+            // from the context, go to index slot, get the value there
+            // push the value to the dst reg
+            
+            auto dst = createTemp(IRType::Any);
+            IRInstruction ldaContextSlotOp (IROp::LoadContextSlot, dst, {});
+            ldaContextSlotOp.contextSlot = slot->second;
+            ldaContextSlotOp.contextDepth = static_cast<int>(depth);
+
+            emit(ldaContextSlotOp);
+            
+            return dst;
+            
+        }
+        
+    }
 
     throw runtime_error("Undefined variable");
+    
+}
+
+void IRBuilderVisitor::store(string id, shared_ptr<IRValue> reg) {
+
+    // this is called by assign
+    // get id from context
+    // the reg is the register of the value to store
+    
+    for (int depth = (int)contexts.size(); depth <= 0; depth--) {
+        
+        auto ctx = contexts[depth];
+        auto found = ctx.slots.find(id);
+        
+        if (found != ctx.slots.end()) {
+            
+            IRInstruction ir(IROp::StoreContextSlot, nullptr, { reg });
+            ir.contextDepth = depth;
+            ir.contextSlot = found->second;
+            
+            emit(ir);
+            
+            return;
+            
+        }
+                        
+    }
+    
+    scopes.back().symbols[id] = reg;
+    
 }
 
 /**
@@ -62,9 +123,39 @@ shared_ptr<IRValue> IRBuilderVisitor::lookup(string name) {
  *    age | %0
  *    name | %1
  */
-void IRBuilderVisitor::bind(string name,
+void IRBuilderVisitor::declare(string name,
                             shared_ptr<IRValue> value,
                             BindingKind kind) {
+    
+    if (currentFunctionOwnsTopContextFrame) {
+        
+        // check if the function is the current context.
+        // it's only the owner of a variable can declare it.
+        // its at the top of the contexts stack, so the depth is 0
+
+        auto context = contexts.back();
+                
+        auto slot = context.slots.find(name);
+        
+        if (slot != context.slots.end()) {
+            
+            // stacontextslot
+            // this get the value from the accumulator.
+            // stores the value in the context slot
+            // StoreContextSlot depth, slot
+            IRInstruction staContextSlotOp(IROp::StoreContextSlot,
+                                           nullptr,
+                                           { value });
+            staContextSlotOp.contextSlot = slot->second;
+            staContextSlotOp.contextDepth = 0;
+            
+            emit(staContextSlotOp);
+            
+        }
+        
+        return;
+        
+    }
     
     if (kind == BindingKind::Let) {
         
@@ -117,13 +208,13 @@ R IRBuilderVisitor::visitVariable(VariableStatement* stmt) {
     for (auto& decl : stmt->declarations) {
         const string id = decl.id;
         
-        shared_ptr<IRValue> reg;
+        shared_ptr<IRValue> value_reg;
         
         if (decl.init) {
-            reg = get<shared_ptr<IRValue>>(decl.init->accept(*this));
-        } else reg = make_shared<IRValue>();
+            value_reg = get<shared_ptr<IRValue>>(decl.init->accept(*this));
+        } else value_reg = make_shared<IRValue>();
         
-        bind(id, reg, bindingKind);
+        declare(id, value_reg, bindingKind);
 
     }
     
@@ -161,7 +252,7 @@ R IRBuilderVisitor::visitNumericLiteral(NumericLiteral* expr) {
         case NumberType::SHORT:
         case NumberType::LONG:
         {
-            auto value = std::get<int64_t>(expr->value);
+            auto value = val.numberValue;
             
             if (value == 0)
                 op = IROp::Zero;
@@ -252,6 +343,23 @@ IROp IRBuilderVisitor::getBinaryOp(const Token& op) {
     
 }
 
+void IRBuilderVisitor::emitAssignment(BinaryExpression* expr) {
+    
+    // for the lhs, we need to check if its in the context chain
+    auto left = expr->left.get();
+
+    shared_ptr<IRValue> value_dst_reg = get<shared_ptr<IRValue>>(expr->right->accept(*this));
+    
+    if (expr->op.type == TokenType::ASSIGN) {
+        
+        if (auto* ident = dynamic_cast<IdentifierExpression*>(left)) {
+            store(ident->name, value_dst_reg);
+        }
+
+    }
+
+}
+
 R IRBuilderVisitor::visitBinary(BinaryExpression* expr) {
 
     switch (expr->op.type) {
@@ -271,7 +379,7 @@ R IRBuilderVisitor::visitBinary(BinaryExpression* expr) {
         case TokenType::LOGICAL_AND_ASSIGN:
         case TokenType::LOGICAL_OR_ASSIGN:
         case TokenType::NULLISH_COALESCING_ASSIGN:
-            // emitAssignment(expr);
+            emitAssignment(expr);
             return true;
         default:
             break;
@@ -527,34 +635,264 @@ R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) {
     return true;
 }
 
+unordered_set<string> IRBuilderVisitor::collectDeclaredNames(Statement* body) {
+    
+    unordered_set<string> names;
+    
+    if (BlockStatement* block = dynamic_cast<BlockStatement*>(body)) {
+        
+        for (int i = 0; i < block->body.size(); i++) {
+            
+            auto stmt = block->body[i].get();
+            
+            if (VariableStatement* var = dynamic_cast<VariableStatement*>(stmt)) {
+                //
+                for (int j = 0; j < var->declarations.size(); j++) {
+                    auto var_decl = var->declarations[j].id;
+                    names.insert(var_decl);
+                }
+                
+            }
+        }
+    }
+    
+    return names;
+    
+}
+
+void IRBuilderVisitor::collectFreeVars(Expression* expr,
+                                       unordered_set<string>& names) {
+    
+    if (IdentifierExpression* var = dynamic_cast<IdentifierExpression*>(expr)) {
+        
+        names.insert(var->name);
+        
+    }
+    
+    if (BinaryExpression* block = dynamic_cast<BinaryExpression*>(expr)) {
+        collectFreeVars(block->left.get(), names);
+        collectFreeVars(block->right.get(), names);
+    }
+
+}
+
+void IRBuilderVisitor::walkForFreeVars(Expression* expr,
+                                       vector<unordered_set<string>>& boundStack,
+                                       unordered_set<string>& freeVars) {
+    if (IdentifierExpression* ident = dynamic_cast<IdentifierExpression*>(expr)) {
+        for (auto& s : boundStack) {
+            auto it = s.count(ident->name);
+            if (!it) {
+                freeVars.insert(ident->name);
+            }
+        }
+    }
+    
+    if (auto* bin = dynamic_cast<BinaryExpression*>(expr)) {
+        walkForFreeVars(bin->left.get(), boundStack, freeVars);
+        walkForFreeVars(bin->right.get(), boundStack, freeVars);
+        return;
+    }
+    
+    
+}
+
+void IRBuilderVisitor::walkForFreeVars(Statement* stmt, vector<unordered_set<string>>& boundStack, unordered_set<string>& freeVars) {
+    
+    if (VariableStatement* var = dynamic_cast<VariableStatement*>(stmt)) {
+        
+        for (int j = 0; j < var->declarations.size(); j++) {
+            
+            string var_decl = var->declarations[j].id;
+            
+            if (var->declarations[j].init) {
+                walkForFreeVars(var->declarations[j].init.get(), boundStack, freeVars);
+            }
+            
+            boundStack.back().insert(var_decl);
+            
+        }
+        
+    }
+    
+    if (ReturnStatement* returnStmt = dynamic_cast<ReturnStatement*>(stmt)) {
+        
+        walkForFreeVars(returnStmt->argument.get(), boundStack, freeVars);
+        
+        return;
+        
+    }
+    
+    
+}
+
+unordered_set<string> IRBuilderVisitor::freeVariablesOf(const vector<unique_ptr<Statement>>& body, vector<string>& names) {
+    
+    vector<unordered_set<string>> boundStack;
+    boundStack.push_back(unordered_set<string>(names.begin(), names.end()));
+
+    unordered_set<string> freeVars;
+    
+    for (auto& s : body) {
+        walkForFreeVars(s.get(), boundStack, freeVars);
+    }
+    
+    return freeVars;
+    
+}
+
+void IRBuilderVisitor::collectFreeVars(Statement* stmt, unordered_set<string>& result) {
+    
+//    if (IdentifierExpression* var = dynamic_cast<IdentifierExpression*>(stmt)) {
+//        
+//        result.insert(var->name);
+//        
+//    }
+
+    if (FunctionDeclaration* fnStmt = dynamic_cast<FunctionDeclaration*>(stmt)) {
+        
+        if (BlockStatement* block = dynamic_cast<BlockStatement*>(fnStmt->body.get())) {
+            
+            vector<string> names;
+            auto v = freeVariablesOf(block->body, names);
+            for (auto v : v) {
+                result.insert(v);
+            }
+            
+        }
+        
+//        if (ReturnStatement* block = dynamic_cast<ReturnStatement*>(fnStmt->body.get())) {
+//            collectFreeVars(block->argument.get(), result);
+//            return;
+//        }
+        
+        return;
+    }
+
+//    if (ReturnStatement* block = dynamic_cast<ReturnStatement*>(stmt)) {
+//        collectFreeVars(block->argument.get(), result);
+//        return;
+//    }
+    
+}
+
+unordered_set<string> IRBuilderVisitor::collectNestedVariables(Statement* body) {
+
+    unordered_set<string> names;
+
+    if (BlockStatement* block = dynamic_cast<BlockStatement*>(body)) {
+        
+        for (int i = 0; i < block->body.size(); i++) {
+            
+            auto stmt = block->body[i].get();
+            
+            collectFreeVars(stmt, names);
+            
+        }
+        
+    }
+    
+    return names;
+    
+}
+
 R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
     
     unique_ptr<IRFunction> function = make_unique<IRFunction>();
     function->name = stmt->id;
     
     BasicBlock* entryBlock = currentBlock;
-    
+    vector<Scope> savedScopes = std::move(scopes);
+    bool savedOwnsTopFrame = currentFunctionOwnsTopContextFrame;
+
     BasicBlock* functionBlock = createBlock(stmt->id);
     function->blocks.emplace_back(functionBlock);
     
+    // compute vars captured by nesting functions
+    // first, get all vars here
+    unordered_set<string> vars = collectDeclaredNames(stmt->body.get());
+    
+    unordered_set<string> nested_vars = collectNestedVariables(stmt->body.get());
+    
+    // check if vars is in nested_vars
+    unordered_set<string> captured_vars;
+    for (string nested_var : nested_vars) {
+        if (vars.count(nested_var)) {
+            captured_vars.insert(nested_var);
+        }
+    }
+    
+    // if captured is not empty, emit CreateContext
+    bool pushedContextFrame = false;
+
+    if (captured_vars.size() > 0) {
+        
+        auto dst = createTemp(IRType::Any);
+        // sets up new context
+        // this should be called at the very top of a function body
+        // sets ups the slots in the context
+        // sets the frame->owncontext to the context
+        IRInstruction createContextOp(IROp::CreateContext, dst, {});
+        createContextOp.contextSlot = static_cast<int>(captured_vars.size());
+        emit(createContextOp);
+        
+        Context funcCtx;
+        funcCtx.contextValue = dst;
+
+        for (int i = 0; i < captured_vars.size(); i++) {
+            auto it = next(captured_vars.begin(), i);
+            string v = *it;
+            funcCtx.slots[v] = i;
+        }
+        
+        contexts.push_back(funcCtx);
+        pushedContextFrame = true;
+        currentFunctionOwnsTopContextFrame = true;
+        
+    } else {
+        currentFunctionOwnsTopContextFrame = false;
+    }
+    
     currentBlock = functionBlock;
+    scopes.clear();
     scopes.push_back({ Scope::Type::Function, nullptr, {} });
 
-    stmt->body->accept(*this);
+    if (BlockStatement* body = dynamic_cast<BlockStatement*>(stmt->body.get())) {
+        
+        for (auto& s : body->body) {
+            
+            s->accept(*this);
+
+        }
+    }
+    
+    if (pushedContextFrame) contexts.pop_back();
     
     scopes.pop_back();
     irModule.functions.emplace_back(std::move(function));
 
     currentBlock = entryBlock;
-    
+    scopes = std::move(savedScopes);
+    currentFunctionOwnsTopContextFrame = savedOwnsTopFrame;
+
     auto fnValue = createTemp(IRType::Function);
     IRInstruction closureIr (IROp::Closure, fnValue, {});
+    
+    // we will need to attach the current context, it is the current context executing.
+    // a function picks the current context it is in.
+    // this is the function's parent context or closure
+    if (contexts.empty()) {
+        // global context
+//        closureIr.operands.push_back(contexts[contexts.size() - 1].contextValue);
+    } else closureIr.operands.push_back(contexts[contexts.size() - 1].contextValue);
+    
     closureIr.childFunction = function.get();
     emit(closureIr);
     
-    bind(stmt->id, fnValue, BindingKind::Var);
+    declare(stmt->id, fnValue, BindingKind::Var);
     
     return true;
+    
 }
 
 R IRBuilderVisitor::visitCall(CallExpression* expr) {

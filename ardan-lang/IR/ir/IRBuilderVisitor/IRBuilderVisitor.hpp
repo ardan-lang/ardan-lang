@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <variant>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 #include "ExpressionVisitor/ExpressionVisitor.hpp"
 #include "Statements/StatementVisitor.hpp"
@@ -32,6 +34,11 @@ struct Scope {
     unordered_map<string, shared_ptr<IRValue>> symbols;
 };
 
+struct Context {
+    unordered_map<string, int> slots;
+    shared_ptr<IRValue> contextValue;
+};
+
 class IRBuilderVisitor : public ExpressionVisitor, public StatementVisitor {
     
 public:
@@ -45,6 +52,8 @@ public:
     int blockId = 0;
     
     vector<Scope> scopes;
+    vector<Context> contexts;
+    bool currentFunctionOwnsTopContextFrame;
         
     shared_ptr<IRValue> createTemp(IRType type) {
         auto tempIRValue = make_shared<IRValue>("%" + std::to_string(temp++), type);
@@ -83,13 +92,24 @@ private:
     RegisterAllocator allocator;
     
     shared_ptr<IRValue> lookup(std::string name);
-    void bind(string name, shared_ptr<IRValue> value, BindingKind kind);
+    void declare(string name, shared_ptr<IRValue> value, BindingKind kind);
     
     void create();
     void store(string id, shared_ptr<IRValue> reg);
     void load();
     
     BindingKind getBindingKind(string kind);
+    std::unordered_set<string> collectDeclaredNames(Statement* body);
+    unordered_set<string> collectNestedVariables(Statement* body);
+    
+    
+    void walkForFreeVars(Expression* expr, vector<unordered_set<string>>& boundStack, unordered_set<string>& freeVars);
+    void walkForFreeVars(Statement* stmt, vector<unordered_set<string>>& boundStack, unordered_set<string>& freeVars);
+    unordered_set<string> freeVariablesOf(const vector<unique_ptr<Statement>>& body, vector<string>& names);
+    void collectFreeVars(Expression* stmt, unordered_set<string>& names);
+    void collectFreeVars(Statement* stmt, unordered_set<string>& names);
+    
+    void emitAssignment(BinaryExpression* expr);
     
     R visitExpression(ExpressionStatement* stmt) override;
     R visitBlock(BlockStatement* stmt) override;
