@@ -131,7 +131,7 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         case IROp::Subtract: {
             emitByte(Bytecode::kSub);
             for (int i = 0; i < instruction.operands.size(); i++) {
-                emitByte(regFor(instruction.operands[i]));
+                emitU32(regFor(instruction.operands[i]));
             }
             storeFromAccumulator(instruction.result);
             break;
@@ -140,9 +140,19 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         case IROp::Add: {
             emitByte(Bytecode::kAdd);
             for (int i = 0; i < instruction.operands.size(); i++) {
-                emitByte(regFor(instruction.operands[i]));
+                emitU32(regFor(instruction.operands[i]));
             }
             storeFromAccumulator(instruction.result);
+            break;
+        }
+            
+        case IROp::Multiply: {
+            emitByte(Bytecode::kMul);
+            for (int i = 0; i < instruction.operands.size(); i++) {
+                emitU32(regFor(instruction.operands[i]));
+            }
+            storeFromAccumulator(instruction.result);
+
             break;
         }
             
@@ -286,7 +296,6 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         case IROp::LoadCurrentContextSlot: {
             
             emitByte(Bytecode::kLdaCurrentContextSlot);
-            // emitU32(instruction.contextDepth);
             emitU32(instruction.contextSlot);
             
             // load the value in the dst reg to the acc
@@ -317,7 +326,6 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
             loadIntoAccumulator(instruction.operands[0]);
             
             emitByte(Bytecode::kStaCurrentContextSlot);
-            // emitU32(instruction.contextDepth);
             emitU32(instruction.contextSlot);
 
             break;

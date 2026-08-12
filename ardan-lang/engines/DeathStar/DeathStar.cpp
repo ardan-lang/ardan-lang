@@ -71,7 +71,27 @@ Value DeathStar::run(ardan::CallFrame& frame) {
             }
                 
             case Bytecode::kAdd: {
+                auto lhs = reg(frame, fetchU32(frame));
+                auto rhs = reg(frame, fetchU32(frame));
+                Value result = lhs.numberValue + rhs.numberValue;
+                frame.accumulator = result;
+
+                break;
+            }
                 
+            case Bytecode::kSub: {
+                auto lhs = reg(frame, fetchU32(frame));
+                auto rhs = reg(frame, fetchU32(frame));
+                Value result = lhs.numberValue - rhs.numberValue;
+                frame.accumulator = result;
+                break;
+            }
+                
+            case Bytecode::kMul: {
+                auto lhs = reg(frame, static_cast<int>(fetchU32(frame)));
+                auto rhs = reg(frame, static_cast<int>(fetchU32(frame)));
+                Value result = lhs.numberValue * rhs.numberValue;
+                frame.accumulator = result;
                 break;
             }
                 
@@ -192,11 +212,15 @@ Value DeathStar::run(ardan::CallFrame& frame) {
                     .push_back(frame.registers[ static_cast<int>(fetchU32(frame))]);
                 for (auto v : args) {
                     printValue(v);
+                    cout << " ";
                 }
+                std::cout << '\n' << std::endl;
                 break;
             }
                 
             case Bytecode::kReturn: {
+                Value result = reg(frame, static_cast<int>(fetchU32(frame)));
+                frame.accumulator = result;
                 return frame.accumulator;
             }
 
