@@ -119,9 +119,20 @@ public:
 };
 
 class CallExpression : public Expression {
+    
+    enum class CallType {
+        GLOBAL,
+        PROPERTY,
+        LOCAL,
+        CLOSURE,
+        NATIVE,
+        OTHER
+    };
+    
 public:
     unique_ptr<Expression> callee;
     vector<unique_ptr<Expression>> arguments;
+    CallType callType;
     CallExpression(unique_ptr<Expression> callee, vector<unique_ptr<Expression>> arguments)
         : callee(std::move(callee)), arguments(std::move(arguments)) {}
     

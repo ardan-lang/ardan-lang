@@ -53,7 +53,7 @@ public:
     
     vector<Scope> scopes;
     vector<Context> contexts;
-    bool currentFunctionOwnsTopContextFrame;
+    bool currentFunctionOwnsTopContextFrame = false;
         
     shared_ptr<IRValue> createTemp(IRType type) {
         auto tempIRValue = make_shared<IRValue>("%" + std::to_string(temp++), type);

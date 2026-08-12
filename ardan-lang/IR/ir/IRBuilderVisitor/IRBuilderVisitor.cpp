@@ -19,10 +19,11 @@ bool IsSmi(int64_t value) {
 void IRBuilderVisitor::build(const vector<unique_ptr<Statement>> &program) {
 
     unique_ptr<IRFunction> uniqueCurrentFunction = make_unique<IRFunction>();
+    uniqueCurrentFunction->entry_point = true;
     currentFunction = uniqueCurrentFunction.get();
 
     currentBlock = createBlock("entry");
-
+    
     scopes.push_back({ Scope::Type::Global, nullptr, {} });
     for (const auto &s : program) {
         s->accept(*this);
@@ -53,11 +54,9 @@ shared_ptr<IRValue> IRBuilderVisitor::lookup(string name) {
     }
     
     // look at the contexts next
-    for (int i = 0; i < contexts.size(); i++) {
-        
-        int depth = i;
-        
-        auto context = contexts[i];
+    for (int depth = 0; depth < contexts.size(); depth++) {
+                
+        auto context = contexts[contexts.size() - 1 - depth];
         auto slot = context.slots.find(name);
         
         if (slot != context.slots.end()) {
@@ -71,7 +70,8 @@ shared_ptr<IRValue> IRBuilderVisitor::lookup(string name) {
             // push the value to the dst reg
             
             auto dst = createTemp(IRType::Any);
-            IRInstruction ldaContextSlotOp (IROp::LoadContextSlot, dst, {});
+            IRInstruction ldaContextSlotOp = depth == 0 ? IRInstruction(IROp::LoadCurrentContextSlot, dst, {}) : IRInstruction(IROp::LoadContextSlot, dst, {});
+            
             ldaContextSlotOp.contextSlot = slot->second;
             ldaContextSlotOp.contextDepth = static_cast<int>(depth);
 
@@ -93,18 +93,18 @@ void IRBuilderVisitor::store(string id, shared_ptr<IRValue> reg) {
     // get id from context
     // the reg is the register of the value to store
     
-    for (int depth = (int)contexts.size(); depth <= 0; depth--) {
+    for (size_t depth = 0; depth < contexts.size(); depth++) {
         
-        auto ctx = contexts[depth];
+        auto ctx = contexts[contexts.size() - 1 - depth];
         auto found = ctx.slots.find(id);
         
         if (found != ctx.slots.end()) {
             
-            IRInstruction ir(IROp::StoreContextSlot, nullptr, { reg });
-            ir.contextDepth = depth;
-            ir.contextSlot = found->second;
+            IRInstruction irOpInst(IROp::StoreContextSlot, nullptr, { reg });
+            irOpInst.contextDepth = static_cast<int>(depth);
+            irOpInst.contextSlot = found->second;
             
-            emit(ir);
+            emit(irOpInst);
             
             return;
             
@@ -143,11 +143,11 @@ void IRBuilderVisitor::declare(string name,
             // this get the value from the accumulator.
             // stores the value in the context slot
             // StoreContextSlot depth, slot
-            IRInstruction staContextSlotOp(IROp::StoreContextSlot,
+            IRInstruction staContextSlotOp(IROp::StoreCurrentContextSlot,
                                            nullptr,
                                            { value });
             staContextSlotOp.contextSlot = slot->second;
-            staContextSlotOp.contextDepth = 0;
+            // staContextSlotOp.contextDepth = 0;
             
             emit(staContextSlotOp);
             
@@ -192,9 +192,9 @@ R IRBuilderVisitor::visitBlock(BlockStatement* stmt) {
 }
 
 BindingKind IRBuilderVisitor::getBindingKind(string kind) {
-    if (kind == "var") {
+    if (kind == "var" || kind == "VAR") {
         return BindingKind::Var;
-    } else if (kind == "let")
+    } else if (kind == "let" || kind == "LET")
         return BindingKind::Let;
     
     return BindingKind::Const;
@@ -630,9 +630,21 @@ R IRBuilderVisitor::visitFor(ForStatement* stmt) {
 }
 
 R IRBuilderVisitor::visitReturn(ReturnStatement* stmt) {
-    IRInstruction returnInstruction(IROp::Return, nullptr, {});
+    
+    std::vector<shared_ptr<IRValue>> operands;
+    
+    if (stmt->argument) {
+        auto dst = get<shared_ptr<IRValue>>(stmt->argument->accept(*this));
+        operands.push_back(dst);
+    } else {
+        
+    }
+    
+    IRInstruction returnInstruction(IROp::Return, nullptr, operands);
     emit(returnInstruction);
+    
     return true;
+    
 }
 
 unordered_set<string> IRBuilderVisitor::collectDeclaredNames(Statement* body) {
@@ -783,15 +795,23 @@ unordered_set<string> IRBuilderVisitor::collectNestedVariables(Statement* body) 
 R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
     
     unique_ptr<IRFunction> function = make_unique<IRFunction>();
+    IRFunction* childFnPtr = function.get();
+
     function->name = stmt->id;
     
-    BasicBlock* entryBlock = currentBlock;
+    IRFunction* savedFunction = currentFunction;
+    BasicBlock* savedBlock = currentBlock;
     vector<Scope> savedScopes = std::move(scopes);
     bool savedOwnsTopFrame = currentFunctionOwnsTopContextFrame;
 
     BasicBlock* functionBlock = createBlock(stmt->id);
     function->blocks.emplace_back(functionBlock);
-    
+    currentFunction = function.get();
+    currentBlock = functionBlock;
+
+    scopes.clear();
+    scopes.push_back({ Scope::Type::Function, nullptr, {} });
+
     // compute vars captured by nesting functions
     // first, get all vars here
     unordered_set<string> vars = collectDeclaredNames(stmt->body.get());
@@ -837,10 +857,6 @@ R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
         currentFunctionOwnsTopContextFrame = false;
     }
     
-    currentBlock = functionBlock;
-    scopes.clear();
-    scopes.push_back({ Scope::Type::Function, nullptr, {} });
-
     if (BlockStatement* body = dynamic_cast<BlockStatement*>(stmt->body.get())) {
         
         for (auto& s : body->body) {
@@ -855,22 +871,24 @@ R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
     scopes.pop_back();
     irModule.functions.emplace_back(std::move(function));
 
-    currentBlock = entryBlock;
+    currentBlock = savedBlock;
+    currentFunction = savedFunction;
     scopes = std::move(savedScopes);
     currentFunctionOwnsTopContextFrame = savedOwnsTopFrame;
 
     auto fnValue = createTemp(IRType::Function);
-    IRInstruction closureIr (IROp::Closure, fnValue, {});
+    IRInstruction closureIr (IROp::Closure, fnValue, contexts.empty() ? vector<shared_ptr<IRValue>>{} : vector<shared_ptr<IRValue>>{ contexts.back().contextValue });
     
     // we will need to attach the current context, it is the current context executing.
     // a function picks the current context it is in.
     // this is the function's parent context or closure
-    if (contexts.empty()) {
-        // global context
-//        closureIr.operands.push_back(contexts[contexts.size() - 1].contextValue);
-    } else closureIr.operands.push_back(contexts[contexts.size() - 1].contextValue);
+//    if (contexts.empty()) {
+//        // global context
+//        auto v = make_shared<IRValue>("-1");
+//        closureIr.operands.push_back(v);
+//    } else closureIr.operands.push_back(contexts[contexts.size() - 1].contextValue);
     
-    closureIr.childFunction = function.get();
+    closureIr.childFunction = childFnPtr;
     emit(closureIr);
     
     declare(stmt->id, fnValue, BindingKind::Var);
@@ -880,6 +898,23 @@ R IRBuilderVisitor::visitFunction(FunctionDeclaration* stmt) {
 }
 
 R IRBuilderVisitor::visitCall(CallExpression* expr) {
+    
+    if (auto ident = dynamic_cast<IdentifierExpression*>(expr->callee.get())) {
+        if (ident->name == "print") {
+            
+            vector<shared_ptr<IRValue>> operands;
+            for (auto& arg : expr->arguments) {
+                operands.push_back(get<shared_ptr<IRValue>>(arg->accept(*this)));
+            }
+
+            IRInstruction call(IROp::Print, {}, operands);
+            
+            emit(call);
+            
+            return true;
+
+        }
+    }
     
     shared_ptr<IRValue> callee = get<shared_ptr<IRValue>>(expr->callee->accept(*this));
 

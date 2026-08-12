@@ -90,8 +90,10 @@ enum class IROp {
     Closure,
     CreateContext,
     LoadContextSlot,
+    LoadCurrentContextSlot,
+    StoreCurrentContextSlot,
     StoreContextSlot,
-    
+
     ToBoolean,
     ToNumber,
     ToString,
@@ -104,7 +106,9 @@ enum class IROp {
     StateValues,
     Checkpoint,
     
-    Projection
+    Projection,
+    
+    Print,
 };
 
 class BasicBlock;
@@ -147,6 +151,7 @@ public:
     std::vector<std::unique_ptr<BasicBlock>> blocks;
     
     BasicBlock* entry = nullptr;
+    bool entry_point = false;
 };
 
 #endif /* IRFunction_hpp */

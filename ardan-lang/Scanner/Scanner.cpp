@@ -540,7 +540,9 @@ void Scanner::collectString() {
 }
 
 void Scanner::collectLiteralString() {
-    advance(); // Skip the opening `
+    
+    advance();
+    
     std::string chunk = "";
     addToken(TokenType::TEMPLATE_START);
     
@@ -713,7 +715,7 @@ void Scanner::collectNumber() {
     string num;
     char c = currentCharacter();
 
-    // Hexadecimal
+    // we parse hexadecimal
     if (c == '0' && (peek() == 'x' || peek() == 'X')) {
         /*num += c;*/ advance();
         /*num += currentCharacter();*/ advance();
@@ -726,7 +728,7 @@ void Scanner::collectNumber() {
         return;
     }
 
-    // Binary
+    // we parse binary
     if (c == '0' && (peek() == 'b' || peek() == 'B')) {
         /* num += c;*/ advance();
         /* num += currentCharacter(); */ advance();
@@ -739,7 +741,7 @@ void Scanner::collectNumber() {
         return;
     }
 
-    // Octal
+    // we parse octal
     if (c == '0' && (peek() == 'o' || peek() == 'O')) {
         /*num += c;*/ advance();
         /*num += currentCharacter();*/ advance();
@@ -752,7 +754,7 @@ void Scanner::collectNumber() {
         return;
     }
 
-    // Decimal/Float
+    // we parse decimals and float
     bool hasDot = false;
     while ((isDigit() || currentCharacter() == '.')  && !eof()) {
         if (currentCharacter() == '.') {
@@ -762,8 +764,8 @@ void Scanner::collectNumber() {
         num += currentCharacter();
         advance();
     }
-
-    // Scientific notation
+    
+    // we parse scientific notation
     if (currentCharacter() == 'e' || currentCharacter() == 'E') {
         num += currentCharacter();
         advance();
@@ -795,7 +797,7 @@ void Scanner::collectIdentifier() {
         
     }
     
-    if(isKeyword(identifier)) {
+    if (isKeyword(identifier)) {
         
         std::string kw = keywords[identifier];
 

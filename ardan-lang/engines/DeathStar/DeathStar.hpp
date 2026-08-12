@@ -18,34 +18,74 @@
 
 using namespace std;
 
-struct FrameContext {
-    FrameContext* parent;
-    std::vector<Value> slots;
-};
-
 /**
  * 🌑
  */
-class DeathStar {
-    
-    struct CallFrame {
-        size_t ip = 0;
-        
-        unordered_map<int, Value> registers;
-        unordered_map<int, Value> arguments;
-    };
+namespace ardan {
 
-private:
-    Compiled& compiled;
+struct Context {
+    std::shared_ptr<Context> parent;
+    std::vector<Value> slots;
+    
+    explicit Context(
+            int slotCount,
+            std::shared_ptr<Context> parent = nullptr
+        )
+            : parent(std::move(parent)),
+              slots(static_cast<size_t>(std::max(slotCount, 0)),
+                    Value::undefined()) {}
+};
+
+struct Closure {
+    int functionIndex = -1;
+    std::shared_ptr<Context> capturedContext;
+};
+
+struct VMException : std::exception {
+    Value value;
+    explicit VMException(Value v) : value(std::move(v)) {}
+    const char* what() const noexcept override { return "uncaught VM exception"; }
+};
+
+struct CallFrame {
+    
+    size_t ip = 0;
+    
     Value accumulator;
-    CallFrame frame;
-    FrameContext ctx;
     
-    uint8_t next(vector<uint8_t>& code);
+    unordered_map<int, Value> registers;
+    unordered_map<int, Value> arguments;
+    
+    shared_ptr<Context> ownContext;
+    shared_ptr<Context> parentContext;
+    
+    BytecodeModule bytecode_module;
+    
+};
 
+}
+
+class DeathStar {
+        
+private:
+    
+    Compiled& compiled;
+    
+    Value reg(ardan::CallFrame& f, int index);
+    uint8_t next(ardan::CallFrame& code);
+    uint8_t fetchByte(ardan::CallFrame& f);
+    Bytecode fetchOp(ardan::CallFrame& f);
+    uint32_t fetchU32(ardan::CallFrame& f);
+    int32_t fetchI32(ardan::CallFrame& f) { return static_cast<int32_t>(fetchU32(f)); }
+    
 public:
     DeathStar(Compiled& compiled) : compiled(compiled) {}
-    void run();
+    
+    void runProgram();
+    Value run(ardan::CallFrame& frame);
+    Value call(int entry_index,
+              vector<Value> args,
+              shared_ptr<ardan::Context> capturedCtx = nullptr);
     
 };
 

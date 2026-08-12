@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 
 #include "ir/IRModule/IRModule.hpp"
 #include "Interpreter/Utils/Utils.h"
@@ -192,7 +193,8 @@ enum class Bytecode : uint8_t {
     kIncBlockCounter,
     kAbort,
     
-    kLast = kAbort
+    kLast = kAbort,
+    kPrint,
 };
 
 }
@@ -229,6 +231,7 @@ struct BytecodeModule {
 
 struct Compiled {
     vector<BytecodeModule> modules;
+    int entry_index;
 };
 
 struct PendingPhi {
@@ -249,9 +252,13 @@ class Turbine {
 public:
     ConstantPool constantPool;
     void start(IRModule& irModule);
+    
     BytecodeModule start(IRFunction* function);
+    explicit Turbine(const unordered_map<IRFunction*, int>* functionIndex) : functionIndex(functionIndex) {}
     
 private:
+    const unordered_map<IRFunction*, int>* functionIndex;
+    
     vector<uint8_t> code;
     unordered_map<IRValue*, int> registerOf;
     unordered_map<BasicBlock*, vector<PendingPhi>> pendingPhis;

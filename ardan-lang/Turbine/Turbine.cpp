@@ -41,16 +41,25 @@ Compiled AssemblyLine::start(IRModule &irModule) {
 
     Compiled compiled;
     
+    unordered_map<IRFunction*, int> functionIndex;
+    for (size_t i = 0; i < irModule.functions.size(); i++) {
+        functionIndex[irModule.functions[i].get()] = static_cast<int>(i);
+    }
+
     for (int i = 0; i < irModule.functions.size(); i++) {
 
-        Turbine turbine;
+        Turbine turbine(&functionIndex);
 
         IRFunction* currentFunction = irModule.functions[i].get();
         
-        BytecodeModule _module = turbine.start(currentFunction);
-        _module.constantPool = turbine.constantPool;
+        if (currentFunction->entry_point) {
+            compiled.entry_index = static_cast<int>(modules.size());
+        }
         
-        modules.push_back(_module);
+        BytecodeModule bytecode_module = turbine.start(currentFunction);
+        bytecode_module.constantPool = turbine.constantPool;
+        
+        modules.push_back(bytecode_module);
         
     }
     
@@ -211,16 +220,32 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         }
 
         case IROp::Call: {
+            
             emitByte(Bytecode::kCallUndefinedReceiver);
             
             emitU32(regFor(instruction.operands[0])); // function name
+                                    
+            emitU32((int)instruction.operands.size() - 1);
             
-            emitU32(regFor(instruction.operands[1]));
-            
-            emitU32((int)instruction.operands.size());
-            
+            for (int i = 1; i < instruction.operands.size(); i++) {
+                auto op = instruction.operands[i];
+                emitU32(regFor(op));
+            }
+
             storeFromAccumulator(instruction.result);
             
+            break;
+        }
+            
+        case IROp::Print: {
+            emitByte(Bytecode::kPrint);
+            emitU32((int)instruction.operands.size());
+            
+            for (int i = 0; i < instruction.operands.size(); i++) {
+                auto op = instruction.operands[i];
+                emitU32(regFor(op));
+            }
+
             break;
         }
             
@@ -232,12 +257,15 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         }
         
         case IROp::Closure: {
-            
+            int kNoContext = -1;
             emitByte(Bytecode::kCreateClosure);
-            emitU32(regFor(instruction.result));
+            int idx = functionIndex->at(instruction.childFunction);
+            emitU32(static_cast<uint32_t>(idx));
             
-            if (instruction.operands.size()) {
-                emitU32(regFor(instruction.operands[0]));
+            if (instruction.operands.empty()) {
+                emitU32(kNoContext);
+            } else {
+                emitU32(static_cast<uint32_t>(regFor(instruction.operands[0])));
             }
             
             storeFromAccumulator(instruction.result);
@@ -252,6 +280,18 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
             
             storeFromAccumulator(instruction.result);
             
+            break;
+        }
+
+        case IROp::LoadCurrentContextSlot: {
+            
+            emitByte(Bytecode::kLdaCurrentContextSlot);
+            // emitU32(instruction.contextDepth);
+            emitU32(instruction.contextSlot);
+            
+            // load the value in the dst reg to the acc
+            storeFromAccumulator(instruction.result);
+
             break;
         }
             
@@ -271,6 +311,17 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
 
             break;
         }
+
+        case IROp::StoreCurrentContextSlot: {
+            
+            loadIntoAccumulator(instruction.operands[0]);
+            
+            emitByte(Bytecode::kStaCurrentContextSlot);
+            // emitU32(instruction.contextDepth);
+            emitU32(instruction.contextSlot);
+
+            break;
+        }
             
         case IROp::StoreContextSlot: {
             
@@ -284,8 +335,13 @@ void Turbine::lowerInstruction(IRInstruction& instruction, BasicBlock* block, si
         }
             
         case IROp::Return: {
-            // loadIntoAccumulator(instruction.operands[0]);
+            
             emitByte(Bytecode::kReturn);
+            
+            for (auto arg : instruction.operands) {
+                emitU32(static_cast<uint32_t>(regFor(arg)));
+            }
+            
             break;
         }
             
