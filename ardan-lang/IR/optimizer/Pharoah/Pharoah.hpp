@@ -8,11 +8,10 @@
 #ifndef Pharoah_hpp
 #define Pharoah_hpp
 
-#include <stdio.h>
 #include <vector>
 
-#include "ir/IRFunction/IRFunction.hpp"
-#include "ir/IRModule/IRModule.hpp"
+#include "IR/ir/IRFunction/IRFunction.hpp"
+#include "IR/ir/IRModule/IRModule.hpp"
 #include "Interpreter/Utils/Utils.h"
 
 //Constant Folding

@@ -16,7 +16,7 @@
 #include <memory>
 #include <string>
 
-#include "../../Interpreter/ExecutionContext/Value/Value.h"
+#include "Interpreter/ExecutionContext/Value/Value.h"
 
 using namespace std;
 

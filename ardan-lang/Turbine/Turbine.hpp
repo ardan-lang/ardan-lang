@@ -8,12 +8,10 @@
 #ifndef Turbine_hpp
 #define Turbine_hpp
 
-#include <stdio.h>
-#include <cstdint>
 #include <vector>
 #include <unordered_map>
 
-#include "ir/IRModule/IRModule.hpp"
+#include "IR/ir/IRModule/IRModule.hpp"
 #include "Interpreter/Utils/Utils.h"
 
 namespace ardan {
