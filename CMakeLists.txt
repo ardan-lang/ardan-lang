@@ -1,4 +1,3 @@
-# Root CMake configuration for ardan-lang
 cmake_minimum_required(VERSION 3.16)
 
 project(ardan-lang LANGUAGES CXX)
@@ -6,7 +5,6 @@ project(ardan-lang LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# All sources
 file(GLOB_RECURSE SRC_FILES
     "ardan-lang/overloads/*.cpp"
     "ardan-lang/Statements/*.cpp"
@@ -24,15 +22,17 @@ file(GLOB_RECURSE SRC_FILES
     "ardan-lang/EventLoop/*.cpp"
     "ardan-lang/Compiler/*.cpp"
     # "ardan-lang/GUI/*.cpp"
+    "ardan-lang/engines/*.cpp"
+    "ardan-lang/IR/*.cpp"
+    "ardan-lang/Turbine/*.cpp"
+    "ardan-lang/Interpreter/ExecutionContext/Value/Value.h"
     "ardan-lang/*.cpp"
 )
 
 add_executable(ardan ${SRC_FILES})
 
-# Include directories
 target_include_directories(ardan PRIVATE
-    ${PROJECT_SOURCE_DIR}
-    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/ardan-lang
 )
 
 # OS-specific libraries
